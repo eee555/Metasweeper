@@ -1,0 +1,6 @@
+pyinstaller minesweeper.py -p minesweeper_master.py -p mineblock.py
+
+
+
+pyinstaller -i cat.ico main.py -p mineLabel.py -p minesweeper_master.py -p mineSweeperGui.py -p selfDefinedParameter.py -p statusLabel.py -p superGUI.py -w
+
