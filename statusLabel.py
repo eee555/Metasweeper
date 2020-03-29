@@ -18,3 +18,4 @@ class StatusLabel (QtWidgets.QLabel):
         if e.button () == QtCore.Qt.LeftButton:
             self.setFrameShadow (QtWidgets.QFrame.Raised)
             self.leftRelease.emit ()
+    
