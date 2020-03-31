@@ -2,4 +2,4 @@ pyuic5 -o gameSettings.py ui_gs.ui
 
 
 
-pyinstaller -i cat.ico main.py -p mineLabel.py -p minesweeper_master.py -p mineSweeperGui.py -p selfDefinedParameter.py -p statusLabel.py -p superGUI.py -w
+pyinstaller -i cat.ico main.py -p mineLabel.py -p minesweeper_master.py -p mineSweeperGui.py -p selfDefinedParameter.py -p statusLabel.py -p superGUI.py -p gameSettings.py -w
