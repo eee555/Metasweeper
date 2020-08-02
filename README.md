@@ -23,3 +23,11 @@
 链接：https://pan.baidu.com/s/11Sc4P8UTRSCnfa5eLOus4Q 
 
 提取码：sz2h 
+
+## 正式版v2.0：
+
+修复若干bug，增加至8种无猜扫雷模式，详细规则见http://saolei.wang/BBS/Title.asp?Id=18590
+
+链接：https://pan.baidu.com/s/1LXeirXU0-LdEO-8gyb4egg 
+
+提取码：zt6p 
