@@ -543,6 +543,9 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         
         self.label.ms_board.is_fair = self.is_fair()
         self.label.ms_board.is_offical = self.is_official()
+
+        self.label_info.setText(str(self.is_fair()) + str(self.is_official()) + self.game_state)
+
         # if self.label.ms_board.is_fair and self.label.ms_board.is_offical:
         #     self.label.ms_board.checksum = metaminesweeper_checksum.get_checksum()
         # self.label.ms_board.mode = self.gameMode
