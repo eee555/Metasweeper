@@ -1,5 +1,5 @@
 # 元扫雷（Metasweeper）
-- 包含8种模式的扫雷项目、第三代扫雷录像播放器及高性能算法工具箱
+- 包含8种模式的专业扫雷版本、第三代扫雷录像播放器及高性能算法工具箱
 - project with 8 modes of minesweeper, third generation minesweeper video player and high performance algorithm toolbox
  
 [![MetaSweeper](https://img.shields.io/badge/MetaSweeper-v3.2.0-brightgreen.svg)](https://github.com/eee555/Solvable-Minesweeper)
@@ -9,7 +9,7 @@
 
 ## 简介
 
-**元扫雷**是由专业玩家玩家开发的扫雷游戏。这个项目并非简单重复已有的工作，而是集中了一批扫雷游戏的现代化设计。
+**元扫雷**是由专业玩家玩家开发的扫雷游戏。这个项目并非简单重复已有的工作，而是集中了一批扫雷游戏的现代化设计。元扫雷所生成的游戏录像得到[开源扫雷网](openms.top)的承认并参与世界排名。
 
 优势：
 
