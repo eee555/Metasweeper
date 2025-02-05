@@ -1,13 +1,33 @@
 # from fbs_runtime.application_context.PyQt5 import ApplicationContext
+import time
 from PyQt5 import QtWidgets
 from PyQt5 import QtCore
+from PyQt5.QtWidgets import QApplication,QMessageBox
+from PyQt5.QtNetwork import QLocalSocket,QLocalServer
 import sys, os
 import mainWindowGUI as mainWindowGUI
 import mineSweeperGUI as mineSweeperGUI
 import ctypes
 from ctypes import wintypes
-
 os.environ["QT_FONT_DPI"] = "96"
+
+def on_new_connection(localServer:QLocalServer):
+    """当新连接进来时，接受连接并将文件路径传递给主窗口"""
+    socket = localServer.nextPendingConnection()
+    if socket:
+        socket.readyRead.connect(lambda: on_ready_read(socket))
+
+def on_ready_read(socket:QLocalSocket):
+    """从socket读取文件路径并传递给主窗口"""
+    if socket and socket.state() == QLocalSocket.ConnectedState:
+        # 读取文件路径并调用打开文件
+        socket.waitForReadyRead(500)
+        file_path = socket.readAll().data().decode()
+        for win in QApplication.topLevelWidgets():
+            if isinstance(win, mainWindowGUI.MainWindow):
+                win.dropFileSignal.emit(file_path)
+        socket.disconnectFromServer()  # 断开连接
+
 
 
 def find_window(class_name, window_name):
@@ -37,26 +57,38 @@ def find_window(class_name, window_name):
 
 if __name__ == "__main__":
     # QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
+    try:
+        app = QtWidgets.QApplication (sys.argv)
+        serverName = "MineSweeperServer"
+        socket = QLocalSocket()
+        socket.connectToServer(serverName)
+        if socket.waitForConnected(500):
+            if len(sys.argv) == 2:
+                filePath = sys.argv[1]
+                socket.write(filePath.encode())
+                socket.flush()
+            time.sleep(0.5)
+            app.quit()
+        else:
+            localServer = QLocalServer() 
+            localServer.listen(serverName)
+            localServer.newConnection.connect(lambda: on_new_connection(localServer=localServer))
+            mainWindow = mainWindowGUI.MainWindow()
+            ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
+            ui.mainWindow.show()
+            ui.mainWindow.game_setting_path = ui.game_setting_path
 
-    app = QtWidgets.QApplication (sys.argv)
-    mainWindow = mainWindowGUI.MainWindow()
-    ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
-    ui.mainWindow.show()
-    ui.mainWindow.game_setting_path = ui.game_setting_path
+            _translate = QtCore.QCoreApplication.translate
+            hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
 
-    _translate = QtCore.QCoreApplication.translate
-    hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
+            SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
+            ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(hwnd, 0x00000011) else 1/0
+            ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1/0
 
-    SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
-    ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(hwnd, 0x00000011) else 1/0
-    ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1/0
-
-    
-
-
-    sys.exit(app.exec_())
-    ...
-
+            sys.exit(app.exec_())
+        ...
+    except Exception as e:
+        pass
 
 # 最高优先级
 # 计时器快捷键切换

@@ -19,10 +19,10 @@ import hashlib, uuid
 # from PyQt5.QtWidgets import QApplication
 # from country_name import country_name
 import metaminesweeper_checksum
-
+from mainWindowGUI import MainWindow
 
 class MineSweeperGUI(superGUI.Ui_MainWindow):
-    def __init__(self, MainWindow, args):
+    def __init__(self, MainWindow: MainWindow, args):
         self.mainWindow = MainWindow
         self.checksum_guard = metaminesweeper_checksum.ChecksumGuard()
 
@@ -110,7 +110,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.relative_path = args[0]
         # 用本软件打开录像
         if len(args) == 2:
-            self.action_OpenFile(args[1])
+            self.action_OpenFile(openfile_name=args[1])
                     
         self.trans_language()
         self.score_board_manager.with_namespace({
@@ -124,6 +124,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.score_board_manager.visible()
 
         self.mainWindow.closeEvent_.connect(self.closeEvent_)
+        self.mainWindow.dropFileSignal.connect(self.action_OpenFile)
         
     @property
     def pixSize(self):
