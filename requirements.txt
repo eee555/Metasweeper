@@ -1,2 +1,2 @@
 pyQt5==5.15.7
-ms-toollib==1.4.12
+ms-toollib==1.4.15

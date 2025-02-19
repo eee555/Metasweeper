@@ -13,9 +13,10 @@ from gameScoreBoard import gameScoreBoardManager
 import minesweeper_master as mm
 # import metaminesweeper_checksum
 from country_name import country_name
+import os
 
 
-version = "元3.2.0".encode( "UTF-8" )
+version = "元3.2.1"
 
 
 class Ui_MainWindow(Ui_MainWindow):
@@ -539,14 +540,18 @@ class Ui_MainWindow(Ui_MainWindow):
             country = self.country
         # 设置右下角国旗图案
         if country not in country_name:
-            self.label_flag.clear()
-            self.label_flag.update()
+            file_path = self.r_path.with_name('media') / (country.lower() + ".svg")
+            if os.path.exists(file_path):
+                flag_name = file_path
+            else:
+                self.label_flag.clear()
+                self.label_flag.update()
+                return
         else:
-            fn = country_name[country]
-            pixmap = QPixmap(str(self.r_path.with_name('media') / \
-                                 (fn + ".svg"))).scaled(51, 31)
-            self.label_flag.setPixmap(pixmap)
-            self.label_flag.update()
+            flag_name = self.r_path.with_name('media') / (country_name[country] + ".svg")
+        pixmap = QPixmap(str(flag_name)).scaled(51, 31)
+        self.label_flag.setPixmap(pixmap)
+        self.label_flag.update()
 
 
 

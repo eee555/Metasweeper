@@ -134,6 +134,8 @@ Currently in the lengthy development phase, with updates approximately every 1 t
 
 开源扫雷网官方扫雷软件[https://openms.top](https://openms.top)
 
+![](https://api.star-history.com/svg?repos=eee555/Metasweeper&type=Date&theme=light)
+
 ## 赞助
 感谢您考虑支持我们的开源项目，赞助时请备注您的称呼（或Github主页）。您的赞助将有助于项目的持续发展和改进，使我们能够继续提高软件的质量（owner许诺向所有contributor按获得赞助时commit数量的比例分配赞助得到的收入）。 
 

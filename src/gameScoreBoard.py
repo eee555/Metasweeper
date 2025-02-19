@@ -73,7 +73,7 @@ class gameScoreBoardManager():
     video_index = ["bbbv", "op", "isl", "cell0", "cell1", "cell2", "cell3",
                     "cell4", "cell5", "cell6", "cell7", "cell8", "fps", "etime",
                     "stnb", "rqp", "qg", "ioe", "thrp", "corr", "ce",
-                     "ce_s", "bbbv_solved", "bbbv_s", "op_solved", "isl_solved"]
+                     "ce_s", "bbbv_solved", "bbbv_s", "op_solved", "isl_solved", "pluck"]
     
     # is_visible = False
     # 5、错误的表达式，一旦算出报错，永远不再算，显示error
@@ -227,7 +227,8 @@ class gameScoreBoardManager():
                 "thrp": ms_board.thrp,
                 "corr": ms_board.corr,
                 "ce": ms_board.ce,
-                "ce_s": ms_board.ce_s, # 一直为0
+                "ce_s": ms_board.ce_s,
+                "pluck": ms_board.pluck,
                 })
         
         

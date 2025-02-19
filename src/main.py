@@ -137,6 +137,7 @@ if __name__ == "__main__":
 #           bbbv_s, (op_solved), (isl_solved)
 # 录像静态类：bbbv，op, isl, cell0, cell1, cell2, cell3, cell4, cell5, cell6,
 #           cell7, cell8, fps, (hizi)
+# 录像动态类（依赖分析）：pluck
 # 其他类：checksum_ok, race_identifier, mode, is_offical, is_fair
 
 # 工具箱中局面状态和鼠标状态的定义：

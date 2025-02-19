@@ -211,9 +211,9 @@ color: #50A6EA;</string>
   <widget class="QDoubleSpinBox" name="doubleSpinBox_time">
    <property name="geometry">
     <rect>
-     <x>370</x>
+     <x>280</x>
      <y>80</y>
-     <width>131</width>
+     <width>221</width>
      <height>61</height>
     </rect>
    </property>
@@ -231,6 +231,9 @@ color: #50A6EA;</string>
 color: #50A6EA;
 background-color: rgb(240, 240, 240);</string>
    </property>
+   <property name="wrapping">
+    <bool>false</bool>
+   </property>
    <property name="frame">
     <bool>false</bool>
    </property>
@@ -238,7 +241,7 @@ background-color: rgb(240, 240, 240);</string>
     <set>Qt::AlignCenter</set>
    </property>
    <property name="decimals">
-    <number>2</number>
+    <number>3</number>
    </property>
    <property name="minimum">
     <double>-999.990000000000009</double>
@@ -247,7 +250,7 @@ background-color: rgb(240, 240, 240);</string>
     <double>999.990000000000009</double>
    </property>
    <property name="singleStep">
-    <double>0.010000000000000</double>
+    <double>0.001000000000000</double>
    </property>
   </widget>
   <widget class="QScrollArea" name="scrollArea">

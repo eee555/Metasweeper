@@ -21,8 +21,8 @@ class ui_Form(QWidget, Ui_Form):
         
         self.QWidget = RoundQWidget(parent)
         self.setupUi(self.QWidget)
-        self.horizontalSlider_time.setMaximum(int(video.video_end_time * 100 + 1))
-        self.horizontalSlider_time.setMinimum(int((video.video_start_time) * 100 - 1))
+        self.horizontalSlider_time.setMaximum(int(video.video_end_time * 1000))
+        self.horizontalSlider_time.setMinimum(int(video.video_start_time * 1000))
         
         self.horizontalSlider_time.valueChanged[int].connect(self.set_double_spin_box_time)
         self.doubleSpinBox_time.valueChanged[float].connect(self.set_horizontal_slider_time)
@@ -55,7 +55,7 @@ class ui_Form(QWidget, Ui_Form):
         
         
     def set_double_spin_box_time(self, int_time):
-        self.doubleSpinBox_time.setValue(int_time / 100)
+        self.doubleSpinBox_time.setValue(int_time / 1000)
         self.horizontalSlider_time.blockSignals(True)
         self.horizontalSlider_time.setValue(int_time)
         self.horizontalSlider_time.blockSignals(False)
@@ -65,9 +65,9 @@ class ui_Form(QWidget, Ui_Form):
         
     def set_horizontal_slider_time(self, float_time):
         self.doubleSpinBox_time.blockSignals(True)
-        self.horizontalSlider_time.setValue(int(float_time * 100))
+        self.horizontalSlider_time.setValue(int(float_time * 1000))
         self.doubleSpinBox_time.blockSignals(False)
-        self.videoSetTime.emit(int(float_time * 100))
+        self.videoSetTime.emit(int(float_time * 1000))
         # self.time_current = float_time
         
     

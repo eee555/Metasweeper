@@ -17,7 +17,7 @@ import os
 import ctypes
 import hashlib, uuid
 # from PyQt5.QtWidgets import QApplication
-# from country_name import country_name
+from country_name import country_name
 import metaminesweeper_checksum
 from mainWindowGUI import MainWindow
 
@@ -34,10 +34,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.time_10ms: int = 0 # 已毫秒为单位的游戏时间，全局统一的
         self.showTime(self.time_10ms // 100)
         self.timer_10ms = QTimer()
-        # 开了高精度反而精度降低
-        # self.timer_10ms.setTimerType(Qt.PreciseTimer)
         self.timer_10ms.setInterval(10)  # 10毫秒回调一次的定时器
         self.timer_10ms.timeout.connect(self.timeCount)
+        # 开了高精度反而精度降低
+        self.timer_10ms.setTimerType(Qt.PreciseTimer)
         # text4 = '1'
         # self.label_info.setText(text4)
         self.mineUnFlagedNum = self.mineNum  # 没有标出的雷，显示在左上角
@@ -683,27 +683,27 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             
             self.label.ms_board.software = superGUI.version
             self.label.ms_board.mode = self.gameMode
-            self.label.ms_board.player_identifier = self.player_identifier.encode( "UTF-8" )
-            self.label.ms_board.race_identifier = self.race_identifier.encode( "UTF-8" )
-            self.label.ms_board.uniqueness_identifier = self.unique_identifier.encode( "UTF-8" )
-            self.label.ms_board.country = self.country.encode( "UTF-8" )
+            self.label.ms_board.player_identifier = self.player_identifier
+            self.label.ms_board.race_identifier = self.race_identifier
+            self.label.ms_board.uniqueness_identifier = self.unique_identifier
+            self.label.ms_board.country = country_name[self.country].upper()
             self.label.ms_board.device_uuid = hashlib.md5(bytes(str(uuid.getnode()).encode())).hexdigest().encode( "UTF-8" )
     
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             # 补上校验值
             checksum = self.checksum_guard.get_checksum(self.label.ms_board.raw_data[:-1])
-            self.label.ms_board.checksum = checksum
+            self.label.ms_board.checksum_evf_v4 = checksum
             return
         elif isinstance(self.label.ms_board, ms.EvfVideo):
             return
         elif isinstance(self.label.ms_board, ms.AvfVideo):
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             return
         elif isinstance(self.label.ms_board, ms.MvfVideo):
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             return
         elif isinstance(self.label.ms_board, ms.RmvVideo):
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             return
 
 
@@ -714,26 +714,26 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         if not os.path.exists(self.replay_path):
             os.mkdir(self.replay_path)
 
-        if (self.row, self.column, self.mineNum) == (8, 8, 10):
+        if (self.label.ms_board.row, self.label.ms_board.column, self.label.ms_board.mine_num) == (8, 8, 10):
             filename_level = "b_"
-        elif (self.row, self.column, self.mineNum) == (16, 16, 40):
+        elif (self.label.ms_board.row, self.label.ms_board.column, self.label.ms_board.mine_num) == (16, 16, 40):
             filename_level = "i_"
-        elif (self.row, self.column, self.mineNum) == (16, 30, 99):
+        elif (self.label.ms_board.row, self.label.ms_board.column, self.label.ms_board.mine_num) == (16, 30, 99):
             filename_level = "e_"
         else:
             filename_level = "c_"
         file_name = self.replay_path + '\\' + filename_level +\
-                         str(self.gameMode) + '_' +\
+                         f'{self.label.ms_board.mode}' + '_' +\
                              f'{self.label.ms_board.rtime:.3f}' +\
                                  '_' + f'{self.label.ms_board.bbbv}' +\
                                      '_' + f'{self.label.ms_board.bbbv_s:.3f}' +\
-                                         '_' + bytes(self.label.ms_board.player_identifier).decode()
+                                         '_' + self.label.ms_board.player_identifier
         
         if not self.label.ms_board.is_completed:
             file_name += "_fail"
         if not self.label.ms_board.is_fair:
             file_name += "_cheat"
-        if bytes(self.label.ms_board.software).decode()[0] != "元":
+        if self.label.ms_board.software[0] != "元":
             file_name += "_trans"
         elif not self.checksum_module_ok():
             file_name += "_fake"
@@ -1069,6 +1069,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             self.player_identifier = ui.player_identifier
             self.label_info.setText(self.player_identifier)
             self.race_identifier = ui.race_identifier
+            # 国家或地区名的全称，例如”中国“
             self.country = ui.country
             self.set_country_flag()
             self.autosave_video = ui.autosave_video
@@ -1135,7 +1136,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     def auto_Update(self):
         data = {
             "Github": "https://api.github.com/repos/",
-            # "Gitee": "https://api.gitee.com/repos/",
+            "Gitee": "https://api.gitee.com/repos/",
         }
         update_dialog = CheckUpdateGui(GitHub(SourceManager(data), "eee555",
                        "Metasweeper", superGUI.version.decode( "UTF-8" ), "(\d+\.\d+\.\d+)"), parent = self)
@@ -1277,9 +1278,9 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             # self.label.setMouseTracking(True)
             mineNum = self.mineNum
             # 删去用户标的雷，因为可能标错
-            game_board = list(map(lambda x: list(map(lambda y: min(y, 10), x)),
-                             self.label.ms_board.game_board))
-            ans = ms.cal_possibility_onboard(game_board, mineNum)
+            # game_board = list(map(lambda x: list(map(lambda y: min(y, 10), x)),
+            #                  self.label.ms_board.game_board))
+            ans = ms.cal_possibility_onboard(self.label.ms_board.game_board, mineNum)
             self.label.boardPossibility = ans[0]
             self.label.update()
 
@@ -1366,11 +1367,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
                                     "mouse_trace", "vision_transfer", "survive_poss"])
 
         # 组织录像评论
-        event_len = video.events_len
         comments = []
-        for event_id in range(event_len):
-            t = video.events_time(event_id)
-            comment = video.events_comments(event_id)
+        for event in video.events:
+            t = event.time
+            comment = event.comments
             if comment:
                 comments.append((t, [i.split(': ') for i in comment.split(';')[:-1]]))
         # 调整窗口
@@ -1410,9 +1410,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         video.video_playing_pix_size = self.label.pixSize
         self.label.ms_board = video
         # 改成录像的标识
-        self.label_info.setText(bytes(self.label.ms_board.player_identifier).decode())
+        # print(self.label.ms_board.player_identifier)
+        self.label_info.setText(self.label.ms_board.player_identifier)
         # 改成录像的国旗
-        self.set_country_flag(bytes(self.label.ms_board.country).decode())
+        self.set_country_flag(self.label.ms_board.country)
 
 
     def video_playing_step(self):
@@ -1426,7 +1427,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.video_time += self.video_time_step
         self.showTime(int(self.video_time))
         self.ui_video_control.horizontalSlider_time.blockSignals(True)
-        self.ui_video_control.horizontalSlider_time.setValue(int(self.video_time * 100))
+        self.ui_video_control.horizontalSlider_time.setValue(int(self.video_time * 1000))
         self.ui_video_control.horizontalSlider_time.blockSignals(False)
         self.ui_video_control.doubleSpinBox_time.blockSignals(True)
         self.ui_video_control.doubleSpinBox_time.setValue(self.label.ms_board.time)
@@ -1453,15 +1454,15 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
 
     def video_set_time(self, t):
         # 把录像定位到某一个时刻。是拖动进度条的回调
-        self.video_time = t / 100
+        self.video_time = t / 1000
         self.label.ms_board.current_time = self.video_time
         self.label.update()
         self.score_board_manager.show(self.label.ms_board, index_type = 2)
 
     def video_set_a_time(self, t):
         # 把录像定位到某一段时间，默认前后一秒，自动播放。是点录像事件的回调
-        self.video_time = (t - 100) / 100
-        self.video_stop_time = (t + 100) / 100  # 大了也没关系，ms_toollib自动处理
+        self.video_time = (t - 1000) / 1000
+        self.video_stop_time = (t + 1000) / 1000  # 大了也没关系，ms_toollib自动处理
         self.timer_video.start()
         self.video_playing = True
 
