@@ -17,6 +17,7 @@ from PyQt5.QtCore import pyqtSignal
 # ui相关的小组件，非窗口
 
 class RoundQDialog(QDialog):
+    closeEvent_ = QtCore.pyqtSignal()
     def __init__(self, parent=None):
         # 可以随意拖动的圆角、阴影对话框
         super(RoundQDialog, self).__init__(parent)
@@ -76,9 +77,13 @@ class RoundQDialog(QDialog):
             self.move(e.globalPos() - self.m_DragPosition)
             e.accept()
 
+    def closeEvent(self, event):
+        self.closeEvent_.emit()
+
 class RoundQWidget(QWidget):
     barSetMineNum = QtCore.pyqtSignal(int)
     barSetMineNumCalPoss = QtCore.pyqtSignal()
+    closeEvent_ = QtCore.pyqtSignal()
     def __init__(self, parent=None):
         # 可以随意拖动的圆角、阴影对话框
         super(RoundQWidget, self).__init__(parent)
@@ -137,6 +142,9 @@ class RoundQWidget(QWidget):
         if Qt.LeftButton and self.m_drag:
             self.move(e.globalPos() - self.m_DragPosition)
             e.accept()
+
+    def closeEvent(self, event):
+        self.closeEvent_.emit()
 
 
 class StatusLabel (QtWidgets.QLabel):

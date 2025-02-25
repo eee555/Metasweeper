@@ -1029,6 +1029,9 @@ color: #3d3d3d;
     </item>
     <item>
      <widget class="QSlider" name="horizontalSlider_transparency">
+      <property name="minimum">
+       <number>1</number>
+      </property>
       <property name="maximum">
        <number>100</number>
       </property>

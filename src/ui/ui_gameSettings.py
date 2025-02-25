@@ -438,6 +438,7 @@ class Ui_Form(object):
         self.label_transparency.setObjectName("label_transparency")
         self.horizontalLayout_3.addWidget(self.label_transparency)
         self.horizontalSlider_transparency = QtWidgets.QSlider(self.horizontalWidget_transparency)
+        self.horizontalSlider_transparency.setMinimum(1)
         self.horizontalSlider_transparency.setMaximum(100)
         self.horizontalSlider_transparency.setSingleStep(1)
         self.horizontalSlider_transparency.setOrientation(QtCore.Qt.Horizontal)

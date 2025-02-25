@@ -2,7 +2,7 @@
 import time
 from PyQt5 import QtWidgets
 from PyQt5 import QtCore
-from PyQt5.QtWidgets import QApplication,QMessageBox
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtNetwork import QLocalSocket,QLocalServer
 import sys, os
 import mainWindowGUI as mainWindowGUI
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             mainWindow = mainWindowGUI.MainWindow()
             ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
             ui.mainWindow.show()
-            ui.mainWindow.game_setting_path = ui.game_setting_path
+            # ui.mainWindow.game_setting = ui.game_setting
 
             _translate = QtCore.QCoreApplication.translate
             hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
@@ -86,8 +86,8 @@ if __name__ == "__main__":
             ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1/0
 
             sys.exit(app.exec_())
-        ...
-    except Exception as e:
+            ...
+    except:
         pass
 
 # 最高优先级

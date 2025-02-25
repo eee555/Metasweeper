@@ -1,50 +1,47 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'ui_gs.ui'
-#
-# Created by: PyQt5 UI code generator 5.9.2
-#
-# WARNING! All changes made in this file will be lost!
-
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtGui
 import configparser
 from ui.ui_gameSettings import Ui_Form
 from ui.uiComponents import RoundQDialog
-from PyQt5.QtCore import QPoint
-# from PyQt5.QtWidgets import  QWidget, QDialog
-import json
 from country_name import country_name
 from PyQt5.QtGui import QPixmap
 
 class ui_Form(Ui_Form):
     def __init__(self, mainWindow):
         # 设置界面的参数，不能用快捷键修改的从配置文件里来；能用快捷键修改的从mainWindow来
-        self.game_setting_path = mainWindow.game_setting_path
+        self.game_setting = mainWindow.game_setting
         self.r_path = mainWindow.r_path
-        config = configparser.ConfigParser()
-        config.read(self.game_setting_path, encoding='utf-8')
+        # config = configparser.ConfigParser()
+        # config.read(self.game_setting_path, encoding='utf-8')
         self.gameMode = mainWindow.gameMode
-        self.transparency = config.getint('DEFAULT','transparency')
+        self.transparency = self.game_setting.value('DEFAULT/transparency', None, int)
+        # self.transparency = config.getint('DEFAULT','transparency')
         self.pixSize = mainWindow.pixSize
         self.row = mainWindow.row
         self.column = mainWindow.column
         self.mineNum = mainWindow.mineNum
         
-        self.auto_replay = config.getint("DEFAULT", "auto_replay")
-        self.allow_auto_replay = config.getboolean("DEFAULT", "allow_auto_replay")
-        self.auto_notification = config.getboolean("DEFAULT", "auto_notification")
-        # self.board_constraint = config.getboolean("DEFAULT", "board_constraint")
-        # self.attempt_times_limit = config.getboolean("DEFAULT", "attempt_times_limit")
+        self.auto_replay = self.game_setting.value('DEFAULT/auto_replay', None, int)
+        self.auto_notification = self.game_setting.value('DEFAULT/auto_notification', None, bool)
+        # self.auto_replay = config.getint("DEFAULT", "auto_replay")
+        # self.allow_auto_replay = config.getboolean("DEFAULT", "allow_auto_replay")
+        # self.auto_notification = config.getboolean("DEFAULT", "auto_notification")
         
-        self.player_identifier = config["DEFAULT"]["player_identifier"]
-        self.race_identifier = config["DEFAULT"]["race_identifier"]
-        self.unique_identifier = config["DEFAULT"]["unique_identifier"]
-        self.country = config["DEFAULT"]["country"]
-        self.autosave_video = config.getboolean("DEFAULT", "autosave_video")
-        self.filter_forever = config.getboolean("DEFAULT", "filter_forever")
-        # self.auto_show_score = config.getint("DEFAULT", "auto_show_score") # 自动弹成绩
-        self.end_then_flag = config.getboolean("DEFAULT", "end_then_flag") # 游戏结束后自动标雷
-        self.cursor_limit = config.getboolean("DEFAULT", "cursor_limit")
+        self.player_identifier = self.game_setting.value('DEFAULT/player_identifier', None, str)
+        self.race_identifier = self.game_setting.value('DEFAULT/race_identifier', None, str)
+        self.unique_identifier = self.game_setting.value('DEFAULT/unique_identifier', None, str)
+        self.country = self.game_setting.value('DEFAULT/country', None, str)
+        # self.player_identifier = config["DEFAULT"]["player_identifier"]
+        # self.race_identifier = config["DEFAULT"]["race_identifier"]
+        # self.unique_identifier = config["DEFAULT"]["unique_identifier"]
+        # self.country = config["DEFAULT"]["country"]
+        self.autosave_video = self.game_setting.value('DEFAULT/autosave_video', None, bool)
+        self.filter_forever = self.game_setting.value('DEFAULT/filter_forever', None, bool)
+        self.end_then_flag = self.game_setting.value('DEFAULT/end_then_flag', None, bool)
+        self.cursor_limit = self.game_setting.value('DEFAULT/cursor_limit', None, bool)
+        # self.autosave_video = config.getboolean("DEFAULT", "autosave_video")
+        # self.filter_forever = config.getboolean("DEFAULT", "filter_forever")
+        # self.end_then_flag = config.getboolean("DEFAULT", "end_then_flag") # 游戏结束后自动标雷
+        # self.cursor_limit = config.getboolean("DEFAULT", "cursor_limit")
         self.board_constraint = mainWindow.board_constraint
         self.attempt_times_limit = mainWindow.attempt_times_limit
         
@@ -96,8 +93,8 @@ class ui_Form(Ui_Form):
 
     def setParameter(self):
         self.spinBox_pixsize.setValue (self.pixSize)
-        self.spinBox_auto_replay.setValue (self.auto_replay)
-        self.checkBox_auto_replay.setChecked(self.allow_auto_replay)
+        self.spinBox_auto_replay.setValue (abs(self.auto_replay))
+        self.checkBox_auto_replay.setChecked(self.auto_replay >= 0)
         self.checkBox_auto_notification.setChecked(self.auto_notification)
         self.checkBox_autosave_video.setChecked(self.autosave_video)
         self.checkBox_filter_forever.setChecked(self.filter_forever)
@@ -132,8 +129,9 @@ class ui_Form(Ui_Form):
         self.alter = True
         self.transparency = self.horizontalSlider_transparency.value()
         self.pixSize = self.spinBox_pixsize.value()
-        self.auto_replay = self.spinBox_auto_replay.value()
-        self.allow_auto_replay = self.checkBox_auto_replay.isChecked()
+        v = self.spinBox_auto_replay.value()
+        self.auto_replay = v if self.checkBox_auto_replay.isChecked() else -v
+        # self.allow_auto_replay = self.checkBox_auto_replay.isChecked()
         self.auto_notification = self.checkBox_auto_notification.isChecked()
         self.player_identifier = self.lineEdit_label.text()
         self.race_identifier = self.lineEdit_race_label.text()
