@@ -787,7 +787,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         if self.gameMode == 0:
             record_key += "FLAG"
             mode_text = _translate("Form", "标准")
-            if b.right == 0:
+            if b.rce == 0:
                 mode_text = _translate("Form", "标准（盲扫）")
             else:
                 mode_text = _translate("Form", "标准")
@@ -813,72 +813,78 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             record_key += "WG"
             mode_text = _translate("Form", "弱可猜")
         else:
-            raise RuntimeError('没有定义的模式代码')
+            raise RuntimeError()
 
         
-        if b.rtime < self.record[record_key]["rtime"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["rtime"] = b.rtime
-                self.record[LNF]["rtime"] = b.rtime
+        if b.rtime < self.record_setting.value(f"{record_key}/rtime", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/rtime", b.rtime)
+                self.record_setting.set_value(f"{LNF}/rtime", b.rtime)
             else:
-                self.record[record_key]["rtime"] = b.rtime
-        elif b.right == 0 and self.gameMode == 0 and b.rtime < self.record[LNF]["rtime"]:
-            self.record[LNF]["rtime"] = b.rtime
+                self.record_setting.set_value(f"{record_key}/rtime", b.rtime)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.rtime < self.record_setting.value(f"{LNF}/rtime", None, float):
+            self.record_setting.set_value(f"{LNF}/rtime", b.rtime)
             nf_items.append(1)
         else:
             del_items.append(1)
-        if b.bbbv_s > self.record[record_key]["bbbv_s"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["bbbv_s"] = b.bbbv_s
-                self.record[LNF]["bbbv_s"] = b.bbbv_s
+        if b.bbbv_s > self.record_setting.value(f"{record_key}/bbbv_s", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/bbbv_s", b.bbbv_s)
+                self.record_setting.set_value(f"{LNF}/bbbv_s", b.bbbv_s)
             else:
-                self.record[record_key]["bbbv_s"] = b.bbbv_s
-        elif b.right == 0 and self.gameMode == 0 and b.bbbv_s > self.record[LNF]["bbbv_s"]:
-            self.record[LNF]["bbbv_s"] = b.bbbv_s
+                self.record_setting.set_value(f"{record_key}/bbbv_s", b.bbbv_s)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.bbbv_s > self.record_setting.value(f"{LNF}/bbbv_s", None, float):
+            self.record_setting.set_value(f"{LNF}/bbbv_s", b.bbbv_s)
             nf_items.append(3)
         else:
             del_items.append(3)
-        if b.stnb > self.record[record_key]["stnb"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["stnb"] = b.stnb
-                self.record[LNF]["stnb"] = b.stnb
+        if b.stnb > self.record_setting.value(f"{record_key}/stnb", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/stnb", b.stnb)
+                self.record_setting.set_value(f"{LNF}/stnb", b.stnb)
             else:
-                self.record[record_key]["stnb"] = b.stnb
-        elif b.right == 0 and self.gameMode == 0 and b.stnb > self.record[LNF]["stnb"]:
-            self.record[LNF]["stnb"] = b.stnb
+                self.record_setting.set_value(f"{record_key}/stnb", b.stnb)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.stnb > self.record_setting.value(f"{LNF}/stnb", None, float):
+            self.record_setting.set_value(f"{LNF}/stnb", b.stnb)
             nf_items.append(5)
         else:
             del_items.append(5)
-        if b.ioe > self.record[record_key]["ioe"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["ioe"] = b.ioe
-                self.record[LNF]["ioe"] = b.ioe
+        if b.ioe > self.record_setting.value(f"{record_key}/ioe", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/ioe", b.ioe)
+                self.record_setting.set_value(f"{LNF}/ioe", b.ioe)
             else:
-                self.record[record_key]["ioe"] = b.ioe
-        elif b.right == 0 and self.gameMode == 0 and b.ioe > self.record[LNF]["ioe"]:
-            self.record[LNF]["ioe"] = b.ioe
+                self.record_setting.set_value(f"{record_key}/ioe", b.ioe)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.ioe > self.record_setting.value(f"{LNF}/ioe", None, float):
+            self.record_setting.set_value(f"{LNF}/ioe", b.ioe)
             nf_items.append(7)
         else:
             del_items.append(7)
-        if b.path < self.record[record_key]["path"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["path"] = b.path
-                self.record[LNF]["path"] = b.path
+        if b.path < self.record_setting.value(f"{record_key}/path", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/path", b.path)
+                self.record_setting.set_value(f"{LNF}/path", b.path)
             else:
-                self.record[record_key]["path"] = b.path
-        elif b.right == 0 and self.gameMode == 0 and b.path < self.record[LNF]["path"]:
-            self.record[LNF]["path"] = b.path
+                self.record_setting.set_value(f"{record_key}/path", b.path)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.path < self.record_setting.value(f"{LNF}/path", None, float):
+            self.record_setting.set_value(f"{LNF}/path", b.path)
             nf_items.append(9)
         else:
             del_items.append(9)
-        if b.rqp < self.record[record_key]["rqp"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["rqp"] = b.rqp
-                self.record[LNF]["rqp"] = b.rqp
+        if b.rqp < self.record_setting.value(f"{record_key}/rqp", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/rqp", b.rqp)
+                self.record_setting.set_value(f"{LNF}/rqp", b.rqp)
             else:
-                self.record[record_key]["rqp"] = b.rqp
-        elif b.right == 0 and self.gameMode == 0 and b.rqp < self.record[LNF]["rqp"]:
-            self.record[LNF]["rqp"] = b.rqp
+                self.record_setting.set_value(f"{record_key}/rqp", b.rqp)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.rqp < self.record_setting.value(f"{LNF}/rqp", None, float):
+            self.record_setting.set_value(f"{LNF}/rqp", b.rqp)
             nf_items.append(11)
         else:
             del_items.append(11)
@@ -886,25 +892,25 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         # pb相关的弹窗。仅高级（不分FL还是NF）
         if self.gameMode == 0:
             if b.level == 3:
-                if b.rtime < self.record["BEGINNER"][str(b.bbbv)]:
-                    self.record["BEGINNER"][str(b.bbbv)] = b.rtime
+                if b.rtime < self.record_setting.value(f"BEGINNER/{b.bbbv}", None, float):
+                    self.record_setting.set_value(f"BEGINNER/{b.bbbv}", b.rtime)
                     del_items += [14, 15]
                 else:
                     del_items += [13, 14, 15]
             elif b.level == 4:
-                if b.rtime < self.record["INTERMEDIATE"][str(b.bbbv)]:
-                    self.record["INTERMEDIATE"][str(b.bbbv)] = b.rtime
+                if b.rtime < self.record_setting.value(f"INTERMEDIATE/{b.bbbv}", None, float):
+                    self.record_setting.set_value(f"INTERMEDIATE/{b.bbbv}", b.rtime)
                     del_items += [13, 15]
                 else:
                     del_items += [13, 14, 15]
             elif b.level == 5:
-                if b.rtime < self.record["EXPERT"][str(b.bbbv)]:
-                    self.record["EXPERT"][str(b.bbbv)] = b.rtime
+                if b.rtime < self.record_setting.value(f"EXPERT/{b.bbbv}", None, float):
+                    self.record_setting.set_value(f"EXPERT/{b.bbbv}", b.rtime)
                     del_items += [13, 14]
                 else:
                     del_items += [13, 14, 15]
             else:
-                raise RuntimeError('没有定义的难度代码')
+                raise RuntimeError()
         else:
             del_items += [13, 14, 15]
 
@@ -1107,7 +1113,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     def action_QEvent(self):
         # 快捷键设置的回调
         self.actionChecked('Q')
-        ui = gameSettingShortcuts.myGameSettingShortcuts(self.game_setting_path,
+        ui = gameSettingShortcuts.myGameSettingShortcuts(self.game_setting,
                                                          self.ico_path, self.r_path,
                                                          self.mainWindow)
         ui.Dialog.setModal(True)

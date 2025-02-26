@@ -22,39 +22,26 @@ class ui_Form(Ui_Form):
         
         self.auto_replay = self.game_setting.value('DEFAULT/auto_replay', None, int)
         self.auto_notification = self.game_setting.value('DEFAULT/auto_notification', None, bool)
-        # self.auto_replay = config.getint("DEFAULT", "auto_replay")
-        # self.allow_auto_replay = config.getboolean("DEFAULT", "allow_auto_replay")
-        # self.auto_notification = config.getboolean("DEFAULT", "auto_notification")
-        
         self.player_identifier = self.game_setting.value('DEFAULT/player_identifier', None, str)
         self.race_identifier = self.game_setting.value('DEFAULT/race_identifier', None, str)
         self.unique_identifier = self.game_setting.value('DEFAULT/unique_identifier', None, str)
         self.country = self.game_setting.value('DEFAULT/country', None, str)
-        # self.player_identifier = config["DEFAULT"]["player_identifier"]
-        # self.race_identifier = config["DEFAULT"]["race_identifier"]
-        # self.unique_identifier = config["DEFAULT"]["unique_identifier"]
-        # self.country = config["DEFAULT"]["country"]
         self.autosave_video = self.game_setting.value('DEFAULT/autosave_video', None, bool)
         self.filter_forever = self.game_setting.value('DEFAULT/filter_forever', None, bool)
         self.end_then_flag = self.game_setting.value('DEFAULT/end_then_flag', None, bool)
         self.cursor_limit = self.game_setting.value('DEFAULT/cursor_limit', None, bool)
-        # self.autosave_video = config.getboolean("DEFAULT", "autosave_video")
-        # self.filter_forever = config.getboolean("DEFAULT", "filter_forever")
-        # self.end_then_flag = config.getboolean("DEFAULT", "end_then_flag") # 游戏结束后自动标雷
-        # self.cursor_limit = config.getboolean("DEFAULT", "cursor_limit")
         self.board_constraint = mainWindow.board_constraint
         self.attempt_times_limit = mainWindow.attempt_times_limit
         
         self.alter = False
         
         self.Dialog = RoundQDialog(mainWindow.mainWindow)
-        # self.Dialog = QDialog()
-        self.setupUi (self.Dialog)
-        self.setParameter ()
-        self.Dialog.setWindowIcon (QtGui.QIcon (str(self.r_path.with_name('media').joinpath('cat.ico'))))
-        self.pushButton_yes.clicked.connect (self.processParameter)
-        self.pushButton_no.clicked.connect (self.Dialog.close)
-        self.comboBox_country.resize.connect (self.set_lineedit_country_geometry)
+        self.setupUi(self.Dialog)
+        self.setParameter()
+        self.Dialog.setWindowIcon(QtGui.QIcon (str(self.r_path.with_name('media').joinpath('cat.ico'))))
+        self.pushButton_yes.clicked.connect(self.processParameter)
+        self.pushButton_no.clicked.connect(self.Dialog.close)
+        self.comboBox_country.resize.connect(self.set_lineedit_country_geometry)
         self.lineEdit_country.textEdited.connect(lambda x: self.set_combobox_country(x))
         self.comboBox_country.activated['QString'].connect(lambda x: self.set_country_flag(x))
         self.lineEdit_country.textEdited.connect(lambda x: self.set_country_flag(x))
@@ -131,7 +118,6 @@ class ui_Form(Ui_Form):
         self.pixSize = self.spinBox_pixsize.value()
         v = self.spinBox_auto_replay.value()
         self.auto_replay = v if self.checkBox_auto_replay.isChecked() else -v
-        # self.allow_auto_replay = self.checkBox_auto_replay.isChecked()
         self.auto_notification = self.checkBox_auto_notification.isChecked()
         self.player_identifier = self.lineEdit_label.text()
         self.race_identifier = self.lineEdit_race_label.text()
@@ -148,43 +134,63 @@ class ui_Form(Ui_Form):
         # 标准、win7、经典无猜、强无猜、弱无猜、准无猜、强可猜、弱可猜
         
         
-        conf = configparser.ConfigParser()
-        conf.read(self.game_setting_path, encoding='utf-8')
-        conf.set("DEFAULT", "gameMode", str(self.gameMode))
-        conf.set("DEFAULT", "transparency", str(self.transparency))
-        conf.set("DEFAULT", "pixSize", str(self.pixSize))
-        conf.set("DEFAULT", "auto_replay", str(self.auto_replay))
-        conf.set("DEFAULT", "allow_auto_replay", str(self.allow_auto_replay))
-        conf.set("DEFAULT", "end_then_flag", str(self.end_then_flag))
-        conf.set("DEFAULT", "cursor_limit", str(self.cursor_limit))
-        conf.set("DEFAULT", "auto_notification", str(self.auto_notification))
-        conf.set("DEFAULT", "autosave_video", str(self.autosave_video))
-        conf.set("DEFAULT", "filter_forever", str(self.filter_forever))
-        # conf.set("DEFAULT", "board_constraint", str(self.board_constraint))
-        # conf.set("DEFAULT", "attempt_times_limit", str(self.attempt_times_limit))
-        conf.set("DEFAULT", "player_identifier", str(self.player_identifier))
-        conf.set("DEFAULT", "race_identifier", str(self.race_identifier))
-        conf.set("DEFAULT", "unique_identifier", str(self.unique_identifier))
-        conf.set("DEFAULT", "country", str(self.country))
-        # conf.write(open(self.game_setting_path, "w", encoding='utf-8'))
+        self.game_setting.set_value("DEFAULT/transparency", self.transparency)
+        self.game_setting.set_value("DEFAULT/auto_replay", self.auto_replay)
+        self.game_setting.set_value("DEFAULT/end_then_flag", self.end_then_flag)
+        self.game_setting.set_value("DEFAULT/cursor_limit", self.cursor_limit)
+        self.game_setting.set_value("DEFAULT/auto_notification", self.auto_notification)
+        self.game_setting.set_value("DEFAULT/autosave_video", self.autosave_video)
+        self.game_setting.set_value("DEFAULT/filter_forever", self.filter_forever)
+        self.game_setting.set_value("DEFAULT/player_identifier", self.player_identifier)
+        self.game_setting.set_value("DEFAULT/race_identifier", self.race_identifier)
+        self.game_setting.set_value("DEFAULT/unique_identifier", self.unique_identifier)
+        self.game_setting.set_value("DEFAULT/country", self.country)
         if (self.row, self.column, self.mineNum) == (8, 8, 10):
-            conf.set("BEGINNER", "board_constraint", str(self.board_constraint))
-            conf.set("BEGINNER", "attempt_times_limit", str(self.attempt_times_limit))
-            conf.set("BEGINNER", "pixSize", str(self.pixSize))
+            self.game_setting.set_value("BEGINNER/gamemode", self.gameMode)
+            self.game_setting.set_value("BEGINNER/board_constraint", self.board_constraint)
+            self.game_setting.set_value("BEGINNER/attempt_times_limit", self.attempt_times_limit)
+            self.game_setting.set_value("BEGINNER/pixsize", self.pixSize)
         elif (self.row, self.column, self.mineNum) == (16, 16, 40):
-            conf.set("INTERMEDIATE", "board_constraint", str(self.board_constraint))
-            conf.set("INTERMEDIATE", "attempt_times_limit", str(self.attempt_times_limit))
-            conf.set("INTERMEDIATE", "pixSize", str(self.pixSize))
+            self.game_setting.set_value("INTERMEDIATE/gamemode", self.gameMode)
+            self.game_setting.set_value("INTERMEDIATE/board_constraint", self.board_constraint)
+            self.game_setting.set_value("INTERMEDIATE/attempt_times_limit", self.attempt_times_limit)
+            self.game_setting.set_value("INTERMEDIATE/pixsize", self.pixSize)
         elif (self.row, self.column, self.mineNum) == (16, 30, 99):
-            conf.set("EXPERT", "board_constraint", str(self.board_constraint))
-            conf.set("EXPERT", "attempt_times_limit", str(self.attempt_times_limit))
-            conf.set("EXPERT", "pixSize", str(self.pixSize))
+            self.game_setting.set_value("EXPERT/gamemode", self.gameMode)
+            self.game_setting.set_value("EXPERT/board_constraint", self.board_constraint)
+            self.game_setting.set_value("EXPERT/attempt_times_limit", self.attempt_times_limit)
+            self.game_setting.set_value("EXPERT/pixsize", self.pixSize)
+        elif (self.row, self.column, self.mineNum) ==\
+            (self.game_setting.value("CUSTOM_PRESET_4/row", None, int),
+             self.game_setting.value("CUSTOM_PRESET_4/column", None, int),
+             self.game_setting.value("CUSTOM_PRESET_4/mine_num", None, int)):
+            self.game_setting.set_value("CUSTOM_PRESET_4/gamemode", self.gameMode)
+            self.game_setting.set_value("CUSTOM_PRESET_4/board_constraint", self.board_constraint)
+            self.game_setting.set_value("CUSTOM_PRESET_4/attempt_times_limit", self.attempt_times_limit)
+            self.game_setting.set_value("CUSTOM_PRESET_4/pixsize", self.pixSize)
+        elif (self.row, self.column, self.mineNum) ==\
+            (self.game_setting.value("CUSTOM_PRESET_5/row", None, int),
+             self.game_setting.value("CUSTOM_PRESET_5/column", None, int),
+             self.game_setting.value("CUSTOM_PRESET_5/mine_num", None, int)):
+            self.game_setting.set_value("CUSTOM_PRESET_5/gamemode", self.gameMode)
+            self.game_setting.set_value("CUSTOM_PRESET_5/board_constraint", self.board_constraint)
+            self.game_setting.set_value("CUSTOM_PRESET_5/attempt_times_limit", self.attempt_times_limit)
+            self.game_setting.set_value("CUSTOM_PRESET_5/pixsize", self.pixSize)
+        elif (self.row, self.column, self.mineNum) ==\
+            (self.game_setting.value("CUSTOM_PRESET_6/row", None, int),
+             self.game_setting.value("CUSTOM_PRESET_6/column", None, int),
+             self.game_setting.value("CUSTOM_PRESET_6/mine_num", None, int)):
+            self.game_setting.set_value("CUSTOM_PRESET_6/gamemode", self.gameMode)
+            self.game_setting.set_value("CUSTOM_PRESET_6/board_constraint", self.board_constraint)
+            self.game_setting.set_value("CUSTOM_PRESET_6/attempt_times_limit", self.attempt_times_limit)
+            self.game_setting.set_value("CUSTOM_PRESET_6/pixsize", self.pixSize)
         else:
-            conf.set("CUSTOM", "board_constraint", str(self.board_constraint))
-            conf.set("CUSTOM", "attempt_times_limit", str(self.attempt_times_limit))
-            conf.set("CUSTOM", "pixSize", str(self.pixSize))
-        conf.write(open(self.game_setting_path, "w", encoding='utf-8'))
+            self.game_setting.set_value("CUSTOM/gamemode", self.gameMode)
+            self.game_setting.set_value("CUSTOM/board_constraint", self.board_constraint)
+            self.game_setting.set_value("CUSTOM/attempt_times_limit", self.attempt_times_limit)
+            self.game_setting.set_value("CUSTOM/pixsize", self.pixSize)
 
+        self.game_setting.sync()
         self.Dialog.close ()
 
 
