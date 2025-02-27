@@ -20,6 +20,7 @@ class Ui_Form(object):
         Form.setMaximumSize(QtCore.QSize(580, 608))
         Form.setMouseTracking(True)
         Form.setFocusPolicy(QtCore.Qt.ClickFocus)
+        Form.setWindowTitle("")
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap("media/cat.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Form.setWindowIcon(icon)
@@ -41,6 +42,7 @@ class Ui_Form(object):
         self.pushButton_yes.setStyleSheet("border-image: url(media/button.png);\n"
 "font: 16pt \"微软雅黑\";\n"
 "color:white;")
+        self.pushButton_yes.setShortcut("Return")
         self.pushButton_yes.setAutoDefault(False)
         self.pushButton_yes.setFlat(False)
         self.pushButton_yes.setObjectName("pushButton_yes")
@@ -587,9 +589,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "游戏设置"))
         self.pushButton_yes.setText(_translate("Form", "确定"))
-        self.pushButton_yes.setShortcut(_translate("Form", "Return"))
         self.pushButton_no.setText(_translate("Form", "取消"))
         self.checkBox_end_then_flag.setText(_translate("Form", "结束后标雷"))
         self.label_label.setText(_translate("Form", "标识："))

@@ -32,7 +32,7 @@
    <enum>Qt::ClickFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>游戏设置</string>
+   <string notr="true"/>
   </property>
   <property name="windowIcon">
    <iconset>
@@ -85,7 +85,7 @@ color:white;</string>
     <string>确定</string>
    </property>
    <property name="shortcut">
-    <string>Return</string>
+    <string notr="true">Return</string>
    </property>
    <property name="autoDefault">
     <bool>false</bool>

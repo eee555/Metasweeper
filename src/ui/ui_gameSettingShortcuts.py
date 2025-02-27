@@ -23,6 +23,7 @@ class Ui_Form(object):
         Form.setMinimumSize(QtCore.QSize(598, 380))
         Form.setMaximumSize(QtCore.QSize(598, 380))
         Form.setMouseTracking(True)
+        Form.setWindowTitle("")
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap("media/cat.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Form.setWindowIcon(icon)
@@ -59,6 +60,7 @@ class Ui_Form(object):
         self.pushButton.setStyleSheet("border-image: url(media/button.png);\n"
 "font: 16pt \"黑体\";\n"
 "color:white;font: bold;")
+        self.pushButton.setShortcut("Return")
         self.pushButton.setAutoDefault(False)
         self.pushButton.setFlat(False)
         self.pushButton.setObjectName("pushButton")
@@ -743,10 +745,8 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "快捷键设置"))
         self.pushButton_2.setText(_translate("Form", "取消"))
         self.pushButton.setText(_translate("Form", "确定"))
-        self.pushButton.setShortcut(_translate("Form", "Return"))
         self.comboBox_gamemode4.setItemText(0, _translate("Form", "标准"))
         self.comboBox_gamemode4.setItemText(1, _translate("Form", "Win7"))
         self.comboBox_gamemode4.setItemText(2, _translate("Form", "强无猜"))

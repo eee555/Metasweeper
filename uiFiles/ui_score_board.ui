@@ -29,7 +29,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>计数器</string>
+   <string notr="true"/>
   </property>
   <property name="windowIcon">
    <iconset>
@@ -207,24 +207,9 @@
      <attribute name="verticalHeaderHighlightSections">
       <bool>false</bool>
      </attribute>
-     <row>
-      <property name="text">
-       <string>新建行</string>
-      </property>
-     </row>
-     <row>
-      <property name="text">
-       <string>1</string>
-      </property>
-     </row>
-     <row>
-      <property name="text">
-       <string>3</string>
-      </property>
-     </row>
      <column>
       <property name="text">
-       <string>指标</string>
+       <string/>
       </property>
       <property name="font">
        <font>
@@ -234,7 +219,7 @@
      </column>
      <column>
       <property name="text">
-       <string>表达式</string>
+       <string/>
       </property>
       <property name="font">
        <font>

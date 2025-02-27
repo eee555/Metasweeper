@@ -18,6 +18,7 @@ class Ui_Form(object):
         Form.setMinimumSize(QtCore.QSize(480, 640))
         Form.setMaximumSize(QtCore.QSize(600, 640))
         Form.setSizeIncrement(QtCore.QSize(0, 0))
+        Form.setWindowTitle("")
         Form.setWindowOpacity(10.0)
         self.horizontalSlider_time = QtWidgets.QSlider(Form)
         self.horizontalSlider_time.setGeometry(QtCore.QRect(20, 40, 481, 31))
@@ -85,6 +86,7 @@ class Ui_Form(object):
         self.horizontalSlider_time.setObjectName("horizontalSlider_time")
         self.pushButton_replay = QtWidgets.QPushButton(Form)
         self.pushButton_replay.setGeometry(QtCore.QRect(20, 90, 41, 41))
+        self.pushButton_replay.setToolTipDuration(0)
         self.pushButton_replay.setStyleSheet("border-image: url(media/replay.svg);\n"
 "QPushButton::hover{\n"
 "    background-color: rgb(170, 255, 255);\n"
@@ -93,14 +95,16 @@ class Ui_Form(object):
         self.pushButton_replay.setObjectName("pushButton_replay")
         self.pushButton_play = QtWidgets.QPushButton(Form)
         self.pushButton_play.setGeometry(QtCore.QRect(70, 90, 41, 41))
+        self.pushButton_play.setToolTipDuration(0)
         self.pushButton_play.setStyleSheet("border-image: url(media/play.svg);")
         self.pushButton_play.setText("")
         self.pushButton_play.setObjectName("pushButton_play")
         self.label_speed = SpeedLabel(Form)
         self.label_speed.setGeometry(QtCore.QRect(142, 90, 51, 41))
-        self.label_speed.setStyleSheet("border-image: url(media/speed.svg);\n"
+        self.label_speed.setStyleSheet("QLabel {border-image: url(media/speed.svg);\n"
 "font: 12pt \"微软雅黑\";\n"
-"color: #50A6EA;")
+"color: #50A6EA;}")
+        self.label_speed.setText("1")
         self.label_speed.setAlignment(QtCore.Qt.AlignCenter)
         self.label_speed.setObjectName("label_speed")
         self.label_2 = QtWidgets.QLabel(Form)
@@ -130,6 +134,7 @@ class Ui_Form(object):
         self.doubleSpinBox_time.setMinimum(-999.99)
         self.doubleSpinBox_time.setMaximum(999.99)
         self.doubleSpinBox_time.setSingleStep(0.001)
+        self.doubleSpinBox_time.setStepType(QtWidgets.QAbstractSpinBox.DefaultStepType)
         self.doubleSpinBox_time.setObjectName("doubleSpinBox_time")
         self.scrollArea = QtWidgets.QScrollArea(Form)
         self.scrollArea.setGeometry(QtCore.QRect(20, 150, 481, 471))
@@ -173,8 +178,9 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "雷数设置"))
-        self.label_speed.setText(_translate("Form", "1"))
+        self.pushButton_replay.setToolTip(_translate("Form", "重播"))
+        self.pushButton_play.setToolTip(_translate("Form", "播放/暂停"))
+        self.label_speed.setToolTip(_translate("Form", "滑动滚轮修改播放速度"))
         self.label_time.setText(_translate("Form", "时间"))
         self.label_tag.setText(_translate("Form", "标签"))
         self.label_event.setText(_translate("Form", "事件"))

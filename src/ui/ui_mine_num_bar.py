@@ -18,6 +18,7 @@ class Ui_Form(object):
         Form.setMinimumSize(QtCore.QSize(140, 382))
         Form.setMaximumSize(QtCore.QSize(140, 382))
         Form.setSizeIncrement(QtCore.QSize(0, 0))
+        Form.setWindowTitle("")
         Form.setWindowOpacity(10.0)
         self.verticalSlider = QtWidgets.QSlider(Form)
         self.verticalSlider.setGeometry(QtCore.QRect(30, 60, 22, 261))
@@ -68,5 +69,4 @@ class Ui_Form(object):
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
-        _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "雷数设置"))
+        pass

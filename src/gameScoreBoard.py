@@ -1,5 +1,4 @@
 # 左侧计时器
-import configparser
 import minesweeper_master as mm
 from ui.ui_score_board import Ui_Form
 from ui.uiComponents import RoundQWidget
@@ -90,10 +89,6 @@ class gameScoreBoardManager():
         self.initialized = False
         self.game_setting = game_setting
         self.score_board_setting = score_board_setting
-        # self.score_board_setting.beginGroup('DEFAULT')
-        # _score_board_items = self.score_board_setting.allKeys()
-        # config_score_board = configparser.ConfigParser()
-        # if not _score_board_items:
         default_config = [
                 ("游戏模式", "mode"),
                 ("RTime", "f'{time:.3f}'"),
@@ -126,6 +121,8 @@ class gameScoreBoardManager():
         self.ui.QWidget.closeEvent_.connect(self.close)
         QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Return), self.ui.QWidget).\
             activated.connect(self.__table_ok)
+        self.ui.QWidget.move(game_setting.value("DEFAULT/scoreboardtop", 100, int),
+                             game_setting.value("DEFAULT/scoreboardleft", 200, int))
         self.editing_row = -1 # -1不在编辑状态，-2不能编辑（正在游戏）
         self.editing_column = -1
         
@@ -160,7 +157,7 @@ class gameScoreBoardManager():
         ...
         
     def cal_index_value(self, ms_board, index_type):
-        # 原地修改指标数值         
+        # 原地修改指标数值
         self.update_namespace(ms_board, index_type)
         index_value = []
         # for (idx, (_, expression), _type) in enumerate(zip(self.score_board_items, self.score_board_items_type)):
@@ -338,22 +335,9 @@ class gameScoreBoardManager():
     def close(self):
         self.score_board_setting.set_section("DEFAULT", self.score_board_items)
         self.score_board_setting.sync()
-        # config = configparser.ConfigParser()
-        # config["DEFAULT"] = dict(filter(lambda x: x[0], self.score_board_items))
-        # config.write(open(self.score_board_path, "w"))
-        # conf = configparser.ConfigParser()
-        # conf.read(self.game_setting_path, encoding='utf-8')
-        # conf.set("DEFAULT", "scoreBoardTop", str(self.ui.QWidget.x()))
-        # conf.set("DEFAULT", "scoreBoardLeft", str(self.ui.QWidget.y()))
-        # conf.write(open(self.game_setting_path, "w", encoding='utf-8'))
-        # self.ui.QWidget.close()
-        
-
-
-
-
-
-
+        self.game_setting.set_value("DEFAULT/scoreboardtop", self.ui.QWidget.x())
+        self.game_setting.set_value("DEFAULT/scoreboardleft", self.ui.QWidget.y())
+        self.game_setting.sync()
 
 
 

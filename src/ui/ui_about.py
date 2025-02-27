@@ -18,6 +18,7 @@ class Ui_Form(object):
         Form.setMinimumSize(QtCore.QSize(600, 382))
         Form.setMaximumSize(QtCore.QSize(600, 580))
         Form.setSizeIncrement(QtCore.QSize(0, 0))
+        Form.setWindowTitle("")
         Form.setWindowOpacity(10.0)
         self.verticalLayout = QtWidgets.QVBoxLayout(Form)
         self.verticalLayout.setObjectName("verticalLayout")
@@ -139,6 +140,7 @@ class Ui_Form(object):
         self.pushButton.setStyleSheet("border-image: url(media/button.png);\n"
 "font: 16pt \"黑体\";\n"
 "color:white;font: bold;")
+        self.pushButton.setShortcut("Space")
         self.pushButton.setAutoDefault(False)
         self.pushButton.setFlat(False)
         self.pushButton.setObjectName("pushButton")
@@ -153,10 +155,8 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "关于"))
         self.label_race_label_2.setText(_translate("Form", "项目主页："))
         self.label_race_label.setText(_translate("Form", "资料教程："))
         self.label_race_label_3.setText(_translate("Form", "①本软件可以不受任何限制地复制、储存、传播。\n"
 "②任何人可以在任何一个项目中使用本项目源代码的任何一个部分，同时欢迎在本项目主页提出宝贵的意见。"))
         self.pushButton.setText(_translate("Form", "确定"))
-        self.pushButton.setShortcut(_translate("Form", "Space"))

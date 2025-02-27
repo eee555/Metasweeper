@@ -454,8 +454,8 @@ class Ui_MainWindow(Ui_MainWindow):
         '''
         transparency = self.game_setting.get_or_set_value('DEFAULT/transparency', 100, int)
         self.mainWindow.setWindowOpacity(transparency / 100)
-        mainWinTop = self.game_setting.get_or_set_value("DEFAULT/mainWinTop", 100, int)
-        mainWinLeft = self.game_setting.get_or_set_value("DEFAULT/mainWinLeft", 200, int)
+        mainWinTop = self.game_setting.get_or_set_value("DEFAULT/mainwintop", 100, int)
+        mainWinLeft = self.game_setting.get_or_set_value("DEFAULT/mainwinleft", 200, int)
         self.mainWindow.move(mainWinTop, mainWinLeft)
         self.row = self.game_setting.get_or_set_value("DEFAULT/row", 16, int)
         self.column = self.game_setting.get_or_set_value("DEFAULT/column", 30, int)

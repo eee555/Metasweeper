@@ -29,7 +29,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>雷数设置</string>
+   <string notr="true"/>
   </property>
   <property name="windowOpacity">
    <double>10.000000000000000</double>
@@ -140,6 +140,12 @@ QSlider::add-page:horizontal:disabled, QSlider::sub-page:horizontal:disabled, QS
      <height>41</height>
     </rect>
    </property>
+   <property name="toolTip">
+    <string>重播</string>
+   </property>
+   <property name="toolTipDuration">
+    <number>0</number>
+   </property>
    <property name="styleSheet">
     <string notr="true">border-image: url(media/replay.svg);
 QPushButton::hover{
@@ -159,6 +165,12 @@ QPushButton::hover{
      <height>41</height>
     </rect>
    </property>
+   <property name="toolTip">
+    <string>播放/暂停</string>
+   </property>
+   <property name="toolTipDuration">
+    <number>0</number>
+   </property>
    <property name="styleSheet">
     <string notr="true">border-image: url(media/play.svg);</string>
    </property>
@@ -175,13 +187,16 @@ QPushButton::hover{
      <height>41</height>
     </rect>
    </property>
+   <property name="toolTip">
+    <string>滑动滚轮修改播放速度</string>
+   </property>
    <property name="styleSheet">
-    <string notr="true">border-image: url(media/speed.svg);
+    <string notr="true">QLabel {border-image: url(media/speed.svg);
 font: 12pt &quot;微软雅黑&quot;;
-color: #50A6EA;</string>
+color: #50A6EA;}</string>
    </property>
    <property name="text">
-    <string>1</string>
+    <string notr="true">1</string>
    </property>
    <property name="alignment">
     <set>Qt::AlignCenter</set>
@@ -251,6 +266,9 @@ background-color: rgb(240, 240, 240);</string>
    </property>
    <property name="singleStep">
     <double>0.001000000000000</double>
+   </property>
+   <property name="stepType">
+    <enum>QAbstractSpinBox::DefaultStepType</enum>
    </property>
   </widget>
   <widget class="QScrollArea" name="scrollArea">
