@@ -23,6 +23,7 @@ class IniConfig:
         self.file_path = file_path
         # QSettings的键名是无序的，无法使用
         self.config = configparser.ConfigParser()
+        self.config.default_section = ""
         # 如果文件不存在则创建
         if not os.path.exists(file_path):
             with open(file_path, 'w', encoding="utf-8"):
@@ -53,7 +54,7 @@ class IniConfig:
         :return: 获取到的值或默认值
         """
         section, key = self._parse_key(key)
-        if section != "DEFAULT" and not self.config.has_section(section):
+        if not self.config.has_section(section):
             return default
         if self.config.has_option(section, key):
             if value_type == int:
@@ -90,7 +91,7 @@ class IniConfig:
         :param force_add: 是否强制补全default中的所有键
         :return: section 的内容
         """
-        if section != "DEFAULT" and not self.config.has_section(section):
+        if not self.config.has_section(section):
             self.config.add_section(section)
             for (key, value) in default:
                 self.config.set(section, str(key), str(value))
@@ -111,7 +112,7 @@ class IniConfig:
         :param value: 要设置的值
         """
         section, key = self._parse_key(key)
-        if section != "DEFAULT" and not self.config.has_section(section):
+        if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, key, str(value))
         
@@ -138,7 +139,7 @@ class IniConfig:
                 key_set.add(new_key)
                 section_value[idv] = (new_key, v[1])
                     
-        if section != "DEFAULT" and not self.config.has_section(section):
+        if not self.config.has_section(section):
             self.config.add_section(section)
             
         # 遍历并删除每个 option
@@ -342,7 +343,7 @@ class Ui_MainWindow(Ui_MainWindow):
             ("attempt_times_limit", 100000),
             ]
         s = self.game_setting.get_or_set_section("CUSTOM", s, True)
-        self.predefinedBoardPara[0] = { k: int(v) if v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[0] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
         s = [
             ("gamemode", 0),
             ("row", 8),
@@ -353,7 +354,7 @@ class Ui_MainWindow(Ui_MainWindow):
             ("attempt_times_limit", 100000),
             ]
         s = self.game_setting.get_or_set_section("BEGINNER", s, True)
-        self.predefinedBoardPara[1] = { k: int(v) if v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[1] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
         s = [
             ("gamemode", 0),
             ("row", 16),
@@ -364,18 +365,18 @@ class Ui_MainWindow(Ui_MainWindow):
             ("attempt_times_limit", 100000),
             ]
         s = self.game_setting.get_or_set_section("INTERMEDIATE", s, True)
-        self.predefinedBoardPara[2] = { k: int(v) if v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[2] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
         s = [
             ("gamemode", 0),
             ("row", 16),
             ("column", 30),
             ("pixsize", 20),
-            ("mine_num", 90),
+            ("mine_num", 99),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
             ]
         s = self.game_setting.get_or_set_section("EXPERT", s, True)
-        self.predefinedBoardPara[3] = { k: int(v) if v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[3] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
         s = [
             ("gamemode", 5),
             ("row", 16),
@@ -386,7 +387,7 @@ class Ui_MainWindow(Ui_MainWindow):
             ("attempt_times_limit", 100000),
             ]
         s = self.game_setting.get_or_set_section("CUSTOM_PRESET_4", s, True)
-        self.predefinedBoardPara[4] = { k: int(v) if v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[4] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
         s = [
             ("gamemode", 5),
             ("row", 16),
@@ -397,7 +398,7 @@ class Ui_MainWindow(Ui_MainWindow):
             ("attempt_times_limit", 100000),
             ]
         s = self.game_setting.get_or_set_section("CUSTOM_PRESET_5", s, True)
-        self.predefinedBoardPara[5] = { k: int(v) if v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[5] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
         s = [
             ("gamemode", 5),
             ("row", 24),
@@ -408,7 +409,7 @@ class Ui_MainWindow(Ui_MainWindow):
             ("attempt_times_limit", 100000),
             ]
         s = self.game_setting.get_or_set_section("CUSTOM_PRESET_6", s, True)
-        self.predefinedBoardPara[6] = { k: int(v) if v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[6] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
 
 
     def minimumWindow(self):

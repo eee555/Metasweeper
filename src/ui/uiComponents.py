@@ -163,11 +163,10 @@ class StatusLabel (QtWidgets.QLabel):
     def reloadFace(self, pixSize):
         # 重新修改脸的大小，叫rescale_face更妥
         self.pixSize = pixSize
-        self.pixmap1 = QPixmap(self.smilefacedown_path).scaled(int(self.pixSize * 1.5), int(self.pixSize * 1.5))
-        self.pixmap2 = QPixmap(self.smileface_path).scaled(int(self.pixSize * 1.5), int(self.pixSize * 1.5))
-        # self.resize(QtCore.QSize(int(self.pixSize * 1.5), int(self.pixSize * 1.5)))
-        self.setMinimumSize(QtCore.QSize(int(self.pixSize * 1.5), int(self.pixSize * 1.5)))
-        self.setMaximumSize(QtCore.QSize(int(self.pixSize * 1.5), int(self.pixSize * 1.5)))
+        self.pixmap1 = QPixmap(self.smilefacedown_path).scaled(int(pixSize * 1.5), int(pixSize * 1.5))
+        self.pixmap2 = QPixmap(self.smileface_path).scaled(int(pixSize * 1.5), int(pixSize * 1.5))
+        self.setMinimumSize(QtCore.QSize(int(pixSize * 1.5), int(pixSize * 1.5)))
+        self.setMaximumSize(QtCore.QSize(int(pixSize * 1.5), int(pixSize * 1.5)))
 
     def setPath(self, r_path):
         # 告诉脸，相对路径

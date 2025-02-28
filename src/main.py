@@ -70,7 +70,7 @@ if __name__ == "__main__":
             time.sleep(0.5)
             app.quit()
         else:
-            localServer = QLocalServer() 
+            localServer = QLocalServer()
             localServer.listen(serverName)
             localServer.newConnection.connect(lambda: on_new_connection(localServer=localServer))
             mainWindow = mainWindowGUI.MainWindow()

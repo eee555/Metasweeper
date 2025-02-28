@@ -2,7 +2,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QTimer, QCoreApplication, Qt, QRect
 from PyQt5.QtGui import QPixmap
 # from PyQt5.QtWidgets import QLineEdit, QInputDialog, QShortcut
-from PyQt5.QtWidgets import QApplication, QFileDialog
+from PyQt5.QtWidgets import QApplication, QFileDialog, QWidget
 import gameDefinedParameter
 import superGUI, gameAbout, gameSettings, gameSettingShortcuts,\
     captureScreen, mine_num_bar, videoControl, gameRecordPop
@@ -131,6 +131,9 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     @pixSize.setter
     def pixSize(self, pixSize):
         pixSize = max(5, pixSize)
+        pixSize = min(255, pixSize)
+        pixSize = min(32767//self.column, pixSize)
+        pixSize = min(32767//self.row, pixSize)
         if hasattr(self, "_pixSize") and pixSize == self._pixSize:
             return
         self.label.set_rcp(self.row, self.column, pixSize)
@@ -149,19 +152,14 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         # self.label.setFixedSize(QtCore.QSize(self.pixSize*self.column + 8, self.pixSize*self.row + 8))
 
         self.reimportLEDPic(pixSize) # 重新导入图片，无磁盘io
-        # if hasattr(self, "_pixSize"):
-        #     self._pixSize = pixSize
-        #     self.reimportLEDPic(pixSize) # 重新导入图片，无磁盘io
-        # else:
-        #     self._pixSize = pixSize
-        #     self.mineUnFlagedNum = self.mineNum
-        #     self.importLEDPic(pixSize) # 导入图片，有磁盘io
         self.label_2.reloadFace(pixSize)
         self.set_face(14)
         self.showMineNum(self.mineUnFlagedNum)
         self.showTime(0)
         if hasattr(self, "_pixSize") and pixSize < self._pixSize:
+            self._pixSize = pixSize
             self.minimumWindow()
+            return
         self._pixSize = pixSize
 
     @property
@@ -405,6 +403,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
                     self.start_time_unix_2 = QtCore.QDateTime.currentDateTime().\
                                                 toMSecsSinceEpoch()
                     self.timer_10ms.start()
+                    # 禁用双击修改指标名称公式
                     self.score_board_manager.editing_row = -2
                     
                 self.label.ms_board.step('lr', (i, j))
@@ -688,7 +687,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             self.label.ms_board.player_identifier = self.player_identifier
             self.label.ms_board.race_identifier = self.race_identifier
             self.label.ms_board.uniqueness_identifier = self.unique_identifier
-            self.label.ms_board.country = country_name[self.country].upper()
+            self.label.ms_board.country = "XX" if not self.country else country_name[self.country].upper()
             self.label.ms_board.device_uuid = hashlib.md5(bytes(str(uuid.getnode()).encode())).hexdigest().encode( "UTF-8" )
     
             self.label.ms_board.generate_evf_v4_raw_data()
@@ -724,6 +723,8 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             filename_level = "e_"
         else:
             filename_level = "c_"
+        if self.game_state == "display" or self.game_state == "showdisplay":
+            self.label.ms_board.current_time = 999999.9
         file_name = self.replay_path + '\\' + filename_level +\
                          f'{self.label.ms_board.mode}' + '_' +\
                              f'{self.label.ms_board.rtime:.3f}' +\
@@ -1061,11 +1062,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         if ui.alter:
             
             self.pixSize = ui.pixSize
-            # for i in range(4):
-            #     self.predefinedBoardPara[i]['pix_size'] = ui.pixSize
-
             self.gameStart()
-            
             self.gameMode = ui.gameMode
             self.auto_replay = ui.auto_replay
             self.end_then_flag = ui.end_then_flag
@@ -1086,24 +1083,24 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
                 self.predefinedBoardPara[1]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[1]['board_constraint'] = self.board_constraint
                 self.predefinedBoardPara[1]['gamemode'] = ui.gameMode
-                # self.predefinedBoardPara[1]['pix_size'] = ui.pixSize
             elif (self.row, self.column, self.mineNum) == (16, 16, 40):
                 self.predefinedBoardPara[2]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[2]['board_constraint'] = self.board_constraint
                 self.predefinedBoardPara[2]['gamemode'] = ui.gameMode
-                # self.predefinedBoardPara[2]['pix_size'] = ui.pixSize
             elif (self.row, self.column, self.mineNum) == (16, 30, 99):
                 self.predefinedBoardPara[3]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[3]['board_constraint'] = self.board_constraint
                 self.predefinedBoardPara[3]['gamemode'] = ui.gameMode
-                # self.predefinedBoardPara[3]['pix_size'] = ui.pixSize
             else:
                 self.predefinedBoardPara[0]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[0]['board_constraint'] = self.board_constraint
                 self.predefinedBoardPara[0]['gamemode'] = ui.gameMode
-                # self.predefinedBoardPara[0]['pix_size'] = ui.pixSize
 
             self.mainWindow.setWindowOpacity(ui.transparency / 100)
+            for child in self.mainWindow.findChildren(QWidget):
+                # 设置子窗口的透明度
+                child.setWindowOpacity(ui.transparency / 100)
+            
             self.score_board_manager.with_namespace({
                 "race_identifier": ui.race_identifier,
                 "mode": self.gameMode,
@@ -1413,7 +1410,8 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.video_time_step = 0.01 # 录像时间的步长，定时器始终是10毫秒
         self.label.paint_cursor = True
         self.video_playing = True # 录像正在播放
-        self.timer_video.start(10)
+        # 禁用双击修改指标名称公式
+        self.score_board_manager.editing_row = -2
 
         video.video_playing_pix_size = self.label.pixSize
         self.label.ms_board = video
@@ -1422,6 +1420,8 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.label_info.setText(self.label.ms_board.player_identifier)
         # 改成录像的国旗
         self.set_country_flag(self.label.ms_board.country)
+        
+        self.timer_video.start(10)
 
 
     def video_playing_step(self):
@@ -1558,17 +1558,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         else:
             self.game_setting.set_value("CUSTOM/gamemode", str(self.gameMode))
             self.game_setting.set_value("CUSTOM/pixsize", str(self.pixSize))
-            
+
         self.game_setting.sync()
-        
         self.record_setting.sync()
 
-        # conf = configparser.ConfigParser()
-        # conf.read(self.record_path, encoding='utf-8')
-        # for key_name in self.record_key_name_list:
-        #     conf[key_name] = self.record[key_name]
-        # with open(self.record_path, 'w') as configfile:
-        #     conf.write(configfile)  # 将对象写入文件
 
 
 
