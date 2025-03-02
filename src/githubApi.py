@@ -84,7 +84,7 @@ class SourceManager(QObject):
 
     @property
     def token(self) -> str:
-        return self.__sources[self.currentSource]['token']
+        return self.__sources[self.currentSource]['t']
 
     @property
     def tokenUrl(self) -> str:

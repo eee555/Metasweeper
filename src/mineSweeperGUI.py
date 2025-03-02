@@ -1156,11 +1156,11 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         data = {
             "Github": {
                 "url": "https://api.github.com/repos/eee555/Metasweeper",
-                "token": ""
+                "t": ""
             },
             "gitee": {
                 "url": "https://gitee.com/api/v5/repos/ee55/Metasweeper",
-                "token": "02d95b894b8a5ccb3731a9464b2a6f2b"
+                "t": "02d95b894b8a5ccb3731a9464b2a6f2b"
             }
         }
         update_dialog = CheckUpdateGui(GitHub(SourceManager(
