@@ -1,23 +1,29 @@
 # from fbs_runtime.application_context.PyQt5 import ApplicationContext
 import time
+import time
 from PyQt5 import QtWidgets
 from PyQt5 import QtCore
-from PyQt5.QtWidgets import QApplication,QMessageBox
-from PyQt5.QtNetwork import QLocalSocket,QLocalServer
-import sys, os
+from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtNetwork import QLocalSocket, QLocalServer
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtNetwork import QLocalSocket, QLocalServer
+import sys
+import os
 import mainWindowGUI as mainWindowGUI
 import mineSweeperGUI as mineSweeperGUI
 import ctypes
 from ctypes import wintypes
 os.environ["QT_FONT_DPI"] = "96"
 
-def on_new_connection(localServer:QLocalServer):
+
+def on_new_connection(localServer: QLocalServer):
     """当新连接进来时，接受连接并将文件路径传递给主窗口"""
     socket = localServer.nextPendingConnection()
     if socket:
         socket.readyRead.connect(lambda: on_ready_read(socket))
 
-def on_ready_read(socket:QLocalSocket):
+
+def on_ready_read(socket: QLocalSocket):
     """从socket读取文件路径并传递给主窗口"""
     if socket and socket.state() == QLocalSocket.ConnectedState:
         # 读取文件路径并调用打开文件
@@ -29,21 +35,39 @@ def on_ready_read(socket:QLocalSocket):
         socket.disconnectFromServer()  # 断开连接
 
 
+def on_new_connection(localServer: QLocalServer):
+    """当新连接进来时，接受连接并将文件路径传递给主窗口"""
+    socket = localServer.nextPendingConnection()
+    if socket:
+        socket.readyRead.connect(lambda: on_ready_read(socket))
+
+
+def on_ready_read(socket: QLocalSocket):
+    """从socket读取文件路径并传递给主窗口"""
+    if socket and socket.state() == QLocalSocket.ConnectedState:
+        # 读取文件路径并调用打开文件
+        socket.waitForReadyRead(500)
+        file_path = socket.readAll().data().decode()
+        for win in QApplication.topLevelWidgets():
+            if isinstance(win, mainWindowGUI.MainWindow):
+                win.dropFileSignal.emit(file_path)
+        socket.disconnectFromServer()  # 断开连接
+
 
 def find_window(class_name, window_name):
     """
     查找指定窗口的句柄。
-    
+
     Args:
         class_name (str): 要查找的窗口的类名。
         window_name (str): 要查找的窗口的标题。
-    
+
     Returns:
         int: 查找到的窗口的句柄。如果未找到窗口，则抛出异常。
-    
+
     Raises:
         ctypes.WinError: 如果未找到指定窗口，则抛出此异常。
-    
+
     """
     user32 = ctypes.WinDLL('user32', use_last_error=True)
     user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
@@ -57,35 +81,23 @@ def find_window(class_name, window_name):
 
 if __name__ == "__main__":
     # QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
-    try:
-        app = QtWidgets.QApplication (sys.argv)
-        serverName = "MineSweeperServer"
-        socket = QLocalSocket()
-        socket.connectToServer(serverName)
-        if socket.waitForConnected(500):
-            if len(sys.argv) == 2:
-                filePath = sys.argv[1]
-                socket.write(filePath.encode())
-                socket.flush()
-            time.sleep(0.5)
-            app.quit()
-        else:
-            localServer = QLocalServer() 
-            localServer.listen(serverName)
-            localServer.newConnection.connect(lambda: on_new_connection(localServer=localServer))
-            mainWindow = mainWindowGUI.MainWindow()
-            ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
-            ui.mainWindow.show()
-            ui.mainWindow.game_setting_path = ui.game_setting_path
 
-            _translate = QtCore.QCoreApplication.translate
-            hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
+        app = QtWidgets.QApplication(sys.argv)
+        mainWindow = mainWindowGUI.MainWindow()
+        ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
+        ui.mainWindow.show()
+        ui.mainWindow.game_setting_path = ui.game_setting_path
 
-            SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
-            ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(hwnd, 0x00000011) else 1/0
-            ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1/0
+        _translate = QtCore.QCoreApplication.translate
+        hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
 
-            sys.exit(app.exec_())
+        SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
+        ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
+            hwnd, 0x00000011) else 1/0
+        ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
+            hwnd, 0x00000000) else 1/0
+
+        sys.exit(app.exec_())
         ...
     except Exception as e:
         pass
@@ -137,6 +149,7 @@ if __name__ == "__main__":
 #           bbbv_s, (op_solved), (isl_solved)
 # 录像静态类：bbbv，op, isl, cell0, cell1, cell2, cell3, cell4, cell5, cell6,
 #           cell7, cell8, fps, (hizi)
+# 录像动态类（依赖分析）：pluck
 # 其他类：checksum_ok, race_identifier, mode, is_offical, is_fair
 
 # 工具箱中局面状态和鼠标状态的定义：

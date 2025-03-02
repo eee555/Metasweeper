@@ -91,6 +91,9 @@ color:white;font: bold;</string>
    <property name="text">
     <string>确定</string>
    </property>
+   <property name="shortcut">
+    <string notr="true">Return</string>
+   </property>
    <property name="autoDefault">
     <bool>false</bool>
    </property>

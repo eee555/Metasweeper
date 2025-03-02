@@ -1,22 +1,160 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QSize, QTimer
 from PyQt5.QtCore import QTranslator
-from os import environ
+# from os import environ
 from PyQt5.QtWidgets import QApplication
 import configparser
 from PyQt5.QtGui import QPalette, QPixmap, QIcon
-# from PyQt5.QtWidgets import QScrollArea
-# from PyQt5.QtSvg import QSvgWidget
 from ui.ui_main_board import Ui_MainWindow
 from pathlib import Path
 from gameScoreBoard import gameScoreBoardManager
-import minesweeper_master as mm
-# import metaminesweeper_checksum
 from country_name import country_name
+import os
+from typing import List, Tuple
 
+version = "元3.2.1"
 
-version = "元3.2.0".encode( "UTF-8" )
+class IniConfig:
+    def __init__(self, file_path):
+        """
+        初始化 IniConfig 对象
+        :param file_path: 配置文件的路径
+        """
+        self.file_path = file_path
+        # QSettings的键名是无序的，无法使用
+        self.config = configparser.ConfigParser()
+        self.config.default_section = ""
+        # 如果文件不存在则创建
+        if not os.path.exists(file_path):
+            with open(file_path, 'w', encoding="utf-8"):
+                pass
+        # 读取配置文件
+        self.config.read(file_path, encoding="utf-8")
 
+    def _parse_key(self, key):
+        """
+        解析 "section/key" 格式的键，返回节和键
+        :param key: 格式为 "section/key" 的键
+        :return: 节和键的元组
+        """
+        parts = key.split('/', 1)
+        if len(parts) == 2:
+            section, key = parts
+        else:
+            section = 'DEFAULT'
+            key = parts[0]
+        return section, key
+
+    def value(self, key, default=None, value_type=str):
+        """
+        根据键获取值，如果键不存在则返回默认值
+        :param key: 格式为 "section/key" 的键
+        :param default: 键不存在时的默认值，默认为 None
+        :param value_type: 值的类型，默认为字符串类型
+        :return: 获取到的值或默认值
+        """
+        section, key = self._parse_key(key)
+        if not self.config.has_section(section):
+            return default
+        if self.config.has_option(section, key):
+            if value_type == int:
+                return self.config.getint(section, key)
+            elif value_type == float:
+                return self.config.getfloat(section, key)
+            elif value_type == bool:
+                return self.config.getboolean(section, key)
+            else:
+                return self.config.get(section, key)
+        else:
+            return default
+
+    def get_or_set_value(self, key, default=None, value_type=str):
+        """
+        获取值，如果键不存在则设置默认值并返回
+        :param key: 格式为 "section/key" 的键
+        :param default: 键不存在时的默认值，默认为 None
+        :param value_type: 值的类型，默认为字符串类型
+        :return: 获取到的值或默认值
+        """
+        section, key = self._parse_key(key)
+        value = self.value(key=f"{section}/{key}", default=default, value_type=value_type)
+        if value == default:
+            self.set_value(key=f"{section}/{key}", value=default)
+        return value
+    
+    def get_or_set_section(self, section, default: List[Tuple[str,str]], 
+                           force_add=False) -> List[Tuple[str,str]]:
+        """
+        获取或设置 section 的内容。如果 section 为空，则重新设置为默认内容。
+        :param section: 要获取或设置的 section 名称
+        :param default: 默认的 section 内容，默认为 section_dict
+        :param force_add: 是否强制补全default中的所有键
+        :return: section 的内容
+        """
+        if not self.config.has_section(section):
+            self.config.add_section(section)
+            for (key, value) in default:
+                self.config.set(section, str(key), str(value))
+            return default
+        if len(self.config[section]) == 0:
+            for (key, value) in default:
+                self.config.set(section, str(key), str(value))
+            return default
+        if force_add:
+            for (key, value) in default:
+                self.get_or_set_value(f"{section}/{key}", str(value))
+        return list(self.config.items(section))
+
+    def set_value(self, key, value):
+        """
+        设置键值对
+        :param key: 格式为 "section/key" 的键
+        :param value: 要设置的值
+        """
+        section, key = self._parse_key(key)
+        if not self.config.has_section(section):
+            self.config.add_section(section)
+        self.config.set(section, key, str(value))
+        
+    
+    def set_section(self, section, section_value: List[Tuple[str,str]]):
+        """
+        设置 section 的内容。全量替换。假如有重复的键，例如key，改为key, key(2), key(3)...
+        key假如为空字符串，替换为行号的id
+        :param section: 要获取或设置的 section 名称
+        :param section_value: section 内容
+        """
+        # key假如为空字符串，替换为行号的id
+        section_value = [(idv, v[1]) if v[0] == "" else v for (idv, v) in enumerate(section_value)]
+        # 假如有重复的键，例如key，改为key, key(2), key(3)...
+        key_set = set()
+        for (idv, v) in enumerate(section_value):
+            key = v[0]
+            if key not in key_set:
+                key_set.add(key)
+            else:
+                idx = 2
+                while (new_key := key + f"({idx})") in key_set:
+                    idx += 1
+                key_set.add(new_key)
+                section_value[idv] = (new_key, v[1])
+                    
+        if not self.config.has_section(section):
+            self.config.add_section(section)
+            
+        # 遍历并删除每个 option
+        for option in list(self.config[section].keys()):
+            self.config.remove_option(section, option)
+        
+        for (key, value) in section_value:
+            self.set_value(f"{section}/{key}", str(value))
+    
+    def sync(self):
+        """
+        将内存中的配置写入文件
+        """
+        with open(self.file_path, 'w', encoding="utf-8") as f:
+            self.config.write(f)
 
 class Ui_MainWindow(Ui_MainWindow):
     minimum_counter = 0 # 最小化展示窗口有关
@@ -32,9 +170,11 @@ class Ui_MainWindow(Ui_MainWindow):
         # 录像保存位置
         self.replay_path = str(r_path.with_name('replay'))
         # 记录了全局游戏设置
-        self.game_setting_path = str(r_path.with_name('gameSetting.ini'))
+        game_setting_path = str(r_path.with_name('gameSetting.ini'))
+        self.game_setting = IniConfig(game_setting_path)
         # 个人记录，用来弹窗
-        self.record_path = str(r_path.with_name('record.ini'))
+        record_path = str(r_path.with_name('record.ini'))
+        self.record_setting = IniConfig(record_path)
 
 
         self.ico_path = str(r_path.with_name('media').joinpath('cat.ico'))
@@ -65,7 +205,7 @@ class Ui_MainWindow(Ui_MainWindow):
         self.read_or_create_record()
         self.label.setPath(r_path)
         self.label_2.setPath(r_path)
-        _scoreBoardTop, _scoreBoardLeft = self.read_or_create_game_setting()
+        self.read_or_create_game_setting()
         self.initMineArea()
 
 
@@ -77,13 +217,14 @@ class Ui_MainWindow(Ui_MainWindow):
 
         # 记录了计数器的配置，显示哪些指标等等
         score_board_path = str(r_path.with_name('scoreBoardSetting.ini'))
-        self.score_board_manager = gameScoreBoardManager(r_path, score_board_path,
-                                                         self.game_setting_path,
+        self.score_board_setting = IniConfig(score_board_path)
+        self.score_board_manager = gameScoreBoardManager(r_path, self.score_board_setting,
+                                                         self.game_setting,
                                                          self.pixSize, MainWindow)
-        self.score_board_manager.ui.QWidget.move(_scoreBoardTop, _scoreBoardLeft)
+        # self.score_board_manager.ui.QWidget.move(_scoreBoardTop, _scoreBoardLeft)
 
 
-        self.importLEDPic(self.pixSize) # 导入图片
+        # self.importLEDPic() # 导入图片
         # self.label.setPath(r_path)
 
 
@@ -181,79 +322,95 @@ class Ui_MainWindow(Ui_MainWindow):
 
     def reimportLEDPic(self, pixSize):
         # 重新将资源的尺寸缩放到希望的尺寸、比例
-        self.pixmapNum = {key:value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5)) for key,value in self.pixmapNumPix.items()}
-        self.pixmapLEDNum = {key:value.copy().scaled(pixSize, int(pixSize * 1.75)) for key,value in self.pixmapLEDNumPix.items()}
+        if hasattr(self, "pixmapNumPix"):
+            self.pixmapNum = {key:value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5)) 
+                              for key,value in self.pixmapNumPix.items()}
+            self.pixmapLEDNum = {key:value.copy().scaled(pixSize, int(pixSize * 1.75)) 
+                                 for key,value in self.pixmapLEDNumPix.items()}
+        else:
+            self.importLEDPic(pixSize)
 
 
     def readPredefinedBoardPara(self):
         # 从配置中更新出快捷键1, 2, 3, 4、5、6的定义(0是自定义)
-        config = configparser.ConfigParser()
-        config.read(self.game_setting_path, encoding='utf-8')
-        self.predefinedBoardPara[0] = {
-            "game_mode": config.getint('CUSTOM','gamemode'),
-            "row": 8,
-            "column": 8,
-            "pix_size": config.getint('CUSTOM','pixsize'),
-            "mine_num": 10,
-            "board_constraint": config["CUSTOM"]["board_constraint"],
-            "attempt_times_limit": config.getint('CUSTOM','attempt_times_limit'),
-            }
-        self.predefinedBoardPara[1] = {
-            "game_mode": config.getint('BEGINNER','gamemode'),
-            "row": 8,
-            "column": 8,
-            "pix_size": config.getint('BEGINNER','pixsize'),
-            "mine_num": 10,
-            "board_constraint": config["BEGINNER"]["board_constraint"],
-            "attempt_times_limit": config.getint('BEGINNER','attempt_times_limit'),
-            }
-        self.predefinedBoardPara[2] = {
-            "game_mode": config.getint('INTERMEDIATE','gamemode'),
-            "row": 16,
-            "column": 16,
-            "pix_size": config.getint('INTERMEDIATE','pixsize'),
-            "mine_num": 40,
-            "board_constraint": config["INTERMEDIATE"]["board_constraint"],
-            "attempt_times_limit": config.getint('INTERMEDIATE','attempt_times_limit'),
-            }
-        self.predefinedBoardPara[3] = {
-            "game_mode": config.getint('EXPERT','gamemode'),
-            "row": 16,
-            "column": 30,
-            "pix_size": config.getint('EXPERT','pixsize'),
-            "mine_num": 99,
-            "board_constraint": config["EXPERT"]["board_constraint"],
-            "attempt_times_limit": config.getint('EXPERT','attempt_times_limit'),
-            }
-        self.predefinedBoardPara[4] = {
-            "game_mode": config.getint('CUSTOM_PRESET_4','gameMode'),
-            "row": config.getint('CUSTOM_PRESET_4','row'),
-            "column": config.getint('CUSTOM_PRESET_4','column'),
-            "pix_size": config.getint('CUSTOM_PRESET_4','pixSize'),
-            "mine_num": config.getint('CUSTOM_PRESET_4','mineNum'),
-            "board_constraint": config["CUSTOM_PRESET_4"]["board_constraint"],
-            "attempt_times_limit": config.getint('CUSTOM_PRESET_4','attempt_times_limit'),
-            }
+        s = [
+            ("gamemode", 0),
+            ("row", 8),
+            ("column", 8),
+            ("pixsize", 20),
+            ("mine_num", 10),
+            ("board_constraint", ""),
+            ("attempt_times_limit", 100000),
+            ]
+        s = self.game_setting.get_or_set_section("CUSTOM", s, True)
+        self.predefinedBoardPara[0] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        s = [
+            ("gamemode", 0),
+            ("row", 8),
+            ("column", 8),
+            ("pixsize", 20),
+            ("mine_num", 10),
+            ("board_constraint", ""),
+            ("attempt_times_limit", 100000),
+            ]
+        s = self.game_setting.get_or_set_section("BEGINNER", s, True)
+        self.predefinedBoardPara[1] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        s = [
+            ("gamemode", 0),
+            ("row", 16),
+            ("column", 16),
+            ("pixsize", 20),
+            ("mine_num", 40),
+            ("board_constraint", ""),
+            ("attempt_times_limit", 100000),
+            ]
+        s = self.game_setting.get_or_set_section("INTERMEDIATE", s, True)
+        self.predefinedBoardPara[2] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        s = [
+            ("gamemode", 0),
+            ("row", 16),
+            ("column", 30),
+            ("pixsize", 20),
+            ("mine_num", 99),
+            ("board_constraint", ""),
+            ("attempt_times_limit", 100000),
+            ]
+        s = self.game_setting.get_or_set_section("EXPERT", s, True)
+        self.predefinedBoardPara[3] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        s = [
+            ("gamemode", 5),
+            ("row", 16),
+            ("column", 16),
+            ("pixsize", 20),
+            ("mine_num", 72),
+            ("board_constraint", ""),
+            ("attempt_times_limit", 100000),
+            ]
+        s = self.game_setting.get_or_set_section("CUSTOM_PRESET_4", s, True)
+        self.predefinedBoardPara[4] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        s = [
+            ("gamemode", 5),
+            ("row", 16),
+            ("column", 30),
+            ("pixsize", 20),
+            ("mine_num", 120),
+            ("board_constraint", ""),
+            ("attempt_times_limit", 100000),
+            ]
+        s = self.game_setting.get_or_set_section("CUSTOM_PRESET_5", s, True)
+        self.predefinedBoardPara[5] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        s = [
+            ("gamemode", 5),
+            ("row", 24),
+            ("column", 36),
+            ("pixsize", 20),
+            ("mine_num", 200),
+            ("board_constraint", ""),
+            ("attempt_times_limit", 100000),
+            ]
+        s = self.game_setting.get_or_set_section("CUSTOM_PRESET_6", s, True)
+        self.predefinedBoardPara[6] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
 
-        self.predefinedBoardPara[5] = {
-            "game_mode": config.getint('CUSTOM_PRESET_5','gameMode'),
-            "row": config.getint('CUSTOM_PRESET_5','row'),
-            "column": config.getint('CUSTOM_PRESET_5','column'),
-            "pix_size": config.getint('CUSTOM_PRESET_5','pixSize'),
-            "mine_num": config.getint('CUSTOM_PRESET_5','mineNum'),
-            "board_constraint": config["CUSTOM_PRESET_5"]["board_constraint"],
-            "attempt_times_limit": config.getint('CUSTOM_PRESET_5','attempt_times_limit'),
-            }
-
-        self.predefinedBoardPara[6] = {
-            "game_mode": config.getint('CUSTOM_PRESET_6','gameMode'),
-            "row": config.getint('CUSTOM_PRESET_6','row'),
-            "column": config.getint('CUSTOM_PRESET_6','column'),
-            "pix_size": config.getint('CUSTOM_PRESET_6','pixSize'),
-            "mine_num": config.getint('CUSTOM_PRESET_6','mineNum'),
-            "board_constraint": config["CUSTOM_PRESET_6"]["board_constraint"],
-            "attempt_times_limit": config.getint('CUSTOM_PRESET_6','attempt_times_limit'),
-            }
 
     def minimumWindow(self):
         # 最小化展示窗口，并固定尺寸
@@ -286,267 +443,99 @@ class Ui_MainWindow(Ui_MainWindow):
             app.removeTranslator(self.trans)
             self.retranslateUi(self.mainWindow)
             self.score_board_manager.retranslateUi(self.score_board_manager.ui.QWidget)
-        mm.updata_ini(self.game_setting_path, [("DEFAULT", "language", language)])
+        self.game_setting.set_value("DEFAULT/language", language)
+        self.game_setting.sync()
+        # mm.updata_ini(self.game_setting_path, [("DEFAULT", "language", language)])
         self.language = language
 
 
-
     def read_or_create_game_setting(self):
-        config = configparser.ConfigParser()
-        if config.read(self.game_setting_path, encoding='utf-8'):
-            self.mainWindow.setWindowOpacity((config.getint('DEFAULT', 'transparency') + 1) / 100)
-            # self._pixSize = config.getint('DEFAULT', 'pixSize')
-            self.mainWindow.move(config.getint('DEFAULT', 'mainWinTop'), config.getint('DEFAULT', 'mainWinLeft'))
-            # self.score_board_manager.ui.QWidget.move(config.getint('DEFAULT', 'scoreBoardTop'),
-            #                                          config.getint('DEFAULT', 'scoreBoardLeft'))
-            _scoreBoardTop = config.getint('DEFAULT', 'scoreBoardTop')
-            _scoreBoardLeft = config.getint('DEFAULT', 'scoreBoardLeft')
-            self.row = config.getint("DEFAULT", "row")
-            self.column = config.getint("DEFAULT", "column")
-
-            # self.label.set_rcp(self.row, self.column, self.pixSize)
-
-            self.mineNum = config.getint("DEFAULT", "mineNum")
-            # self.gameMode = config.getint('DEFAULT', 'gameMode')
-            # 完成度低于该百分比炸雷自动重开
-            if config.getboolean("DEFAULT", "allow_auto_replay"):
-                self.auto_replay = config.getint("DEFAULT", "auto_replay")
-            else:
-                self.auto_replay = -1
-            self.auto_notification = config.getboolean("DEFAULT", "auto_notification")
-
-            self.player_identifier = config["DEFAULT"]["player_identifier"]
-            self.race_identifier = config["DEFAULT"]["race_identifier"]
-            self.unique_identifier = config["DEFAULT"]["unique_identifier"]
-            self.country = config["DEFAULT"]["country"]
-            self.autosave_video = config.getboolean("DEFAULT", "autosave_video")
-            self.filter_forever = config.getboolean("DEFAULT", "filter_forever")
-            self.language = config["DEFAULT"]["language"]
-            # self.auto_show_score = config.getint("DEFAULT", "auto_show_score") # 自动弹成绩
-            self.end_then_flag = config.getboolean("DEFAULT", "end_then_flag") # 游戏结束后自动标雷
-            self.cursor_limit = config.getboolean("DEFAULT", "cursor_limit")
-            if (self.row, self.column, self.mineNum) == (8, 8, 10):
-                self._pixSize = config.getint('BEGINNER', 'pixsize')
-                self.label.set_rcp(self.row, self.column, self.pixSize)
-                self.gameMode = config.getint('BEGINNER', 'gamemode')
-                self.board_constraint = config["BEGINNER"]["board_constraint"]
-                self.attempt_times_limit = config.getint('BEGINNER', 'attempt_times_limit')
-            elif (self.row, self.column, self.mineNum) == (16, 16, 40):
-                self._pixSize = config.getint('INTERMEDIATE', 'pixsize')
-                self.label.set_rcp(self.row, self.column, self.pixSize)
-                self.gameMode = config.getint('INTERMEDIATE', 'gamemode')
-                self.board_constraint = config["INTERMEDIATE"]["board_constraint"]
-                self.attempt_times_limit = config.getint('INTERMEDIATE', 'attempt_times_limit')
-            elif (self.row, self.column, self.mineNum) == (16, 30, 99):
-                self._pixSize = config.getint('EXPERT', 'pixsize')
-                self.label.set_rcp(self.row, self.column, self.pixSize)
-                self.gameMode = config.getint('EXPERT', 'gamemode')
-                self.board_constraint = config["EXPERT"]["board_constraint"]
-                self.attempt_times_limit = config.getint('EXPERT', 'attempt_times_limit')
-            else:
-                self._pixSize = config.getint('CUSTOM', 'pixsize')
-                self.label.set_rcp(self.row, self.column, self.pixSize)
-                self.gameMode = config.getint('CUSTOM', 'gamemode')
-                self.board_constraint = config["CUSTOM"]["board_constraint"]
-                self.attempt_times_limit = config.getint('CUSTOM', 'attempt_times_limit')
-        else:
-            # 找不到配置文件就初始化
-            self.min3BV = 100
-            self.max3BV = 381
-            self.mainWindow.setWindowOpacity(1)
-            self._pixSize = 20
-            self.mainWindow.move(100, 200)
-            _scoreBoardTop = 100
-            _scoreBoardLeft = 100
-            self.row = 16
-            self.column = 30
-            self.label.set_rcp(self.row, self.column, self.pixSize)
-            self.gameMode = 0
-            self.mineNum = 99
-            self.auto_replay = 30
-            self.allow_auto_replay = False
-            self.auto_notification = True
-            self.allow_min3BV = False
-            self.allow_max3BV = False
-            self.player_identifier = "匿名玩家(anonymous player)"
-            self.race_identifier = ""
-            self.unique_identifier = ""
-            self.country = ""
-            self.autosave_video = True
-            self.filter_forever = False
-            self.end_then_flag = True
-            self.cursor_limit = False
-            self.board_constraint = ""
-            self.attempt_times_limit = 100000
-            if environ.get('LANG', None) == "zh_CN":
-                self.language = "zh_CN"
-            else:
-                self.language = "en_US"
-            config["DEFAULT"] = {'transparency': 100,
-                                 'mainWinTop': 100,
-                                 'mainWinLeft': 200,
-                                 'scoreBoardTop': 100,
-                                 'scoreBoardLeft': 100,
-                                 'row': 16,
-                                 'column': 30,
-                                 'mineNum': 99,
-                                 "auto_replay": 30,
-                                 "allow_auto_replay": False,
-                                 "auto_notification": True,
-                                 "player_identifier": "匿名玩家(anonymous player)",
-                                 "race_identifier": "",
-                                 "unique_identifier": "",
-                                 "country": "",
-                                 "autosave_video": True,
-                                 "filter_forever": False,
-                                 "end_then_flag": True,
-                                 "cursor_limit": False,
-                                 "language": self.language,
-                                 }
-            config["BEGINNER"] = {"gameMode": 0,
-                                  "pixSize": 20,
-                                  "board_constraint": "",
-                                  "attempt_times_limit": 100000,
-                                  }
-            config["INTERMEDIATE"] = {"gameMode": 0,
-                                      "pixSize": 20,
-                                      "board_constraint": "",
-                                      "attempt_times_limit": 100000,
-                                      }
-            config["EXPERT"] = {"gameMode": 0,
-                                "pixSize": 20,
-                                "board_constraint": "",
-                                "attempt_times_limit": 100000,
-                                }
-            config["CUSTOM"] = {"gameMode": 0,
-                                "pixSize": 20,
-                                "board_constraint": "",
-                                "attempt_times_limit": 100000,
-                                 }
-            config["CUSTOM_PRESET_4"] = {'row': 16,
-                                         'column': 16,
-                                         'minenum': 72,
-                                         'gameMode': 5,
-                                         'pixSize': 20,
-                                         "board_constraint": "",
-                                         "attempt_times_limit": 100000,
-                                         }
-            config["CUSTOM_PRESET_5"] = {'row': 16,
-                                         'column': 30,
-                                         'minenum': 120,
-                                         'gamemode': 5,
-                                         'pixsize': 20,
-                                         "board_constraint": "",
-                                         "attempt_times_limit": 100000,
-                                         }
-            config["CUSTOM_PRESET_6"] = {'row': 24,
-                                         'column': 36,
-                                         'minenum': 200,
-                                         'gamemode': 5,
-                                         'pixsize': 20,
-                                         "board_constraint": "",
-                                         "attempt_times_limit": 100000,
-                                         }
-            with open(self.game_setting_path, 'w', encoding='utf-8') as configfile:
-                config.write(configfile)  # 将对象写入文件
-        self.label_2.reloadFace(self.pixSize)
-        return _scoreBoardTop, _scoreBoardLeft
+        '''
+        读取或创建游戏设置。
+        '''
+        transparency = self.game_setting.get_or_set_value('DEFAULT/transparency', 100, int)
+        self.mainWindow.setWindowOpacity(transparency / 100)
+        mainWinTop = self.game_setting.get_or_set_value("DEFAULT/mainwintop", 100, int)
+        mainWinLeft = self.game_setting.get_or_set_value("DEFAULT/mainwinleft", 200, int)
+        self.mainWindow.move(mainWinTop, mainWinLeft)
+        self.row = self.game_setting.get_or_set_value("DEFAULT/row", 16, int)
+        self.column = self.game_setting.get_or_set_value("DEFAULT/column", 30, int)
+        self.mineNum = self.game_setting.get_or_set_value("DEFAULT/mineNum", 99, int)
+        self.mineUnFlagedNum = self.mineNum
+        # “自动重开比例”，大于等于该比例时，不自动重开。负数表示禁用。0相当于禁用，但可以编辑。
+        self.auto_replay = self.game_setting.get_or_set_value("DEFAULT/auto_replay", 30, int)
+        # self.allow_auto_replay = self.game_setting.get_or_set_value("DEFAULT/allow_auto_replay", True, bool)
+        self.auto_notification = self.game_setting.get_or_set_value("DEFAULT/auto_notification", True, bool)
+        self.player_identifier = self.game_setting.get_or_set_value("DEFAULT/player_identifier", "匿名玩家(anonymous player)", str)
+        self.race_identifier = self.game_setting.get_or_set_value("DEFAULT/race_identifier", "", str)
+        self.unique_identifier = self.game_setting.get_or_set_value("DEFAULT/unique_identifier", "", str)
+        self.country = self.game_setting.get_or_set_value("DEFAULT/country", "", str)
+        self.autosave_video = self.game_setting.get_or_set_value("DEFAULT/autosave_video", True, bool)
+        self.filter_forever = self.game_setting.get_or_set_value("DEFAULT/filter_forever", False, bool)
+        self.language = self.game_setting.get_or_set_value("DEFAULT/language", "en_US", str)
+        self.end_then_flag = self.game_setting.get_or_set_value("DEFAULT/end_then_flag", True, bool)
+        self.cursor_limit = self.game_setting.get_or_set_value("DEFAULT/cursor_limit", False, bool)
+        match (self.row, self.column, self.mineNum):
+            case (8, 8, 10):
+                level = "BEGINNER"
+            case (16, 16, 40):
+                level = "INTERMEDIATE"
+            case (16, 30, 99):
+                level = "EXPERT"
+            case _:
+                level = "CUSTOM"
+        self.pixSize = self.game_setting.get_or_set_value(f"{level}/pixsize", 20, int)
+        self.label.set_rcp(self.row, self.column, self.pixSize)
+        self.gameMode = self.game_setting.get_or_set_value(f"{level}/gamemode", 0, int)
+        self.board_constraint = self.game_setting.get_or_set_value(f"{level}/board_constraint", "", str)
+        self.attempt_times_limit = self.game_setting.get_or_set_value(f"{level}/attempt_times_limit", 100000, int)
+        self.game_setting.sync()
 
     def read_or_create_record(self):
-        config = configparser.ConfigParser()
         record_key_name_list = ["BFLAG", "BNF", "BWIN7", "BSS", "BWS", "BCS", "BTBS", "BSG",
                                 "BWG", "IFLAG", "INF", "IWIN7", "ISS", "IWS", "ICS", "ITBS",
                                 "ISG", "IWG", "EFLAG", "ENF", "EWIN7", "ESS", "EWS", "ECS",
                                 "ETBS", "ESG", "EWG"]
         self.record_key_name_list = record_key_name_list + ["BEGINNER", "INTERMEDIATE", "EXPERT"]
-        if config.read(self.record_path):
-            self.record = {}
-            for record_key_name in record_key_name_list:
-                self.record[record_key_name] = {'rtime': config.getfloat(record_key_name, 'rtime'),
-                                       'bbbv_s': config.getfloat(record_key_name, 'bbbv_s'),
-                                       'stnb': config.getfloat(record_key_name, 'stnb'),
-                                       'ioe': config.getfloat(record_key_name, 'ioe'),
-                                       'path': config.getfloat(record_key_name, 'path'),
-                                       'rqp': config.getfloat(record_key_name, 'rqp'),
-                                       }
-            self.record["BEGINNER"] = dict(zip(map(lambda x: str(x), range(1, 55)),
-                                               map(lambda x: config.\
-                                                   getfloat('BEGINNER', str(x)),
-                                                   range(1, 55))))
-            self.record["INTERMEDIATE"] = dict(zip(map(lambda x: str(x), range(1, 217)),
-                                               map(lambda x: config.\
-                                                   getfloat('INTERMEDIATE', str(x)),
-                                                   range(1, 217))))
-            self.record["EXPERT"] = dict(zip(map(lambda x: str(x), range(1, 382)),
-                                               map(lambda x: config.\
-                                                   getfloat('EXPERT', str(x)),
-                                                   range(1, 382))))
-        else:
-            # 找不到配置文件就初始化
-            # 只有标准模式记录pb，且分nf/flag
-            self.record = {}
-            record_init_dict = {'rtime': 999.999,
-                                'bbbv_s': 0.000,
-                                'stnb': 0.000,
-                                'ioe': 0.000,
-                                'path': 999999.999,
-                                'rqp': 999999.999,
-                                }
-            for record_key_name in record_key_name_list:
-                self.record[record_key_name] = record_init_dict.copy()
-
-            self.record["BEGINNER"] = dict.fromkeys(map(lambda x: str(x), range(1, 55)), 999.999)
-            self.record["INTERMEDIATE"] = dict.fromkeys(map(lambda x: str(x), range(1, 217)), 999.999)
-            self.record["EXPERT"] = dict.fromkeys(map(lambda x: str(x), range(1, 382)), 999.999)
-            config["BFLAG"] = self.record["BFLAG"]
-            config["BNF"] = self.record["BNF"]
-            config["BWIN7"] = self.record["BWIN7"]
-            config["BSS"] = self.record["BSS"]
-            config["BWS"] = self.record["BWS"]
-            config["BCS"] = self.record["BCS"]
-            config["BTBS"] = self.record["BTBS"]
-            config["BSG"] = self.record["BSG"]
-            config["BWG"] = self.record["BWG"]
-
-            config["IFLAG"] = self.record["IFLAG"]
-            config["INF"] = self.record["INF"]
-            config["IWIN7"] = self.record["IWIN7"]
-            config["ISS"] = self.record["ISS"]
-            config["IWS"] = self.record["IWS"]
-            config["ICS"] = self.record["ICS"]
-            config["ITBS"] = self.record["ITBS"]
-            config["ISG"] = self.record["ISG"]
-            config["IWG"] = self.record["IWG"]
-
-            config["EFLAG"] = self.record["EFLAG"]
-            config["ENF"] = self.record["ENF"]
-            config["EWIN7"] = self.record["EWIN7"]
-            config["ESS"] = self.record["ESS"]
-            config["EWS"] = self.record["EWS"]
-            config["ECS"] = self.record["ECS"]
-            config["ETBS"] = self.record["ETBS"]
-            config["ESG"] = self.record["ESG"]
-            config["EWG"] = self.record["EWG"]
-
-            config["BEGINNER"] = self.record["BEGINNER"]
-            config["INTERMEDIATE"] = self.record["INTERMEDIATE"]
-            config["EXPERT"] = self.record["EXPERT"]
-            with open(self.record_path, 'w') as configfile:
-                config.write(configfile)  # 将对象写入文件
+        # self.record = {}
+        record_norm = [
+            ('rtime', 999.999),
+            ('bbbv_s', 0.000),
+            ('stnb', 0.000),
+            ('ioe', 0.000),
+            ('path', 999999.999),
+            ('rqp', 999999.999),
+            ]
+        for k in record_key_name_list:
+            self.record_setting.get_or_set_section(k, record_norm, True)
+        self.record_setting.get_or_set_section("BEGINNER", 
+                                               [(i, 999.999) for i in range(1, 55)],
+                                               True)
+        self.record_setting.get_or_set_section("INTERMEDIATE",
+                                               [(i, 999.999) for i in range(1, 217)], 
+                                               True)
+        self.record_setting.get_or_set_section("EXPERT", 
+                                               [(i, 999.999) for i in range(1, 382)], 
+                                               True)
+        self.record_setting.sync()
 
     def set_country_flag(self, country = None):
         if country == None:
             country = self.country
         # 设置右下角国旗图案
         if country not in country_name:
-            self.label_flag.clear()
-            self.label_flag.update()
+            file_path = self.r_path.with_name('media') / (country.lower() + ".svg")
+            if os.path.exists(file_path):
+                flag_name = file_path
+            else:
+                self.label_flag.clear()
+                self.label_flag.update()
+                return
         else:
-            fn = country_name[country]
-            pixmap = QPixmap(str(self.r_path.with_name('media') / \
-                                 (fn + ".svg"))).scaled(51, 31)
-            self.label_flag.setPixmap(pixmap)
-            self.label_flag.update()
+            flag_name = self.r_path.with_name('media') / (country_name[country] + ".svg")
+        pixmap = QPixmap(str(flag_name)).scaled(51, 31)
+        self.label_flag.setPixmap(pixmap)
+        self.label_flag.update()
 
 
 

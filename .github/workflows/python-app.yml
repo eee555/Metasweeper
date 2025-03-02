@@ -83,7 +83,7 @@ jobs:
 
     - name: Package with PyInstaller
       run: |
-        pyinstaller -i cat.ico -w -y --clean --add-data "./media/*;./media" --add-data "./de_DE.qm;." --add-data "./pl_PL.qm;." --add-data "./en_US.qm;." -p src src/main.py -n metaminesweeper
+        pyinstaller -i "./media/cat.ico" -w -y --clean --add-data "./media/*;./media" --add-data "./de_DE.qm;." --add-data "./pl_PL.qm;." --add-data "./en_US.qm;." -p src src/main.py -n metaminesweeper
 
     - name: Move media and qm file
       run: |

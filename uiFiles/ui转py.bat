@@ -16,4 +16,5 @@ copy /y ui_defined_parameter.py ..\src\ui\ui_defined_parameter.py
 copy /y ui_gameSettingShortcuts.py ..\src\ui\ui_gameSettingShortcuts.py
 copy /y ui_record_pop.py ..\src\ui\ui_record_pop.py
 copy /y ui_about.py ..\src\ui\ui_about.py
+copy /y ui_video_control.py ..\src\ui\ui_video_control.py
 pause

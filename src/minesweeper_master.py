@@ -412,12 +412,12 @@ def debug_ms_board(ms_board):
 
 
 
-def updata_ini(file_name: str, data):
-    conf = configparser.ConfigParser()
-    conf.read(file_name, encoding='utf-8')
-    for i in data:
-        conf.set(i[0], i[1], str(i[2]))
-    conf.write(open(file_name, "w", encoding='utf-8'))
+# def updata_ini(file_name: str, data):
+#     conf = configparser.ConfigParser()
+#     conf.read(file_name, encoding='utf-8')
+#     for i in data:
+#         conf.set(i[0], i[1], str(i[2]))
+#     conf.write(open(file_name, "w", encoding='utf-8'))
 
 def main():
     # # 测试枚举法判雷速度算例

@@ -98,7 +98,6 @@ class CaptureScreen(QDialog):
         byteCount = image.byteCount()
         s = Struct(str(byteCount) + 'B')
         self.data = s.unpack(bits[0:])
-        
         self.success_flag = True
         try:
             self.board = ms_toollib.OBR_board(self.data, self.height, self.width)

@@ -9,7 +9,7 @@
 
 ## 简介
 
-**元扫雷**是由专业玩家玩家开发的扫雷游戏。这个项目并非简单重复已有的工作，而是集中了一批扫雷游戏的现代化设计。元扫雷所生成的游戏录像得到[开源扫雷网](https://openms.top)的承认并参与世界排名。
+**元扫雷**是由专业玩家开发的扫雷游戏。这个项目并非简单重复已有的工作，而是集中了一批扫雷游戏的现代化设计。元扫雷所生成的游戏录像得到[开源扫雷网](https://openms.top)的承认并参与世界排名。
 
 优势：
 
@@ -133,6 +133,8 @@ Currently in the lengthy development phase, with updates approximately every 1 t
 [https://twitter.com/RustRepos/status/1636837781765799940](https://twitter.com/RustRepos/status/1636837781765799940)
 
 开源扫雷网官方扫雷软件[https://openms.top](https://openms.top)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=eee555/Metasweeper&type=Date)](https://star-history.com/?repos=eee555/Metasweeper#repos=eee555/Metasweeper&eee555/Metasweeper&Date)
 
 ## 赞助
 感谢您考虑支持我们的开源项目，赞助时请备注您的称呼（或Github主页）。您的赞助将有助于项目的持续发展和改进，使我们能够继续提高软件的质量（owner许诺向所有contributor按获得赞助时commit数量的比例分配赞助得到的收入）。 

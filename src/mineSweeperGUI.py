@@ -1,8 +1,8 @@
 from PyQt5 import QtCore
 from PyQt5.QtCore import QTimer, QCoreApplication, Qt, QRect
-from PyQt5.QtGui import QPixmap, QKeySequence
+from PyQt5.QtGui import QPixmap
 # from PyQt5.QtWidgets import QLineEdit, QInputDialog, QShortcut
-from PyQt5.QtWidgets import QApplication, QFileDialog
+from PyQt5.QtWidgets import QApplication, QFileDialog, QWidget
 import gameDefinedParameter
 import superGUI, gameAbout, gameSettings, gameSettingShortcuts,\
     captureScreen, mine_num_bar, videoControl, gameRecordPop
@@ -10,14 +10,14 @@ from CheckUpdateGui import CheckUpdateGui
 from githubApi import GitHub, SourceManager
 import minesweeper_master as mm
 import ms_toollib as ms
-import configparser
+# import configparser
 # from pathlib import Path
 # import time
 import os
 import ctypes
 import hashlib, uuid
 # from PyQt5.QtWidgets import QApplication
-# from country_name import country_name
+from country_name import country_name
 import metaminesweeper_checksum
 from mainWindowGUI import MainWindow
 
@@ -34,12 +34,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.time_10ms: int = 0 # 已毫秒为单位的游戏时间，全局统一的
         self.showTime(self.time_10ms // 100)
         self.timer_10ms = QTimer()
-        # 开了高精度反而精度降低
-        # self.timer_10ms.setTimerType(Qt.PreciseTimer)
         self.timer_10ms.setInterval(10)  # 10毫秒回调一次的定时器
         self.timer_10ms.timeout.connect(self.timeCount)
-        # text4 = '1'
-        # self.label_info.setText(text4)
+        # 开了高精度反而精度降低
+        self.timer_10ms.setTimerType(Qt.PreciseTimer)
         self.mineUnFlagedNum = self.mineNum  # 没有标出的雷，显示在左上角
         self.showMineNum(self.mineUnFlagedNum)    # 在左上角画雷数
 
@@ -70,8 +68,8 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.polish_action.triggered.connect(lambda: self.trans_language("pl_PL"))
         self.german_action.triggered.connect(lambda: self.trans_language("de_DE"))
 
-        config = configparser.ConfigParser()
-        config.read(self.game_setting_path, encoding='utf-8')
+        # config = configparser.ConfigParser()
+        # config.read(self.game_setting_path, encoding='utf-8')
 
         if (self.row, self.column, self.mineNum) == (8, 8, 10):
             self.actionChecked('B')
@@ -133,34 +131,36 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     @pixSize.setter
     def pixSize(self, pixSize):
         pixSize = max(5, pixSize)
-        if pixSize == self._pixSize:
+        pixSize = min(255, pixSize)
+        pixSize = min(32767//self.column, pixSize)
+        pixSize = min(32767//self.row, pixSize)
+        if hasattr(self, "_pixSize") and pixSize == self._pixSize:
             return
         self.label.set_rcp(self.row, self.column, pixSize)
         self.label.reloadCellPic(pixSize)
         if (self.row, self.column, self.mineNum) == (8, 8, 10):
-            self.predefinedBoardPara[1]['pix_size'] = pixSize
+            self.predefinedBoardPara[1]['pixsize'] = pixSize
         elif (self.row, self.column, self.mineNum) == (16, 16, 40):
-            self.predefinedBoardPara[2]['pix_size'] = pixSize
+            self.predefinedBoardPara[2]['pixsize'] = pixSize
         elif (self.row, self.column, self.mineNum) == (16, 30, 99):
-            self.predefinedBoardPara[3]['pix_size'] = pixSize
+            self.predefinedBoardPara[3]['pixsize'] = pixSize
         else:
-            self.predefinedBoardPara[0]['pix_size'] = pixSize
-            
-        self.reimportLEDPic(pixSize)
-        
+            self.predefinedBoardPara[0]['pixsize'] = pixSize
+
         self.label.setMinimumSize(QtCore.QSize(pixSize * self.column + 8, pixSize * self.row + 8))
         self.label.setMaximumSize(QtCore.QSize(pixSize * self.column + 8, pixSize * self.row + 8))
         # self.label.setFixedSize(QtCore.QSize(self.pixSize*self.column + 8, self.pixSize*self.row + 8))
 
+        self.reimportLEDPic(pixSize) # 重新导入图片，无磁盘io
         self.label_2.reloadFace(pixSize)
         self.set_face(14)
         self.showMineNum(self.mineUnFlagedNum)
         self.showTime(0)
-        if pixSize < self._pixSize:
+        if hasattr(self, "_pixSize") and pixSize < self._pixSize:
             self._pixSize = pixSize
             self.minimumWindow()
-        else:
-            self._pixSize = pixSize
+            return
+        self._pixSize = pixSize
 
     @property
     def gameMode(self):
@@ -403,6 +403,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
                     self.start_time_unix_2 = QtCore.QDateTime.currentDateTime().\
                                                 toMSecsSinceEpoch()
                     self.timer_10ms.start()
+                    # 禁用双击修改指标名称公式
                     self.score_board_manager.editing_row = -2
                     
                 self.label.ms_board.step('lr', (i, j))
@@ -683,27 +684,27 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             
             self.label.ms_board.software = superGUI.version
             self.label.ms_board.mode = self.gameMode
-            self.label.ms_board.player_identifier = self.player_identifier.encode( "UTF-8" )
-            self.label.ms_board.race_identifier = self.race_identifier.encode( "UTF-8" )
-            self.label.ms_board.uniqueness_identifier = self.unique_identifier.encode( "UTF-8" )
-            self.label.ms_board.country = self.country.encode( "UTF-8" )
+            self.label.ms_board.player_identifier = self.player_identifier
+            self.label.ms_board.race_identifier = self.race_identifier
+            self.label.ms_board.uniqueness_identifier = self.unique_identifier
+            self.label.ms_board.country = "XX" if not self.country else country_name[self.country].upper()
             self.label.ms_board.device_uuid = hashlib.md5(bytes(str(uuid.getnode()).encode())).hexdigest().encode( "UTF-8" )
     
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             # 补上校验值
             checksum = self.checksum_guard.get_checksum(self.label.ms_board.raw_data[:-1])
-            self.label.ms_board.checksum = checksum
+            self.label.ms_board.checksum_evf_v4 = checksum
             return
         elif isinstance(self.label.ms_board, ms.EvfVideo):
             return
         elif isinstance(self.label.ms_board, ms.AvfVideo):
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             return
         elif isinstance(self.label.ms_board, ms.MvfVideo):
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             return
         elif isinstance(self.label.ms_board, ms.RmvVideo):
-            self.label.ms_board.generate_evf_v3_raw_data()
+            self.label.ms_board.generate_evf_v4_raw_data()
             return
 
 
@@ -714,26 +715,28 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         if not os.path.exists(self.replay_path):
             os.mkdir(self.replay_path)
 
-        if (self.row, self.column, self.mineNum) == (8, 8, 10):
+        if (self.label.ms_board.row, self.label.ms_board.column, self.label.ms_board.mine_num) == (8, 8, 10):
             filename_level = "b_"
-        elif (self.row, self.column, self.mineNum) == (16, 16, 40):
+        elif (self.label.ms_board.row, self.label.ms_board.column, self.label.ms_board.mine_num) == (16, 16, 40):
             filename_level = "i_"
-        elif (self.row, self.column, self.mineNum) == (16, 30, 99):
+        elif (self.label.ms_board.row, self.label.ms_board.column, self.label.ms_board.mine_num) == (16, 30, 99):
             filename_level = "e_"
         else:
             filename_level = "c_"
+        if self.game_state == "display" or self.game_state == "showdisplay":
+            self.label.ms_board.current_time = 999999.9
         file_name = self.replay_path + '\\' + filename_level +\
-                         str(self.gameMode) + '_' +\
+                         f'{self.label.ms_board.mode}' + '_' +\
                              f'{self.label.ms_board.rtime:.3f}' +\
                                  '_' + f'{self.label.ms_board.bbbv}' +\
                                      '_' + f'{self.label.ms_board.bbbv_s:.3f}' +\
-                                         '_' + bytes(self.label.ms_board.player_identifier).decode()
+                                         '_' + self.label.ms_board.player_identifier
         
         if not self.label.ms_board.is_completed:
             file_name += "_fail"
         if not self.label.ms_board.is_fair:
             file_name += "_cheat"
-        if bytes(self.label.ms_board.software).decode()[0] != "元":
+        if self.label.ms_board.software[0] != "元":
             file_name += "_trans"
         elif not self.checksum_module_ok():
             file_name += "_fake"
@@ -752,7 +755,8 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
 
         self.set_face(16)
 
-        if self.label.ms_board.bbbv_solved / self.label.ms_board.bbbv * 100 <= self.auto_replay:
+        # “自动重开比例”，大于等于该比例时，不自动重开。负数表示禁用。0相当于禁用，但可以编辑。
+        if self.label.ms_board.bbbv_solved / self.label.ms_board.bbbv * 100 < self.auto_replay:
             self.gameRestart()
         else:
             self.gameFinished()
@@ -776,7 +780,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             record_key = "E"
             LNF = "ENF"
         else:
-            raise RuntimeError('没有定义的难度代码')
+            raise RuntimeError()
 
         _translate = QtCore.QCoreApplication.translate
 
@@ -784,7 +788,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         if self.gameMode == 0:
             record_key += "FLAG"
             mode_text = _translate("Form", "标准")
-            if b.right == 0:
+            if b.rce == 0:
                 mode_text = _translate("Form", "标准（盲扫）")
             else:
                 mode_text = _translate("Form", "标准")
@@ -810,72 +814,78 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             record_key += "WG"
             mode_text = _translate("Form", "弱可猜")
         else:
-            raise RuntimeError('没有定义的模式代码')
+            raise RuntimeError()
 
         
-        if b.rtime < self.record[record_key]["rtime"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["rtime"] = b.rtime
-                self.record[LNF]["rtime"] = b.rtime
+        if b.rtime < self.record_setting.value(f"{record_key}/rtime", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/rtime", b.rtime)
+                self.record_setting.set_value(f"{LNF}/rtime", b.rtime)
             else:
-                self.record[record_key]["rtime"] = b.rtime
-        elif b.right == 0 and self.gameMode == 0 and b.rtime < self.record[LNF]["rtime"]:
-            self.record[LNF]["rtime"] = b.rtime
+                self.record_setting.set_value(f"{record_key}/rtime", b.rtime)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.rtime < self.record_setting.value(f"{LNF}/rtime", None, float):
+            self.record_setting.set_value(f"{LNF}/rtime", b.rtime)
             nf_items.append(1)
         else:
             del_items.append(1)
-        if b.bbbv_s > self.record[record_key]["bbbv_s"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["bbbv_s"] = b.bbbv_s
-                self.record[LNF]["bbbv_s"] = b.bbbv_s
+        if b.bbbv_s > self.record_setting.value(f"{record_key}/bbbv_s", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/bbbv_s", b.bbbv_s)
+                self.record_setting.set_value(f"{LNF}/bbbv_s", b.bbbv_s)
             else:
-                self.record[record_key]["bbbv_s"] = b.bbbv_s
-        elif b.right == 0 and self.gameMode == 0 and b.bbbv_s > self.record[LNF]["bbbv_s"]:
-            self.record[LNF]["bbbv_s"] = b.bbbv_s
+                self.record_setting.set_value(f"{record_key}/bbbv_s", b.bbbv_s)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.bbbv_s > self.record_setting.value(f"{LNF}/bbbv_s", None, float):
+            self.record_setting.set_value(f"{LNF}/bbbv_s", b.bbbv_s)
             nf_items.append(3)
         else:
             del_items.append(3)
-        if b.stnb > self.record[record_key]["stnb"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["stnb"] = b.stnb
-                self.record[LNF]["stnb"] = b.stnb
+        if b.stnb > self.record_setting.value(f"{record_key}/stnb", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/stnb", b.stnb)
+                self.record_setting.set_value(f"{LNF}/stnb", b.stnb)
             else:
-                self.record[record_key]["stnb"] = b.stnb
-        elif b.right == 0 and self.gameMode == 0 and b.stnb > self.record[LNF]["stnb"]:
-            self.record[LNF]["stnb"] = b.stnb
+                self.record_setting.set_value(f"{record_key}/stnb", b.stnb)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.stnb > self.record_setting.value(f"{LNF}/stnb", None, float):
+            self.record_setting.set_value(f"{LNF}/stnb", b.stnb)
             nf_items.append(5)
         else:
             del_items.append(5)
-        if b.ioe > self.record[record_key]["ioe"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["ioe"] = b.ioe
-                self.record[LNF]["ioe"] = b.ioe
+        if b.ioe > self.record_setting.value(f"{record_key}/ioe", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/ioe", b.ioe)
+                self.record_setting.set_value(f"{LNF}/ioe", b.ioe)
             else:
-                self.record[record_key]["ioe"] = b.ioe
-        elif b.right == 0 and self.gameMode == 0 and b.ioe > self.record[LNF]["ioe"]:
-            self.record[LNF]["ioe"] = b.ioe
+                self.record_setting.set_value(f"{record_key}/ioe", b.ioe)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.ioe > self.record_setting.value(f"{LNF}/ioe", None, float):
+            self.record_setting.set_value(f"{LNF}/ioe", b.ioe)
             nf_items.append(7)
         else:
             del_items.append(7)
-        if b.path < self.record[record_key]["path"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["path"] = b.path
-                self.record[LNF]["path"] = b.path
+        if b.path < self.record_setting.value(f"{record_key}/path", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/path", b.path)
+                self.record_setting.set_value(f"{LNF}/path", b.path)
             else:
-                self.record[record_key]["path"] = b.path
-        elif b.right == 0 and self.gameMode == 0 and b.path < self.record[LNF]["path"]:
-            self.record[LNF]["path"] = b.path
+                self.record_setting.set_value(f"{record_key}/path", b.path)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.path < self.record_setting.value(f"{LNF}/path", None, float):
+            self.record_setting.set_value(f"{LNF}/path", b.path)
             nf_items.append(9)
         else:
             del_items.append(9)
-        if b.rqp < self.record[record_key]["rqp"]:
-            if b.right == 0 and self.gameMode == 0:
-                self.record[record_key]["rqp"] = b.rqp
-                self.record[LNF]["rqp"] = b.rqp
+        if b.rqp < self.record_setting.value(f"{record_key}/rqp", None, float):
+            if b.rce == 0 and self.gameMode == 0:
+                self.record_setting.set_value(f"{record_key}/rqp", b.rqp)
+                self.record_setting.set_value(f"{LNF}/rqp", b.rqp)
             else:
-                self.record[record_key]["rqp"] = b.rqp
-        elif b.right == 0 and self.gameMode == 0 and b.rqp < self.record[LNF]["rqp"]:
-            self.record[LNF]["rqp"] = b.rqp
+                self.record_setting.set_value(f"{record_key}/rqp", b.rqp)
+        elif b.rce == 0 and self.gameMode == 0 and\
+            b.rqp < self.record_setting.value(f"{LNF}/rqp", None, float):
+            self.record_setting.set_value(f"{LNF}/rqp", b.rqp)
             nf_items.append(11)
         else:
             del_items.append(11)
@@ -883,25 +893,25 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         # pb相关的弹窗。仅高级（不分FL还是NF）
         if self.gameMode == 0:
             if b.level == 3:
-                if b.rtime < self.record["BEGINNER"][str(b.bbbv)]:
-                    self.record["BEGINNER"][str(b.bbbv)] = b.rtime
+                if b.rtime < self.record_setting.value(f"BEGINNER/{b.bbbv}", None, float):
+                    self.record_setting.set_value(f"BEGINNER/{b.bbbv}", b.rtime)
                     del_items += [14, 15]
                 else:
                     del_items += [13, 14, 15]
             elif b.level == 4:
-                if b.rtime < self.record["INTERMEDIATE"][str(b.bbbv)]:
-                    self.record["INTERMEDIATE"][str(b.bbbv)] = b.rtime
+                if b.rtime < self.record_setting.value(f"INTERMEDIATE/{b.bbbv}", None, float):
+                    self.record_setting.set_value(f"INTERMEDIATE/{b.bbbv}", b.rtime)
                     del_items += [13, 15]
                 else:
                     del_items += [13, 14, 15]
             elif b.level == 5:
-                if b.rtime < self.record["EXPERT"][str(b.bbbv)]:
-                    self.record["EXPERT"][str(b.bbbv)] = b.rtime
+                if b.rtime < self.record_setting.value(f"EXPERT/{b.bbbv}", None, float):
+                    self.record_setting.set_value(f"EXPERT/{b.bbbv}", b.rtime)
                     del_items += [13, 14]
                 else:
                     del_items += [13, 14, 15]
             else:
-                raise RuntimeError('没有定义的难度代码')
+                raise RuntimeError()
         else:
             del_items += [13, 14, 15]
 
@@ -960,14 +970,13 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         column = self.predefinedBoardPara[k]['column']
         mine_num = self.predefinedBoardPara[k]['mine_num']
         self.setBoard_and_start(row, column, mine_num)
-        if self.predefinedBoardPara[k]['pix_size'] != self.pixSize:
-            self.pixSize = self.predefinedBoardPara[k]['pix_size']
+        self.pixSize = self.predefinedBoardPara[k]['pixsize']
         if isinstance(self.label.ms_board, ms.BaseVideo):
             self.label.ms_board.reset(row, column, self.pixSize)
         else:
             # 解决播放录像时快捷键切换难度报错
             self.label.ms_board = ms.BaseVideo([[0] * column for _ in range(row)], self.pixSize)
-        self.gameMode = self.predefinedBoardPara[k]['game_mode']
+        self.gameMode = self.predefinedBoardPara[k]['gamemode']
         self.score_board_manager.with_namespace({
             "mode": self.gameMode,
             })
@@ -1008,26 +1017,26 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.mineNum = mineNum
         if (row, column, mineNum) == (8, 8, 10):
             self.actionChecked('B')
-            self.pixSize = self.predefinedBoardPara[1]['pix_size']
-            self.gameMode = self.predefinedBoardPara[1]['game_mode']
+            self.pixSize = self.predefinedBoardPara[1]['pixsize']
+            self.gameMode = self.predefinedBoardPara[1]['gamemode']
             self.board_constraint = self.predefinedBoardPara[1]['board_constraint']
             self.attempt_times_limit = self.predefinedBoardPara[1]['attempt_times_limit']
         elif (row, column, mineNum) == (16, 16, 40):
             self.actionChecked('I')
-            self.pixSize = self.predefinedBoardPara[2]['pix_size']
-            self.gameMode = self.predefinedBoardPara[2]['game_mode']
+            self.pixSize = self.predefinedBoardPara[2]['pixsize']
+            self.gameMode = self.predefinedBoardPara[2]['gamemode']
             self.board_constraint = self.predefinedBoardPara[2]['board_constraint']
             self.attempt_times_limit = self.predefinedBoardPara[2]['attempt_times_limit']
         elif (row, column, mineNum) == (16, 30, 99):
             self.actionChecked('E')
-            self.pixSize = self.predefinedBoardPara[3]['pix_size']
-            self.gameMode = self.predefinedBoardPara[3]['game_mode']
+            self.pixSize = self.predefinedBoardPara[3]['pixsize']
+            self.gameMode = self.predefinedBoardPara[3]['gamemode']
             self.board_constraint = self.predefinedBoardPara[3]['board_constraint']
             self.attempt_times_limit = self.predefinedBoardPara[3]['attempt_times_limit']
         else:
             self.actionChecked('C')
-            self.pixSize = self.predefinedBoardPara[0]['pix_size']
-            self.gameMode = self.predefinedBoardPara[0]['game_mode']
+            self.pixSize = self.predefinedBoardPara[0]['pixsize']
+            self.gameMode = self.predefinedBoardPara[0]['gamemode']
             self.board_constraint = self.predefinedBoardPara[0]['board_constraint']
             self.attempt_times_limit = self.predefinedBoardPara[0]['attempt_times_limit']
 
@@ -1053,22 +1062,16 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         if ui.alter:
             
             self.pixSize = ui.pixSize
-            # for i in range(4):
-            #     self.predefinedBoardPara[i]['pix_size'] = ui.pixSize
-
             self.gameStart()
-            
             self.gameMode = ui.gameMode
-            if not ui.allow_auto_replay:
-                self.auto_replay = -1
-            else:
-                self.auto_replay = ui.auto_replay
+            self.auto_replay = ui.auto_replay
             self.end_then_flag = ui.end_then_flag
             self.cursor_limit = ui.cursor_limit
             self.auto_notification = ui.auto_notification
             self.player_identifier = ui.player_identifier
             self.label_info.setText(self.player_identifier)
             self.race_identifier = ui.race_identifier
+            # 国家或地区名的全称，例如”中国“
             self.country = ui.country
             self.set_country_flag()
             self.autosave_video = ui.autosave_video
@@ -1079,25 +1082,25 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             if (self.row, self.column, self.mineNum) == (8, 8, 10):
                 self.predefinedBoardPara[1]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[1]['board_constraint'] = self.board_constraint
-                self.predefinedBoardPara[1]['game_mode'] = ui.gameMode
-                # self.predefinedBoardPara[1]['pix_size'] = ui.pixSize
+                self.predefinedBoardPara[1]['gamemode'] = ui.gameMode
             elif (self.row, self.column, self.mineNum) == (16, 16, 40):
                 self.predefinedBoardPara[2]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[2]['board_constraint'] = self.board_constraint
-                self.predefinedBoardPara[2]['game_mode'] = ui.gameMode
-                # self.predefinedBoardPara[2]['pix_size'] = ui.pixSize
+                self.predefinedBoardPara[2]['gamemode'] = ui.gameMode
             elif (self.row, self.column, self.mineNum) == (16, 30, 99):
                 self.predefinedBoardPara[3]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[3]['board_constraint'] = self.board_constraint
-                self.predefinedBoardPara[3]['game_mode'] = ui.gameMode
-                # self.predefinedBoardPara[3]['pix_size'] = ui.pixSize
+                self.predefinedBoardPara[3]['gamemode'] = ui.gameMode
             else:
                 self.predefinedBoardPara[0]['attempt_times_limit'] = self.attempt_times_limit
                 self.predefinedBoardPara[0]['board_constraint'] = self.board_constraint
-                self.predefinedBoardPara[0]['gameMode'] = ui.gameMode
-                # self.predefinedBoardPara[0]['pix_size'] = ui.pixSize
+                self.predefinedBoardPara[0]['gamemode'] = ui.gameMode
 
             self.mainWindow.setWindowOpacity(ui.transparency / 100)
+            for child in self.mainWindow.findChildren(QWidget):
+                # 设置子窗口的透明度
+                child.setWindowOpacity(ui.transparency / 100)
+            
             self.score_board_manager.with_namespace({
                 "race_identifier": ui.race_identifier,
                 "mode": self.gameMode,
@@ -1107,7 +1110,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     def action_QEvent(self):
         # 快捷键设置的回调
         self.actionChecked('Q')
-        ui = gameSettingShortcuts.myGameSettingShortcuts(self.game_setting_path,
+        ui = gameSettingShortcuts.myGameSettingShortcuts(self.game_setting,
                                                          self.ico_path, self.r_path,
                                                          self.mainWindow)
         ui.Dialog.setModal(True)
@@ -1135,10 +1138,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     def auto_Update(self):
         data = {
             "Github": "https://api.github.com/repos/",
-            # "Gitee": "https://api.gitee.com/repos/",
+            "Gitee": "https://api.gitee.com/repos/",
         }
         update_dialog = CheckUpdateGui(GitHub(SourceManager(data), "eee555",
-                       "Metasweeper", superGUI.version.decode( "UTF-8" ), "(\d+\.\d+\.\d+)"), parent = self)
+                       "Metasweeper", superGUI.version, "(\d+\.\d+\.\d+)"), parent = self)
         update_dialog.setModal(True)
         update_dialog.show()
         update_dialog.exec_()
@@ -1277,9 +1280,9 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             # self.label.setMouseTracking(True)
             mineNum = self.mineNum
             # 删去用户标的雷，因为可能标错
-            game_board = list(map(lambda x: list(map(lambda y: min(y, 10), x)),
-                             self.label.ms_board.game_board))
-            ans = ms.cal_possibility_onboard(game_board, mineNum)
+            # game_board = list(map(lambda x: list(map(lambda y: min(y, 10), x)),
+            #                  self.label.ms_board.game_board))
+            ans = ms.cal_possibility_onboard(self.label.ms_board.game_board, mineNum)
             self.label.boardPossibility = ans[0]
             self.label.update()
 
@@ -1307,14 +1310,12 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     def refreshSettingsDefault(self):
         # 刷新游戏设置.ini里默认部分的设置，与当前游戏里一致，
         # 除了transparency、mainwintop和mainwinleft
-        conf = configparser.ConfigParser()
-        conf.read(self.game_setting_path, encoding='utf-8')
-        conf.set("DEFAULT", "gamemode", str(self.gameMode))
-        conf.set("DEFAULT", "pixsize", str(self.pixSize))
-        conf.set("DEFAULT", "row", str(self.row))
-        conf.set("DEFAULT", "column", str(self.column))
-        conf.set("DEFAULT", "minenum", str(self.mineNum))
-        conf.write(open(self.game_setting_path, "w", encoding='utf-8'))
+        self.game_setting.set_value("DEFAULT/gamemode", str(self.gameMode))
+        self.game_setting.set_value("DEFAULT/pixsize", str(self.pixSize))
+        self.game_setting.set_value("DEFAULT/row", str(self.row))
+        self.game_setting.set_value("DEFAULT/column", str(self.column))
+        self.game_setting.set_value("DEFAULT/minenum", str(self.minenum))
+        self.game_setting.sync()
 
     # 打开录像文件的回调
     def action_OpenFile(self, openfile_name = None):
@@ -1327,15 +1328,19 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             return
         self.set_face(14)
 
-        if openfile_name[-3:] == "avf":
-            video = ms.AvfVideo(openfile_name)
-        elif openfile_name[-3:] == "rmv":
-            video = ms.RmvVideo(openfile_name)
-        elif openfile_name[-3:] == "evf":
-            video = ms.EvfVideo(openfile_name)
-        elif openfile_name[-3:] == "mvf":
-            video = ms.MvfVideo(openfile_name)
-        else:
+        try:
+            if openfile_name[-3:] == "avf":
+                video = ms.AvfVideo(openfile_name)
+            elif openfile_name[-3:] == "rmv":
+                video = ms.RmvVideo(openfile_name)
+            elif openfile_name[-3:] == "evf":
+                # evf版本过时以后会引发异常
+                video = ms.EvfVideo(openfile_name)
+            elif openfile_name[-3:] == "mvf":
+                video = ms.MvfVideo(openfile_name)
+            else:
+                return
+        except:
             return
         self.play_video(video)
 
@@ -1366,11 +1371,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
                                     "mouse_trace", "vision_transfer", "survive_poss"])
 
         # 组织录像评论
-        event_len = video.events_len
         comments = []
-        for event_id in range(event_len):
-            t = video.events_time(event_id)
-            comment = video.events_comments(event_id)
+        for event in video.events:
+            t = event.time
+            comment = event.comments
             if comment:
                 comments.append((t, [i.split(': ') for i in comment.split(';')[:-1]]))
         # 调整窗口
@@ -1388,7 +1392,8 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
 
         self.timer_video = QTimer()
         self.timer_video.timeout.connect(self.video_playing_step)
-        self.ui_video_control = videoControl.ui_Form(self.r_path, video, comments, self.mainWindow)
+        self.ui_video_control = videoControl.ui_Form(self.r_path, video, comments, 
+                                                     self.game_setting, self.mainWindow)
         # self.mainWindow.closeEvent_.connect(self.ui_video_control.QWidget.close)
         self.ui_video_control.pushButton_play.clicked.connect(self.video_play)
         self.ui_video_control.pushButton_replay.clicked.connect(self.video_replay)
@@ -1405,14 +1410,18 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.video_time_step = 0.01 # 录像时间的步长，定时器始终是10毫秒
         self.label.paint_cursor = True
         self.video_playing = True # 录像正在播放
-        self.timer_video.start(10)
+        # 禁用双击修改指标名称公式
+        self.score_board_manager.editing_row = -2
 
         video.video_playing_pix_size = self.label.pixSize
         self.label.ms_board = video
         # 改成录像的标识
-        self.label_info.setText(bytes(self.label.ms_board.player_identifier).decode())
+        # print(self.label.ms_board.player_identifier)
+        self.label_info.setText(self.label.ms_board.player_identifier)
         # 改成录像的国旗
-        self.set_country_flag(bytes(self.label.ms_board.country).decode())
+        self.set_country_flag(self.label.ms_board.country)
+        
+        self.timer_video.start(10)
 
 
     def video_playing_step(self):
@@ -1422,11 +1431,11 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             self.timer_video.stop()
             self.video_playing = False
         self.label.update()
-        self.score_board_manager.show(self.label.ms_board, index_type = 2)
+        self.score_board_manager.show(self.label.ms_board, index_type = 3)
         self.video_time += self.video_time_step
         self.showTime(int(self.video_time))
         self.ui_video_control.horizontalSlider_time.blockSignals(True)
-        self.ui_video_control.horizontalSlider_time.setValue(int(self.video_time * 100))
+        self.ui_video_control.horizontalSlider_time.setValue(int(self.video_time * 1000))
         self.ui_video_control.horizontalSlider_time.blockSignals(False)
         self.ui_video_control.doubleSpinBox_time.blockSignals(True)
         self.ui_video_control.doubleSpinBox_time.setValue(self.label.ms_board.time)
@@ -1453,15 +1462,15 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
 
     def video_set_time(self, t):
         # 把录像定位到某一个时刻。是拖动进度条的回调
-        self.video_time = t / 100
+        self.video_time = t / 1000
         self.label.ms_board.current_time = self.video_time
         self.label.update()
-        self.score_board_manager.show(self.label.ms_board, index_type = 2)
+        self.score_board_manager.show(self.label.ms_board, index_type = 3)
 
     def video_set_a_time(self, t):
         # 把录像定位到某一段时间，默认前后一秒，自动播放。是点录像事件的回调
-        self.video_time = (t - 100) / 100
-        self.video_stop_time = (t + 100) / 100  # 大了也没关系，ms_toollib自动处理
+        self.video_time = (t - 1000) / 1000
+        self.video_stop_time = (t + 1000) / 1000  # 大了也没关系，ms_toollib自动处理
         self.timer_video.start()
         self.video_playing = True
 
@@ -1531,37 +1540,28 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         # 主窗口关闭的回调
         self.unlimit_cursor()
         # self.score_board_manager.close()
-        conf = configparser.ConfigParser()
-        conf.read(self.game_setting_path, encoding='utf-8')
-        # conf.set("DEFAULT", "gamemode", str(self.gameMode))
-        conf.set("DEFAULT", "mainWinTop", str(self.mainWindow.x()))
-        conf.set("DEFAULT", "mainWinLeft", str(self.mainWindow.y()))
-        # conf.set("DEFAULT", "pixsize", str(self.pixSize))
-        conf.set("DEFAULT", "row", str(self.row))
-        conf.set("DEFAULT", "column", str(self.column))
-        conf.set("DEFAULT", "minenum", str(self.mineNum))
+        self.game_setting.set_value("DEFAULT/mainWinTop", str(self.mainWindow.x()))
+        self.game_setting.set_value("DEFAULT/mainWinLeft", str(self.mainWindow.y()))
+        self.game_setting.set_value("DEFAULT/row", str(self.row))
+        self.game_setting.set_value("DEFAULT/column", str(self.column))
+        self.game_setting.set_value("DEFAULT/mineNum", str(self.mineNum))
         
         if (self.row, self.column, self.mineNum) == (8, 8, 10):
-            conf.set("BEGINNER", "gamemode", str(self.gameMode))
-            conf.set("BEGINNER", "pixsize", str(self.pixSize))
+            self.game_setting.set_value("BEGINNER/gamemode", str(self.gameMode))
+            self.game_setting.set_value("BEGINNER/pixsize", str(self.pixSize))
         elif (self.row, self.column, self.mineNum) == (16, 16, 40):
-            conf.set("INTERMEDIATE", "gamemode", str(self.gameMode))
-            conf.set("INTERMEDIATE", "pixsize", str(self.pixSize))
+            self.game_setting.set_value("INTERMEDIATE/gamemode", str(self.gameMode))
+            self.game_setting.set_value("INTERMEDIATE/pixsize", str(self.pixSize))
         elif (self.row, self.column, self.mineNum) == (16, 30, 99):
-            conf.set("EXPERT", "gamemode", str(self.gameMode))
-            conf.set("EXPERT", "pixsize", str(self.pixSize))
+            self.game_setting.set_value("EXPERT/gamemode", str(self.gameMode))
+            self.game_setting.set_value("EXPERT/pixsize", str(self.pixSize))
         else:
-            conf.set("CUSTOM", "gamemode", str(self.gameMode))
-            conf.set("CUSTOM", "pixsize", str(self.pixSize))
-            
-        conf.write(open(self.game_setting_path, "w", encoding='utf-8'))
+            self.game_setting.set_value("CUSTOM/gamemode", str(self.gameMode))
+            self.game_setting.set_value("CUSTOM/pixsize", str(self.pixSize))
 
-        conf = configparser.ConfigParser()
-        conf.read(self.record_path, encoding='utf-8')
-        for key_name in self.record_key_name_list:
-            conf[key_name] = self.record[key_name]
-        with open(self.record_path, 'w') as configfile:
-            conf.write(configfile)  # 将对象写入文件
+        self.game_setting.sync()
+        self.record_setting.sync()
+
 
 
 
