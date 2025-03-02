@@ -1,5 +1,4 @@
 # 左侧计时器
-import configparser
 import minesweeper_master as mm
 from ui.ui_score_board import Ui_Form
 from ui.uiComponents import RoundQWidget
@@ -73,11 +72,11 @@ class gameScoreBoardManager():
     video_index = ["bbbv", "op", "isl", "cell0", "cell1", "cell2", "cell3",
                     "cell4", "cell5", "cell6", "cell7", "cell8", "fps", "etime",
                     "stnb", "rqp", "qg", "ioe", "thrp", "corr", "ce",
-                     "ce_s", "bbbv_solved", "bbbv_s", "op_solved", "isl_solved"]
+                     "ce_s", "bbbv_solved", "bbbv_s", "op_solved", "isl_solved", "pluck"]
     
     # is_visible = False
     # 5、错误的表达式，一旦算出报错，永远不再算，显示error
-    def __init__(self, r_path, score_board_path, game_setting_path, pix_size, parent):
+    def __init__(self, r_path, score_board_setting, game_setting, pix_size, parent):
         # 从文件中读取指标并设置
         # self.ms_board = None
         self.pix_size = pix_size
@@ -88,44 +87,42 @@ class gameScoreBoardManager():
         self.delta_time = 0.0
         
         self.initialized = False
-        self.game_setting_path = game_setting_path
-        self.score_board_path = score_board_path
-        config_score_board = configparser.ConfigParser()
-        if config_score_board.read(self.score_board_path):
-            # 计时器配置list[tuple(str, str)]
-            _score_board_items = config_score_board.items('DEFAULT')
-        else:
-            config_score_board["DEFAULT"] = {
-                "游戏模式": "mode",
-                "RTime": "f'{time:.3f}'",
-                "Est RTime": "f'{etime:.3f}'",
-                "3BV": "f'{bbbv_solved}/{bbbv}'",
-                "3BV/s": "f'{bbbv_s:.3f}'",
-                "Ops": "op",
-                "Isls": "isl",
-                "Left": "f'{left}@{left_s:.3f}'",
-                "Right": "f'{right}@{right_s:.3f}'",
-                "Double": "f'{double}@{double_s:.3f}'",
-                "STNB": "f'{stnb:.3f}'",
-                "IOE": "f'{ioe:.3f}'",
-                "Thrp": "f'{thrp:.3f}'",
-                "Corr": "f'{corr:.3f}'",
-                "Path": "f'{path:.1f}'",
-                }
-            _score_board_items = list(config_score_board.items('DEFAULT'))
-            with open(self.score_board_path, 'w') as configfile:
-                config_score_board.write(configfile)  # 将对象写入文件
-        self.score_board_items = [[i[0], mm.trans_expression(i[1])] for\
-                                  i in _score_board_items]
+        self.game_setting = game_setting
+        self.score_board_setting = score_board_setting
+        default_config = [
+                ("游戏模式", "mode"),
+                ("RTime", "f'{time:.3f}'"),
+                ("Est RTime", "f'{etime:.3f}'"),
+                ("3BV", "f'{bbbv_solved}/{bbbv}'"),
+                ("3BV/s", "f'{bbbv_s:.3f}'"),
+                ("Ops", "op"),
+                ("Isls", "isl"),
+                ("Left", "f'{left}@{left_s:.3f}'"),
+                ("Right", "f'{right}@{right_s:.3f}'"),
+                ("Double", "f'{double}@{double_s:.3f}'"),
+                ("STNB", "f'{stnb:.3f}'"),
+                ("IOE", "f'{ioe:.3f}'"),
+                ("Thrp", "f'{thrp:.3f}'"),
+                ("Corr", "f'{corr:.3f}'"),
+                ("Path", "f'{path:.1f}'"),
+                ("Pluck", "f'{pluck:.3f}'"),
+                ]
+        self.score_board_items = self.score_board_setting.get_or_set_section("DEFAULT", default_config)
+
+        self.score_board_setting.sync()
+
         self.update_score_board_items_type()
         self.index_num = len(self.score_board_items_type)
         self.ui = ui_Form(r_path, pix_size, parent)
         self.ui.tableWidget.doubleClicked.connect(self.__table_change)
         self.ui.tableWidget.clicked.connect(self.__table_ok)
-        self.ui.tableWidget.cellChanged.connect(self.__cell_changed)
+        # self.ui.tableWidget.cellChanged.connect(self.__cell_changed)
         self.ui.pushButton_add.clicked.connect(self.__add_blank_line)
+        self.ui.QWidget.closeEvent_.connect(self.close)
         QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Return), self.ui.QWidget).\
             activated.connect(self.__table_ok)
+        self.ui.QWidget.move(game_setting.value("DEFAULT/scoreboardtop", 100, int),
+                             game_setting.value("DEFAULT/scoreboardleft", 200, int))
         self.editing_row = -1 # -1不在编辑状态，-2不能编辑（正在游戏）
         self.editing_column = -1
         
@@ -160,7 +157,7 @@ class gameScoreBoardManager():
         ...
         
     def cal_index_value(self, ms_board, index_type):
-        # 原地修改指标数值         
+        # 原地修改指标数值
         self.update_namespace(ms_board, index_type)
         index_value = []
         # for (idx, (_, expression), _type) in enumerate(zip(self.score_board_items, self.score_board_items_type)):
@@ -213,7 +210,7 @@ class gameScoreBoardManager():
             "flag": ms_board.flag,
             "flag_s": ms_board.flag_s,
             })
-        if index_type == 2:
+        if index_type >= 2:
             self.namespace.update({
                 "rtime": ms_board.rtime,
                 "etime": ms_board.etime,
@@ -227,7 +224,11 @@ class gameScoreBoardManager():
                 "thrp": ms_board.thrp,
                 "corr": ms_board.corr,
                 "ce": ms_board.ce,
-                "ce_s": ms_board.ce_s, # 一直为0
+                "ce_s": ms_board.ce_s,
+                })
+        if index_type >= 3:
+            self.namespace.update({
+                "pluck": ms_board.pluck,
                 })
         
         
@@ -299,28 +300,31 @@ class gameScoreBoardManager():
         if e == None or (self.editing_row >= 0 and self.editing_column >= 0 and (self.editing_row != e.row() or\
                                                     self.editing_column != e.column())):
             # 编辑完成后修改指标值
-            self.ui.tableWidget.setDisabled(True)
-            self.ui.tableWidget.setDisabled(False)
+            # self.ui.tableWidget.setDisabled(True)
+            # self.ui.tableWidget.setDisabled(False)
             new_formula = self.ui.tableWidget.item(self.editing_row, self.editing_column).text()
             if self.editing_column == 0:
                 if not new_formula:
+                    # 删除键名后并完成编辑后，删除此指标
                     self.score_board_items.pop(self.editing_row)
                     self.score_board_items_type.pop(self.editing_row)
                 else:
-                    self.score_board_items[self.editing_row][0] = new_formula
+                    # 正常修改键名
+                    self.score_board_items[self.editing_row] = (new_formula, self.score_board_items[self.editing_row][1])
             else:
-                self.score_board_items[self.editing_row][1] = new_formula
+                # 正常修改公式
+                self.score_board_items[self.editing_row] = (self.score_board_items[self.editing_row][0], new_formula)
                 self.update_score_board_items_type()
             self.reshow(self.ms_board)
             self.editing_row = -1
             self.editing_column = -1
         
-    def __cell_changed(self, x, y):
-        # 把计数器里的公式改成新设置的公式
-        if y == 0:
-            t = self.ui.tableWidget.item(x, y).text()
-            if self.score_board_items[x][0] != t:
-                self.score_board_items[x][0] = self.ui.tableWidget.item(x, 0).text()
+    # def __cell_changed(self, x, y):
+    #     # 把计数器里的公式改成新设置的公式
+    #     if y == 0:
+    #         t = self.ui.tableWidget.item(x, y).text()
+    #         if self.score_board_items[x][0] != t:
+    #             self.score_board_items[x][0] = self.ui.tableWidget.item(x, 0).text()
                 
     def __add_blank_line(self):
         # 添加一个空开的行，并刷新显示
@@ -329,22 +333,11 @@ class gameScoreBoardManager():
         self.reshow(self.ms_board)
                 
     def close(self):
-        config = configparser.ConfigParser()
-        config["DEFAULT"] = dict(filter(lambda x: x[0], self.score_board_items))
-        config.write(open(self.score_board_path, "w"))
-        conf = configparser.ConfigParser()
-        conf.read(self.game_setting_path, encoding='utf-8')
-        conf.set("DEFAULT", "scoreBoardTop", str(self.ui.QWidget.x()))
-        conf.set("DEFAULT", "scoreBoardLeft", str(self.ui.QWidget.y()))
-        conf.write(open(self.game_setting_path, "w", encoding='utf-8'))
-        self.ui.QWidget.close()
-        
-
-
-
-
-
-
+        self.score_board_setting.set_section("DEFAULT", self.score_board_items)
+        self.score_board_setting.sync()
+        self.game_setting.set_value("DEFAULT/scoreboardtop", self.ui.QWidget.x())
+        self.game_setting.set_value("DEFAULT/scoreboardleft", self.ui.QWidget.y())
+        self.game_setting.sync()
 
 
 

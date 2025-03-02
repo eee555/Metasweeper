@@ -32,7 +32,7 @@
    <enum>Qt::ClickFocus</enum>
   </property>
   <property name="windowTitle">
-   <string>游戏设置</string>
+   <string notr="true"/>
   </property>
   <property name="windowIcon">
    <iconset>
@@ -83,6 +83,9 @@ color:white;</string>
    </property>
    <property name="text">
     <string>确定</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Return</string>
    </property>
    <property name="autoDefault">
     <bool>false</bool>
@@ -1026,6 +1029,9 @@ color: #3d3d3d;
     </item>
     <item>
      <widget class="QSlider" name="horizontalSlider_transparency">
+      <property name="minimum">
+       <number>1</number>
+      </property>
       <property name="maximum">
        <number>100</number>
       </property>

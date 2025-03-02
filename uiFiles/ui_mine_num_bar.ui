@@ -29,7 +29,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>雷数设置</string>
+   <string notr="true"/>
   </property>
   <property name="windowOpacity">
    <double>10.000000000000000</double>

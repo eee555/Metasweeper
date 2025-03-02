@@ -801,34 +801,6 @@
     <string notr="true">A</string>
    </property>
   </action>
-  <action name="actionxis">
-   <property name="text">
-    <string>词典</string>
-   </property>
-   <property name="font">
-    <font>
-     <family>微软雅黑</family>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="shortcut">
-    <string>D</string>
-   </property>
-  </action>
-  <action name="actionrumjc">
-   <property name="text">
-    <string>入门教程</string>
-   </property>
-   <property name="font">
-    <font>
-     <family>微软雅黑</family>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="shortcut">
-    <string>R</string>
-   </property>
-  </action>
   <action name="action_kuaijiejian">
    <property name="text">
     <string>快捷键设置</string>
@@ -855,56 +827,6 @@
    </property>
    <property name="shortcut">
     <string notr="true">O</string>
-   </property>
-  </action>
-  <action name="chinese">
-   <property name="text">
-    <string notr="true">中文</string>
-   </property>
-   <property name="iconText">
-    <string notr="true">中文</string>
-   </property>
-   <property name="toolTip">
-    <string notr="true">中文</string>
-   </property>
-   <property name="statusTip">
-    <string notr="true"/>
-   </property>
-   <property name="font">
-    <font>
-     <family>微软雅黑</family>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-  </action>
-  <action name="english">
-   <property name="text">
-    <string notr="true">English</string>
-   </property>
-   <property name="iconText">
-    <string notr="true">English</string>
-   </property>
-   <property name="toolTip">
-    <string notr="true">English</string>
-   </property>
-   <property name="statusTip">
-    <string notr="true"/>
-   </property>
-   <property name="font">
-    <font>
-     <family>微软雅黑</family>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-  </action>
-  <action name="english_2">
-   <property name="text">
-    <string>English</string>
-   </property>
-  </action>
-  <action name="chinese_2">
-   <property name="text">
-    <string>中文</string>
    </property>
   </action>
   <action name="chinese_action">
@@ -995,6 +917,9 @@
      <pointsize>12</pointsize>
     </font>
    </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
   </action>
   <action name="german_action">
    <property name="text">
@@ -1018,13 +943,16 @@
      <pointsize>12</pointsize>
     </font>
    </property>
+   <property name="shortcut">
+    <string notr="true"/>
+   </property>
   </action>
   <action name="action_save">
    <property name="text">
     <string>保存</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+S</string>
+    <string notr="true">Ctrl+S</string>
    </property>
   </action>
   <action name="action_replay">
@@ -1032,7 +960,7 @@
     <string>回放</string>
    </property>
    <property name="shortcut">
-    <string>R</string>
+    <string notr="true">R</string>
    </property>
   </action>
   <action name="actionauto_update">
@@ -1044,6 +972,9 @@
      <family>微软雅黑</family>
      <pointsize>12</pointsize>
     </font>
+   </property>
+   <property name="shortcut">
+    <string notr="true"/>
    </property>
   </action>
  </widget>

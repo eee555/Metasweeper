@@ -8,7 +8,6 @@ Created on Thu Mar 24 16:01:56 2022
 from PyQt5 import QtCore
 from ui.uiComponents import RoundQWidget, CommentLabel
 from ui.ui_video_control import Ui_Form
-from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget
 
 class ui_Form(QWidget, Ui_Form):
@@ -16,13 +15,15 @@ class ui_Form(QWidget, Ui_Form):
     # barSetMineNumCalPoss = QtCore.pyqtSignal(int)
     # time_current = 0.0
     
-    def __init__(self, r_path, video, comments, parent):
+    def __init__(self, r_path, video, comments, game_setting, parent):
         super (ui_Form, self).__init__ ()
         
         self.QWidget = RoundQWidget(parent)
         self.setupUi(self.QWidget)
-        self.horizontalSlider_time.setMaximum(int(video.video_end_time * 100 + 1))
-        self.horizontalSlider_time.setMinimum(int((video.video_start_time) * 100 - 1))
+        self.game_setting = game_setting
+        self.QWidget.closeEvent_.connect(self.close)
+        self.horizontalSlider_time.setMaximum(int(video.video_end_time * 1000))
+        self.horizontalSlider_time.setMinimum(int(video.video_start_time * 1000))
         
         self.horizontalSlider_time.valueChanged[int].connect(self.set_double_spin_box_time)
         self.doubleSpinBox_time.valueChanged[float].connect(self.set_horizontal_slider_time)
@@ -44,18 +45,19 @@ class ui_Form(QWidget, Ui_Form):
                 self.comments_labels.append([c1, c2, c3])
                 comment_row += 1
         self.scrollAreaWidgetContents.setFixedHeight(42 * (comment_row + 1))
-        self.pushButton_replay.setStyleSheet("border-image: url(" + str(r_path.with_name('media').joinpath('replay.svg')).replace("\\", "/") + ");")
-        self.pushButton_play.setStyleSheet("border-image: url(" + str(r_path.with_name('media').joinpath('play.svg')).replace("\\", "/") + ");")
-        self.label_speed.setStyleSheet("border-image: url(" + str(r_path.with_name('media').joinpath('speed.svg')).replace("\\", "/") + ");\n"
+        self.pushButton_replay.setStyleSheet("QPushButton{border-image: url(" + str(r_path.with_name('media').joinpath('replay.svg')).replace("\\", "/") + ");}")
+        self.pushButton_play.setStyleSheet("QPushButton{border-image: url(" + str(r_path.with_name('media').joinpath('play.svg')).replace("\\", "/") + ");}")
+        self.label_speed.setStyleSheet("QLabel{border-image: url(" + str(r_path.with_name('media').joinpath('speed.svg')).replace("\\", "/") + ");\n"
 "font: 12pt \"微软雅黑\";\n"
-"color: #50A6EA;")
+"color: #50A6EA;}")
         self.label_2.setStyleSheet("border-image: url(" + str(r_path.with_name('media').joinpath('mul.svg')).replace("\\", "/") + ");\n"
 "font: 12pt \"微软雅黑\";\n"
 "color: #50A6EA;")
-        
-        
+        self.QWidget.move(game_setting.value("DEFAULT/videocontroltop", 100, int),
+                          game_setting.value("DEFAULT/videocontrolleft", 300, int))
+
     def set_double_spin_box_time(self, int_time):
-        self.doubleSpinBox_time.setValue(int_time / 100)
+        self.doubleSpinBox_time.setValue(int_time / 1000)
         self.horizontalSlider_time.blockSignals(True)
         self.horizontalSlider_time.setValue(int_time)
         self.horizontalSlider_time.blockSignals(False)
@@ -65,28 +67,13 @@ class ui_Form(QWidget, Ui_Form):
         
     def set_horizontal_slider_time(self, float_time):
         self.doubleSpinBox_time.blockSignals(True)
-        self.horizontalSlider_time.setValue(int(float_time * 100))
+        self.horizontalSlider_time.setValue(int(float_time * 1000))
         self.doubleSpinBox_time.blockSignals(False)
-        self.videoSetTime.emit(int(float_time * 100))
+        self.videoSetTime.emit(int(float_time * 1000))
         # self.time_current = float_time
-        
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-        
-        
-        
+
+    def close(self):
+        self.game_setting.set_value("DEFAULT/videocontroltop", self.QWidget.x())
+        self.game_setting.set_value("DEFAULT/videocontrolleft", self.QWidget.y())
+        self.game_setting.sync()
+
