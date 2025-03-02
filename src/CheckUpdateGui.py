@@ -102,13 +102,14 @@ class ReleaseFrame(QFrame):
         self.titleWidget.setLayout(row1)
         self.titleWidget.setContentsMargins(0, 0, 0, 0)
         formLayout = QFormLayout()
-        urlLabel = QLabel()
-        urlLabel.setText("<a href='" + self.release.html_url +
-                         "'>" + QObject.tr(self, "open external links") + "</a>")
-        urlLabel.setOpenExternalLinks(True)
-        dataLayout = QVBoxLayout()
         formLayout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        formLayout.addRow(QObject.tr(self, "html_url"), urlLabel)
+        dataLayout = QVBoxLayout()
+        if self.release.html_url != "":
+            urlLabel = QLabel()
+            urlLabel.setText("<a href='" + self.release.html_url +
+                             "'>" + QObject.tr(self, "open external links") + "</a>")
+            urlLabel.setOpenExternalLinks(True)
+            formLayout.addRow(QObject.tr(self, "html_url"), urlLabel)
         formLayout.addRow(QObject.tr(self, "name"),
                           QLabel(self.release.assets_name))
         if self.release.assets_content_type != "":
