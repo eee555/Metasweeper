@@ -89,8 +89,11 @@ class ReleaseFrame(QFrame):
         row1.addWidget(QLabel(self.release.tag_name))
         row1.addItem(QSpacerItem(
             20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-        self.dateTimeLabel.setText(QDateTime.fromString(
-            self.release.assets_created_at, "yyyy-MM-ddThh:mm:ssZ").toString("yyyy-MM-dd hh:mm:ss"))
+        self.dateTimeLabel.hide()
+        if self.release.assets_created_at != "":
+            self.dateTimeLabel.setText(QDateTime.fromString(
+                self.release.assets_created_at, "yyyy-MM-ddThh:mm:ssZ").toString("yyyy-MM-dd hh:mm:ss"))
+            self.dateTimeLabel.show()
         row1.addWidget(self.dateTimeLabel)
         row1.addItem(QSpacerItem(
             20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
@@ -108,15 +111,19 @@ class ReleaseFrame(QFrame):
         formLayout.addRow(QObject.tr(self, "html_url"), urlLabel)
         formLayout.addRow(QObject.tr(self, "name"),
                           QLabel(self.release.assets_name))
-        formLayout.addRow(QObject.tr(self, "content_type"),
-                          QLabel(self.release.assets_content_type))
-        formLayout.addRow(QObject.tr(self, "size"), QLabel(
-            str(f"{self.release.assets_size / 1000000:.2f} MB")))
-        formLayout.addRow(QObject.tr(self, "download_count"),
-                          QLabel(str(self.release.assets_download_count)))
-        formLayout.addRow(QObject.tr(self, "created_at"),
-                          QLabel(QDateTime.fromString(self.release.assets_created_at, "yyyy-MM-ddThh:mm:ssZ").toString(
-                              "yyyy-MM-dd hh:mm:ss")))
+        if self.release.assets_content_type != "":
+            formLayout.addRow(QObject.tr(self, "content_type"),
+                              QLabel(self.release.assets_content_type))
+        if self.release.assets_size > 0:
+            formLayout.addRow(QObject.tr(self, "size"), QLabel(
+                str(f"{self.release.assets_size / 1000000:.2f} MB")))
+        if self.release.assets_download_count != "":
+            formLayout.addRow(QObject.tr(self, "download_count"),
+                              QLabel(str(self.release.assets_download_count)))
+        if self.release.assets_created_at != "":
+            formLayout.addRow(QObject.tr(self, "created_at"),
+                              QLabel(QDateTime.fromString(self.release.assets_created_at, "yyyy-MM-ddThh:mm:ssZ").toString(
+                                  "yyyy-MM-dd hh:mm:ss")))
         downloadUrlLabel = QLabel()
         downloadUrlLabel.setText("<a href='" + self.release.assets_browser_download_url +
                                  "'>" + QObject.tr(self, "open download links") + "</a>")
@@ -237,7 +244,7 @@ class CheckUpdateGui(QDialog):
         self.setWindowTitle(QObject.tr(self, "CheckUpdate"))
         # 去掉问号
         self.setWindowFlags(self.windowFlags() & ~
-        Qt.WindowContextHelpButtonHint)
+                            Qt.WindowContextHelpButtonHint)
         self.r_path = parent.r_path
         self.github: GitHub = github
         self.github.setParent(self)
@@ -309,7 +316,7 @@ class CheckUpdateGui(QDialog):
 
     def changeSource(self, source: str):
         self.pingThread = PingThread(
-            source, self.github.sourceManager.sources[source])
+            source, self.github.sourceManager.sources[source]['url'])
         self.sourceSpeedLabel.setText("---ms")
         self.pingThread.pingSignal.connect(
             lambda x, y: self.sourceSpeedLabel.setText(f"{int(y)}ms"))
