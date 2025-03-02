@@ -14,16 +14,10 @@ os.environ["QT_FONT_DPI"] = "96"
 
 
 def on_new_connection(localServer: QLocalServer):
-
-
-def on_new_connection(localServer: QLocalServer):
     """当新连接进来时，接受连接并将文件路径传递给主窗口"""
     socket = localServer.nextPendingConnection()
     if socket:
         socket.readyRead.connect(lambda: on_ready_read(socket))
-
-
-def on_ready_read(socket: QLocalSocket):
 
 
 def on_ready_read(socket: QLocalSocket):
