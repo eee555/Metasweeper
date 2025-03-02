@@ -32,44 +32,6 @@ def on_ready_read(socket: QLocalSocket):
         socket.disconnectFromServer()  # 断开连接
 
 
-def on_new_connection(localServer: QLocalServer):
-    """当新连接进来时，接受连接并将文件路径传递给主窗口"""
-    socket = localServer.nextPendingConnection()
-    if socket:
-        socket.readyRead.connect(lambda: on_ready_read(socket))
-
-
-def on_ready_read(socket: QLocalSocket):
-    """从socket读取文件路径并传递给主窗口"""
-    if socket and socket.state() == QLocalSocket.ConnectedState:
-        # 读取文件路径并调用打开文件
-        socket.waitForReadyRead(500)
-        file_path = socket.readAll().data().decode()
-        for win in QApplication.topLevelWidgets():
-            if isinstance(win, mainWindowGUI.MainWindow):
-                win.dropFileSignal.emit(file_path)
-        socket.disconnectFromServer()  # 断开连接
-
-
-def on_new_connection(localServer: QLocalServer):
-    """当新连接进来时，接受连接并将文件路径传递给主窗口"""
-    socket = localServer.nextPendingConnection()
-    if socket:
-        socket.readyRead.connect(lambda: on_ready_read(socket))
-
-
-def on_ready_read(socket: QLocalSocket):
-    """从socket读取文件路径并传递给主窗口"""
-    if socket and socket.state() == QLocalSocket.ConnectedState:
-        # 读取文件路径并调用打开文件
-        socket.waitForReadyRead(500)
-        file_path = socket.readAll().data().decode()
-        for win in QApplication.topLevelWidgets():
-            if isinstance(win, mainWindowGUI.MainWindow):
-                win.dropFileSignal.emit(file_path)
-        socket.disconnectFromServer()  # 断开连接
-
-
 def find_window(class_name, window_name):
     """
     查找指定窗口的句柄。
