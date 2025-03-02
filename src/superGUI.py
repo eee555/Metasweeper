@@ -205,11 +205,11 @@ class Ui_MainWindow(Ui_MainWindow):
         self.read_or_create_record()
         self.label.setPath(r_path)
         self.label_2.setPath(r_path)
-        self.read_or_create_game_setting()
-        self.initMineArea()
 
 
         self.readPredefinedBoardPara()
+        self.read_or_create_game_setting()
+        self.initMineArea()
         self.retranslateUi(MainWindow)
 
         self.trans = QTranslator()

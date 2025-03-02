@@ -159,7 +159,7 @@ color:black;</string>
        <number>6</number>
       </property>
       <property name="maximum">
-       <number>1000</number>
+       <number>255</number>
       </property>
       <property name="displayIntegerBase">
        <number>10</number>
@@ -208,7 +208,7 @@ color:black;</string>
        <number>6</number>
       </property>
       <property name="maximum">
-       <number>1000</number>
+       <number>255</number>
       </property>
       <property name="displayIntegerBase">
        <number>10</number>

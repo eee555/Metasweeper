@@ -225,6 +225,9 @@ class gameScoreBoardManager():
                 "corr": ms_board.corr,
                 "ce": ms_board.ce,
                 "ce_s": ms_board.ce_s,
+                "rce": ms_board.rce,
+                "lce": ms_board.lce,
+                "dce": ms_board.dce,
                 })
         if index_type >= 3:
             self.namespace.update({
