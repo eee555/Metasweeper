@@ -47,7 +47,7 @@ class PingThread(QThread):
 class SourceManager(QObject):
     quickSource = pyqtSignal(str, float)
 
-    def __init__(self, sources: dict, current: any = None, parent=None):
+    def __init__(self, sources: dict, current: str = None, parent=None):
         super().__init__(parent)
         if not isinstance(sources, dict):
             raise TypeError
@@ -55,7 +55,8 @@ class SourceManager(QObject):
             raise ValueError
         self.sources = sources
         # 第一个的key
-        self.currentSource = list(sources.keys())[0] if current is None else current
+        self.currentSource = list(sources.keys())[
+            0] if current is None else current
         self.speedData = {}
         self.threads = []
 
@@ -70,7 +71,7 @@ class SourceManager(QObject):
         if not sources:
             raise ValueError
         for key in sources:
-            sources[key] = sources[key].strip('/')
+            sources[key]['url'] = sources[key]['url'].strip('/')
         self.__sources = sources
         self.currentSource = list(sources.keys())[0]
 
@@ -80,6 +81,17 @@ class SourceManager(QObject):
         当前使用的源
         """
         return self.__currentSource
+
+    @property
+    def token(self) -> str:
+        return self.__sources[self.currentSource]['t']
+
+    @property
+    def tokenUrl(self) -> str:
+        if self.currentSource == "gitee":
+            return f'?access_token={self.token}'
+        else:
+            return ""
 
     @currentSource.setter
     def currentSource(self, currentSource: str):
@@ -98,7 +110,7 @@ class SourceManager(QObject):
 
     @property
     def currentSourceUrl(self):
-        return self.sources[self.currentSource]
+        return self.sources[self.currentSource]['url']
 
     def checkSourceSpeed(self):
         """
@@ -107,7 +119,7 @@ class SourceManager(QObject):
         self.threads.clear()
         self.speedData = {}
         for source in self.sources:
-            thread = PingThread(source, self.sources[source])
+            thread = PingThread(source, self.sources[source]['url'])
             thread.pingSignal.connect(self.__pingSignal)
             self.threads.append(thread)
             thread.start()
@@ -129,13 +141,13 @@ class ReleaseInfo:
         self.tag_name = dataJson['tag_name'] if re.search(
             versionReStr, dataJson['tag_name']) else dataJson['name']
         self.body = dataJson['body']
-        self.html_url = dataJson['html_url']
+        self.html_url = dataJson['html_url'] if 'html_url' in dataJson else ""
         m_assert = dataJson['assets'][0]
         self.assets_name = m_assert['name']
-        self.assets_content_type = m_assert['content_type']
-        self.assets_size = m_assert['size']
-        self.assets_download_count = m_assert['download_count']
-        self.assets_created_at = m_assert['created_at']
+        self.assets_content_type = m_assert['content_type'] if 'content_type' in m_assert else ""
+        self.assets_size = m_assert['size'] if 'size' in m_assert else 0
+        self.assets_download_count = m_assert['download_count'] if 'download_count' in m_assert else ""
+        self.assets_created_at = m_assert['created_at'] if 'created_at' in m_assert else ""
         self.assets_browser_download_url = m_assert['browser_download_url']
 
 
@@ -148,20 +160,16 @@ class GitHub(QObject):
     downloadReleaseAsyncFinishSignal = pyqtSignal(str)
     errorSignal = pyqtSignal(str)
 
-    def __init__(self, sourceManager: SourceManager, owner: str, repo: str, version: str, versionReStr: str,
+    def __init__(self, sourceManager: SourceManager, version: str, versionReStr: str,
                  parent=None):
         """
         :param sourceManager: 一个SourceManager实例，提供了多个github api的url
-        :param owner: github的owner
-        :param repo: github的仓库名
         :param version: 当前的版本号
         :param versionReStr: 一个正则表达式串，用于从github的release中，提取版本号
         :param parent: 一个QObject实例，父对象
         """
         super().__init__(parent)
         self.__sourceManager = sourceManager
-        self.__owner = owner
-        self.__repo = repo
         self.__version = version
         self.__versionReStr = versionReStr
         self.__replyDict = {}
@@ -176,22 +184,6 @@ class GitHub(QObject):
             self.__sourceManager.deleteLater()
         self.__sourceManager = sourceManager
         self.__sourceManager.setParent(self)
-
-    @property
-    def owner(self) -> str:
-        return self.__owner
-
-    @owner.setter
-    def owner(self, owner: str) -> None:
-        self.__owner = owner
-
-    @property
-    def repo(self) -> str:
-        return self.__repo
-
-    @repo.setter
-    def repo(self, repo: str) -> None:
-        self.__repo = repo
 
     @property
     def version(self) -> str:
@@ -214,14 +206,14 @@ class GitHub(QObject):
         """
         获取最新的release的url
         """
-        return f'{self.sourceManager.currentSourceUrl}/{self.__owner}/{self.__repo}/releases/latest'
+        return f'{self.sourceManager.currentSourceUrl}/releases/latest{self.sourceManager.tokenUrl}'
 
     @property
     def releasesUrl(self) -> str:
         """
         获取所有release的url
         """
-        return f'{self.sourceManager.currentSourceUrl}/{self.__owner}/{self.__repo}/releases'
+        return f'{self.sourceManager.currentSourceUrl}/releases{self.sourceManager.tokenUrl}'
 
     def isNeedUpdate(self, isAsync: bool = True) -> bool | str | None:
         """
@@ -354,7 +346,8 @@ class GitHub(QObject):
         :return: 一个当前请求的唯一标识
         """
         self.downloadReleaseAsyncStartSignal.emit(release)
-        nam, request = self.__createRequest(release.assets_browser_download_url)
+        nam, request = self.__createRequest(
+            release.assets_browser_download_url)
         reply = nam.get(request)
         reply.setObjectName(str(uuid.uuid1()))
         self.__replyDict[reply.objectName()] = reply
@@ -474,14 +467,14 @@ class GitHub(QObject):
         """删除下载的文件"""
         GitHub.removeAllTempFile(f".*{self.__repo}.*")
 
+
 if __name__ == '__main__':
     app = QCoreApplication([])
     data = {
-        "Github": "https://api.github.com/repos/",
-        "gitee": "https://api.gitee.com/repos/",
+        "Github": "https://api.github.com/repos/eee555/Metasweeper",
+        "gitee": "https://api.gitee.com/repos/ee55/Metasweeper",
     }
-    github = GitHub(SourceManager(data), "eee555",
-                    "Solvable-Minesweeper", "3.1.9", "(\d+\.\d+\.\d+)")
+    github = GitHub(SourceManager(data, "gitee"), "3.1.9", "(\d+\.\d+\.\d+)")
     github.releasesAsyncSignal.connect(lambda x: print(x))
     github.releases()
     # manager = SourceManager(data)
