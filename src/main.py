@@ -81,25 +81,40 @@ def find_window(class_name, window_name):
 
 if __name__ == "__main__":
     # QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
-
+    try:
         app = QtWidgets.QApplication(sys.argv)
-        mainWindow = mainWindowGUI.MainWindow()
-        ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
-        ui.mainWindow.show()
-        ui.mainWindow.game_setting_path = ui.game_setting_path
+        serverName = "MineSweeperServer"
+        socket = QLocalSocket()
+        socket.connectToServer(serverName)
+        if socket.waitForConnected(500):
+            if len(sys.argv) == 2:
+                filePath = sys.argv[1]
+                socket.write(filePath.encode())
+                socket.flush()
+            time.sleep(0.5)
+            app.quit()
+        else:
+            localServer = QLocalServer()
+            localServer.listen(serverName)
+            localServer.newConnection.connect(
+                lambda: on_new_connection(localServer=localServer))
+            mainWindow = mainWindowGUI.MainWindow()
+            ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
+            ui.mainWindow.show()
+            # ui.mainWindow.game_setting = ui.game_setting
 
-        _translate = QtCore.QCoreApplication.translate
-        hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
+            _translate = QtCore.QCoreApplication.translate
+            hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
 
-        SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
-        ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-            hwnd, 0x00000011) else 1/0
-        ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-            hwnd, 0x00000000) else 1/0
+            SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
+            ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
+                hwnd, 0x00000011) else 1/0
+            ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
+                hwnd, 0x00000000) else 1/0
 
-        sys.exit(app.exec_())
-        ...
-    except Exception as e:
+            sys.exit(app.exec_())
+            ...
+    except:
         pass
 
 # 最高优先级
@@ -169,4 +184,3 @@ if __name__ == "__main__":
 # MouseState::ChordingNotFlag => Ok(6),
 # MouseState::DownUpAfterChording => Ok(7),
 # MouseState::Undefined => Ok(8),
-
