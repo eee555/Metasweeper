@@ -93,7 +93,7 @@ class Ui_Form(object):
         self.label_4.setAccessibleName("")
         self.label_4.setAccessibleDescription("")
         self.label_4.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_4.setText("<html><head/><body><p><a href=\"https://fff666.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B\"><span style=\" text-decoration: underline; color:#0000ff;\">https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B</span></a></p></body></html>")
+        self.label_4.setText("<html><head/><body><p><a href=\"https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B\"><span style=\" text-decoration: underline; color:#0000ff;\">https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B</span></a></p></body></html>")
         self.label_4.setTextFormat(QtCore.Qt.RichText)
         self.label_4.setWordWrap(True)
         self.label_4.setOpenExternalLinks(True)
