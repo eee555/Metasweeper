@@ -212,7 +212,7 @@
         <enum>Qt::LeftToRight</enum>
        </property>
        <property name="text">
-        <string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://fff666.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="textFormat">
         <enum>Qt::RichText</enum>
