@@ -8,8 +8,7 @@ import superGUI
 import gameAbout
 import gameSettings
 import gameSettingShortcuts
-import \
-    captureScreen, mine_num_bar, videoControl, gameRecordPop
+import captureScreen, mine_num_bar, videoControl, gameRecordPop
 from CheckUpdateGui import CheckUpdateGui
 from githubApi import GitHub, SourceManager
 import minesweeper_master as mm
@@ -1604,9 +1603,9 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.unlimit_cursor()
         # self.score_board_manager.close()
         self.game_setting.set_value(
-            "DEFAULT/mainWinTop", str(self.mainWindow.x()))
+            "DEFAULT/mainWinTop", str(self.mainWindow.y()))
         self.game_setting.set_value(
-            "DEFAULT/mainWinLeft", str(self.mainWindow.y()))
+            "DEFAULT/mainWinLeft", str(self.mainWindow.x()))
         self.game_setting.set_value("DEFAULT/row", str(self.row))
         self.game_setting.set_value("DEFAULT/column", str(self.column))
         self.game_setting.set_value("DEFAULT/mineNum", str(self.mineNum))

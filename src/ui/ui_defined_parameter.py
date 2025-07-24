@@ -43,7 +43,6 @@ class Ui_Form(object):
         self.pushButton_3.setStyleSheet("border-image: url(media/button.png);\n"
 "font: 16pt \"黑体\";\n"
 "color:white;font: bold;")
-        self.pushButton_3.setShortcut("Return")
         self.pushButton_3.setAutoDefault(False)
         self.pushButton_3.setFlat(False)
         self.pushButton_3.setObjectName("pushButton_3")
@@ -150,6 +149,7 @@ class Ui_Form(object):
         Form.setWindowTitle(_translate("Form", "自定义设置"))
         self.pushButton_2.setText(_translate("Form", "取消"))
         self.pushButton_3.setText(_translate("Form", "确定"))
+        self.pushButton_3.setShortcut(_translate("Form", "Return"))
         self.label.setText(_translate("Form", "行数(row)"))
         self.label_2.setText(_translate("Form", "列数(column)"))
         self.label_3.setText(_translate("Form", "雷数(number)"))

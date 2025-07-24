@@ -1148,7 +1148,7 @@ color:white;font: bold;</string>
          <string>确定</string>
         </property>
         <property name="shortcut">
-         <string>Space</string>
+         <string>Return</string>
         </property>
         <property name="autoDefault">
          <bool>false</bool>

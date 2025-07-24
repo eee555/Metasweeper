@@ -53,7 +53,7 @@ class Ui_Form(object):
         self.label_2.setWhatsThis("")
         self.label_2.setAccessibleName("")
         self.label_2.setAccessibleDescription("")
-        self.label_2.setText("<html><head/><body><p><a href=\"https://github.com/eee555/Solvable-Minesweeper\"><span style=\" font-size:12pt; font-weight:600; text-decoration: underline; color:#0000ff;\">https://github.com/eee555/Solvable-Minesweeper</span></a></p></body></html>")
+        self.label_2.setText("<html><head/><body><p><a href=\"https://github.com/eee555/Metasweeper\"><span style=\" text-decoration: underline; color:#0000ff;\">https://github.com/eee555/Metasweeper</span></a></p></body></html>")
         self.label_2.setTextFormat(QtCore.Qt.RichText)
         self.label_2.setWordWrap(True)
         self.label_2.setOpenExternalLinks(True)
@@ -93,7 +93,7 @@ class Ui_Form(object):
         self.label_4.setAccessibleName("")
         self.label_4.setAccessibleDescription("")
         self.label_4.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_4.setText("<html><head/><body><p><a href=\"https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B\"><span style=\" text-decoration: underline; color:#0000ff;\">https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B</span></a></p></body></html>")
+        self.label_4.setText("<html><head/><body><p><a href=\"https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程\"><span style=\" text-decoration: underline; color:#0000ff;\">https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程</span></a></p></body></html>")
         self.label_4.setTextFormat(QtCore.Qt.RichText)
         self.label_4.setWordWrap(True)
         self.label_4.setOpenExternalLinks(True)
@@ -140,7 +140,6 @@ class Ui_Form(object):
         self.pushButton.setStyleSheet("border-image: url(media/button.png);\n"
 "font: 16pt \"黑体\";\n"
 "color:white;font: bold;")
-        self.pushButton.setShortcut("Space")
         self.pushButton.setAutoDefault(False)
         self.pushButton.setFlat(False)
         self.pushButton.setObjectName("pushButton")
@@ -160,3 +159,4 @@ class Ui_Form(object):
         self.label_race_label_3.setText(_translate("Form", "①本软件可以不受任何限制地复制、储存、传播。\n"
 "②任何人可以在任何一个项目中使用本项目源代码的任何一个部分，同时欢迎在本项目主页提出宝贵的意见。"))
         self.pushButton.setText(_translate("Form", "确定"))
+        self.pushButton.setShortcut(_translate("Form", "Return"))

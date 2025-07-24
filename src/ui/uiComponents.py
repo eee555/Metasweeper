@@ -14,6 +14,7 @@ from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtGui import QPixmap
 import configparser
 from PyQt5.QtCore import pyqtSignal 
+from PyQt5.QtCore import QEvent
 # ui相关的小组件，非窗口
 
 class RoundQDialog(QDialog):
@@ -238,25 +239,22 @@ class CommentLabel(QtWidgets.QLabel):
 class ScoreTable(QtWidgets.QTableWidget):
     ...
 
-# 能响应点击的QComboBox
+# 可编辑、阻止输入框部分点击事件冒泡
 class BetterQCombox(QComboBox):
-    # clicked = pyqtSignal()
-    # show_popup = pyqtSignal()
     resize = pyqtSignal()
     def __init__(self, parent=None):
         super(BetterQCombox, self).__init__(parent)
-
-    # def mousePressEvent(self, QMouseEvent):
-    #     self.clicked.emit()
-    #     QComboBox.mousePressEvent(self, QMouseEvent)
-
-    # def showPopup(self):
-    #     self.show_popup.emit()
-    #     QComboBox.showPopup(self)
-
-    # def hidePopup(self):
-    #     QComboBox.hidePopup(self)
         
+    def mousePressEvent(self, event):
+        # 拦截鼠标按下事件，阻止事件冒泡
+        super().mousePressEvent(event)
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        # 拦截鼠标释放事件，阻止事件冒泡
+        super().mouseReleaseEvent(event)
+        event.accept()
+
     def resizeEvent(self, e):
         self.resize.emit()
 

@@ -457,7 +457,25 @@ class Ui_MainWindow(Ui_MainWindow):
         self.mainWindow.setWindowOpacity(transparency / 100)
         mainWinTop = self.game_setting.get_or_set_value("DEFAULT/mainwintop", 100, int)
         mainWinLeft = self.game_setting.get_or_set_value("DEFAULT/mainwinleft", 200, int)
-        self.mainWindow.move(mainWinTop, mainWinLeft)
+        
+        window_width = self.mainWindow.width()
+        window_height = self.mainWindow.height()
+        screen = QtGui.QGuiApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+        screen_width = screen_geometry.width()
+        screen_height = screen_geometry.height()
+        if mainWinLeft < 0:
+            mainWinLeft = 0
+        elif mainWinLeft + window_width > screen_width:
+            mainWinLeft = screen_width - window_width
+        if mainWinTop < 0:
+            mainWinTop = 0
+        elif mainWinTop + window_height > screen_height:
+            mainWinTop = screen_height - window_height
+        # 考虑设置导致窗口移出屏幕外（例如使用拓展屏）。然而执行此初始化方法时，屏幕尚未
+        # 画局面，因此尺寸较完全初始化后偏小，仍有可能有半个窗口在屏幕外，当然这不影响使用。
+        self.mainWindow.move(mainWinLeft, mainWinTop)
+        
         self.row = self.game_setting.get_or_set_value("DEFAULT/row", 16, int)
         self.column = self.game_setting.get_or_set_value("DEFAULT/column", 30, int)
         self.mineNum = self.game_setting.get_or_set_value("DEFAULT/mineNum", 99, int)

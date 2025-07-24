@@ -391,7 +391,7 @@ class CheckUpdateGui(QDialog):
 #     app = QApplication(sys.argv)
 #     data = {
 #         "Github": "https://api.github.com/repos/",
-#         "fff666": "https://fff666.top/",
+#         "openms": "https://openms.top/",
 #     }
 #     w = CheckUpdateGui(GitHub(SourceManager(data), "eee555",
 #                        "Solvable-Minesweeper", "3.1.9", "(\d+\.\d+\.\d+)"))

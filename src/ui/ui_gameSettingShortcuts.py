@@ -60,7 +60,6 @@ class Ui_Form(object):
         self.pushButton.setStyleSheet("border-image: url(media/button.png);\n"
 "font: 16pt \"黑体\";\n"
 "color:white;font: bold;")
-        self.pushButton.setShortcut("Return")
         self.pushButton.setAutoDefault(False)
         self.pushButton.setFlat(False)
         self.pushButton.setObjectName("pushButton")
@@ -747,6 +746,7 @@ class Ui_Form(object):
         _translate = QtCore.QCoreApplication.translate
         self.pushButton_2.setText(_translate("Form", "取消"))
         self.pushButton.setText(_translate("Form", "确定"))
+        self.pushButton.setShortcut(_translate("Form", "Return"))
         self.comboBox_gamemode4.setItemText(0, _translate("Form", "标准"))
         self.comboBox_gamemode4.setItemText(1, _translate("Form", "Win7"))
         self.comboBox_gamemode4.setItemText(2, _translate("Form", "强无猜"))

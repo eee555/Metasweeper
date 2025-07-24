@@ -418,4 +418,4 @@ class Ui_Form(object):
         self.label_15.setText(_translate("Form", "高级"))
         self.label___15.setText(_translate("Form", "个人最佳！"))
         self.pushButton.setText(_translate("Form", "确定"))
-        self.pushButton.setShortcut(_translate("Form", "Space"))
+        self.pushButton.setShortcut(_translate("Form", "Return"))

@@ -4,6 +4,7 @@ from ui.ui_gameSettings import Ui_Form
 from ui.uiComponents import RoundQDialog
 from country_name import country_name
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
 
 class ui_Form(Ui_Form):
     def __init__(self, mainWindow):
@@ -37,19 +38,16 @@ class ui_Form(Ui_Form):
         
         self.Dialog = RoundQDialog(mainWindow.mainWindow)
         self.setupUi(self.Dialog)
-        self.setParameter()
         self.Dialog.setWindowIcon(QtGui.QIcon (str(self.r_path.with_name('media').joinpath('cat.ico'))))
+        
         self.pushButton_yes.clicked.connect(self.processParameter)
         self.pushButton_no.clicked.connect(self.Dialog.close)
-        self.comboBox_country.resize.connect(self.set_lineedit_country_geometry)
-        self.lineEdit_country.textEdited.connect(lambda x: self.set_combobox_country(x))
-        self.comboBox_country.activated['QString'].connect(lambda x: self.set_country_flag(x))
-        self.lineEdit_country.textEdited.connect(lambda x: self.set_country_flag(x))
-        
+        # self.comboBox_country.activated['QString'].connect(lambda x: self.onchange_combobox_country(x))
+        self.comboBox_country.editTextChanged.connect(self.onchange_combobox_country)
+        self.comboBox_country.lineEdit().setAlignment(Qt.AlignCenter)
         self.country_name = list(country_name.keys())
-        self.set_combobox_country(self.lineEdit_country.text())
-        self.set_country_flag(self.lineEdit_country.text())
-        
+        self.setParameter()
+
     def set_country_flag(self, flag_name):
         # 设置国旗图案
         if flag_name not in country_name:
@@ -61,22 +59,20 @@ class ui_Form(Ui_Form):
                                  (fn + ".svg"))).scaled(51, 31)
             self.label_national_flag.setPixmap(pixmap)
             self.label_national_flag.update()
-            
-        
-    def set_lineedit_country_geometry(self):
-        # 把lineEdit_country重叠到comboBox_country上
-        QRect1 = self.comboBox_country.geometry()
-        QRect2 = self.horizontalWidget_country.geometry()
-        self.lineEdit_country.setGeometry(QRect1.x() + QRect2.x(),
-                                          QRect1.y() + QRect2.y(),
-                                          QRect1.width() - 30, # 把箭头露出来
-                                          QRect1.height())
-        
-    def set_combobox_country(self, qtext):
-        # 修改comboBox_country里的国家选项
+
+
+    # 修改comboBox_country里的国家选项的回调
+    def onchange_combobox_country(self, qtext):
+        # 记录光标位置
+        line_edit = self.comboBox_country.lineEdit()
+        cursor_position = line_edit.cursorPosition()
+        self.comboBox_country.editTextChanged.disconnect(self.onchange_combobox_country)
         self.comboBox_country.clear()
         self.comboBox_country.addItems(filter(lambda x: qtext in x, self.country_name))
-        
+        self.comboBox_country.setCurrentText(qtext)
+        line_edit.setCursorPosition(cursor_position)
+        self.comboBox_country.editTextChanged.connect(self.onchange_combobox_country)
+        self.set_country_flag(qtext)
 
     def setParameter(self):
         self.spinBox_pixsize.setValue (self.pixSize)
@@ -90,7 +86,9 @@ class ui_Form(Ui_Form):
         self.lineEdit_label.setText(self.player_identifier)
         self.lineEdit_race_label.setText(self.race_identifier)
         self.lineEdit_unique_label.setText(self.unique_identifier)
-        self.lineEdit_country.setText(self.country)
+        # self.lineEdit_country.setText(self.country)
+        # self.onchange_combobox_country(self.country)
+        self.comboBox_country.setCurrentText(self.country)
         self.checkBox_end_then_flag.setChecked(self.end_then_flag)
         self.checkBox_cursor_limit.setChecked(self.cursor_limit)
         self.horizontalSlider_transparency.setValue (self.transparency)
@@ -122,7 +120,7 @@ class ui_Form(Ui_Form):
         self.player_identifier = self.lineEdit_label.text()
         self.race_identifier = self.lineEdit_race_label.text()
         self.unique_identifier = self.lineEdit_unique_label.text()
-        self.country = self.lineEdit_country.text()
+        self.country = self.comboBox_country.currentText()
         self.autosave_video = self.checkBox_autosave_video.isChecked()
         self.filter_forever = self.checkBox_filter_forever.isChecked()
         self.board_constraint = self.lineEdit_constraint.text()
