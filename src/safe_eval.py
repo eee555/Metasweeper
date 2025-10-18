@@ -35,6 +35,7 @@ __all__ = (
 
 import dis
 import sys
+import math
 
 
 builtins_whitelist = {
@@ -58,7 +59,7 @@ builtins_whitelist = {
     "sum",
 }
 
-if sys.version_info[0:2] >= (3, 11):
+if sys.version_info[0:2] == (3, 11):
     opcode_whitelist = {
         # Shared with Python 3.10.
         'POP_TOP',
@@ -112,7 +113,7 @@ if sys.version_info[0:2] >= (3, 11):
         'BUILD_STRING',
     }
 
-else:
+elif sys.version_info[0:2] == (3, 10):
     # Python 3.10.
     opcode_whitelist = {
         '<0>',
@@ -185,6 +186,32 @@ else:
         'BUILD_STRING',
     }
 
+elif sys.version_info[0:2] == (3, 12):
+    opcode_whitelist = {
+        '<8>',
+        '<6>',
+        '<10>',
+        "RESUME",
+        "CACHE",
+        "LOAD_NAME",
+        "CALL",
+        "RETURN_VALUE",
+        "LOAD_CONST",
+        "PUSH_NULL",
+        "UNARY_NEGATIVE",
+        "BINARY_OP",
+        "POP_JUMP_IF_FALSE",
+        "POP_TOP",
+        "FORMAT_VALUE",
+        "END_FOR",
+        "BUILD_STRING",
+        "INTERPRETER_EXIT",
+        }
+    
+else:
+    raise RuntimeError("Python version not support!")
+    
+
 # Convert names to index
 opname_reverse = {name: index for index, name in enumerate(dis.opname)}
 try:
@@ -239,7 +266,14 @@ def raise_if_code_unsafe(code, globals=None, locals=None):
         i += code_size(opcode)
 
 
-def safe_eval(source, globals=None, locals=None):
+def safe_eval(source, globals=None):
+    
+    locals = {
+        "sin": math.sin,
+        "tan": math.tan,
+        "cos": math.cos,
+        "log": math.log,
+        }
 
     code = compile(source, "<safe_eval>", "eval")
 
@@ -248,3 +282,17 @@ def safe_eval(source, globals=None, locals=None):
     ans = eval(code, globals, locals)
     globals.pop('__builtins__') # 删去副作用
     return ans
+
+if __name__ == "__main__":
+    constraints = {
+        "bbbv": 67,
+        "right": 8888,
+        "right_s": 11.9
+        }
+    a = safe_eval("any([min(22+2, 6), 7])", constraints)
+    a = safe_eval("f'{right}@{right_s:.3f}'", constraints)
+    a = safe_eval("sin(22+2) / cos(-50) - (log(7.21))", constraints)
+    
+    
+
+

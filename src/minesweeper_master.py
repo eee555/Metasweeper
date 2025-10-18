@@ -36,6 +36,7 @@ def choose_3BV(board_constraint, attempt_times_limit, params):
                 "sin": math.sin,
                 "tan": math.tan,
                 "cos": math.cos,
+                "log": math.log,
                 } # 也许还要加row, column, mine_num, level, mode
             wrapper_b = ms.Board(b)
             if "bbbv" in board_constraint:
