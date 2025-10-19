@@ -131,6 +131,13 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
 
         self.mainWindow.closeEvent_.connect(self.closeEvent_)
         self.mainWindow.dropFileSignal.connect(self.action_OpenFile)
+        
+        # 播放录像时，记录上一个鼠标状态用。
+        # 这是一个补丁，因为工具箱里只有UpDown和UpDownNotFlag，
+        # 也有DownUpAfterChording，但是没有UpDownAfterChording
+        # 因此同样是UpDown，在数字和空上双击黄脸应该张嘴，但是双击后抬起时则
+        # 不应该张嘴。工具箱缺少两种鼠标状态的区分，导致黄脸无法准确动作。
+        self.last_mouse_state_video_playing_step = 1
 
     @property
     def pixSize(self):
@@ -1492,11 +1499,20 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             self.timer_video.stop()
             self.video_playing = False
         self.label.update()
-        # 回放时修改小黄脸
-        if self.label.ms_board.mouse_state in {1, 3, 7}:
-            self.set_face(14)
-        else:
-            self.set_face(15)
+        
+        # 回放时修改小黄脸，使用了一个变量做工具箱的补丁
+        match self.label.ms_board.mouse_state:
+            case 1 | 7:
+                self.set_face(14)
+            case 2 | 4 | 5 | 6:
+                self.set_face(15)
+            case 3:
+                if self.last_mouse_state_video_playing_step in {5, 6}:
+                    self.set_face(14)
+                else:
+                    self.set_face(15)
+        self.last_mouse_state_video_playing_step = self.label.ms_board.mouse_state
+        
         self.score_board_manager.show(self.label.ms_board, index_type=3)
         self.video_time += self.video_time_step
         self.showTime(int(self.video_time))
