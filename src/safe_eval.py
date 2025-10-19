@@ -206,6 +206,28 @@ elif sys.version_info[0:2] == (3, 12):
         "END_FOR",
         "BUILD_STRING",
         "INTERPRETER_EXIT",
+        "UNPACK_SEQUENCE",
+        "COPY",
+        "END_SEND",
+        "COMPARE_OP",
+        'BUILD_TUPLE',
+        'BUILD_LIST',
+        'BUILD_SET',
+        'BUILD_MAP',
+        'BUILD_CONST_KEY_MAP',
+        'GET_ITER',
+        'LOAD_FAST_AND_CLEAR',
+        'FOR_ITER',
+        'STORE_FAST',
+        'LIST_APPEND',
+        'NOP',
+        'SWAP',
+        'RERAISE',
+        'UNARY_NOT',
+        '<13>',
+        'STORE_SLICE',
+        'SET_ADD',
+        'BINARY_SUBSCR',
         }
     
 else:
@@ -289,9 +311,16 @@ if __name__ == "__main__":
         "right": 8888,
         "right_s": 11.9
         }
-    a = safe_eval("any([min(22+2, 6), 7])", constraints)
+    a = safe_eval("all([any([min(22+2, 6), 7]), 5, -4])", constraints)
     a = safe_eval("f'{right}@{right_s:.3f}'", constraints)
     a = safe_eval("sin(22+2) / cos(-50) - (log(7.21))", constraints)
+    a = safe_eval("bbbv >=4 and right < 5 or right_s == 2.3", constraints)
+    a = safe_eval("[min(22+2, 6), 7][1]", constraints)
+    a = safe_eval("{'a':right_s, 'ee':bbbv/right}['ee']", constraints)
+    a = safe_eval("[i**1.2 for i in [bbbv, right]]", constraints)
+    a = safe_eval("[log(i) * sin(cos(i)) for i in [bbbv, right]][bbbv-67]", constraints)
+    a = safe_eval("{i for i in (5,1,sin(cos(88)))}", constraints)
+    
     
     
 

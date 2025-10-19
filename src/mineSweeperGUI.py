@@ -1492,6 +1492,11 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             self.timer_video.stop()
             self.video_playing = False
         self.label.update()
+        # 回放时修改小黄脸
+        if self.label.ms_board.mouse_state in {1, 3, 7}:
+            self.set_face(14)
+        else:
+            self.set_face(15)
         self.score_board_manager.show(self.label.ms_board, index_type=3)
         self.video_time += self.video_time_step
         self.showTime(int(self.video_time))
