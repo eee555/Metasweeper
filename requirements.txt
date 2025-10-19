@@ -1,2 +1,7 @@
 pyQt5==5.15.7
 ms-toollib==1.4.19
+setuptools==70.2.0
+
+
+
+

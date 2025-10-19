@@ -100,7 +100,7 @@ class CaptureScreen(QDialog):
         self.data = s.unpack(bits[0:])
         self.success_flag = True
         try:
-            self.board = ms_toollib.OBR_board(self.data, self.height, self.width)
+            self.board = ms_toollib.obr_board(self.data, self.height, self.width)
         except:
             self.success_flag = False
             

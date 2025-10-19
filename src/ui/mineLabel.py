@@ -28,7 +28,7 @@ class mineLabel(QtWidgets.QLabel):
         self.mouse.addPolygon(mouse_)
         self.setMouseTracking(True)
         self.paint_cursor = False # 是否画光标。不仅控制画光标，还代表了是游戏还是播放录像。
-        self.paintPossibility = False
+        self.paintProbability = False
 
     def setPath(self, r_path):
         # 告诉局面控件，相对路径
@@ -50,10 +50,10 @@ class mineLabel(QtWidgets.QLabel):
 
     def set_rcp(self, row, column, pixSize):
         # ui层面，重设一下宽、高、大小
-        # self.paintPossibility = False  # 是否打印概率
+        # self.paintProbability = False  # 是否打印概率
         self.row = row
         self.column = column
-        if self.paintPossibility:
+        if self.paintProbability:
             # self.ms_board = mm.abstract_game_board()
             self.ms_board = mm.CoreBaseVideo([[0] * column for _ in range(row)], pixSize)
         else:
@@ -65,7 +65,7 @@ class mineLabel(QtWidgets.QLabel):
                     self.ms_board.reset(row, column, pixSize)
             else:
                 self.ms_board = ms.BaseVideo([[0] * column for _ in range(row)], pixSize)
-            self.boardPossibility = [[0.0] * column for _ in range(row)]
+            self.boardProbability = [[0.0] * column for _ in range(row)]
         
         if self.pixSize != pixSize:
             self.pixSize = pixSize
@@ -166,7 +166,7 @@ class mineLabel(QtWidgets.QLabel):
             game_board_state = self.ms_board.game_board_state
             current_x = self.current_x // self.pixSize
             current_y = self.current_y // self.pixSize
-            # poss = self.boardPossibility
+            # poss = self.boardProbability
         painter.begin(self)
         # 画游戏局面
         row = len(game_board)
@@ -175,11 +175,11 @@ class mineLabel(QtWidgets.QLabel):
             for j in range(column):
                 if game_board[i][j] == 10:
                     painter.drawPixmap(j * pix_size + 4, i * pix_size + 4, QPixmap(self.pixmapNum[10]))
-                    if self.paintPossibility: # 画概率
+                    if self.paintProbability: # 画概率
                         if self.paint_cursor:
                             painter.setOpacity(self.ms_board.game_board_poss[i][j])
                         else:
-                            painter.setOpacity(self.boardPossibility[i][j])
+                            painter.setOpacity(self.boardProbability[i][j])
                         painter.drawPixmap(j * pix_size + 4, i * pix_size + 4, QPixmap(self.pixmapNum[100]))
                         painter.setOpacity(1.0)
                 else:

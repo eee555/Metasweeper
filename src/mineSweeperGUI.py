@@ -416,11 +416,13 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
                     # 正式埋雷开始
                     self.layMine(i // self.pixSize, j // self.pixSize)
 
+                    # 只有没有“局面约束”时，录像才可能是“official”的
                     if self.board_constraint:
                         self.game_state = 'joking'
                     else:
                         self.game_state = 'playing'
 
+                    # 假如未开启“直播模式”，禁用代码截图
                     if self.player_identifier[:6] != "[live]":
                         self.disable_screenshot()
                     else:
@@ -527,7 +529,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
                 self.label_info.setText('(是雷的概率)')
             else:
                 text4 = '{:.3f}'.format(
-                    max(0, self.label.boardPossibility[i//self.pixSize][j//self.pixSize]))
+                    max(0, self.label.boardProbability[i//self.pixSize][j//self.pixSize]))
                 self.label_info.setText(text4)
         # 播放录像时的鼠标移动事件
         elif self.game_state == 'showdisplay':
@@ -600,7 +602,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.timer_10ms.stop()
         self.score_board_manager.editing_row = -1
 
-        self.label.paintPossibility = False
+        self.label.paintProbability = False
         self.label_info.setText(self.player_identifier)
 
         # 这里有点乱
@@ -652,7 +654,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.label.ms_board.reset(self.row, self.column, self.pixSize)
         self.label.update()
 
-        self.label.paintPossibility = False
+        self.label.paintProbability = False
         # self.label.paint_cursor = False
         # self.label.setMouseTracking(False) # 鼠标未按下时，组织移动事件回调
 
@@ -1105,7 +1107,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         # 把局面设置成(row, column, mineNum)，把3BV的限制设置成min3BV, max3BV
         # 比gameStart更高级
         if self.game_state == 'display' or self.game_state == 'showdisplay':
-            self.label.paintPossibility = False
+            self.label.paintProbability = False
         if (self.row, self.column, self.mineNum) != (row, column, mineNum):
             self.setBoard(row, column, mineNum)
             self.gameStart()
@@ -1220,6 +1222,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             self.video_playing = False
             self.timer_video.stop()
 
+        self.unlimit_cursor()
         self.enable_screenshot()
 
         ui = captureScreen.CaptureScreen()
@@ -1231,7 +1234,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
 
         # 会报两种runtimeerror，标记阶段无解的局面、枚举阶段无解的局面
         try:
-            ans = ms.cal_possibility_onboard(
+            ans = ms.cal_probability_onboard(
                 ui.board, 0.20625 if len(ui.board[0]) >= 24 else 0.15625)
         except:
             return
@@ -1279,7 +1282,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         # self.setBoard_and_start(len(ui.board), len(ui.board[0]), ans[1][1])
         self.setBoard(self.row, self.column, ans[1][1])
 
-        self.label.paintPossibility = True
+        self.label.paintProbability = True
         self.label.set_rcp(self.row, self.column, self.pixSize)
 
         self.label.ms_board.game_board = ui.board
@@ -1287,7 +1290,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         self.label.ms_board.game_board_state = 1
         self.mineNumShow = ans[1][1]
         self.showMineNum(self.mineNumShow)
-        self.label.boardPossibility = ans[0]
+        self.label.boardProbability = ans[0]
 
         self.label.update()
         # self.label.setMouseTracking(True)
@@ -1297,26 +1300,26 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
     def render_poss_on_board(self):
         # 雷数条拉动后、改局面后，显示雷数并展示
         try:
-            ans = ms.cal_possibility_onboard(
+            ans = ms.cal_probability_onboard(
                 self.label.ms_board.game_board, self.mineNumShow)
         except:
             try:
-                ans = ms.cal_possibility_onboard(self.label.ms_board.game_board,
+                ans = ms.cal_probability_onboard(self.label.ms_board.game_board,
                                                  self.mineNumShow / self.row / self.column)
             except:
                 # 无解，算法增加雷数后无解
-                self.label.paintPossibility = False
+                self.label.paintProbability = False
                 self.num_bar_ui.QWidget.hide()
                 self.label.update()
                 return
             else:
                 # 无解，算法增加雷数后有解
                 self.mineNumShow = ans[1][1]
-                self.label.boardPossibility = ans[0]
-                self.label.paintPossibility = True
+                self.label.boardProbability = ans[0]
+                self.label.paintProbability = True
 
-        self.label.boardPossibility = ans[0]
-        self.label.paintPossibility = True
+        self.label.boardProbability = ans[0]
+        self.label.paintProbability = True
         self.num_bar_ui.QWidget.show()
         self.num_bar_ui.spinBox.setMinimum(ans[1][0])
         self.num_bar_ui.spinBox.setMaximum(ans[1][2])
@@ -1342,15 +1345,15 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
             ...
         elif self.game_state == 'playing' or self.game_state == 'joking':
             self.game_state = 'show'
-            self.label.paintPossibility = True
+            self.label.paintProbability = True
             # self.label.setMouseTracking(True)
             mineNum = self.mineNum
             # 删去用户标的雷，因为可能标错
             # game_board = list(map(lambda x: list(map(lambda y: min(y, 10), x)),
             #                  self.label.ms_board.game_board))
-            ans = ms.cal_possibility_onboard(
+            ans = ms.cal_probability_onboard(
                 self.label.ms_board.game_board, mineNum)
-            self.label.boardPossibility = ans[0]
+            self.label.boardProbability = ans[0]
             self.label.update()
 
     def mineKeyReleaseEvent(self, keyName):
@@ -1358,18 +1361,18 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         if keyName == 'Space':
             if self.game_state == 'show':
                 self.game_state = 'joking'
-                self.label.paintPossibility = False
+                self.label.paintProbability = False
                 # self.label.setMouseTracking(False)
                 self.label_info.setText(self.player_identifier)
                 self.label.update()
             elif self.game_state == 'display':
                 self.game_state = 'showdisplay'
-                self.label.paintPossibility = True
+                self.label.paintProbability = True
                 # self.label.setMouseTracking(True)
                 self.label.update()
             elif self.game_state == 'showdisplay':
                 self.game_state = 'display'
-                self.label.paintPossibility = False
+                self.label.paintProbability = False
                 # self.label.setMouseTracking(False)
                 self.label.update()
 
@@ -1448,7 +1451,7 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         # 调整窗口
         if (video.row, video.column) != (self.row, self.column):
             self.setBoard(video.row, video.column, video.mine_num)
-            self.label.paintPossibility = False
+            self.label.paintProbability = False
             self.label.set_rcp(self.row, self.column, self.pixSize)
             # self.label.reloadCellPic(self.pixSize)
             self.label.setMinimumSize(QtCore.QSize(
@@ -1602,8 +1605,11 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
         rect = QRect(widget_pos, widget_size)
         self._clip_mouse(rect)
 
-    # 取消将鼠标区域限制在游戏界面中
+    
     def unlimit_cursor(self):
+        '''
+        取消将鼠标区域限制在游戏界面中。
+        '''
         ctypes.windll.user32.ClipCursor(None)
 
     def _clip_mouse(self, rect):
