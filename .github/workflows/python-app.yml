@@ -83,14 +83,16 @@ jobs:
 
     - name: Package with PyInstaller
       run: |
-        pyinstaller -i "./media/cat.ico" -w -y --clean --add-data "./media/*;./media" --add-data "./de_DE.qm;." --add-data "./pl_PL.qm;." --add-data "./en_US.qm;." -p src src/main.py -n metaminesweeper
+        pyinstaller --icon "./src/media/cat.ico" --noconsole --noconfirm --clean --add-data "./src/media/*:./media" --add-data "./src/de_DE.qm:." --add-data "./src/pl_PL.qm:." --add-data "./src/en_US.qm:." --paths src --name metaminesweeper src/main.py
+        
+
 
     - name: Move media and qm file
       run: |
-        move dist/metaminesweeper/media dist/media
-        move dist/metaminesweeper/en_US.qm dist/en_US.qm
-        move dist/metaminesweeper/de_DE.qm dist/de_DE.qm
-        move dist/metaminesweeper/pl_PL.qm dist/pl_PL.qm
+        move dist/metaminesweeper/_internal/media dist/media
+        move dist/metaminesweeper/_internal/en_US.qm dist/metaminesweeper/en_US.qm
+        move dist/metaminesweeper/_internal/de_DE.qm dist/metaminesweeper/de_DE.qm
+        move dist/metaminesweeper/_internal/pl_PL.qm dist/metaminesweeper/pl_PL.qm
 
     # upload the result package as an artifact
     - name: Upload artifacts

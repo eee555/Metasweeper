@@ -1388,9 +1388,10 @@ class MineSweeperGUI(superGUI.Ui_MainWindow):
 
     # 打开录像文件的回调
     def action_OpenFile(self, openfile_name=None):
+        self.setting_path / 'replay'
         if not openfile_name:
             openfile_name = QFileDialog.\
-                getOpenFileName(self.mainWindow, '打开文件', '../replay',
+                getOpenFileName(self.mainWindow, '打开文件', str(self.setting_path / 'replay'),
                                 'All(*.avf *.evf *.rmv *.mvf);;Arbiter video(*.avf);;Metasweeper video(*.evf);;Vienna MineSweeper video(*.rmv);;Minesweeper Clone 0.97(*.mvf)')
             openfile_name = openfile_name[0]
         # 实例化

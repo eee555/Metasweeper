@@ -165,16 +165,25 @@ class Ui_MainWindow(Ui_MainWindow):
         self.setupUi(self.mainWindow)
                 
         
-        # 设置全局路径
-        r_path = Path(args[0]).parent
+        # 设置全局路径，需要读写权限
+        # WindowsPath('f:/path/solvable-minesweeper/src/main.py')
+        r_path = Path(args[0])
+        # 检查是否有写入权限
+        if self._can_write_to(r_path.with_name('gameSetting.ini')):
+            self.setting_path = r_path
+        else:
+            # 没权限，改用 %APPDATA%\你的程序名\
+            self.setting_path = Path(os.environ['APPDATA']) / ('MetaMineSweeper' + version[1:])
+            self.setting_path.mkdir(parents=True, exist_ok=True)
         self.r_path = r_path
+            
         # 录像保存位置
-        self.replay_path = str(r_path.with_name('replay'))
+        self.replay_path = str(self.setting_path / 'replay')
         # 记录了全局游戏设置
-        game_setting_path = str(r_path.with_name('gameSetting.ini'))
+        game_setting_path = str(self.setting_path / 'gameSetting.ini')
         self.game_setting = IniConfig(game_setting_path)
         # 个人记录，用来弹窗
-        record_path = str(r_path.with_name('record.ini'))
+        record_path = str(self.setting_path / 'record.ini')
         self.record_setting = IniConfig(record_path)
 
 
@@ -217,7 +226,7 @@ class Ui_MainWindow(Ui_MainWindow):
 
 
         # 记录了计数器的配置，显示哪些指标等等
-        score_board_path = str(r_path.with_name('scoreBoardSetting.ini'))
+        score_board_path = str(self.setting_path / 'scoreBoardSetting.ini')
         self.score_board_setting = IniConfig(score_board_path)
         self.score_board_manager = gameScoreBoardManager(r_path, self.score_board_setting,
                                                          self.game_setting,
@@ -556,7 +565,20 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label_flag.setPixmap(pixmap)
         self.label_flag.update()
 
-
+    def _can_write_to(self, path: Path) -> bool:
+        """检查是否有权限写入目标路径"""
+        try:
+            # 若文件不存在则尝试新建
+            if not path.exists():
+                path.touch(exist_ok=True)
+                path.unlink()  # 删掉临时文件
+            else:
+                # 若文件存在则尝试写入一行
+                with open(path, 'a', encoding='utf-8') as f:
+                    f.write('')
+            return True
+        except:
+            return False
 
 
 
