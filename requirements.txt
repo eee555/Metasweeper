@@ -1,6 +1,6 @@
 pyQt5==5.15.7
 ms-toollib==1.4.19
-setuptools==70.2.0
+setuptools==78.1.1
 pyinstaller==6.16.0
 
 
