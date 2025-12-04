@@ -26,7 +26,9 @@ import metaminesweeper_checksum
 from mainWindowGUI import MainWindow
 from datetime import datetime
 from mineSweeperVideoPlayer import MineSweeperVideoPlayer
-
+from pluginDialog import PluginManagerUI
+from mp_plugins import PluginManager, PluginContext
+from mp_plugins.events import GameEndEvent
 
 class MineSweeperGUI(MineSweeperVideoPlayer):
     def __init__(self, MainWindow: MainWindow, args):
@@ -36,7 +38,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
 
         self.time_10ms: int = 0  # 已毫秒为单位的游戏时间，全局统一的
         self.showTime(self.time_10ms // 100)
-
 
         self.timer_10ms = QTimer()
         self.timer_10ms.setInterval(10)  # 10毫秒回调一次的定时器
@@ -69,6 +70,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         self.actiongaun_yv.triggered.connect(self.action_AEvent)
         self.actionauto_update.triggered.connect(self.auto_Update)
         self.actionopen.triggered.connect(self.action_OpenFile)
+        self.actionchajian.triggered.connect(self.action_OpenPluginDialog)
         self.english_action.triggered.connect(
             lambda: self.trans_language("en_US"))
         self.chinese_action.triggered.connect(
@@ -134,7 +136,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
 
         self.mainWindow.closeEvent_.connect(self.closeEvent_)
         self.mainWindow.dropFileSignal.connect(self.action_OpenFile)
-        
+
         # 播放录像时，记录上一个鼠标状态用。
         # 这是一个补丁，因为工具箱里只有UpDown和UpDownNotFlag，
         # 也有DownUpAfterChording，但是没有UpDownAfterChording
@@ -247,8 +249,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             case "study":
                 self.num_bar_ui.QWidget.close()
         self._game_state = game_state
-        
-        
+
     @property
     def row(self):
         return self._row
@@ -259,7 +260,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             "row": row,
         })
         self._row = row
-            
+
     @property
     def column(self):
         return self._column
@@ -270,7 +271,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             "column": column,
         })
         self._column = column
-         
+
     @property
     def minenum(self):
         return self._minenum
@@ -281,7 +282,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             "minenum": minenum,
         })
         self._minenum = minenum
-        
 
     def layMine(self, i, j):
         xx = self.row
@@ -452,8 +452,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                                                   not_mine_round + is_mine_round)
             self.label.ms_board.board = board
 
-
-
     def mineNumWheel(self, i):
         '''
         在雷上滚轮，调雷数
@@ -564,6 +562,8 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         self.score_board_manager.show(self.label.ms_board, index_type=2)
         self.enable_screenshot()
         self.unlimit_cursor()
+        event = GameEndEvent()
+        PluginManager.instance().send_event(event, response_count=0)
 
     def gameWin(self):  # 成功后改脸和状态变量，停时间
         self.timer_10ms.stop()
@@ -580,7 +580,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         if self.autosave_video and self.checksum_module_ok():
             self.dump_evf_file_data()
             self.save_evf_file()
-            
+
         self.gameFinished()
 
         # 尝试弹窗，没有破纪录则不弹
@@ -601,10 +601,10 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                 self.label.ms_board.use_question = False  # 禁用问号是共识
                 self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
                 self.label.ms_board.use_auto_replay = self.auto_replay > 0
-    
+
                 self.label.ms_board.is_fair = self.is_fair()
                 self.label.ms_board.is_official = self.is_official()
-    
+
                 self.label.ms_board.software = superGUI.version
                 self.label.ms_board.mode = self.gameMode
                 self.label.ms_board.player_identifier = self.player_identifier
@@ -614,7 +614,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                     country_name[self.country].upper()
                 self.label.ms_board.device_uuid = hashlib.md5(
                     bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
-    
+
                 self.label.ms_board.generate_evf_v4_raw_data()
                 # 补上校验值
                 checksum = self.checksum_guard.get_checksum(
@@ -641,8 +641,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             os.mkdir(self.replay_path)
 
         self.label.ms_board.save_to_evf_file(self.cal_evf_filename())
-    
-    
+
     # 拼接evf录像的文件名，无后缀
     def cal_evf_filename(self, absolute=True) -> str:
         if (self.label.ms_board.row, self.label.ms_board.column, self.label.ms_board.mine_num) == (8, 8, 10):
@@ -676,8 +675,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             file_name += "_fake"
         return file_name
 
-    
-        
     # 保存evfs文件。先保存后一个文件，再删除前一个文件。
     def save_evfs_file(self):
         # 文件名包含秒为单位的时间戳，理论上不会重复
@@ -697,7 +694,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                 self.label.ms_board.player_identifier + date_str
             self.evfs.save_evfs_file(file_name + "1")
             self.old_evfs_filename = file_name
-
 
     def gameFailed(self):  # 失败后改脸和状态变量
         self.timer_10ms.stop()
@@ -876,8 +872,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             ui.label_16.setText(mode_text)
             ui.Dialog.show()
             ui.Dialog.exec_()
-            
-            
+
     # 根据条件是否满足，尝试追加evfs文件
     # 当且仅当game_state发生变化，且旧状态为"playing"时调用（即使点一下就获胜也会经过"playing"）
     # 加入evfs是空的，且当前游戏状态不是"win"，则不追加
@@ -901,10 +896,10 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             self.label.ms_board.use_question = False  # 禁用问号是共识
             self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
             self.label.ms_board.use_auto_replay = self.auto_replay > 0
-    
+
             self.label.ms_board.is_fair = self.is_fair()
             self.label.ms_board.is_official = self.is_official()
-    
+
             self.label.ms_board.software = superGUI.version
             self.label.ms_board.mode = self.gameMode
             self.label.ms_board.player_identifier = self.player_identifier
@@ -914,7 +909,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                 country_name[self.country].upper()
             self.label.ms_board.device_uuid = hashlib.md5(
                 bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
-    
+
             self.label.ms_board.generate_evf_v4_raw_data()
             # 补上校验值
             checksum = self.checksum_guard.get_checksum(
@@ -937,7 +932,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                            self.cal_evf_filename(absolute=False), checksum)
         self.evfs.generate_evfs_v0_raw_data()
         self.save_evfs_file()
-    
 
     def showMineNum(self, n):
         # 显示剩余雷数，雷数大于等于0，小于等于999，整数
@@ -1004,7 +998,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         self.score_board_manager.show(self.label.ms_board, index_type=1)
         self.board_constraint = self.predefinedBoardPara[k]['board_constraint']
         self.attempt_times_limit = self.predefinedBoardPara[k]['attempt_times_limit']
-
 
     # 菜单回放的回调
     def replay_game(self):
@@ -1374,8 +1367,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         self.game_setting.set_value("DEFAULT/minenum", str(self.minenum))
         self.game_setting.sync()
 
-
-
     def is_official(self) -> bool:
         # 局面开始时，判断一下局面是设置是否正式。
         # 极端小的3BV依然是合法的，而网站是否认同不关软件的事。
@@ -1423,7 +1414,6 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         rect = QRect(widget_pos, widget_size)
         self._clip_mouse(rect)
 
-    
     def unlimit_cursor(self):
         '''
         取消将鼠标区域限制在游戏界面中。
@@ -1473,3 +1463,8 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
 
         self.game_setting.sync()
         self.record_setting.sync()
+
+    def action_OpenPluginDialog(self):
+        contexts = list(PluginManager.instance().plugin_contexts)
+        dialog = PluginManagerUI(contexts)
+        dialog.exec()

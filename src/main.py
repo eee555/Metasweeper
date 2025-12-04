@@ -12,7 +12,48 @@ import mineSweeperGUI as mineSweeperGUI
 import ms_toollib as ms
 import ctypes
 from ctypes import wintypes
+from mp_plugins.context import AppContext
+from mp_plugins.events import *
+from mp_plugins import PluginManager
+from pathlib import Path
+import os
+
 os.environ["QT_FONT_DPI"] = "96"
+
+
+# def patch_env():
+#     import os
+
+
+#     env = os.environ.copy()
+#     root = os.path.dirname(os.path.abspath(__file__))  # 你的项目根目录
+#     env["PYTHONPATH"] = root
+#     return env
+def get_paths():
+    if getattr(sys, "frozen", False):
+        # 打包成 exe
+        dir = os.path.dirname(sys.executable)  # exe 所在目录
+    else:
+        dir = os.path.dirname(os.path.abspath(__file__))
+
+    return dir
+
+
+def patch_env():
+    import os
+    import sys
+
+    env = os.environ.copy()
+
+    if getattr(sys, "frozen", False):
+        # 打包成 exe，库解压到 _MEIPASS
+        root = getattr(sys, "_MEIPASS", None)
+    else:
+        # 调试模式，库在项目目录
+        root = os.path.dirname(os.path.abspath(__file__))
+
+    env["PYTHONPATH"] = root
+    return env
 
 
 def on_new_connection(localServer: QLocalServer):
@@ -53,7 +94,7 @@ def find_window(class_name, window_name):
 
 
     """
-    user32 = ctypes.WinDLL('user32', use_last_error=True)
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
     user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
     user32.FindWindowW.restype = wintypes.HWND
 
@@ -63,36 +104,39 @@ def find_window(class_name, window_name):
     return hwnd
 
 
-
 def cli_check_file(file_path: str) -> int:
     if not os.path.exists(file_path):
         print("ERROR: file not found")
         return 2
-    
+
     # 搜集目录或文件下的所有evf和evfs文件
     evf_evfs_files = []
-    if os.path.isfile(file_path) and (file_path.endswith('.evf') or file_path.endswith('.evfs')):
+    if os.path.isfile(file_path) and (
+        file_path.endswith(".evf") or file_path.endswith(".evfs")
+    ):
         evf_evfs_files = [os.path.abspath(file_path)]
     elif os.path.isdir(file_path):
-        evf_evfs_files = [os.path.abspath(os.path.join(root, file))
-                     for root, dirs, files in os.walk(file_path)
-                     for file in files if file.endswith('.evf') or file.endswith('.evfs')]
+        evf_evfs_files = [
+            os.path.abspath(os.path.join(root, file))
+            for root, dirs, files in os.walk(file_path)
+            for file in files
+            if file.endswith(".evf") or file.endswith(".evfs")
+        ]
 
     if not evf_evfs_files:
         print("ERROR: must be evf or evfs files or directory")
         return 2
-        
-    
+
     # 实例化一个MineSweeperGUI出来
     app = QtWidgets.QApplication(sys.argv)
     mainWindow = mainWindowGUI.MainWindow()
     ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
-    
+
     for ide, e in enumerate(evf_evfs_files):
         if not ui.checksum_module_ok():
             print("ERROR: ???")
             return 2
-        if e.endswith('.evf'):
+        if e.endswith(".evf"):
             # 检验evf文件是否合法
             video = ms.EvfVideo(e)
             try:
@@ -101,12 +145,13 @@ def cli_check_file(file_path: str) -> int:
                 evf_evfs_files[ide] = (e, 2)
             else:
                 checksum = ui.checksum_guard.get_checksum(
-                    video.raw_data[:-(len(video.checksum) + 2)])
+                    video.raw_data[: -(len(video.checksum) + 2)]
+                )
                 if video.checksum == checksum:
                     evf_evfs_files[ide] = (e, 0)
                 else:
                     evf_evfs_files[ide] = (e, 1)
-        elif e.endswith('.evfs'):
+        elif e.endswith(".evfs"):
             # 检验evfs文件是否合法
             videos = ms.Evfs(e)
             try:
@@ -116,21 +161,22 @@ def cli_check_file(file_path: str) -> int:
             else:
                 if videos.len() <= 0:
                     evf_evfs_files[ide] = (e, 2)
-                checksum = ui.checksum_guard.get_checksum(
-                    videos[0].evf_video.raw_data)
+                checksum = ui.checksum_guard.get_checksum(videos[0].evf_video.raw_data)
                 if video.checksum != checksum:
                     evf_evfs_files[ide] = (e, 1)
                     continue
                 for idcell, cell in enumerate(videos[1:]):
                     checksum = ui.checksum_guard.get_checksum(
-                        cell.evf_video.raw_data + videos[idcell - 1].checksum)
+                        cell.evf_video.raw_data + videos[idcell - 1].checksum
+                    )
                     if cell.evf_file.checksum != checksum:
                         evf_evfs_files[ide] = (e, 1)
                         continue
                 evf_evfs_files[ide] = (e, 0)
     print(evf_evfs_files)
     return 0
-    
+
+
 if __name__ == "__main__":
     # metaminesweeper.exe -c filename.evf用法，检查文件的合法性
     # metaminesweeper.exe -c filename.evfs
@@ -142,7 +188,11 @@ if __name__ == "__main__":
     if args.check:
         exit_code = cli_check_file(args.check)
         sys.exit(exit_code)
-        
+    env = patch_env()
+    context = AppContext("Metasweeper", "1.0.0", "元扫雷")
+    PluginManager.instance().context = context
+
+    PluginManager.instance().start(Path(get_paths()) / "plugins", env)
 
     app = QtWidgets.QApplication(sys.argv)
     serverName = "MineSweeperServer"
@@ -159,7 +209,8 @@ if __name__ == "__main__":
         localServer = QLocalServer()
         localServer.listen(serverName)
         localServer.newConnection.connect(
-            lambda: on_new_connection(localServer=localServer))
+            lambda: on_new_connection(localServer=localServer)
+        )
         mainWindow = mainWindowGUI.MainWindow()
         ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
         ui.mainWindow.show()
@@ -169,16 +220,21 @@ if __name__ == "__main__":
         hwnd = find_window(None, _translate("MainWindow", "元扫雷"))
 
         SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
-        ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-            hwnd, 0x00000011) else 1/0
-        ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-            hwnd, 0x00000000) else 1/0
-        ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-            hwnd, 0x00000011) else 1/0
-        ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-            hwnd, 0x00000000) else 1/0
+        ui.disable_screenshot = lambda: (
+            ... if SetWindowDisplayAffinity(hwnd, 0x00000011) else 1 / 0
+        )
+        ui.enable_screenshot = lambda: (
+            ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1 / 0
+        )
+        ui.disable_screenshot = lambda: (
+            ... if SetWindowDisplayAffinity(hwnd, 0x00000011) else 1 / 0
+        )
+        ui.enable_screenshot = lambda: (
+            ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1 / 0
+        )
 
         sys.exit(app.exec_())
+        PluginManager.instance().stop()
         ...
     # except:
     #     pass

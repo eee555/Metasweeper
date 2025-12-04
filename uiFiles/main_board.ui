@@ -606,7 +606,7 @@
      <x>0</x>
      <y>0</y>
      <width>968</width>
-     <height>33</height>
+     <height>27</height>
     </rect>
    </property>
    <property name="font">
@@ -675,6 +675,7 @@
     </property>
     <addaction name="actiongaun_yv"/>
     <addaction name="actionauto_update"/>
+    <addaction name="actionchajian"/>
    </widget>
    <addaction name="menu"/>
    <addaction name="menu_2"/>
@@ -980,6 +981,19 @@
    </property>
    <property name="shortcut">
     <string>W</string>
+   </property>
+  </action>
+  <action name="actionchajian">
+   <property name="text">
+    <string>插件</string>
+   </property>
+   <property name="font">
+    <font>
+     <family>微软雅黑</family>
+     <pointsize>12</pointsize>
+     <weight>50</weight>
+     <bold>false</bold>
+    </font>
    </property>
   </action>
  </widget>
