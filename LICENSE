@@ -1,3 +1,15 @@
+# 📄 **LICENSE**
+
+**GNU General Public License Version 3 (GPLv3)**
+**with Additional Commercial Restriction and Contributor Revenue Sharing Terms**
+
+---
+
+# **Part I — GNU GPLv3 (Unmodified)**
+
+**The full text of the GNU General Public License version 3 (GPLv3) follows below, unmodified.**
+
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
@@ -672,3 +684,79 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+---
+
+# **Part II — Additional Terms under GPLv3 Section 7**
+
+## **A. Commercial Use Restriction**
+
+The following additional restriction is applied to the Program and all derivative works, as permitted under GPLv3 Section 7:
+
+1. **Commercial use of the Program, whether in its unmodified form or in modified or derivative forms, is prohibited without explicit written permission from the original copyright holder (“Owner”).**
+   Commercial use includes, but is not limited to:
+
+   * selling copies;
+   * paid distribution;
+   * paid licensing;
+   * offering the Program as part of a monetized service;
+   * any activity in which the Program directly or indirectly generates revenue.
+
+2. **Commercial use is permitted only after obtaining explicit written authorization from the Owner.**
+   Such authorization will be issued through a separate commercial license agreement.
+
+3. Non-commercial use, modification, and redistribution remain fully governed by the GPLv3 without additional restrictions.
+
+---
+
+## **B. Revenue Sharing for Donations, Commercial Licenses, and Related Income**
+
+The following additional term governs the distribution of revenue derived from donations, sponsorships, commercial licenses, or any other income related to the Program:
+
+1. **All monetary income generated from the Program — including but not limited to donations, sponsorships, paid support, and commercial licensing — shall be distributed among all contributors according to their proportional number of commits to the project's primary repository.**
+
+2. The project Owner is responsible for:
+
+   * calculating commit proportions;
+   * collecting income;
+   * distributing shares to contributors in a fair and transparent manner;
+   * publishing the distribution records.
+
+3. Contributors are defined as individuals who have authored commits that have been merged into the main branch of the project repository.
+
+4. Commit counts may be weighted or normalized to remove trivial commits (e.g., whitespace-only changes), if the Owner and contributors collectively agree on such rules.
+
+5. Contributors acknowledge that distribution depends on practical factors such as payment processing fees and contributor identity verification.
+
+---
+
+# **Part III — Clarifications (Non-binding but Recommended)**
+
+These clarifications help ensure common understanding:
+
+* “Commercial use” refers to any activity where the Program or its derivatives contribute to revenue, regardless of platform (e.g., Steam, app stores, SaaS, paid bundles).
+* Non-commercial redistribution is always permitted under GPLv3.
+* Contributors who wish to engage in commercial use must also obtain authorization.
+* The Owner may refuse commercial authorization if it violates project ethics or harms contributors.
+* Revenue-sharing obligations apply only to income associated with this project, not the contributor's unrelated work.
+
+---
+
+# **Part IV — Informal Summary (Not Legally Binding)**
+
+**You may:**
+
+* Use, study, modify, and redistribute the Program for non-commercial purposes.
+* Create derivative works (non-commercial).
+* Request commercial licensing from the Owner.
+* Receive proportional revenue if you contribute commits.
+
+**You may NOT:**
+
+* Sell or commercially distribute any version without explicit written permission.
+* Bypass the revenue-sharing terms for commercial income.
+
+
+
+
+

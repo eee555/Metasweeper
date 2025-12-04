@@ -1,80 +1,81 @@
 # 元扫雷（Metasweeper）
+
+**[English version is here.](README_EN.md)**
+
 - 包含8种模式的专业扫雷版本、第三代扫雷录像播放器及高性能算法工具箱
-- project with 8 modes of minesweeper, third generation minesweeper video player and high performance algorithm toolbox
  
 [![MetaSweeper](https://img.shields.io/badge/MetaSweeper-v3.2.1-brightgreen.svg)](https://github.com/eee555/Solvable-Minesweeper)
 [![stars](https://img.shields.io/github/stars/eee555/Solvable-Minesweeper)](https://github.com/eee555/Solvable-Minesweeper/stargazers)
 [![forks](https://img.shields.io/github/forks/eee555/Solvable-Minesweeper)](https://github.com/eee555/Solvable-Minesweeper/forks)
 
-
 ## 简介
 
-**元扫雷**是由专业玩家开发的扫雷游戏。这个项目并非简单重复已有的工作，而是集中了一批扫雷游戏的现代化设计。元扫雷所生成的游戏录像得到[开源扫雷网](https://openms.top)的承认并参与世界排名。
+**元扫雷（Meta Minesweeper）**由资深扫雷专业玩家与软件工程师共同打造——不是对传统扫雷的简单重复，而是在**算法、性能、可扩展性与工具链层面**的全面现代化。
 
-优势：
+元扫雷生成的录像格式已获得[开源扫雷网](https://openms.top)官方认可，并参与国际排行榜。
 
-+ 内部集成了**三大判雷引擎+集成的局面状态机+概率计算引擎+光学局面识别（Optical Board Recognition，OBR）引擎**，具备性能优势。
 
-+ 采用Python/PyQt5及Rust编写，模块间相互配合、融为一体，兼顾**开发效率、内存安全与执行速度**。游戏界面与算法高度分离，自研的工具箱同样开源，且遵循更为宽松的MIT协议，通过`pip install ms_toollib`命令即可安装。
+## 项目优势与技术亮点
 
-+ 游戏模式方面，具有**全部6种无猜扫雷模式+标准+win7**，弱可猜、强可猜的模式都是绝无仅有的。
+### （1）算法与引擎体系
 
-+ 可以按住ctrl并滚动滚轮任意**调整大小**，能调整窗口的**透明度**。这是罕见的。
+元扫雷由`ms_toollib`工具箱赋能，核心竞争力来自后者高度优化的算法组件，构成完整的扫雷智能算法系统。
 
-+ 按下“空格”计算局面中每一格是雷的概率。这是罕见的。
+* **三大判雷引擎**：提供多层次策略推理，覆盖从简单集合到枚举法求解。
+* **统一局面状态机**：将游戏局面抽象为自动状态机，提升算法集成度与可扩展性。
+* **概率推断引擎**：支持计算局面中任意一格是雷的概率，求解速度仅次于JSMinesweeper。
+* **光学局面识别（OBR）引擎**：可从任意扫雷应用的截屏中重建局面，实现跨游戏智能分析。
 
-+ 按下“ctrl+空格”能**截屏识别**计算其他扫雷中每一格是雷的概率。这是绝无仅有的。
+---
 
-+ 其装载的录像播放器可以分析录像的高层抽象特征，并实时展示游戏局面中每一格是雷的概率。这是绝无仅有的。能够播放avf、rmv、mvf、evf四种主流格式的录像。这是罕见的。
+### （2）架构与技术栈
 
-+ 能够计算3BV/s、STNB、RQP等指标并展示，能够自定义公式。这是罕见的。
+项目在性能、安全性、工具链友好度之间取得扎实平衡。
 
-+ 完备的局面筛选功能，按用户配置来筛选。这是罕见的。
+* **Python / PyQt5 + Rust 复合架构**：
 
-+ 对变速齿轮等多种作弊手段的防御能力。
+  * Python 负责 UI、生态扩展；
+  * Rust 提供核心算法计算的高性能与内存安全。
+* **界面与算法完全解耦**，使 UI和工具链可独立推进。
+* 完全开源的工具链 **`ms_toollib`（MIT License）**，可通过 `pip install ms_toollib` 直接安装并在其他项目中复用。
 
-+ 国际化，包括中、英、德、波兰等语言。
+---
 
-目前属于漫长的开发阶段中，约1~3月更新一个版本，欢迎提issue、star、pull request、fork。
+### （3）游戏模式与交互能力
 
-## Introduction
+具备目前扫雷软件生态中覆盖度最广、交互方式最现代化的功能。
 
-Minesweeper is a mineswering game developed by players who are passionate about the game. This project is not a simple repetition of existing work, but a concentration of modern design elements for minesweeper games.
+* 支持 **全部 6 种无猜模式 + 标准 + Win7 模式**；弱可猜 / 强可猜模式均为独家实现。
+* **Ctrl + 滚轮** 自由缩放界面尺寸，提供罕见的 UI 灵活度。
+* **Space**：即时计算当前盘面每一格的雷概率。
+* **Ctrl + Space**：截屏识别并对任何外部扫雷应用执行概率计算（OBR）。
+* **局面筛选器**：基于自定义策略的复杂条件过滤。
+* **性能指标系统**：内置 3BV/s、STNB、RQP 等指标，并支持自定义公式。
 
-Advantages:
+---
 
-+ It **internally integrates three major mine-judging engines, an integrated board state machine, a probability calculation engine, and an Optical Board Recognition (OBR) engine**, offering performance advantages.
+### （4）录像系统与生态兼容
 
-+ Written using Python/PyQt5 and Rust, the modules cooperate with each other and are integrated into one, balancing **development efficiency, memory safety, and execution speed**. The game interface is highly separated from the algorithms, and the self-developed toolbox is also open-source, following a more permissive MIT license, which can be installed via the command `pip install ms_toollib`.
+元扫雷不仅是游戏本体，也是一套专业分析平台。
 
-+ In terms of game modes, it features **all six no-guess minesweeper modes, standard, and win7**, with unique modes for both weak and strong guesswork.
+* 高级录像播放器：支持高层抽象分析，并实时呈现格子概率。
+* 兼容 **avf / rmv / mvf / [evf](https://github.com/eee555/ms_toollib/blob/main/evf%E6%A0%87%E5%87%86.md)** 四大主流录像格式。
+* 兼容[**evfs**](https://github.com/eee555/ms_toollib/blob/main/evfs%E6%A0%87%E5%87%86.md)录像集格式。
+* 对常见作弊手段（如变速齿轮）具备对抗能力。
+* 国际化支持：中文、英文、德文、波兰文等语言。
 
-+ Aesthetically, it appears as a standard minesweeper, but it can **adjust its size** by holding down the ctrl key and scrolling the wheel, and adjust the **transparency** of the window. This is rare.
+元扫雷正处于持续演进阶段，通常 **3~12 个月发布一个版本**。
+欢迎提交 **Issue / PR / Star / Fork** ——您的参与将决定一个开源扫雷生态的未来走向。
 
-+ Pressing "space" calculates the probability of each cell being a mine in the board. This is rare.
-
-+ Pressing "ctrl+space" enables **screenshot recognition** to calculate the probability of each cell being a mine in other minesweeper games. This is unique.
-
-+ Its built-in video player can analyze high-level abstract features of recordings and display the probability of each cell being a mine in real-time. This is unique. It can play four mainstream formats of recordings: avf, rmv, mvf, and evf. This is rare.
-
-+ It can calculate and display metrics such as 3BV/s, STNB, RQP, and allows for custom formulas. This is rare.
-
-+ Comprehensive board filtering capabilities, configurable by the user. This is rare.
-
-+ Defense capabilities against various cheating methods, including speed changers.
-
-+ Internationalization, including languages such as Chinese, English, German, Polish, and more.
-
-Currently in the lengthy development phase, with updates approximately every 1 to 3 months, we welcome issues, stars, pull requests, and forks.
-
-### 开发计划
+### 参考连接
 
 + 使用教程：[https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B](https://openms.top/#/guide/[80.%E6%95%99%E7%A8%8B.%E8%BD%AF%E4%BB%B6]%E5%85%83%E6%89%AB%E9%9B%B7%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B)
 + 算法工具箱地址：[https://github.com/eee555/ms_toollib](https://github.com/eee555/ms_toollib)
 + 算法工具箱文档：[https://docs.rs/ms_toollib](https://docs.rs/ms_toollib)
 
 ## 安装
-建议在`Windows 10`或`Windows 11`下运行本游戏，其它操作系统未经测试，可能出现意想不到的问题。
+
+操作系统：仅支持`Windows 10`或`Windows 11`。
 
 ### 方案1：通过官方下载链接安装(推荐)
 在下面的[下载链接](#下载链接)中找到最新的版本，然后下载，解压，直接运行`main.exe`文件（如果警告请点击“仍然运行”），开箱即用。通过此方法安装的软件，是`正版`的软件，能够对录像文件进行官方的签名（签名功能打包在“metaminesweeper_checksum.pyd”中，占比很小，且是闭源的）。
@@ -120,13 +121,12 @@ Currently in the lengthy development phase, with updates approximately every 1 t
     python3 src/main.py # *nix
 ```
 
-## 实现原理
-
-（还没写，计划弄出3.5以后回头来写）
-
 ## 贡献
 
 [CONTRIBUTING.md](https://github.com/eee555/Solvable-Minesweeper/blob/master/CONTRIBUTING.md)
+
+# 协议须知
+项目使用了附带额外条款的GPLv3协议，尤其禁止了项目未经授权的商用行为，也规定了项目的收益分配方式。细节参见`LICENSE`。
 
 ## 荣誉
 收录于Awesome Rust Repositories: 
@@ -140,19 +140,19 @@ Currently in the lengthy development phase, with updates approximately every 1 t
 [![Star History Chart](https://api.star-history.com/svg?repos=eee555/Metasweeper&type=Date)](https://star-history.com/?repos=eee555/Metasweeper#repos=eee555/Metasweeper&eee555/Metasweeper&Date)
 
 ## 赞助
-感谢您考虑支持我们的开源项目，赞助时请备注5+您的昵称，例如“5张先生”。您的赞助将有助于项目的持续发展和改进，使我们能够继续提高软件的质量（owner许诺向所有contributor按获得赞助时commit数量的比例分配赞助得到的收入）。
+感谢您考虑支持我们的开源项目，赞助时请备注**项目名称+您的昵称+其他要求**，例如`元扫雷+张先生+建议添加**功能`。您的赞助将有助于项目的持续发展和改进，使我们能够继续提高软件的质量。此外，按照本项目协议协议，赞助得到的收入将由贡献者按commit数量的比例进行分配。
 
 ### 一般赞助者
-- 一次性捐款￥3及以上
+- 一次性捐款 **￥3** 及以上
 - 您的名字将永久出现在项目的贡献者列表中（按照您要求的形式）
 
 ### 重要赞助者
-- 一次性捐款￥50及以上
+- 一次性捐款 **￥50** 及以上
 - 一般赞助者的所有的权益
 - 独家定期报告项目进展
 
 ### 核心赞助者
-- 累计捐款￥1000及以上
+- 累计捐款 **￥1000** 及以上
 - 重要赞助者的所有的权益
 - 可行的前提下，按照您的要求来制定开发计划
 

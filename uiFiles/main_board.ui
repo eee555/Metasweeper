@@ -104,7 +104,10 @@
    <bool>false</bool>
   </property>
   <property name="styleSheet">
-   <string notr="true"/>
+   <string notr="true">QMenu::indicator {
+    width: 0px;
+    height: 0px;
+}</string>
   </property>
   <property name="toolButtonStyle">
    <enum>Qt::ToolButtonIconOnly</enum>
@@ -677,8 +680,22 @@
     <addaction name="actionauto_update"/>
     <addaction name="actionchajian"/>
    </widget>
+   <widget class="QMenu" name="menu_4">
+    <property name="contextMenuPolicy">
+     <enum>Qt::DefaultContextMenu</enum>
+    </property>
+    <property name="tearOffEnabled">
+     <bool>false</bool>
+    </property>
+    <property name="title">
+     <string>查看</string>
+    </property>
+    <addaction name="action_open_replay"/>
+    <addaction name="actionddd"/>
+   </widget>
    <addaction name="menu"/>
    <addaction name="menu_2"/>
+   <addaction name="menu_4"/>
    <addaction name="menu_3"/>
   </widget>
   <action name="actionnew_game">
@@ -993,6 +1010,33 @@
      <pointsize>12</pointsize>
      <weight>50</weight>
      <bold>false</bold>
+    </font>
+   </property>
+  </action>
+
+  <action name="action_open_replay">
+   <property name="text">
+    <string>录像所在位置</string>
+   </property>
+   <property name="font">
+    <font>
+     <family>微软雅黑</family>
+     <pointsize>12</pointsize>
+    </font>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::TextHeuristicRole</enum>
+   </property>
+  </action>
+
+  <action name="actionddd">
+   <property name="text">
+    <string>设置所在位置</string>
+   </property>
+   <property name="font">
+    <font>
+     <family>微软雅黑</family>
+     <pointsize>12</pointsize>
     </font>
    </property>
   </action>
