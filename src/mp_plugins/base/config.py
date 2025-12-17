@@ -37,7 +37,6 @@ class SelectSetting(BaseSetting):
 
 class BaseConfig(_BaseData):
     """ """
-
     pass
 
 

@@ -167,3 +167,5 @@ toollib/frame.csv
 old/
 发布流程.txt
 src/plugins/*/*.json
+src/plugins/*/*.db
+.vscode/

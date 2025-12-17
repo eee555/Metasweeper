@@ -32,11 +32,11 @@ class UpLoadVideo(BasePlugin):
         self._config = UpLoadVideoConfig(
             TextSetting("用户名", "user"),
             TextSetting("密码", "passwd"),
-            NumberSetting(name="上传周期", value=0, min_value=1, max_value=10, step=1),
+            NumberSetting(name="上传周期", value=0, min_value=1,
+                          max_value=10, step=1),
             BoolSetting("自动上传", True),
             SelectSetting("上传类型", "自动上传", options=["自动上传", "手动上传"]),
         )
-        self.init_config(self._config)
 
     def build_plugin_context(self) -> None:
         self._plugin_context.name = "UpLoadVideo"

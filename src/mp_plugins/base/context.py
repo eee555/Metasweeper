@@ -11,6 +11,8 @@ class BaseContext(_BaseData):
 
     name: str = ""
     version: str = ""
+    plugin_dir: str = ""
+    app_dir: str = ""
 
 
 class PluginContext(BaseContext):

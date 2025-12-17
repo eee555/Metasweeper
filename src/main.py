@@ -74,7 +74,6 @@ def on_ready_read(socket: QLocalSocket):
         socket.disconnectFromServer()  # 断开连接
 
 
-
 def cli_check_file(file_path: str) -> int:
     if not os.path.exists(file_path):
         print("ERROR: file not found")
@@ -132,7 +131,8 @@ def cli_check_file(file_path: str) -> int:
             else:
                 if videos.len() <= 0:
                     evf_evfs_files[ide] = (e, 2)
-                checksum = ui.checksum_guard.get_checksum(videos[0].evf_video.raw_data)
+                checksum = ui.checksum_guard.get_checksum(
+                    videos[0].evf_video.raw_data)
                 if video.checksum != checksum:
                     evf_evfs_files[ide] = (e, 1)
                     continue
@@ -160,7 +160,10 @@ if __name__ == "__main__":
         exit_code = cli_check_file(args.check)
         sys.exit(exit_code)
     env = patch_env()
-    context = AppContext("Metasweeper", "1.0.0", "元扫雷")
+    context = AppContext(name="Metasweeper", version="1.0.0", display_name="元扫雷",
+                         plugin_dir=(Path(get_paths()) / "plugins").as_posix(),
+                         app_dir=get_paths()
+                         )
     PluginManager.instance().context = context
 
     PluginManager.instance().start(Path(get_paths()) / "plugins", env)

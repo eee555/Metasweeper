@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import inspect
+from pathlib import Path
 from msgspec import json
 from datetime import datetime, timedelta
 from .error import Error
@@ -24,6 +25,7 @@ from queue import Queue
 import zmq
 from .mode import PluginStatus
 from .config import BaseConfig, BaseSetting
+import time
 
 P = ParamSpec("P")  # 捕获参数
 R = TypeVar("R")  # 捕获返回值
@@ -80,8 +82,7 @@ class BasePlugin(ABC):
 
     @abstractmethod
     def initialize(self) -> None:
-        self._plugin_context.status = PluginStatus.Running
-        self.refresh_context()
+        self.init_config(self._config)
 
     @abstractmethod
     def shutdown(self) -> None:
@@ -89,9 +90,10 @@ class BasePlugin(ABC):
         self.refresh_context()
 
     def run(self, host: str, port: int) -> None:
-        self.initialize()
-        self.dealer.setsockopt_string(zmq.IDENTITY, str(self._plugin_context.pid))
+        self.dealer.setsockopt_string(
+            zmq.IDENTITY, str(self._plugin_context.pid))
         self.dealer.connect(f"tcp://{host}:{port}")
+        self._plugin_context.status = PluginStatus.Running
         self.refresh_context()
         while datetime.now() - self.__heartbeat_time < timedelta(seconds=30):
             while not self.__message_queue.empty():
@@ -133,7 +135,10 @@ class BasePlugin(ABC):
                 )
         elif message.mode == MessageMode.Context:
             if isinstance(message.data, BaseContext) and message.data is not None:
-                self._context = message.data
+                if hasattr(self, "_context"):
+                    self._context = message.data
+                    self.initialize()
+                self._context = message.class_name
         elif message.mode == MessageMode.Error:
             pass
         elif message.mode == MessageMode.Unknown:
@@ -168,8 +173,8 @@ class BasePlugin(ABC):
     def init_config(self, config: BaseConfig):
         self._config = config
         old_config = self.config
-        dir = os.path.dirname(inspect.getfile(self.__class__))
-        config_path = os.path.join(dir, f"{self.__class__.__name__}.json")
+        config_path = self.context.plugin_dir + \
+            f'/{self.__class__.__name__}/{self.__class__.__name__}.json'
         if old_config is None:
             with open(config_path, "w", encoding="utf-8") as f:
                 b = json.encode(config)
@@ -177,8 +182,8 @@ class BasePlugin(ABC):
 
     @property
     def config(self):
-        dir = os.path.dirname(inspect.getfile(self.__class__))
-        config_path = os.path.join(dir, f"{self.__class__.__name__}.json")
+        config_path = self.context.plugin_dir + \
+            f'/{self.__class__.__name__}/{self.__class__.__name__}.json'
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
@@ -186,3 +191,9 @@ class BasePlugin(ABC):
                     return config
             except:
                 return None
+
+    @property
+    def path(self) -> Path:
+        if hasattr(self, "_context"):
+            return Path(self._context.plugin_dir) / self.__class__.__name__
+        return Path(os.path.dirname(os.path.abspath(__file__)))
