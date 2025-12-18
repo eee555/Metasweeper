@@ -89,11 +89,9 @@ class ReleaseFrame(QFrame):
         row1.addWidget(QLabel(self.release.tag_name))
         row1.addItem(QSpacerItem(
             20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-        self.dateTimeLabel.hide()
         if self.release.assets_created_at != "":
             self.dateTimeLabel.setText(QDateTime.fromString(
                 self.release.assets_created_at, "yyyy-MM-ddThh:mm:ssZ").toString("yyyy-MM-dd hh:mm:ss"))
-            self.dateTimeLabel.show()
         row1.addWidget(self.dateTimeLabel)
         row1.addItem(QSpacerItem(
             20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
@@ -337,11 +335,11 @@ class CheckUpdateGui(QDialog):
         layout.setSpacing(2)
         for release in releases:
             frame = ReleaseFrame(
-                release, self.github.compareVersion(release.tag_name), r_path=self.r_path)
+                release, self.github.compareVersion(release.tag_name), r_path=self.r_path, parent=self)
             layout.addWidget(frame)
             frame.downLoadFile.connect(self.github.downloadRelease)
         # 底部加一个空白区域
-        panel = QWidget()
+        panel = QWidget(self)
         panel.setContentsMargins(0, 0, 0, 0)
         panel.setFixedHeight(100)
         layout.addWidget(panel)
