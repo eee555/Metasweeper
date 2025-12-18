@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 import msgspec
 import zmq
 
@@ -51,10 +52,6 @@ class UpLoadVideo(BasePlugin):
     def shutdown(self) -> None:
         return super().shutdown()
 
-    @BasePlugin.event_handler(GameEndEvent)
-    def on_game_end(self, event: GameEndEvent) -> GameEndEvent:
-        return event
-
 
 if __name__ == "__main__":
     try:
@@ -64,7 +61,15 @@ if __name__ == "__main__":
         host = args[0]
         port = int(args[1])
         plugin = UpLoadVideo()
+        # 捕获退出信号，优雅关闭
+        import signal
+
+        def signal_handler(sig, frame):
+            plugin.stop()
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
         plugin.run(host, port)
-    except Exception as e:
-        with open("UpLoadVideo_error.log", "w", encoding="utf-8") as f:
-            f.write(str(e))
+    except Exception:
+        pass

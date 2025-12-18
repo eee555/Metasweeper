@@ -8,7 +8,9 @@ import superGUI
 import gameAbout
 import gameSettings
 import gameSettingShortcuts
-import captureScreen, mine_num_bar, gameRecordPop
+import captureScreen
+import mine_num_bar
+import gameRecordPop
 from CheckUpdateGui import CheckUpdateGui
 from githubApi import GitHub, SourceManager
 import win32con
@@ -31,6 +33,7 @@ from mineSweeperVideoPlayer import MineSweeperVideoPlayer
 from pluginDialog import PluginManagerUI
 from mp_plugins import PluginManager, PluginContext
 from mp_plugins.events import GameEndEvent
+
 
 class MineSweeperGUI(MineSweeperVideoPlayer):
     def __init__(self, MainWindow: MainWindow, args):
@@ -80,7 +83,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             lambda: self.trans_language("pl_PL"))
         self.german_action.triggered.connect(
             lambda: self.trans_language("de_DE"))
-        
+
         # 查看菜单
         self.action_open_replay.triggered.connect(
             lambda: QDesktopServices.openUrl(
@@ -253,7 +256,8 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                         "column": self.column,
                         "minenum": self.minenum,
                     })
-                    self.score_board_manager.show(self.label.ms_board, index_type=1)
+                    self.score_board_manager.show(
+                        self.label.ms_board, index_type=1)
             case "study":
                 self.num_bar_ui.QWidget.close()
         self._game_state = game_state
@@ -292,7 +296,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         self._minenum = minenum
 
     def layMine(self, i, j):
-        
+
         xx = self.row
         yy = self.column
         num = self.minenum
@@ -301,13 +305,13 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         if self.gameMode == 5 or self.gameMode == 6 or self.gameMode == 9:
             # 根据模式生成局面
             Board, _ = utils.laymine_solvable(self.board_constraint,
-                                           self.attempt_times_limit, (xx, yy, num, i, j))
+                                              self.attempt_times_limit, (xx, yy, num, i, j))
         elif self.gameMode == 0 or self.gameMode == 7 or self.gameMode == 8 or self.gameMode == 10:
             Board, _ = utils.laymine(self.board_constraint,
-                                  self.attempt_times_limit, (xx, yy, num, i, j))
+                                     self.attempt_times_limit, (xx, yy, num, i, j))
         elif self.gameMode == 4:
             Board, _ = utils.laymine_op(self.board_constraint,
-                                     self.attempt_times_limit, (xx, yy, num, i, j))
+                                        self.attempt_times_limit, (xx, yy, num, i, j))
 
         self.label.ms_board.board = Board
 
@@ -362,7 +366,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                 self.label.ms_board.board = board
             elif code == 2:
                 board, flag = utils.enumerateChangeBoard(self.label.ms_board.board,
-                                                      self.label.ms_board.game_board, [(i, j)])
+                                                         self.label.ms_board.game_board, [(i, j)])
                 self.label.ms_board.board = board
             return
         elif self.gameMode == 8:
@@ -370,14 +374,14 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                 self.label.ms_board.game_board, (i, j))
             if code == 2:
                 board, flag = utils.enumerateChangeBoard(self.label.ms_board.board,
-                                                      self.label.ms_board.game_board, [(i, j)])
+                                                         self.label.ms_board.game_board, [(i, j)])
                 self.label.ms_board.board = board
             return
         elif self.gameMode == 9 or self.gameMode == 10:
             if self.label.ms_board.board[i][j] == -1:
                 # 可猜调整的核心逻辑
                 board, flag = utils.enumerateChangeBoard(self.label.ms_board.board,
-                                                      self.label.ms_board.game_board, [(i, j)])
+                                                         self.label.ms_board.game_board, [(i, j)])
 
                 self.label.ms_board.board = board
             return
@@ -435,8 +439,8 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                     break
             if must_guess:
                 board, flag = utils.enumerateChangeBoard(board,
-                                                      self.label.ms_board.game_board,
-                                                      not_mine_round + is_mine_round)
+                                                         self.label.ms_board.game_board,
+                                                         not_mine_round + is_mine_round)
                 self.label.ms_board.board = board
             else:
                 for (x, y) in is_mine_round + not_mine_round:
@@ -452,13 +456,13 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                     break
             if must_guess:
                 board, flag = utils.enumerateChangeBoard(board,
-                                                      self.label.ms_board.game_board,
-                                                      not_mine_round + is_mine_round)
+                                                         self.label.ms_board.game_board,
+                                                         not_mine_round + is_mine_round)
                 self.label.ms_board.board = board
         elif self.gameMode == 9 or self.gameMode == 10:
             board, flag = utils.enumerateChangeBoard(board,
-                                                  self.label.ms_board.game_board,
-                                                  not_mine_round + is_mine_round)
+                                                     self.label.ms_board.game_board,
+                                                     not_mine_round + is_mine_round)
             self.label.ms_board.board = board
 
     def mineNumWheel(self, i):
@@ -688,7 +692,8 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         if self.old_evfs_filename:
             file_name = self.old_evfs_filename + str(self.evfs.len())
             self.evfs.save_evfs_file(file_name)
-            old_evfs_filename = self.old_evfs_filename + str(self.evfs.len() - 1) + ".evfs"
+            old_evfs_filename = self.old_evfs_filename + \
+                str(self.evfs.len() - 1) + ".evfs"
             if os.path.exists(old_evfs_filename):
                 # 进一步确认是文件而不是目录
                 if os.path.isfile(old_evfs_filename):
@@ -928,13 +933,13 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             # self.evfs[0].checksum
             checksum = self.checksum_guard.get_checksum(
                 self.label.ms_board.raw_data)
-            self.evfs.push(self.label.ms_board.raw_data, 
+            self.evfs.push(self.label.ms_board.raw_data,
                            self.cal_evf_filename(absolute=False), checksum)
         else:
             evfs_len = self.evfs.len()
             checksum = self.checksum_guard.get_checksum(
                 self.label.ms_board.raw_data + self.evfs[evfs_len - 1].checksum)
-            self.evfs.push(self.label.ms_board.raw_data, 
+            self.evfs.push(self.label.ms_board.raw_data,
                            self.cal_evf_filename(absolute=False), checksum)
         self.evfs.generate_evfs_v0_raw_data()
         self.save_evfs_file()
@@ -1479,6 +1484,5 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
         self.record_setting.sync()
 
     def action_OpenPluginDialog(self):
-        contexts = list(PluginManager.instance().plugin_contexts)
-        dialog = PluginManagerUI(contexts)
+        dialog = PluginManagerUI(PluginManager.instance().Get_Plugin_Names())
         dialog.exec()

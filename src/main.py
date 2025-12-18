@@ -198,9 +198,8 @@ if __name__ == "__main__":
             hwnd, 0x00000011) else 1/0
         ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
             hwnd, 0x00000000) else 1/0
-
+        app.aboutToQuit.connect(PluginManager.instance().stop)
         sys.exit(app.exec_())
-        PluginManager.instance().stop()
         ...
     # except:
     #     pass

@@ -3,7 +3,7 @@ import subprocess
 import os
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-
+import signal
 
 class PluginProcess(object):
 
@@ -30,13 +30,10 @@ class PluginProcess(object):
             self._process = subprocess.Popen(
                 [
                     sys.executable,
-                    "-m",
-                    module,
+                    str(self.__plugin_path),
                     host,
                     str(port),
                 ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
                 env=env,
             )
         else:
@@ -46,8 +43,6 @@ class PluginProcess(object):
                     host,
                     str(port),
                 ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
             )
         self.__pid = self._process.pid
 
@@ -55,4 +50,11 @@ class PluginProcess(object):
         if self._process is None:
             return
         if self._process.poll() is None:
-            self._process.terminate()
+            if sys.platform == "win32":
+                self._process.kill()
+            else:
+                self._process.terminate()
+            try:
+                self._process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self._process.kill()

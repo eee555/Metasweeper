@@ -1,4 +1,6 @@
+import time
 from abc import ABC, abstractmethod
+import ctypes
 import inspect
 from pathlib import Path
 from msgspec import json
@@ -25,10 +27,14 @@ from queue import Queue
 import zmq
 from .mode import PluginStatus
 from .config import BaseConfig, BaseSetting
-import time
 
-P = ParamSpec("P")  # 捕获参数
-R = TypeVar("R")  # 捕获返回值
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+# 引入 Windows 多媒体计时器函数
+timeBeginPeriod = ctypes.windll.winmm.timeBeginPeriod
+timeEndPeriod = ctypes.windll.winmm.timeEndPeriod
 
 
 class BasePlugin(ABC):
@@ -74,10 +80,11 @@ class BasePlugin(ABC):
 
     def __init__(self) -> None:
         super().__init__()
-        context = zmq.Context()
+        context = zmq.Context(5)
         self.dealer = context.socket(zmq.DEALER)
         self.__message_queue: Queue[Message] = Queue()
         self.__heartbeat_time = datetime.now()
+        self._is_running: bool = False
         self.build_plugin_context()
 
     @abstractmethod
@@ -93,29 +100,47 @@ class BasePlugin(ABC):
         self.dealer.setsockopt_string(
             zmq.IDENTITY, str(self._plugin_context.pid))
         self.dealer.connect(f"tcp://{host}:{port}")
+        self._is_running = True
         self._plugin_context.status = PluginStatus.Running
         self.refresh_context()
-        while datetime.now() - self.__heartbeat_time < timedelta(seconds=30):
-            while not self.__message_queue.empty():
-                message = self.__message_queue.get()
-                self.dealer.send_multipart([b"", json.encode(message)])
-            try:
-                data = self.dealer.recv(flags=zmq.NOBLOCK)
-            except zmq.Again:
-                continue
-            if data:
+        poller = zmq.Poller()
+        poller.register(self.dealer, zmq.POLLIN)
+        timeBeginPeriod(1)
+        while self._is_running:
+            # 轮询是否有数据，超时 1ms
+            events = dict(poller.poll(timeout=0))
+
+            # ---- 接收消息 -----------------------------------------------------
+            if self.dealer in events:
+                data = self.dealer.recv()
                 message = json.decode(data, type=Message)
                 self.__message_dispatching(message)
+
+            # ---- 发送消息 -----------------------------------------------------
+            if not self.__message_queue.empty():
+                msg = self.__message_queue.get()
+                self.dealer.send(json.encode(msg))
+
+            # ---- 心跳检查 -----------------------------------------------------
+            if datetime.now() - self.__heartbeat_time > timedelta(seconds=10):
+                break
+
+            time.sleep(0.001)
+
+        # ---------------------------------------------------------------------
+        timeEndPeriod(1)
         self.shutdown()
         self.dealer.close()
+
+    # -------------------------------------------------------------------------
 
     def __message_dispatching(self, message: Message) -> None:
         """
         消息分发
         """
-        new_message = message.copy()
-        new_message.Source = self.__class__.__name__
+        message.Source = self.__class__.__name__
         self.__heartbeat_time = datetime.now()
+
         if message.mode == MessageMode.Event:
             if isinstance(message.data, BaseEvent) and message.data is not None:
                 if message.data.__class__ not in self._event_handlers:
@@ -126,8 +151,8 @@ class BasePlugin(ABC):
                     return
                 for handler in self._event_handlers[message.data.__class__]:
                     event = handler(self, message.data)
-                    new_message.data = event
-                    self.__message_queue.put(new_message)
+                    message.data = event
+                    self.__message_queue.put(message)
             else:
                 self.send_error(
                     type="Event Validation",
@@ -144,7 +169,7 @@ class BasePlugin(ABC):
         elif message.mode == MessageMode.Unknown:
             pass
         elif message.mode == MessageMode.Heartbeat:
-            self.__message_queue.put(new_message)
+            self.__message_queue.put(message)
 
     def refresh_context(self):
         self._plugin_context.heartbeat = datetime.now().timestamp()
@@ -197,3 +222,6 @@ class BasePlugin(ABC):
         if hasattr(self, "_context"):
             return Path(self._context.plugin_dir) / self.__class__.__name__
         return Path(os.path.dirname(os.path.abspath(__file__)))
+
+    def stop(self):
+        self._is_running = False

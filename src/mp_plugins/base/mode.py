@@ -7,6 +7,9 @@ class ValueEnum(Enum):
             return self.value == value.value
         return self.value == value  # 支持直接比较 value
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class PluginStatus(ValueEnum):
     """

@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 import sys
 from typing import Dict
 
@@ -39,7 +39,7 @@ _translate = QCoreApplication.translate
 
 class PluginManagerUI(QDialog):
 
-    def __init__(self, plugin_contexts: list[PluginContext]):
+    def __init__(self, plugin_names: list[str]):
         """
         plugin_contexts: 你传入的 plugin 列表
         get_settings_func(plugin_ctx) -> Dict[str, BaseSetting]
@@ -47,8 +47,13 @@ class PluginManagerUI(QDialog):
         """
         super().__init__()
 
-        self.plugin_contexts = plugin_contexts
+        self.plugin_names = plugin_names
         self.current_settings_widgets: Dict[str, QWidget] = {}
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(
+            lambda: self.update_context(self.list_widget.currentRow())
+        )
+        self.timer.start(3000)  # 每秒更新一次
 
         self.setWindowTitle(_translate("Form", "插件管理"))
         self.resize(1000, 650)
@@ -57,8 +62,9 @@ class PluginManagerUI(QDialog):
 
         # ================= 左侧插件列表 =================
         self.list_widget = QListWidget()
-        for ctx in self.plugin_contexts:
-            self.list_widget.addItem(ctx.display_name or ctx.name)
+        for name in self.plugin_names:
+            self.list_widget.addItem(
+                PluginManager.instance().Get_Context_By_Name(name).display_name)
 
         self.list_widget.currentRowChanged.connect(self.on_plugin_selected)
         root_layout.addWidget(self.list_widget, 1)
@@ -135,7 +141,7 @@ class PluginManagerUI(QDialog):
 
         root_layout.addLayout(right_layout, 2)
 
-        if plugin_contexts:
+        if self.plugin_names:
             self.list_widget.setCurrentRow(0)
 
     # ===================================================================
@@ -145,21 +151,30 @@ class PluginManagerUI(QDialog):
         if index < 0:
             return
 
-        ctx = self.plugin_contexts[index]
-
-        for key, value in msgspec.structs.asdict(ctx).items():
-            if isinstance(value, list):
-                value = ", ".join(value)
-            label = self.findChild(QLabel, key)
-            if label is None:
-                continue
-            label.setText(str(value))
+        self.update_context(index)
 
         # --- 你自己的获取 settings 的函数 ---
-        settings_dict = PluginManager.instance().Get_Settings(ctx.name)
+        settings_dict = PluginManager.instance(
+        ).Get_Settings(self.plugin_names[index])
 
         # --- 动态加载设置控件 ---
         self.load_settings(settings_dict)
+
+    def update_context(self, index: int):
+        if index < 0:
+            return
+
+        ctx = PluginManager.instance().Get_Context_By_Name(
+            self.plugin_names[index])
+
+        # --- PluginContext 原样填充 ---
+        for key, value in msgspec.structs.asdict(ctx).items():
+            label = self.findChild(QLabel, key)
+            if label is None:
+                continue
+            if isinstance(value, list):
+                value = ", ".join(value)
+            label.setText(str(value))
 
     # ===================================================================
     # 加载 settings
@@ -206,6 +221,13 @@ class PluginManagerUI(QDialog):
     # ===================================================================
     def on_save_clicked(self):
         ctx = self.plugin_contexts[self.list_widget.currentRow()]
+
+        # --- PluginContext 原样填充 ---
+        for key, label in self.detail_labels.items():
+            value = getattr(ctx, key)
+            if isinstance(value, list):
+                value = ", ".join(value)
+            label.setText(str(value))
 
         # --- 你自己的获取 settings 的函数 ---
         settings_dict = PluginManager.instance().Get_Settings(ctx.name)

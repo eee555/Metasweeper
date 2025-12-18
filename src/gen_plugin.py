@@ -68,8 +68,17 @@ if __name__ == "__main__":
         host = args[0]
         port = int(args[1])
         plugin = {name}()
+        # 捕获退出信号，优雅关闭
+        import signal
+
+        def signal_handler(sig, frame):
+            plugin.stop()
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
         plugin.run(host, port)
-    except Exception as e:
+    except Exception:
         pass
 '''
     return template
