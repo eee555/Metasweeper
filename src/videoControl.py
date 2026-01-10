@@ -420,21 +420,6 @@ class ui_Form(QWidget, Ui_Form):
         
         self.horizontalSlider_time.valueChanged[int].connect(self.set_double_spin_box_time)
         self.doubleSpinBox_time.valueChanged[float].connect(self.set_horizontal_slider_time)
-        
-        self.pushButton_replay.setStyleSheet("QPushButton{border-image: url(" +\
-                                             str(r_path.with_name('media').\
-                                                 joinpath('replay.svg')).replace("\\", "/") + ");}")
-        self.pushButton_play.setStyleSheet("QPushButton{border-image: url(" +\
-                                           str(r_path.with_name('media').\
-                                               joinpath('play.svg')).replace("\\", "/") + ");}")
-        self.label_speed.setStyleSheet("QLabel{border-image: url(" +\
-                                       str(r_path.with_name('media').\
-                                           joinpath('speed.svg')).replace("\\", "/") + ");\n"
-"font: 12pt \"微软雅黑\";\n"
-"color: #50A6EA;}")
-        self.label_2.setStyleSheet("border-image: url(" + str(r_path.with_name('media').joinpath('mul.svg')).replace("\\", "/") + ");\n"
-"font: 12pt \"微软雅黑\";\n"
-"color: #50A6EA;")
         self.QWidget.move(game_setting.value("DEFAULT/videocontroltop", 100, int),
                           game_setting.value("DEFAULT/videocontrolleft", 300, int))
         self.tabWidget.tabCloseRequested.connect(self.close_tab)

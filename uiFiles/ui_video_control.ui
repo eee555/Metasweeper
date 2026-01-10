@@ -149,6 +149,12 @@ QSlider::add-page:horizontal:disabled, QSlider::sub-page:horizontal:disabled, QS
           <height>40</height>
          </size>
         </property>
+        <property name="maximumSize">
+         <size>
+          <width>40</width>
+          <height>40</height>
+         </size>
+        </property>
         <property name="toolTip">
          <string>重播</string>
         </property>
@@ -157,10 +163,9 @@ QSlider::add-page:horizontal:disabled, QSlider::sub-page:horizontal:disabled, QS
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton {
-    border-image: url(media/replay.svg);
-}
-QPushButton::hover{
-	background-color: rgb(170, 255, 255);
+    background-color: rgba(0,0,0,0);
+    border: none;
+    image: url(media/replay.svg);
 }</string>
         </property>
         <property name="text">
@@ -176,6 +181,12 @@ QPushButton::hover{
           <height>40</height>
          </size>
         </property>
+        <property name="maximumSize">
+         <size>
+          <width>40</width>
+          <height>40</height>
+         </size>
+        </property>
         <property name="toolTip">
          <string>播放/暂停</string>
         </property>
@@ -184,10 +195,9 @@ QPushButton::hover{
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton {
-    border-image: url(media/play.svg);
-}
-QPushButton::hover{
-	background-color: rgb(170, 255, 255);
+    background-color: rgba(0,0,0,0);
+    border: none;
+    image: url(media/play.svg);
 }</string>
         </property>
         <property name="text">

@@ -368,8 +368,8 @@ def enumerateChangeBoard(board: ms.EvfVideo | List[List[int]],
     """
     if not isinstance(board, list):
         board = board.into_vec_vec()
-    if all([board[x][y] != -1 for x, y in poses]):
-        board = board.into_vec_vec()
+    # if all([board[x][y] != -1 for x, y in poses]):
+    #     board = board.into_vec_vec()
     if all([board[x][y] != -1 for x, y in poses]):
         # 全不是雷
         return board, True
