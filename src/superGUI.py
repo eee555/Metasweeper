@@ -551,9 +551,21 @@ class Ui_MainWindow(Ui_MainWindow):
         self.record_setting.sync()
 
     def set_country_flag(self, country = None):
+        '''
+        设置右下角国旗图案。尽一切可能解析录像中的国旗。
+        例如，在vsweep中，国家是用户手动输入的，可能出现”中国“、”China“、”china“、”CN“、
+        ”cn“等情况，全部应该要正确解析。
+        不修改self.country变量
+        '''
+        print(country)
         if country == None:
             country = self.country
-        # 设置右下角国旗图案
+        if country == None:
+            self.label_flag.clear()
+            self.label_flag.update()
+            return
+        if country not in country_name:
+            country = country.capitalize()
         if country not in country_name:
             file_path = self.r_path.with_name('media') / (country.lower() + ".svg")
             if os.path.exists(file_path):

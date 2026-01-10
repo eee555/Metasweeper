@@ -640,6 +640,7 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             self.label.ms_board.generate_evf_v4_raw_data()
             return
         elif isinstance(self.label.ms_board, ms.RmvVideo):
+            self.label.ms_board.country = "CN"
             self.label.ms_board.generate_evf_v4_raw_data()
             return
 
@@ -1104,7 +1105,8 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             self.player_identifier = ui.player_identifier
             self.label_info.setText(self.player_identifier)
             self.race_identifier = ui.race_identifier
-            # 国家或地区名的全称，例如”中国“
+            # 用户的国家或地区名的全称，例如”中国“。必须是country_name中有的或None
+            # 播放录像时，self.country不会遭到修改
             self.country = ui.country
             self.set_country_flag()
             self.autosave_video = ui.autosave_video
