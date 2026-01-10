@@ -60,7 +60,7 @@ height:36px;
 }</string>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>2</number>
      </property>
      <property name="usesScrollButtons">
       <bool>true</bool>
@@ -260,7 +260,7 @@ height:36px;
        <item>
         <widget class="QLabel" name="label_6">
          <property name="text">
-          <string>致谢：濮天羿、向飞宇、钟言、翁逸杰、张砷镓</string>
+          <string>致谢：濮天羿、向飞宇、钟言、翁逸杰、张砷镓、Thomas Kolar</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
