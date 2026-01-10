@@ -1,5 +1,5 @@
 pyQt5==5.15.11
-ms-toollib==1.5.1
+ms-toollib==1.5.3
 setuptools==80.9.0
 pyinstaller==6.16.0
 msgspec>=0.20.0

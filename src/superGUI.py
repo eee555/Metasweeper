@@ -557,7 +557,6 @@ class Ui_MainWindow(Ui_MainWindow):
         ”cn“等情况，全部应该要正确解析。
         不修改self.country变量
         '''
-        print(country)
         if country == None:
             country = self.country
         if country == None:

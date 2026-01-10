@@ -640,7 +640,22 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
             self.label.ms_board.generate_evf_v4_raw_data()
             return
         elif isinstance(self.label.ms_board, ms.RmvVideo):
-            self.label.ms_board.country = "CN"
+            # rmv的国家是用户手动输入的，工具箱无法自动解析两位字母缩写
+            # 在元扫雷端解析完，传如工具箱
+            country = self.label.ms_board.country
+            if not country:
+                country = "XX"
+            elif len(country) == 2 and country.isalpha() and country.isascii():
+                file_path = self.r_path.with_name('media') / (country.lower() + ".svg")
+                if os.path.exists(file_path):
+                    country = country.upper()
+            elif country in country_name:
+                country = country_name[country].upper()
+            elif c := country.capitalize() in country_name:
+                country = country_name[c].upper()
+            else:
+                country = "XX"
+            self.label.ms_board.country = country
             self.label.ms_board.generate_evf_v4_raw_data()
             return
 
