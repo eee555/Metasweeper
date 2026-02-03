@@ -27,13 +27,10 @@ class Ui_Form(object):
         self.verticalLayout_7.setContentsMargins(20, 20, 20, -1)
         self.verticalLayout_7.setObjectName("verticalLayout_7")
         self.tabWidget = QtWidgets.QTabWidget(Form)
-        self.tabWidget.setStyleSheet("QTabBar::tab\n"
-"{\n"
-"\n"
-"font: 14pt \"微软雅黑\";\n"
-"width:88px;\n"
-"height:36px;\n"
-"}")
+        font = QtGui.QFont()
+        font.setFamily("微软雅黑")
+        font.setPointSize(14)
+        self.tabWidget.setFont(font)
         self.tabWidget.setUsesScrollButtons(True)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setObjectName("tabWidget")
@@ -46,6 +43,7 @@ class Ui_Form(object):
         self.label.setObjectName("label")
         self.verticalLayout_2.addWidget(self.label)
         self.label_3 = QtWidgets.QLabel(self.tab)
+        self.label_3.setWordWrap(True)
         self.label_3.setObjectName("label_3")
         self.verticalLayout_2.addWidget(self.label_3)
         self.label_2 = QtWidgets.QLabel(self.tab)
@@ -115,6 +113,7 @@ class Ui_Form(object):
         self.label_6.setObjectName("label_6")
         self.verticalLayout_4.addWidget(self.label_6)
         self.label_8 = QtWidgets.QLabel(self.tab_2)
+        self.label_8.setWordWrap(True)
         self.label_8.setObjectName("label_8")
         self.verticalLayout_4.addWidget(self.label_8)
         spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -243,7 +242,7 @@ class Ui_Form(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("Form", "关于"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_5), _translate("Form", "教程"))
         self.label_5.setText(_translate("Form", "开发：王嘉宁、李京志"))
-        self.label_6.setText(_translate("Form", "致谢：濮天羿、向飞宇、钟言、翁逸杰、张砷镓"))
+        self.label_6.setText(_translate("Form", "致谢：濮天羿、向飞宇、钟言、翁逸杰、张砷镓、Thomas Kolar"))
         self.label_8.setText(_translate("Form", "元扫雷接受有益的贡献，包括新的玩法、规则、插件等。"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("Form", "作者"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("Form", "反馈"))

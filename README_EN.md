@@ -4,9 +4,10 @@
 
 * A professional Minesweeper suite featuring 8 gameplay modes, a third-generation replay player, and a high-performance algorithm toolbox.
 
-[![MetaSweeper](https://img.shields.io/badge/MetaSweeper-v3.2.1-brightgreen.svg)](https://github.com/eee555/Solvable-Minesweeper)
-[![stars](https://img.shields.io/github/stars/eee555/Solvable-Minesweeper)](https://github.com/eee555/Solvable-Minesweeper/stargazers)
-[![forks](https://img.shields.io/github/forks/eee555/Solvable-Minesweeper)](https://github.com/eee555/Solvable-Minesweeper/forks)
+[![](https://img.shields.io/github/release/eee555/Metasweeper.svg)](https://github.com/eee555/Metasweeper/releases)
+[![stars](https://img.shields.io/github/stars/eee555/Metasweeper)](https://github.com/eee555/Metasweeper/stargazers)
+[![forks](https://img.shields.io/github/forks/eee555/Metasweeper)](https://github.com/eee555/Metasweeper/forks)
+[![](https://img.shields.io/github/downloads/eee555/Metasweeper/total.svg)](https://github.com/eee555/Metasweeper/releases)
 
 ## Introduction
 

@@ -64,8 +64,14 @@ QLabel, QCheckBox {
     font-size: 14pt;
 }
 
-"""
 
+QTabBar::tab
+{
+    font-family: "Microsoft YaHei", "微软雅黑", "Segoe UI", Arial, sans-serif;
+    font-size: 14pt;
+}
+
+"""
 
 class RoundMixin:
     def _init_round(self):

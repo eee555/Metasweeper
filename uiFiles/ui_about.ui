@@ -50,17 +50,14 @@
    </property>
    <item>
     <widget class="QTabWidget" name="tabWidget">
-     <property name="styleSheet">
-      <string notr="true">QTabBar::tab
-{
-
-font: 14pt &quot;微软雅黑&quot;;
-width:88px;
-height:36px;
-}</string>
+     <property name="font">
+      <font>
+       <family>微软雅黑</family>
+       <pointsize>14</pointsize>
+      </font>
      </property>
      <property name="currentIndex">
-      <number>2</number>
+      <number>0</number>
      </property>
      <property name="usesScrollButtons">
       <bool>true</bool>
@@ -87,6 +84,9 @@ height:36px;
         <widget class="QLabel" name="label_3">
          <property name="text">
           <string>Copyright © 2020-2025 元扫雷开发团队, 版权所有</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -271,6 +271,9 @@ height:36px;
         <widget class="QLabel" name="label_8">
          <property name="text">
           <string>元扫雷接受有益的贡献，包括新的玩法、规则、插件等。</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
          </property>
         </widget>
        </item>

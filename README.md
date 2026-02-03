@@ -4,9 +4,10 @@
 
 - 包含8种模式的专业扫雷版本、第三代扫雷录像播放器及高性能算法工具箱
  
-[![MetaSweeper](https://img.shields.io/badge/MetaSweeper-v3.2.1-brightgreen.svg)](https://github.com/eee555/Solvable-Minesweeper)
-[![stars](https://img.shields.io/github/stars/eee555/Solvable-Minesweeper)](https://github.com/eee555/Solvable-Minesweeper/stargazers)
-[![forks](https://img.shields.io/github/forks/eee555/Solvable-Minesweeper)](https://github.com/eee555/Solvable-Minesweeper/forks)
+[![](https://img.shields.io/github/release/eee555/Metasweeper.svg)](https://github.com/eee555/Metasweeper/releases)
+[![stars](https://img.shields.io/github/stars/eee555/Metasweeper)](https://github.com/eee555/Metasweeper/stargazers)
+[![forks](https://img.shields.io/github/forks/eee555/Metasweeper)](https://github.com/eee555/Metasweeper/forks)
+[![](https://img.shields.io/github/downloads/eee555/Metasweeper/total.svg)](https://github.com/eee555/Metasweeper/releases)
 
 ## 简介
 
