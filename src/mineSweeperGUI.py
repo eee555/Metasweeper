@@ -1438,8 +1438,8 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
                         ("right", ctypes.c_long),
                         ("bottom", ctypes.c_long)]
         # 创建RECT实例
-        r = RECT(rect.left() + 4, rect.top() + 4,
-                 rect.right() - 4, rect.bottom() - 4)
+        r = RECT(rect.left(), rect.top(),
+                 rect.right(), rect.bottom())
         # 调用Windows API函数ClipCursor来限制光标
         ctypes.windll.user32.ClipCursor(ctypes.byref(r))
 

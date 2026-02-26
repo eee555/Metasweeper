@@ -1,13 +1,14 @@
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 # from PyQt5.QtWidgets import QLineEdit, QInputDialog, QShortcut
-from PyQt5.QtWidgets import QApplication, QFileDialog, QWidget
+from PyQt5.QtWidgets import QApplication
 import superGUI
 
 # 局面中的鼠标和滚轮事件
 
 class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
     def mineAreaLeftPressed(self, i, j):
+        # print("lc", i, j)
         if self.game_state == 'ready' or self.game_state == 'playing' or\
                 self.game_state == 'joking':
             self.label.ms_board.step('lc', (i, j))
@@ -22,6 +23,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(15)
     
     def mineAreaLeftRelease(self, i, j):
+        # print("lr", i, j)
         if self.game_state == 'ready':
             if not self.pos_is_in_board(i, j):
                 self.label.ms_board.step('lr', (i, j))
@@ -95,6 +97,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(14)
 
     def mineAreaRightPressed(self, i, j):
+        # print("rc", i, j)
         if self.game_state == 'ready' or self.game_state == 'playing' or self.game_state == 'joking':
             if i < self.pixSize * self.row and j < self.pixSize * self.column:
                 # 计算左上角显示的雷数用。必须校验：当前格的状态、鼠标状态为双键都抬起。
@@ -113,6 +116,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(15)
 
     def mineAreaRightRelease(self, i, j):
+        # print("rr", i, j)
         if self.game_state == 'ready' or self.game_state == 'playing' or self.game_state == 'joking':
             self.chording_ai(i // self.pixSize, j // self.pixSize)
             self.label.ms_board.step('rr', (i, j))
@@ -125,6 +129,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(14)
 
     def mineAreaLeftAndRightPressed(self, i, j):
+        # print("cc", i, j)
         if self.game_state == 'ready' or self.game_state == 'playing' or\
                 self.game_state == 'joking':
             self.label.ms_board.step('cc', (i, j))

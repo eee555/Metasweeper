@@ -426,8 +426,8 @@ class Ui_MainWindow(Ui_MainWindow):
 
     def minimumWindow(self):
         # 最小化展示窗口，并固定尺寸
-        self.label.setFixedSize(QtCore.QSize(self.pixSize*self.column + 8,
-                                             self.pixSize*self.row + 8))
+        self.label.setFixedSize(QtCore.QSize(self.pixSize*self.column,
+                                             self.pixSize*self.row))
         self.windowSizeState = 'tight'
         self.timer_ = QTimer()
         self.timer_.timeout.connect(self.__minimumWindow)

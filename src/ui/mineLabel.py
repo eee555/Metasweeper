@@ -78,9 +78,9 @@ class mineLabel(QtWidgets.QLabel):
             self.importCellPic(pixSize)
             # self.resize(QtCore.QSize(pixSize * column + 8, pixSize * row + 8))
             self.setMinimumSize(QtCore.QSize(
-                pixSize * column + 8, pixSize * row + 8))
+                pixSize * column, pixSize * row))
             self.setMaximumSize(QtCore.QSize(
-                pixSize * column + 8, pixSize * row + 8))
+                pixSize * column, pixSize * row))
             # self.current_x = self.row # 鼠标坐标，和高亮的展示有关
             # self.current_y = self.column
     
@@ -97,8 +97,9 @@ class mineLabel(QtWidgets.QLabel):
 
     def mousePressEvent(self, e):
         # 重载一下鼠标点击事件
-        xx = int(e.localPos().x() - 4)
-        yy = int(e.localPos().y() - 4)
+        xx = int(e.localPos().x())
+        yy = int(e.localPos().y())
+        # print("press: ", xx, yy)
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
             xx >= self.column * self.pixSize:
             self.current_x = self.row * self.pixSize
@@ -119,8 +120,9 @@ class mineLabel(QtWidgets.QLabel):
     def mouseReleaseEvent(self, e):
         #每个标签的鼠标事件发射给槽的都是自身的坐标
         #所以获取释放点相对本标签的偏移量，矫正发射的信号
-        xx = int(e.localPos().x() - 4)
-        yy = int(e.localPos().y() - 4)
+        xx = int(e.localPos().x())
+        yy = int(e.localPos().y())
+        # print("release: ", xx, yy)
         
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
             xx >= self.column * self.pixSize:
@@ -136,8 +138,8 @@ class mineLabel(QtWidgets.QLabel):
             self.rightRelease.emit(self.current_x, self.current_y)
 
     def mouseMoveEvent(self, e):
-        xx = int(e.localPos().x() - 4)
-        yy = int(e.localPos().y() - 4)
+        xx = int(e.localPos().x())
+        yy = int(e.localPos().y())
         # print('移动位置{}, {}'.format(xx, yy))
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
             xx >= self.column * self.pixSize:
@@ -152,13 +154,14 @@ class mineLabel(QtWidgets.QLabel):
         # 滚轮事件
         angle = event.angleDelta()
         angle_y = angle.y()
-        xx = int(event.x() - 4) # 距离左侧
-        yy = int(event.y() - 4) # 距离上方
+        xx = int(event.x()) # 距离左侧
+        yy = int(event.y()) # 距离上方
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
             xx >= self.column * self.pixSize:
             self.mousewheelEvent.emit(angle_y, self.row, self.column)
         else:
             self.mousewheelEvent.emit(angle_y, yy // self.pixSize, xx // self.pixSize)
+
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -184,16 +187,16 @@ class mineLabel(QtWidgets.QLabel):
         for i in range(row):
             for j in range(column):
                 if game_board[i][j] == 10:
-                    painter.drawPixmap(j * pix_size + 4, i * pix_size + 4, QPixmap(self.pixmapNum[10]))
+                    painter.drawPixmap(j * pix_size, i * pix_size, QPixmap(self.pixmapNum[10]))
                     if self.paintProbability: # 画概率
                         if self.paint_cursor:
                             painter.setOpacity(self.ms_board.game_board_poss[i][j])
                         else:
                             painter.setOpacity(self.boardProbability[i][j])
-                        painter.drawPixmap(j * pix_size + 4, i * pix_size + 4, QPixmap(self.pixmapNum[100]))
+                        painter.drawPixmap(j * pix_size, i * pix_size, QPixmap(self.pixmapNum[100]))
                         painter.setOpacity(1.0)
                 else:
-                    painter.drawPixmap(j * pix_size + 4, i * pix_size + 4, QPixmap(self.pixmapNum[game_board[i][j]]))
+                    painter.drawPixmap(j * pix_size, i * pix_size, QPixmap(self.pixmapNum[game_board[i][j]]))
 
 
         # 画高亮
@@ -203,12 +206,12 @@ class mineLabel(QtWidgets.QLabel):
                 for r in range(max(current_x - 1, 0), min(current_x + 2, row)):
                     for c in range(max(current_y - 1, 0), min(current_y + 2, column)):
                         if game_board[r][c] == 10:
-                            painter.drawPixmap(c * pix_size + 4, r * pix_size + 4, QPixmap(self.pixmapNum[0]))
+                            painter.drawPixmap(c * pix_size, r * pix_size, QPixmap(self.pixmapNum[0]))
             elif mouse_state == 4 and game_board[current_x][current_y] == 10:
-                painter.drawPixmap(current_y * pix_size + 4, current_x * pix_size + 4, QPixmap(self.pixmapNum[0]))
+                painter.drawPixmap(current_y * pix_size, current_x * pix_size, QPixmap(self.pixmapNum[0]))
         # 画光标
         if self.paint_cursor:
-            painter.translate(x + 4, y + 4)
+            painter.translate(x, y)
             painter.drawPath(self.mouse)
             painter.fillPath(self.mouse,Qt.white)
         painter.end()
