@@ -84,7 +84,7 @@ jobs:
     - name: Package with PyInstaller
       run: |
         # pyinstaller --icon "./src/media/cat.ico" --noconsole --noconfirm --clean --add-data "./src/media/*:./media" --add-data "./src/de_DE.qm:." --add-data "./src/pl_PL.qm:." --add-data "./src/en_US.qm:." --paths src --name metaminesweeper src/main.py
-        pyinstaller --icon "./src/media/cat.ico" --noconsole --noconfirm --clean --add-data "./src/media/*:./media" --add-data "./de_DE.qm:." --add-data "./pl_PL.qm:." --add-data "./en_US.qm:." --paths src --name metaminesweeper src/main.py
+        pyinstaller --icon "./src/media/cat.ico" --noconfirm --clean --add-data "./src/media/*:./media" --add-data "./de_DE.qm:." --add-data "./pl_PL.qm:." --add-data "./en_US.qm:." --paths src --name metaminesweeper src/main.py
         
 
 
