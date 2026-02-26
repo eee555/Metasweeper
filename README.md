@@ -171,6 +171,10 @@
 
 ## 下载链接
 
+### 正式版v3.2.2：
+添加了插件功能。开始支持播放RMV2录像。修复了在局面边框上按下、局面内释放时，处理错误的严重bug。修复了不能在“cell0”上双击的bug。优化了“关于”菜单。补全了计数器中缺失的若干算子、删除了checksum_ok变量。修复了一个evfs安全漏洞。添加了命令行校验录像工具。现在限值光标不能超出边框时，窗口始终置顶。添加了打开录像、设置目录的菜单选项。  
+链接：[https://gitee.com/ee55/Metasweeper/releases/download/3.2.2/Metaminesweeper-3.2.2.exe](https://gitee.com/ee55/Metasweeper/releases/download/3.2.2/Metaminesweeper-3.2.2.exe)、[https://github.com/eee555/Metasweeper/releases/download/3.2.2/Metaminesweeper-3.2.2.exe](https://github.com/eee555/Metasweeper/releases/download/3.2.2/Metaminesweeper-3.2.2.exe)
+
 ### 正式版v3.2.1：
 可以保存evfs录像集，可以选择其中任意录像播放，可以多选并另存为evf文件。增加pluck指标，刻画了运气的好坏。增加迟延模式，可以在标识前增加“[lag]”，获取更宽松的作弊判定。录像播放控制、计数器等子窗口可以保存位置坐标。升级了录像播放器，可以多标签切换。将录像格式升级至evf4。调整法埋雷算法升级。回车等于窗口确定。播放器进度条时间修改为3位小数。可以通过拖入文件来进行播放。给计数器添加log, sin, tan, cos, row, column, minenum等函数和变量。优化了国家下拉框的补全交互。删除设置中的透明度属性。修复了计数器公式不能包含百分号%、回放时脸不动、窗口超出屏幕后无法移回、文件权限相关问题等已经发现的bug。  
 链接：[https://gitee.com/ee55/Metasweeper/releases/download/3.2.1/Metaminesweeper-3.2.1.exe](https://gitee.com/ee55/Metasweeper/releases/download/3.2.1/Metaminesweeper-3.2.1.exe)、[https://github.com/eee555/Metasweeper/releases/download/3.2.1/Metaminesweeper-3.2.1.exe](https://github.com/eee555/Metasweeper/releases/download/3.2.1/Metaminesweeper-3.2.1.exe)

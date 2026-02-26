@@ -12,7 +12,7 @@ from country_name import country_name
 import os
 from typing import List, Tuple
 
-version = "元3.2.1"
+version = "元3.2.2"
 
 class IniConfig:
     def __init__(self, file_path):

@@ -600,9 +600,9 @@ class MineSweeperGUI(MineSweeperVideoPlayer):
     def checksum_module_ok(self):
         # 检查校验和模块的签名
         # 调试的时候不会自动存录像，除非将此处改为return True
-        return True
-        # return hashlib.sha256(bytes(metaminesweeper_checksum.get_self_key())).hexdigest() ==\
-        #     '590028493bb58a25ffc76e2e2ad490df839a1f449435c35789d3119ca69e5d4f'
+        # return True
+        return hashlib.sha256(bytes(metaminesweeper_checksum.get_self_key())).hexdigest() ==\
+            '590028493bb58a25ffc76e2e2ad490df839a1f449435c35789d3119ca69e5d4f'
 
     # 搜集数据，生成evf文件的二进制数据，但是不保存
     def dump_evf_file_data(self):
