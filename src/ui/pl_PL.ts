@@ -301,470 +301,470 @@
     <message>
         <location filename="../pluginDialog.py" line="59"/>
         <source>插件管理</source>
-        <translation type="unfinished"></translation>
+        <translation>Zarządzanie wtyczkami</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="79"/>
         <source>插件详情</source>
-        <translation type="unfinished"></translation>
+        <translation>Szczegóły wtyczki</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="125"/>
         <source>设置</source>
-        <translation type="unfinished">Zakładać</translation>
+        <translation>Zakładać</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="138"/>
         <source>保存</source>
-        <translation type="unfinished">Zapisz</translation>
+        <translation>Zapisz</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="252"/>
         <source>保存成功</source>
-        <translation type="unfinished"></translation>
+        <translation>Zapisano pomyślnie</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="252"/>
         <source>设置已保存</source>
-        <translation type="unfinished"></translation>
+        <translation>Ustawienia zostały zapisane</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="104"/>
         <source>进程ID</source>
-        <translation type="unfinished"></translation>
+        <translation>Identyfikator procesu</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="105"/>
         <source>插件名称</source>
-        <translation type="unfinished"></translation>
+        <translation>Nazwa</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="106"/>
         <source>插件显示名称</source>
-        <translation type="unfinished"></translation>
+        <translation>Wyświetlana nazwa</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="107"/>
         <source>插件描述</source>
-        <translation type="unfinished"></translation>
+        <translation>Opis</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="108"/>
         <source>插件版本</source>
-        <translation type="unfinished"></translation>
+        <translation>Wersja</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="109"/>
         <source>作者</source>
-        <translation type="unfinished"></translation>
+        <translation>Autor</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="110"/>
         <source>作者邮箱</source>
-        <translation type="unfinished"></translation>
+        <translation>E-mail autora</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="111"/>
         <source>插件URL</source>
-        <translation type="unfinished"></translation>
+        <translation>URL</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="112"/>
         <source>插件状态</source>
-        <translation type="unfinished"></translation>
+        <translation>Status</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="113"/>
         <source>心跳时间</source>
-        <translation type="unfinished"></translation>
+        <translation>Czas sygnału heartbeat</translation>
     </message>
     <message>
         <location filename="../pluginDialog.py" line="114"/>
         <source>订阅事件</source>
-        <translation type="unfinished"></translation>
+        <translation>Subskrybowane zdarzenia</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="240"/>
         <source>元扫雷是由资深扫雷玩家与软件工程师共同打造的一款现代化复刻。</source>
-        <translation type="unfinished"></translation>
+        <translation>Meta Minesweeper to nowoczesna wersja odtworzona wspólnie przez doświadczonych graczy w Minesweeper i inżynierów oprogramowania.</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="241"/>
         <source>Copyright © 2020-2025 元扫雷开发团队, 版权所有</source>
-        <translation type="unfinished"></translation>
+        <translation>Copyright © 2020-2025 Zespół deweloperski Meta Minesweeper, wszelkie prawa zastrzeżone</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="243"/>
         <source>教程</source>
-        <translation type="unfinished"></translation>
+        <translation>Samouczek</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="244"/>
         <source>开发：王嘉宁、李京志</source>
-        <translation type="unfinished"></translation>
+        <translation>Tworzenie: 王嘉宁, 李京志</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="246"/>
         <source>元扫雷接受有益的贡献，包括新的玩法、规则、插件等。</source>
-        <translation type="unfinished"></translation>
+        <translation>Meta Minesweeper akceptuje przydatne wkłady, w tym nowe tryby gry, zasady, wtyczki itp.</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="248"/>
         <source>反馈</source>
-        <translation type="unfinished"></translation>
+        <translation>Opinie</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="249"/>
         <source>感谢您考虑支持我们的开源项目，赞助时请备注项目名称+您的称呼+其他要求，例如元扫雷+张先生+建议添加**功能。您的赞助将有助于项目的持续发展和改进，使我们能够继续提高软件的质量。</source>
-        <translation type="unfinished"></translation>
+        <translation>Dziękujemy za rozważenie wsparcia naszego projektu open-source. Prosimy o podanie przy sponsorowaniu nazwy projektu + Państwa imienia + dodatkowych wymagań, np. Meta Minesweeper + Pan Zhang + sugestia dodania **funkcji. Państwa wsparcie przyczyni się do ciągłego rozwoju i ulepszania projektu, pozwalając nam dalej podnosić jakość oprogramowania.</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="250"/>
         <source>赞助</source>
-        <translation type="unfinished"></translation>
+        <translation>Sponsorowanie</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="251"/>
         <source>1. 在非商业用途前提下，用户有权不受任何限制地对“元扫雷”软件进行复制、存储及传播。</source>
-        <translation type="unfinished"></translation>
+        <translation>1. Pod warunkiem wykorzystania niekomercyjnego użytkownik ma prawo do nieograniczonego kopiowania, przechowywania i rozpowszechniania oprogramowania „Meta Minesweeper“.</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="252"/>
         <source>2. 由“元扫雷”软件生成的录像文件，其全部所有权归对应玩家本人所有。</source>
-        <translation type="unfinished"></translation>
+        <translation>2. Własność wszystkich plików wideo wygenerowanych przez oprogramowanie „Meta Minesweeper“ należy w całości do odpowiedniego gracza.</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="253"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;3. 本项目源代码遵循GPLv3并附加额外条款发布。该额外条款特别禁止任何未经开发团队授权的商业使用行为，并对项目相关收益的分配方式作出明确约定。具体内容详见&lt;a href=&quot;https://github.com/eee555/Metasweeper/blob/master/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;LICENSE&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;3. Kod źródłowy tego projektu jest udostępniany na licencji GPLv3 z dodatkowymi postanowieniami. Te dodatkowe postanowienia szczególnie zabraniają wszelkiego komercyjnego wykorzystania bez zgody zespołu deweloperskiego i jasno określają sposób podziału dochodów związanych z projektem. Szczegóły zobacz&lt;a href=&quot;https://github.com/eee555/Metasweeper/blob/master/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;LICENSE&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="254"/>
         <source>协议</source>
-        <translation type="unfinished"></translation>
+        <translation>Umowa</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="519"/>
         <source>播放</source>
-        <translation type="unfinished"></translation>
+        <translation>Odtwórz</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="520"/>
         <source>导出</source>
-        <translation type="unfinished"></translation>
+        <translation>Eksportuj</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="521"/>
         <source>刷新</source>
-        <translation type="unfinished"></translation>
+        <translation>Odśwież</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="523"/>
         <source>显示字段</source>
-        <translation type="unfinished"></translation>
+        <translation>Wyświetlane pola</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="597"/>
         <source>导出evf文件</source>
-        <translation type="unfinished"></translation>
+        <translation>Eksportuj plik EVF</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="608"/>
         <source>历史记录</source>
-        <translation type="unfinished"></translation>
+        <translation>Historia</translation>
     </message>
     <message>
         <location filename="../utils.py" line="55"/>
         <source>胜利</source>
-        <translation type="unfinished"></translation>
+        <translation>Zwycięstwo</translation>
     </message>
     <message>
         <location filename="../utils.py" line="57"/>
         <source>失败</source>
-        <translation type="unfinished"></translation>
+        <translation>Porażka</translation>
     </message>
     <message>
         <location filename="../utils.py" line="59"/>
         <source>准备</source>
-        <translation type="unfinished"></translation>
+        <translation>Gotowy</translation>
     </message>
     <message>
         <location filename="../utils.py" line="61"/>
         <source>进行中</source>
-        <translation type="unfinished"></translation>
+        <translation>W toku</translation>
     </message>
     <message>
         <location filename="../utils.py" line="63"/>
         <source>预标记</source>
-        <translation type="unfinished"></translation>
+        <translation>PreFlaging</translation>
     </message>
     <message>
         <location filename="../utils.py" line="65"/>
         <source>回放</source>
-        <translation type="unfinished">Powtórka</translation>
+        <translation>Wyświetl</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="30"/>
         <source>与</source>
-        <translation type="unfinished"></translation>
+        <translation>and</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="32"/>
         <source>或</source>
-        <translation type="unfinished"></translation>
+        <translation>or</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="57"/>
         <source>等于</source>
-        <translation type="unfinished"></translation>
+        <translation>Równe</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="59"/>
         <source>不等于</source>
-        <translation type="unfinished"></translation>
+        <translation>Różne</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="61"/>
         <source>大于</source>
-        <translation type="unfinished"></translation>
+        <translation>Większe niż</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="63"/>
         <source>小于</source>
-        <translation type="unfinished"></translation>
+        <translation>Mniejsze niż</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="65"/>
         <source>大于等于</source>
-        <translation type="unfinished"></translation>
+        <translation>Większe lub równe niż</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="67"/>
         <source>小于等于</source>
-        <translation type="unfinished"></translation>
+        <translation>Mniejsze lub równe niż</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="69"/>
         <source>包含</source>
-        <translation type="unfinished"></translation>
+        <translation>Zawiera</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="71"/>
         <source>不包含</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie zawiera</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="251"/>
         <source>添加</source>
-        <translation type="unfinished"></translation>
+        <translation>Dodaj</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="252"/>
         <source>删除</source>
-        <translation type="unfinished"></translation>
+        <translation>Usuń</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="253"/>
         <source>插入</source>
-        <translation type="unfinished"></translation>
+        <translation>Wstaw</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="612"/>
         <source>查询</source>
-        <translation type="unfinished"></translation>
+        <translation>Zapytanie</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="621"/>
         <source>上一页</source>
-        <translation type="unfinished"></translation>
+        <translation>Poprzednia strona</translation>
     </message>
     <message>
         <location filename="../history_gui.py" line="625"/>
         <source>下一页</source>
-        <translation type="unfinished"></translation>
+        <translation>Następna strona</translation>
     </message>
     <message>
         <location filename="../utils.py" line="88"/>
         <source>双键抬起</source>
-        <translation type="unfinished"></translation>
+        <translation>Oba przyciski myszy zwolnione</translation>
     </message>
     <message>
         <location filename="../utils.py" line="90"/>
         <source>右键按下且标过雷</source>
-        <translation type="unfinished"></translation>
+        <translation>Prawy przycisk myszy wciśnięty i oznaczony</translation>
     </message>
     <message>
         <location filename="../utils.py" line="92"/>
         <source>右键按下且没有标过雷</source>
-        <translation type="unfinished"></translation>
+        <translation>Prawy przycisk myszy wciśnięty i nieoznaczony</translation>
     </message>
     <message>
         <location filename="../utils.py" line="94"/>
         <source>左键按下</source>
-        <translation type="unfinished"></translation>
+        <translation>Lewy przycisk myszy wciśnięty</translation>
     </message>
     <message>
         <location filename="../utils.py" line="96"/>
         <source>双键按下</source>
-        <translation type="unfinished"></translation>
+        <translation>Oba przyciski myszy wciśnięte</translation>
     </message>
     <message>
         <location filename="../utils.py" line="98"/>
         <source>双键按下且先按下右键且没有标雷</source>
-        <translation type="unfinished"></translation>
+        <translation>Oba przyciski myszy wciśnięte, najpierw prawy, i nieoznaczone</translation>
     </message>
     <message>
         <location filename="../utils.py" line="100"/>
         <source>双击后先弹起右键左键还没有弹起</source>
-        <translation type="unfinished"></translation>
+        <translation>Po zagraniu kombinacji, najpierw zwolniono prawy przycisk, lewy nadal wciśnięty</translation>
     </message>
     <message>
         <location filename="../utils.py" line="102"/>
         <source>未初始化</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie zainicjalizowany</translation>
     </message>
     <message>
         <location filename="../utils.py" line="126"/>
         <source>win7</source>
-        <translation type="unfinished"></translation>
+        <translation>win7</translation>
     </message>
     <message>
         <location filename="../utils.py" line="162"/>
         <source>自定义</source>
-        <translation type="unfinished">Dostosowywania</translation>
+        <translation>Niestandardowy</translation>
     </message>
     <message>
         <location filename="ui_about.py" line="245"/>
         <source>致谢：濮天羿、向飞宇、钟言、翁逸杰、张砷镓、Thomas Kolar</source>
-        <translation type="unfinished"></translation>
+        <translation>Podziękowania: 濮天羿, 向飞宇, 钟言, 翁逸杰, 张砷镓, Thomas Kolar</translation>
     </message>
 </context>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="ui_main_board.py" line="477"/>
+        <location filename="ui_main_board.py" line="494"/>
         <source>元扫雷</source>
         <translation>Trałowiec Meta</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="478"/>
+        <location filename="ui_main_board.py" line="495"/>
         <source>游戏</source>
         <translation>Gra</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="479"/>
+        <location filename="ui_main_board.py" line="496"/>
         <source>设置</source>
         <translation>Zakładać</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="480"/>
+        <location filename="ui_main_board.py" line="497"/>
         <source>语言设置</source>
         <translation>Ustawienia językowe</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="481"/>
+        <location filename="ui_main_board.py" line="498"/>
         <source>帮助</source>
         <translation>Pomoc</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="483"/>
+        <location filename="ui_main_board.py" line="500"/>
         <source>新游戏</source>
         <translation>Nowa gra</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="484"/>
+        <location filename="ui_main_board.py" line="501"/>
         <source>初级</source>
         <translation>młodszy</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="485"/>
+        <location filename="ui_main_board.py" line="502"/>
         <source>中级</source>
         <translation>pośredni</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="486"/>
+        <location filename="ui_main_board.py" line="503"/>
         <source>高级</source>
         <translation>Starszy</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="487"/>
+        <location filename="ui_main_board.py" line="504"/>
         <source>自定义</source>
         <translation>Dostosowywania</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="488"/>
+        <location filename="ui_main_board.py" line="505"/>
         <source>退出</source>
         <translation>kończyć</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="489"/>
+        <location filename="ui_main_board.py" line="506"/>
         <source>游戏设置</source>
         <translation>Ustawienia gry</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="490"/>
+        <location filename="ui_main_board.py" line="507"/>
         <source>关于</source>
         <translation>o</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="491"/>
+        <location filename="ui_main_board.py" line="508"/>
         <source>快捷键设置</source>
         <translation>Ustawienia skrótu</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="492"/>
+        <location filename="ui_main_board.py" line="509"/>
         <source>打开</source>
         <translation>Otwórz go</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="493"/>
+        <location filename="ui_main_board.py" line="510"/>
         <source>鼠标设置</source>
         <translation>Ustawienia myszy</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="494"/>
+        <location filename="ui_main_board.py" line="511"/>
         <source>保存</source>
         <translation>Zapisz</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="495"/>
+        <location filename="ui_main_board.py" line="512"/>
         <source>回放</source>
         <translation>Powtórka</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="496"/>
+        <location filename="ui_main_board.py" line="513"/>
         <source>检查更新</source>
         <translation>Sprawdź dostępność aktualizacji</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="482"/>
-        <source>查看</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="ui_main_board.py" line="499"/>
+        <source>查看</source>
+        <translation>Widok</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="516"/>
         <source>成就</source>
-        <translation type="unfinished"></translation>
+        <translation>Osiągnięcia</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="500"/>
+        <location filename="ui_main_board.py" line="517"/>
         <source>个人纪录</source>
-        <translation type="unfinished"></translation>
+        <translation>Rekordy osobiste</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="501"/>
+        <location filename="ui_main_board.py" line="518"/>
         <source>插件</source>
-        <translation type="unfinished"></translation>
+        <translation>Wtyczki</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="497"/>
+        <location filename="ui_main_board.py" line="514"/>
         <source>录像目录</source>
-        <translation type="unfinished"></translation>
+        <translation>Katalog powtórek</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="498"/>
+        <location filename="ui_main_board.py" line="515"/>
         <source>设置目录</source>
-        <translation type="unfinished"></translation>
+        <translation>Katalog ustawień</translation>
     </message>
 </context>
 </TS>

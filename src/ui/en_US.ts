@@ -642,127 +642,127 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="ui_main_board.py" line="478"/>
+        <location filename="ui_main_board.py" line="495"/>
         <source>游戏</source>
         <translation>Game</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="479"/>
+        <location filename="ui_main_board.py" line="496"/>
         <source>设置</source>
         <translation>Options</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="481"/>
+        <location filename="ui_main_board.py" line="498"/>
         <source>帮助</source>
         <translation>Help</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="483"/>
+        <location filename="ui_main_board.py" line="500"/>
         <source>新游戏</source>
         <translation>New Game</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="484"/>
+        <location filename="ui_main_board.py" line="501"/>
         <source>初级</source>
         <translation>Beginner</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="485"/>
+        <location filename="ui_main_board.py" line="502"/>
         <source>中级</source>
         <translation>Intermediate</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="486"/>
+        <location filename="ui_main_board.py" line="503"/>
         <source>高级</source>
         <translation>Expert</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="487"/>
+        <location filename="ui_main_board.py" line="504"/>
         <source>自定义</source>
         <translation>Custom</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="488"/>
+        <location filename="ui_main_board.py" line="505"/>
         <source>退出</source>
         <translation>Exit</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="489"/>
+        <location filename="ui_main_board.py" line="506"/>
         <source>游戏设置</source>
         <translation>Game Settings</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="491"/>
+        <location filename="ui_main_board.py" line="508"/>
         <source>快捷键设置</source>
         <translation>Shortcut Settings</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="492"/>
+        <location filename="ui_main_board.py" line="509"/>
         <source>打开</source>
         <translation>Open</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="480"/>
+        <location filename="ui_main_board.py" line="497"/>
         <source>语言设置</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="477"/>
+        <location filename="ui_main_board.py" line="494"/>
         <source>元扫雷</source>
         <translation>Metasweeper</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="490"/>
+        <location filename="ui_main_board.py" line="507"/>
         <source>关于</source>
         <translation>About</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="493"/>
+        <location filename="ui_main_board.py" line="510"/>
         <source>鼠标设置</source>
         <translation>Mouse Settings</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="494"/>
+        <location filename="ui_main_board.py" line="511"/>
         <source>保存</source>
         <translation>Save</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="495"/>
+        <location filename="ui_main_board.py" line="512"/>
         <source>回放</source>
         <translation>Replay</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="496"/>
+        <location filename="ui_main_board.py" line="513"/>
         <source>检查更新</source>
         <translation>Check update</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="482"/>
+        <location filename="ui_main_board.py" line="499"/>
         <source>查看</source>
         <translation>View</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="499"/>
+        <location filename="ui_main_board.py" line="516"/>
         <source>成就</source>
         <translation>Achievements</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="500"/>
+        <location filename="ui_main_board.py" line="517"/>
         <source>个人纪录</source>
         <translation>Personal Records</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="501"/>
+        <location filename="ui_main_board.py" line="518"/>
         <source>插件</source>
         <translation>Plugins</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="497"/>
+        <location filename="ui_main_board.py" line="514"/>
         <source>录像目录</source>
         <translation>Replay Directory</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="498"/>
+        <location filename="ui_main_board.py" line="515"/>
         <source>设置目录</source>
         <translation>Settings Directory</translation>
     </message>
