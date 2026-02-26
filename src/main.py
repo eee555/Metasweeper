@@ -52,106 +52,92 @@ def on_ready_read(socket: QLocalSocket):
 
 
 def cli_check_file(file_path: str) -> int:
-    output_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out.json")
     result = {
         "error": "",
         "data": []
     }
     
-    try:
-        if not os.path.exists(file_path):
-            result["error"] = "file not found"
+    if not os.path.exists(file_path):
+        result["error"] = "file not found"
+    else:
+        # 搜集目录或文件下的所有evf和evfs文件
+        evf_evfs_files = []
+        if os.path.isfile(file_path) and (
+            file_path.endswith(".evf") or file_path.endswith(".evfs")
+        ):
+            evf_evfs_files = [os.path.abspath(file_path)]
+        elif os.path.isdir(file_path):
+            evf_evfs_files = [
+                os.path.abspath(os.path.join(root, file))
+                for root, dirs, files in os.walk(file_path)
+                for file in files
+                if file.endswith(".evf") or file.endswith(".evfs")
+            ]
+
+        if not evf_evfs_files:
+            result["error"] = "must be evf or evfs files or directory"
         else:
-            # 搜集目录或文件下的所有evf和evfs文件
-            evf_evfs_files = []
-            if os.path.isfile(file_path) and (
-                file_path.endswith(".evf") or file_path.endswith(".evfs")
-            ):
-                evf_evfs_files = [os.path.abspath(file_path)]
-            elif os.path.isdir(file_path):
-                evf_evfs_files = [
-                    os.path.abspath(os.path.join(root, file))
-                    for root, dirs, files in os.walk(file_path)
-                    for file in files
-                    if file.endswith(".evf") or file.endswith(".evfs")
-                ]
+            # 实例化一个MineSweeperGUI出来
+            app = QtWidgets.QApplication(sys.argv)
+            mainWindow = mainWindowGUI.MainWindow()
+            ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
 
-            if not evf_evfs_files:
-                result["error"] = "must be evf or evfs files or directory"
-            else:
-                try:
-                    # 设置环境变量以禁用GUI窗口（headless模式）
-                    os.environ["QT_QPA_PLATFORM"] = "offscreen"
-                    
-                    # 实例化一个MineSweeperGUI出来
-                    app = QtWidgets.QApplication(sys.argv)
-                    mainWindow = mainWindowGUI.MainWindow()
-                    ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
-
-                    for ide, e in enumerate(evf_evfs_files):
-                        if not ui.checksum_module_ok():
-                            result["error"] = "checksum module error"
-                            break
-                        if e.endswith(".evf"):
-                            # 检验evf文件是否合法
-                            video = ms.EvfVideo(e)
-                            try:
-                                video.parse()
-                            except:
-                                evf_evfs_files[ide] = (e, 2)
-                            else:
-                                checksum = ui.checksum_guard.get_checksum(
-                                    video.raw_data[: -(len(video.checksum) + 2)]
-                                )
-                                if video.checksum == checksum:
-                                    evf_evfs_files[ide] = (e, 0)
-                                else:
-                                    evf_evfs_files[ide] = (e, 1)
-                        elif e.endswith(".evfs"):
-                            # 检验evfs文件是否合法
-                            videos = ms.Evfs(e)
-                            try:
-                                videos.parse()
-                            except:
-                                evf_evfs_files[ide] = (e, 2)
-                            else:
-                                if videos.len() <= 0:
-                                    evf_evfs_files[ide] = (e, 2)
-                                checksum = ui.checksum_guard.get_checksum(
-                                    videos[0].evf_video.raw_data)
-                                if video.checksum != checksum:
-                                    evf_evfs_files[ide] = (e, 1)
-                                    continue
-                                for idcell, cell in enumerate(videos[1:]):
-                                    checksum = ui.checksum_guard.get_checksum(
-                                        cell.evf_video.raw_data + videos[idcell - 1].checksum
-                                    )
-                                    if cell.evf_video.checksum != checksum:
-                                        evf_evfs_files[ide] = (e, 1)
-                                        continue
-                                evf_evfs_files[ide] = (e, 0)
-                    
-                    # 将结果转换为列表格式
-                    if not result["error"]:  # 只有在没有错误的情况下才添加数据
-                        data_list = []
-                        for item in evf_evfs_files:
-                            if isinstance(item, tuple) and len(item) == 2:
-                                file_path_item, status = item
-                                data_list.append({"file": file_path_item, "status": status})
-                        result["data"] = data_list
-                except Exception as e:
-                    result["error"] = f"check error: {str(e)}"
-                    result["data"] = []
-    except Exception as e:
-        result["error"] = f"exception: {str(e)}"
-        result["data"] = []
-    finally:
-        # 无论如何都要写入json文件
-        try:
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(result, f, ensure_ascii=False, indent=2)
-        except:
-            pass
+            for ide, e in enumerate(evf_evfs_files):
+                if not ui.checksum_module_ok():
+                    result["error"] = "checksum module error"
+                    break
+                if e.endswith(".evf"):
+                    # 检验evf文件是否合法
+                    video = ms.EvfVideo(e)
+                    try:
+                        video.parse()
+                    except:
+                        evf_evfs_files[ide] = (e, 2)
+                    else:
+                        checksum = ui.checksum_guard.get_checksum(
+                            video.raw_data[: -(len(video.checksum) + 2)]
+                        )
+                        if video.checksum == checksum:
+                            evf_evfs_files[ide] = (e, 0)
+                        else:
+                            evf_evfs_files[ide] = (e, 1)
+                elif e.endswith(".evfs"):
+                    # 检验evfs文件是否合法
+                    videos = ms.Evfs(e)
+                    try:
+                        videos.parse()
+                    except:
+                        evf_evfs_files[ide] = (e, 2)
+                    else:
+                        if videos.len() <= 0:
+                            evf_evfs_files[ide] = (e, 2)
+                        checksum = ui.checksum_guard.get_checksum(
+                            videos[0].evf_video.raw_data)
+                        if video.checksum != checksum:
+                            evf_evfs_files[ide] = (e, 1)
+                            continue
+                        for idcell, cell in enumerate(videos[1:]):
+                            checksum = ui.checksum_guard.get_checksum(
+                                cell.evf_video.raw_data + videos[idcell - 1].checksum
+                            )
+                            if cell.evf_video.checksum != checksum:
+                                evf_evfs_files[ide] = (e, 1)
+                                continue
+                        evf_evfs_files[ide] = (e, 0)
+            
+            # 将结果转换为列表格式
+            if not result["error"]:  # 只有在没有错误的情况下才添加数据
+                data_list = []
+                for item in evf_evfs_files:
+                    if isinstance(item, tuple) and len(item) == 2:
+                        file_path_item, status = item
+                        data_list.append({"file": file_path_item, "status": status})
+                result["data"] = data_list
+    
+    # 写入out.json
+    output_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out.json")
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
     
     return 0
 
@@ -168,51 +154,50 @@ if __name__ == "__main__":
         exit_code = cli_check_file(args.check)
         sys.exit(exit_code)
 
+    app = QtWidgets.QApplication(sys.argv)
+    serverName = "MineSweeperServer"
+    socket = QLocalSocket()
+    socket.connectToServer(serverName)
+    if socket.waitForConnected(500):
+        if len(sys.argv) == 2:
+            filePath = sys.argv[1]
+            socket.write(filePath.encode())
+            socket.flush()
+        time.sleep(0.5)
+        app.quit()
     else:
-        app = QtWidgets.QApplication(sys.argv)
-        serverName = "MineSweeperServer"
-        socket = QLocalSocket()
-        socket.connectToServer(serverName)
-        if socket.waitForConnected(500):
-            if len(sys.argv) == 2:
-                filePath = sys.argv[1]
-                socket.write(filePath.encode())
-                socket.flush()
-            time.sleep(0.5)
-            app.quit()
-        else:
-            localServer = QLocalServer()
-            localServer.listen(serverName)
-            localServer.newConnection.connect(
-                lambda: on_new_connection(localServer=localServer)
-            )
-            env = patch_env()
-            context = AppContext(name="Metasweeper", version="1.0.0", display_name="元扫雷",
-                                plugin_dir=(Path(get_paths()) /
-                                            "plugins").as_posix(),
-                                app_dir=get_paths()
-                                )
-            PluginManager.instance().context = context
+        localServer = QLocalServer()
+        localServer.listen(serverName)
+        localServer.newConnection.connect(
+            lambda: on_new_connection(localServer=localServer)
+        )
+        env = patch_env()
+        context = AppContext(name="Metasweeper", version="1.0.0", display_name="元扫雷",
+                             plugin_dir=(Path(get_paths()) /
+                                         "plugins").as_posix(),
+                             app_dir=get_paths()
+                             )
+        PluginManager.instance().context = context
 
-            PluginManager.instance().start(Path(get_paths()) / "plugins", env)
-            mainWindow = mainWindowGUI.MainWindow()
-            ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
-            ui.mainWindow.show()
-            # ui.mainWindow.game_setting = ui.game_setting
+        PluginManager.instance().start(Path(get_paths()) / "plugins", env)
+        mainWindow = mainWindowGUI.MainWindow()
+        ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
+        ui.mainWindow.show()
+        # ui.mainWindow.game_setting = ui.game_setting
 
-            # _translate = QtCore.QCoreApplication.translate
-            hwnd = int(ui.mainWindow.winId())
+        # _translate = QtCore.QCoreApplication.translate
+        hwnd = int(ui.mainWindow.winId())
 
-            SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
-            ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-                hwnd, 0x00000011) else 1/0
-            ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-                hwnd, 0x00000000) else 1/0
-            app.aboutToQuit.connect(PluginManager.instance().stop)
-            sys.exit(app.exec_())
-            ...
-        # except:
-        #     pass
+        SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
+        ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
+            hwnd, 0x00000011) else 1/0
+        ui.enable_screenshot = lambda: ... if SetWindowDisplayAffinity(
+            hwnd, 0x00000000) else 1/0
+        app.aboutToQuit.connect(PluginManager.instance().stop)
+        sys.exit(app.exec_())
+        ...
+    # except:
+    #     pass
 
 # 最高优先级
 # 计时器快捷键切换
