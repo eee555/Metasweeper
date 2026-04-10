@@ -1,11 +1,11 @@
 """
 实时游戏统计面板
 
-展示计数器、表格等常见 UI 元素的用法。
+通过 HistoryService 获取历史记录进行统计分析。
+收到 VideoSaveEvent 时触发刷新，不直接使用 event 数据。
 """
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 
 from PyQt5.QtWidgets import (
@@ -16,22 +16,22 @@ from PyQt5.QtCore import pyqtSignal
 
 from plugin_manager import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from shared_types.events import VideoSaveEvent
+from shared_types.services.history import HistoryService, GameRecord
 
 
 class StatsPanel(QWidget):
     """统计面板 UI"""
 
-    _signal_update_stats = pyqtSignal(dict)
-    _signal_add_record = pyqtSignal(dict)
+    _signal_refresh = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._total_games = 0
+        self._best_time = float('inf')
         self._stats_by_level = defaultdict(lambda: {"count": 0, "best_time": float('inf')})
 
         self._setup_ui()
-        self._signal_update_stats.connect(self._do_update_stats)
-        self._signal_add_record.connect(self._do_add_record)
+        self._signal_refresh.connect(self._do_refresh)
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -75,31 +75,42 @@ class StatsPanel(QWidget):
         layout.addWidget(lbl_value)
         return card
 
-    def _do_update_stats(self, data: dict):
-        level = data.get("level", "?")
-        rtime = data.get("rtime", 0)
-
-        self._total_games += 1
+    def _do_refresh(self):
+        """刷新显示（由插件调用）"""
+        # 更新总数显示
         self._lbl_total.findChild(QLabel).setText(str(self._total_games))
 
-        stats = self._stats_by_level[level]
-        stats["count"] += 1
-        if rtime > 0 and rtime < stats["best_time"]:
-            stats["best_time"] = rtime
-            self._lbl_best.findChild(QLabel).setText(f"{rtime:.2f}")
+        # 更新最佳时间
+        if self._best_time < float('inf'):
+            self._lbl_best.findChild(QLabel).setText(f"{self._best_time:.2f}")
 
-    def _do_add_record(self, data: dict):
+    def clear_table(self):
+        """清空表格"""
+        self._table.setRowCount(0)
+
+    def add_record(self, level: int, rtime: float, bbbv: int, left: int, right: int):
+        """添加一条记录到表格"""
         row = self._table.rowCount()
         self._table.insertRow(row)
-        self._table.setItem(row, 0, QTableWidgetItem(str(data.get("level", "?"))))
-        self._table.setItem(row, 1, QTableWidgetItem(f"{data.get('rtime', 0):.2f}"))
-        self._table.setItem(row, 2, QTableWidgetItem(str(data.get("bbbv", 0))))
-        ops = int(data.get("left", 0)) + int(data.get("right", 0))
+        self._table.setItem(row, 0, QTableWidgetItem(str(level)))
+        self._table.setItem(row, 1, QTableWidgetItem(f"{rtime:.2f}"))
+        self._table.setItem(row, 2, QTableWidgetItem(str(bbbv)))
+        ops = left + right
         self._table.setItem(row, 3, QTableWidgetItem(str(ops)))
+
+    def update_stats(self, total: int, best_time: float):
+        """更新统计数据"""
+        self._total_games = total
+        self._best_time = best_time
 
 
 class StatsPlugin(BasePlugin):
-    """实时游戏统计插件"""
+    """实时游戏统计插件
+
+    数据来源：仅依赖 HistoryService
+    - 初始化时加载历史统计
+    - 收到 VideoSaveEvent 时触发刷新（重新查询历史）
+    """
 
     @classmethod
     def plugin_info(cls) -> PluginInfo:
@@ -107,7 +118,7 @@ class StatsPlugin(BasePlugin):
             name="stats_panel",
             version="1.0.0",
             author="Example",
-            description="Real-time game statistics panel with table and counters",
+            description="Real-time game statistics panel (via HistoryService)",
             icon=make_plugin_icon("#E91E63", "S", 64),
             window_mode=WindowMode.TAB,
         )
@@ -120,26 +131,60 @@ class StatsPlugin(BasePlugin):
         return self._panel
 
     def on_initialized(self) -> None:
-        saved = self.data_dir / "saved_stats.json"
-        if saved.exists():
-            try:
-                data = json.loads(saved.read_text(encoding='utf-8'))
-                self.logger.info(f"Restored {len(data)} records from disk")
-            except Exception as e:
-                self.logger.warning(f"Failed to load saved stats: {e}")
+        # 检查 HistoryService 是否可用
+        if self.has_service(HistoryService):
+            self.logger.info("HistoryService 已连接")
+            self._load_history_stats()
+        else:
+            self.logger.warning("HistoryService 不可用，统计面板将无法工作")
+
+    def _load_history_stats(self) -> None:
+        """从 HistoryService 加载历史统计（在服务提供者线程执行）"""
+        try:
+            # 获取服务代理对象（IDE 友好）
+            history = self.get_service_proxy(HistoryService)
+            
+            # 直接调用方法（IDE 完整补全）
+            total = history.get_record_count()
+            self.logger.info(f"历史记录总数: {total}")
+
+            # 清空表格
+            self._panel.clear_table()
+
+            # 获取最近记录
+            records = history.query_records(100, 0, None)
+
+            # 计算最佳时间
+            best_time = float('inf')
+            for r in records:
+                if r.rtime > 0 and r.rtime < best_time:
+                    best_time = r.rtime
+
+            # 更新统计
+            self._panel.update_stats(total, best_time)
+
+            # 添加最近记录到表格（显示最近 20 条）
+            for r in records[:20]:
+                self._panel.add_record(
+                    level=r.level,
+                    rtime=r.rtime,
+                    bbbv=r.bbbv,
+                    left=r.left,
+                    right=r.right,
+                )
+
+            # 触发 UI 刷新
+            self._panel._signal_refresh.emit()
+
+        except Exception as e:
+            self.logger.warning(f"加载历史统计失败: {e}")
 
     def on_shutdown(self) -> None:
         self.logger.info("StatsPlugin shutting down")
 
     def _on_video_save(self, event: VideoSaveEvent):
-        self.logger.info(f"[{event.level}] {event.rtime:.2f}s | 3BV={event.bbbv}")
+        """收到录像保存事件，触发重新加载历史统计"""
+        self.logger.info(f"Video saved, refreshing stats...")
 
-        event_dict = {
-            "level": event.level,
-            "rtime": event.rtime,
-            "bbbv": event.bbbv,
-            "left": event.left,
-            "right": event.right,
-        }
-        self._panel._signal_update_stats.emit(event_dict)
-        self._panel._signal_add_record.emit(event_dict)
+        # 不直接使用 event 数据，而是重新查询 HistoryService
+        self._load_history_stats()

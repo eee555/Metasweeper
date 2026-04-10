@@ -150,6 +150,9 @@ def set_plugin_log_level(sink_id: int, level: str = "DEBUG") -> None:
     config = loguru.logger._core
     handler = config.handlers.get(sink_id)
     if handler is not None:
-        from loguru._logger import Level
-        handler._levelno = Level(level).no  # type: ignore[union-attr]
-        handler._levelname = level  # type: ignore[union-attr]
+        # 从 loguru 的 levels 字典获取级别号
+        levels = config.levels
+        level_info = levels.get(level.upper())
+        if level_info is not None:
+            handler._levelno = level_info.no  # type: ignore[union-attr]
+            handler._levelname = level.upper()  # type: ignore[union-attr]

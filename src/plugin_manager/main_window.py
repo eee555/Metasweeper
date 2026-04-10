@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
@@ -29,6 +30,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QMenu,
     QPushButton,
+    QScrollArea,
     QStatusBar,
     QSystemTrayIcon,
     QTabBar,
@@ -348,12 +350,20 @@ class ConnectionStatusWidget(QWidget):
 class PluginSettingsDialog(QDialog):
     """编辑单个插件的持久化状态"""
 
-    def __init__(self, plugin_name: str, state: PluginState, parent=None):
+    def __init__(
+        self,
+        plugin_name: str,
+        state: PluginState,
+        other_info: "OtherInfoBase | None" = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self._name = plugin_name
+        self._other_info = other_info
 
         self.setWindowTitle(self.tr("插件设置 - {n}").format(n=plugin_name))
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(300)
         self.setModal(True)
 
         layout = QVBoxLayout(self)
@@ -379,7 +389,8 @@ class PluginSettingsDialog(QDialog):
         for mode in WindowMode._values():
             label = WindowMode.LABELS.get(mode, mode)
             self._combo_mode.addItem(label, mode)
-        idx = self._combo_mode.findData(state.window_mode.value if isinstance(state.window_mode, WindowMode) else str(state.window_mode))
+        # WindowMode 继承自 str，直接 str() 转换
+        idx = self._combo_mode.findData(str(state.window_mode))
         if idx >= 0:
             self._combo_mode.setCurrentIndex(idx)
         else:
@@ -395,15 +406,29 @@ class PluginSettingsDialog(QDialog):
         for level in LogLevel._values():
             label = LogLevel.LABELS.get(level, level)
             self._combo_loglevel.addItem(label, level)
-        _lvl_idx = self._combo_loglevel.findData(
-            state.log_level.value if isinstance(state.log_level, LogLevel) else str(state.log_level).upper()
-        )
+        # LogLevel 继承自 str，直接 str() 转换
+        _lvl_idx = self._combo_loglevel.findData(str(state.log_level).upper())
         if _lvl_idx >= 0:
             self._combo_loglevel.setCurrentIndex(_lvl_idx)
         else:
             self._combo_loglevel.setCurrentIndex(1)  # default DEBUG
         form3.addRow(self.tr("日志级别:"), self._combo_loglevel)
         layout.addWidget(grp3)
+
+        # ── 插件自定义配置 ──
+        self._config_widget = None
+        if other_info is not None:
+            from .config_widget import OtherInfoScrollArea
+
+            grp4 = QGroupBox(self.tr("插件配置"))
+            grp4_layout = QVBoxLayout(grp4)
+
+            scroll_area = OtherInfoScrollArea(other_info, grp4)
+            scroll_area.setMinimumHeight(150)
+            grp4_layout.addWidget(scroll_area)
+
+            layout.addWidget(grp4)
+            self._config_widget = scroll_area
 
         layout.addStretch()
 
@@ -423,6 +448,11 @@ class PluginSettingsDialog(QDialog):
             window_mode=WindowMode(str(self._combo_mode.currentData())),
             log_level=LogLevel(str(self._combo_loglevel.currentData())),
         )
+
+    def apply_config(self) -> None:
+        """应用配置到 other_info 对象"""
+        if self._config_widget:
+            self._config_widget.apply_to_config()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -921,11 +951,21 @@ class PluginManagerWindow(QMainWindow):
     def _open_plugin_settings(self, name: str) -> None:
         """打开插件设置对话框"""
         current = self._effective_state(name)
-        dlg = PluginSettingsDialog(name, current, parent=self)
+        # 获取插件的 other_info
+        plugin = self._manager.plugins.get(name)
+        other_info = plugin.other_info if plugin else None
+
+        dlg = PluginSettingsDialog(name, current, other_info, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             new_state = dlg.result_state
             self._state_mgr.set(name, new_state)
             self._state_mgr.save()
+
+            # 应用插件自定义配置
+            if other_info:
+                dlg.apply_config()
+                plugin.save_config()
+
             # 立即应用启用/禁用
             if current.enabled != new_state.enabled:
                 if new_state.enabled:
@@ -933,8 +973,33 @@ class PluginManagerWindow(QMainWindow):
                 else:
                     self._close_plugin_window(name)
                     self._manager.disable_plugin(name)
+            
+            # 立即应用窗口模式变化
+            if current.window_mode != new_state.window_mode:
+                t = self._tab_widget
+                if new_state.window_mode == WindowMode.CLOSED:
+                    # 关闭窗口
+                    self._closed_plugins.add(name)
+                    if name in t._detached_windows:
+                        # 如果是独立窗口，嵌回标签页然后关闭
+                        t._attach_tab(name)
+                    self._close_plugin_window(name)
+                elif new_state.window_mode == WindowMode.DETACHED:
+                    # 弹出为独立窗口
+                    self._closed_plugins.discard(name)
+                    if name not in t._detached_windows:
+                        # 当前是标签页，弹出为独立窗口
+                        for i in range(t.count()):
+                            if t.tabText(i) == name:
+                                t._detach_tab(i, name)
+                                break
+                else:  # TAB
+                    # 嵌回标签页
+                    self._closed_plugins.discard(name)
+                    if name in t._detached_windows:
+                        t._attach_tab(name)
+            
             # 立即应用日志级别
-            plugin = self._manager.plugins.get(name)
             if plugin and current.log_level != new_state.log_level:
                 plugin.set_log_level(new_state.log_level)
             self._refresh_plugin_list()

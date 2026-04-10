@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import loguru
 
+from .service_registry import ServiceRegistry
+
 if TYPE_CHECKING:
     from .plugin_base import BasePlugin
 
@@ -39,11 +41,29 @@ class EventDispatcher:
     - dispatch() 不阻塞：将事件投递到各插件的队列，立即返回
     - 异常隔离通过各插件线程自行处理
     - 背压控制：队列满时丢弃事件并记录警告
+    - 服务注册：管理插件间服务通讯
     """
     
     def __init__(self):
         self._handlers: dict[str, list[HandlerEntry]] = defaultdict(list)
         self._lock = threading.RLock()
+        # 服务注册表（用于插件间通讯）
+        self._service_registry = ServiceRegistry()
+    
+    @property
+    def services(self) -> ServiceRegistry:
+        """
+        获取服务注册表
+        
+        用法::
+        
+            # 注册服务
+            dispatcher.services.register(HistoryService, provider, "history")
+            
+            # 获取服务
+            history = dispatcher.services.get(HistoryService)
+        """
+        return self._service_registry
     
     def subscribe(
         self,

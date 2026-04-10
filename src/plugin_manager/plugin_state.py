@@ -86,14 +86,13 @@ class PluginStateManager:
             plugin_default: 插件自身声明的默认值（来自 PluginInfo），为 None 时使用系统默认
         """
         if name in self._states:
-            # JSON 中有记录 → 以 JSON 为准，缺失字段回退到插件/系统默认
+            # JSON 中有记录 → 直接使用 JSON 的值（不再与默认值比较）
             saved = self._states[name]
-            fallback = plugin_default or _DEFAULT
             return PluginState(
-                enabled=saved.enabled if saved.enabled != _DEFAULT.enabled else fallback.enabled,
-                show_window=saved.show_window if saved.show_window != _DEFAULT.show_window else fallback.show_window,
-                window_mode=saved.window_mode if saved.window_mode != _DEFAULT.window_mode else fallback.window_mode,
-                log_level=saved.log_level if saved.log_level != _DEFAULT.log_level else fallback.log_level,
+                enabled=saved.enabled,
+                show_window=saved.show_window,
+                window_mode=saved.window_mode,
+                log_level=saved.log_level,
             )
         # 无 JSON 记录 → 使用插件声明或系统默认
         return (plugin_default or _DEFAULT)

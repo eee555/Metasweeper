@@ -26,6 +26,7 @@ import msgspec
 from plugin_manager import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from plugin_manager.app_paths import get_executable_dir
 from shared_types.events import VideoSaveEvent
+from shared_types.services.history import HistoryService, GameRecord
 
 from PyQt5.QtCore import (
     QObject,
@@ -344,7 +345,8 @@ class FilterWidget(QWidget):
         menu.addAction(_translate("Form", "添加"), self.add_row)
         menu.addAction(_translate("Form", "删除"), self.del_row)
         menu.addAction(
-            _translate("Form", "插入"), lambda: self.insert_row(self.table.currentRow())
+            _translate("Form", "插入"), lambda: self.insert_row(
+                self.table.currentRow())
         )
         menu.exec_(self.table.mapToGlobal(pos))
 
@@ -385,7 +387,8 @@ class FilterWidget(QWidget):
         compare_w: QComboBox = self.table.cellWidget(row, 2)
         compare = CompareSymbol.from_display_name(compare_w.currentText())
         field_cls = HistoryData.get_field_value(field_name)
-        self.table.setCellWidget(row, 3, self._build_value_widget(compare, field_cls))
+        self.table.setCellWidget(
+            row, 3, self._build_value_widget(compare, field_cls))
 
     def on_compare_changed(self, index):
         combo: QComboBox = self.sender()
@@ -397,7 +400,8 @@ class FilterWidget(QWidget):
         field_name = field_w.currentText()
         compare = CompareSymbol.from_display_name(combo.currentText())
         field_cls = HistoryData.get_field_value(field_name)
-        self.table.setCellWidget(row, 3, self._build_value_widget(compare, field_cls))
+        self.table.setCellWidget(
+            row, 3, self._build_value_widget(compare, field_cls))
 
     def _build_value_widget(self, compare: CompareSymbol, field_value: Any):
         if compare not in (CompareSymbol.Contains, CompareSymbol.NotContains):
@@ -426,7 +430,8 @@ class FilterWidget(QWidget):
         self.table.setCellWidget(row, 0, self._build_left_bracket())
         self.table.setCellWidget(row, 1, field_w)
         self.table.setCellWidget(row, 2, compare_w)
-        self.table.setCellWidget(row, 3, self._build_value_widget(compare, field_value))
+        self.table.setCellWidget(
+            row, 3, self._build_value_widget(compare, field_value))
         self.table.setCellWidget(row, 4, self._build_right_bracket())
         self.table.setCellWidget(row, 5, self._build_logic())
 
@@ -468,7 +473,8 @@ class FilterWidget(QWidget):
             if isinstance(value_w, QComboBox):
                 value = value_w.currentText()
             elif isinstance(value_w, QDateTimeEdit):
-                value = int(value_w.dateTime().toPyDateTime().timestamp() * 1_000_000)
+                value = int(
+                    value_w.dateTime().toPyDateTime().timestamp() * 1_000_000)
             elif isinstance(value_w, QSpinBox):
                 value = str(value_w.value())
             elif isinstance(value_w, QDoubleSpinBox):
@@ -496,14 +502,16 @@ class FilterWidget(QWidget):
                                 return None
                         values = [
                             int(
-                                datetime.strptime(v, "%Y-%m-%d %H:%M:%S").timestamp()
+                                datetime.strptime(
+                                    v, "%Y-%m-%d %H:%M:%S").timestamp()
                                 * 1_000_000
                             )
                             for v in values
                         ]
                         value = ",".join(str(v) for v in values)
                     else:
-                        value = ",".join(f"'{v}'" for v in value_w.text().split(","))
+                        value = ",".join(
+                            f"'{v}'" for v in value_w.text().split(","))
                     value = f"({value})"
                 else:
                     value = f"'{value_w.text()}'"
@@ -611,7 +619,8 @@ class HistoryTable(QWidget):
             action = QAction(field, self)
             action.setCheckable(True)
             action.setChecked(field in self.showFields)
-            action.triggered.connect(lambda checked, a=action: self._on_toggle_field(a))
+            action.triggered.connect(
+                lambda checked, a=action: self._on_toggle_field(a))
             submenu.addAction(action)
         menu.addMenu(submenu)
         menu.exec_(self.table.mapToGlobal(pos))
@@ -640,7 +649,8 @@ class HistoryTable(QWidget):
         try:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT raw_data FROM history WHERE replay_id = ?", (replay_id,)
+                "SELECT raw_data FROM history WHERE replay_id = ?", (
+                    replay_id,)
             )
             row = cursor.fetchone()
             return row[0] if row else None
@@ -666,7 +676,8 @@ class HistoryTable(QWidget):
         main_py = exec_dir / "main.py"
 
         if main_py.exists():
-            subprocess.Popen([sys.executable, str(main_py), str(temp_filename)])
+            subprocess.Popen(
+                [sys.executable, str(main_py), str(temp_filename)])
         elif exe.exists():
             subprocess.Popen([str(exe), str(temp_filename)])
         else:
@@ -691,7 +702,12 @@ class HistoryTable(QWidget):
 class HistoryMainWidget(QWidget):
     """历史记录插件的主界面（作为插件的 widget 返回）"""
 
-    def __init__(self, db_path: Path, config_path: Path, parent=None):
+    def __init__(
+        self,
+        db_path: Path,
+        config_path: Path,
+        parent=None,
+    ):
         super().__init__(parent)
         self._db_path = db_path
         self._config_path = config_path
@@ -721,7 +737,9 @@ class HistoryMainWidget(QWidget):
         self.page_spin.setValue(1)
         self.next_button = QPushButton(_translate("Form", "下一页"))
         self.one_page_combo = QComboBox()
-        self.one_page_combo.addItems(["10", "20", "50", "100", "200", "500", "1000"])
+        self.one_page_combo.addItems(
+            ["10", "20", "50", "100", "200", "500", "1000"])
+
         self.limit_label = QLabel("")
         limit_layout.addItem(
             QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -824,8 +842,10 @@ class HistoryPlugin(BasePlugin):
 
     - 后台：监听 VideoSaveEvent，写入 SQLite
     - 界面：提供筛选、分页、播放/导出功能
+    - 服务：提供 HistoryService 接口供其他插件查询历史记录
     """
     video_save_over = pyqtSignal()
+
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
@@ -834,7 +854,7 @@ class HistoryPlugin(BasePlugin):
             author="ljzloser",
             version="1.0.0",
             icon=make_plugin_icon("#7b1fa2", "\N{SCROLL}"),
-            window_mode=WindowMode.DETACHED,
+            window_mode=WindowMode.TAB,
         )
 
     def __init__(self, info):
@@ -852,8 +872,8 @@ class HistoryPlugin(BasePlugin):
 
     def on_initialized(self) -> None:
         self._init_db()
-        time.sleep(10)
-        self.logger.info("历史记录插件已初始化")
+        self.register_service(self, protocol=HistoryService)
+        self.logger.info("历史记录插件已初始化，HistoryService 已注册")
 
     # ── 数据库 ──────────────────────────────────────────────
 
@@ -942,3 +962,104 @@ class HistoryPlugin(BasePlugin):
         finally:
             conn.close()
         self.video_save_over.emit()
+
+    # ═══════════════════════════════════════════════════════════════════
+    # HistoryService 接口实现
+    # ═══════════════════════════════════════════════════════════════════
+
+    def query_records(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        level: int | None = None,
+    ) -> list[GameRecord]:
+        """查询游戏记录"""
+        db_path = self.data_dir / "history.db"
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        try:
+            if level is not None:
+                cursor.execute(
+                    """
+                    SELECT * FROM history
+                    WHERE level = ?
+                    ORDER BY replay_id DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (level, limit, offset),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT * FROM history
+                    ORDER BY replay_id DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (limit, offset),
+                )
+            rows = cursor.fetchall()
+            return [GameRecord(
+                replay_id=row["replay_id"],
+                rtime=row["rtime"],
+                level=row["level"],
+                bbbv=row["bbbv"],
+                bbbv_solved=row["bbbv_solved"],
+                left=row["left"],
+                right=row["right"],
+                double=row["double"],
+                cl=row["cl"],
+                ce=row["ce"],
+                flag=row["flag"],
+                game_board_state=row["game_board_state"],
+                mode=row["mode"],
+                software=row["software"] or "",
+                start_time=row["start_time"],
+                end_time=row["end_time"],
+            ) for row in rows]
+        finally:
+            conn.close()
+
+    def get_record_count(self, level: int | None = None) -> int:
+        """获取记录总数"""
+        db_path = self.data_dir / "history.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        try:
+            if level is not None:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM history WHERE level = ?", (level,)
+                )
+            else:
+                cursor.execute("SELECT COUNT(*) FROM history")
+            return cursor.fetchone()[0]
+        finally:
+            conn.close()
+
+    def get_last_record(self) -> GameRecord | None:
+        """获取最近一条记录"""
+        records = self.query_records(limit=1)
+        return records[0] if records else None
+
+    def delete_record(self, record_id: int) -> bool:
+        """删除指定记录"""
+        db_path = self.data_dir / "history.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                "DELETE FROM history WHERE replay_id = ?", (record_id,)
+            )
+            conn.commit()
+            deleted = cursor.rowcount > 0
+            if deleted:
+                self.logger.info(f"Deleted record: {record_id}")
+            return deleted
+        finally:
+            conn.close()
+
+    def _on_config_changed(self, name: str, value: Any) -> None:
+        return super()._on_config_changed(name, value)

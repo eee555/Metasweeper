@@ -11,9 +11,10 @@
 - [三、理解插件发现机制](#三理解插件发现机制)
 - [四、编写第一个插件（Hello World）](#四编写第一个插件hello-world)
 - [五、核心 API 详解](#五核心-api-详解)
-- [六、实战：带 GUI 的完整插件示例](#六实战带-gui-的完整插件示例)
-- [七、VS Code 调试指南](#七vs-code-调试指南)
-- [八、常见问题与最佳实践](#八常见问题与最佳实践)
+- [六、插件自定义配置系统](#六插件自定义配置系统)
+- [七、实战：带 GUI 的完整插件示例](#七实战带-gui-的完整插件示例)
+- [八、VS Code 调试指南](#八vs-code-调试指南)
+- [九、常见问题与最佳实践](#九常见问题与最佳实践)
 
 ---
 
@@ -65,6 +66,14 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 │   └── my_complex/             # 或包形式插件
 │       ├── __init__.py
 │       └── utils.py
+├── shared_types/               # 共享类型定义
+│   ├── events.py               # 事件类型
+│   ├── commands.py             # 指令类型
+│   └── services/               # 👈 服务接口定义
+│       └── history.py          # HistoryService 接口
+├── plugin_manager/             # 插件管理器模块
+│   ├── plugin_base.py          # 👈 BasePlugin 基类
+│   └── service_registry.py     # 服务注册表
 ├── user_plugins/               # 备用用户插件目录
 ├── data/
 │   ├── logs/                   # 日志输出（自动创建）
@@ -336,6 +345,8 @@ class HelloPlugin(BasePlugin):
 | `self.log_level` | `LogLevel` | 当前的日志级别 |
 | `self.plugin_icon` | `QIcon` | 插件图标 |
 | `self.logger` | `loguru.Logger` | **已绑定插件名称的日志器**（直接用！） |
+| `self.other_info` | `OtherInfoBase \| None` | 插件自定义配置对象 |
+| `self.config_changed` | `pyqtSignal` | 配置变化信号，参数 `(name, value)` |
 
 ### 5.2 事件订阅 API
 
@@ -435,7 +446,57 @@ self.run_on_gui(some_function, arg1, arg2, keyword_arg=value)
 
 两种方式的底层原理相同 —— 都是通过 QueuedConnection 将调用投递到 Qt 主线程的事件循环。
 
-### 5.5 日志记录
+### 5.5 服务通讯 API（插件间调用）
+
+插件间通过**服务接口**进行类型安全的调用，服务方法会在**服务提供者线程**执行，线程安全。
+
+```python
+# ════════════════════════════════════════
+# 1. 注册服务（服务提供者）
+# ════════════════════════════════════════
+def on_initialized(self):
+    # 注册服务，显式指定 Protocol 类型
+    self.register_service(self, protocol=MyService)
+
+# ════════════════════════════════════════
+# 2. 检查服务是否存在
+# ════════════════════════════════════════
+if self.has_service(MyService):
+    # 服务可用
+    pass
+
+# ════════════════════════════════════════
+# 3. 获取服务代理（推荐）
+# ════════════════════════════════════════
+service = self.get_service_proxy(MyService)
+
+# 调用服务方法（IDE 完整补全，在服务提供者线程执行）
+data = service.get_data(123)        # 同步调用，阻塞等待结果
+all_data = service.list_data(100)   # 超时默认 10 秒
+
+# ════════════════════════════════════════
+# 4. 异步调用（非阻塞）
+# ════════════════════════════════════════
+future = self.call_service_async(MyService, "get_data", 123)
+# 做其他事情...
+result = future.result(timeout=5.0)  # 阻塞等待结果
+```
+
+**服务相关方法：**
+
+| 方法 | 说明 |
+|------|------|
+| `register_service(self, protocol=MyService)` | 注册服务（在 `on_initialized` 中调用） |
+| `has_service(MyService)` | 检查服务是否可用 |
+| `get_service_proxy(MyService)` | 获取服务代理对象（推荐） |
+| `call_service_async(MyService, "method", *args)` | 异步调用，返回 Future |
+
+**注意事项：**
+- 服务方法在**服务提供者线程**执行，调用方无需关心线程安全
+- **死锁风险**：不要让两个插件互相调用对方的服务
+- 服务接口中不要暴露删除等敏感操作
+
+### 5.6 日志记录
 
 ```python
 # 每个 BasePlugin 实例都有绑定好的 logger，直接使用即可
@@ -449,7 +510,7 @@ self.logger.error("错误信息")
 #   <data_dir>/logs/plugin_manager.log   （主日志）
 ```
 
-### 5.6 PluginInfo 配置项
+### 5.7 PluginInfo 配置项
 
 ```python
 @dataclass
@@ -465,6 +526,7 @@ class PluginInfo:
     log_level: LogLevel = "DEBUG"          # 默认日志级别
     icon: QIcon | None = None             # 图标
     log_config: LogConfig | None = None    # 高级日志配置
+    other_info: type[OtherInfoBase] | None = None  # 👈 自定义配置类
 ```
 
 **WindowMode 含义：**
@@ -477,7 +539,287 @@ class PluginInfo:
 
 ---
 
-## 六、实战：带 GUI 的完整插件示例
+## 六、插件自定义配置系统
+
+插件可以定义自己的配置项，这些配置会：
+- 自动生成 UI 控件（在设置对话框中）
+- 自动持久化到 `data/plugin_data/<plugin_name>/config.json`
+- 支持配置变化事件通知
+
+### 6.1 配置类型一览
+
+| 类型 | UI 控件 | 用途示例 |
+|------|---------|----------|
+| `BoolConfig` | QCheckBox | 开关选项（启用/禁用功能） |
+| `IntConfig` | QSpinBox / QSlider | 整数设置（数量、超时时间） |
+| `FloatConfig` | QDoubleSpinBox | 浮点数设置（阈值、系数） |
+| `ChoiceConfig` | QComboBox | 下拉选择（主题、模式） |
+| `TextConfig` | QLineEdit | 文本输入（名称、路径、密码） |
+| `ColorConfig` | 颜色按钮 + QColorDialog | 颜色选择（主题颜色） |
+| `FileConfig` | QLineEdit + 文件对话框 | 文件路径选择 |
+| `PathConfig` | QLineEdit + 目录对话框 | 目录路径选择 |
+| `LongTextConfig` | QTextEdit | 多行文本（脚本、描述） |
+| `RangeConfig` | 两个 QSpinBox | 数值范围（最小/最大值） |
+
+### 6.2 定义配置类
+
+继承 `OtherInfoBase` 并声明配置字段：
+
+```python
+from plugin_manager.config_types import (
+    OtherInfoBase, BoolConfig, IntConfig, FloatConfig,
+    ChoiceConfig, TextConfig, ColorConfig, FileConfig,
+    PathConfig, LongTextConfig, RangeConfig,
+)
+
+class MyPluginConfig(OtherInfoBase):
+    """我的插件配置"""
+    
+    # ── 基础类型 ─────────────────────────
+    enable_auto_save = BoolConfig(
+        default=True,
+        label="自动保存",
+        description="游戏结束后自动保存录像",
+    )
+    
+    max_records = IntConfig(
+        default=100,
+        label="最大记录数",
+        min_value=10,
+        max_value=10000,
+        step=10,
+    )
+    
+    min_rtime = FloatConfig(
+        default=0.0,
+        label="最小用时筛选",
+        min_value=0.0,
+        max_value=999.0,
+        decimals=2,
+    )
+    
+    theme = ChoiceConfig(
+        default="dark",
+        label="主题",
+        choices=[
+            ("light", "明亮"),
+            ("dark", "暗黑"),
+            ("auto", "跟随系统"),
+        ],
+    )
+    
+    player_name = TextConfig(
+        default="",
+        label="玩家名称",
+        placeholder="输入名称...",
+    )
+    
+    api_token = TextConfig(
+        default="",
+        label="API Token",
+        password=True,           # 密码模式
+        placeholder="输入密钥...",
+    )
+    
+    # ── 高级类型 ─────────────────────────
+    theme_color = ColorConfig(
+        default="#1976d2",
+        label="主题颜色",
+    )
+    
+    export_file = FileConfig(
+        default="",
+        label="导出文件",
+        filter="JSON (*.json)",   # 文件过滤器
+        save_mode=True,           # 保存文件模式
+    )
+    
+    log_directory = PathConfig(
+        default="",
+        label="日志目录",
+    )
+    
+    description = LongTextConfig(
+        default="",
+        label="描述",
+        placeholder="输入描述...",
+        max_height=100,
+    )
+    
+    time_range = RangeConfig(
+        default=(0, 300),
+        label="时间范围(秒)",
+        min_value=0,
+        max_value=999,
+    )
+```
+
+### 6.3 绑定配置到插件
+
+在 `PluginInfo` 中通过 `other_info` 属性绑定：
+
+```python
+class MyPlugin(BasePlugin):
+    
+    @classmethod
+    def plugin_info(cls) -> PluginInfo:
+        return PluginInfo(
+            name="my_plugin",
+            version="1.0.0",
+            description="我的插件",
+            other_info=MyPluginConfig,  # 👈 绑定配置类
+        )
+```
+
+### 6.4 访问配置值
+
+```python
+class MyPlugin(BasePlugin):
+    
+    def on_initialized(self):
+        # 访问配置值
+        if self.other_info:
+            max_records = self.other_info.max_records
+            theme = self.other_info.theme
+            self.logger.info(f"配置: max_records={max_records}, theme={theme}")
+    
+    def _handle_event(self, event):
+        # 使用配置
+        if self.other_info and self.other_info.enable_auto_save:
+            self._save_record(event)
+```
+
+### 6.5 监听配置变化
+
+```python
+class MyPlugin(BasePlugin):
+    
+    def on_initialized(self):
+        # 连接配置变化信号
+        self.config_changed.connect(self._on_config_changed)
+    
+    def _on_config_changed(self, name: str, value: Any):
+        """配置变化时调用（在主线程执行）"""
+        self.logger.info(f"配置变化: {name} = {value}")
+        
+        if name == "theme":
+            self._apply_theme(value)
+        elif name == "max_records":
+            self._resize_buffer(value)
+```
+
+### 6.6 配置相关属性和方法
+
+| 属性/方法 | 说明 |
+|-----------|------|
+| `self.other_info` | 配置对象实例（可能为 None） |
+| `self.config_changed` | 配置变化信号，参数 `(name, value)` |
+| `self.save_config()` | 手动保存配置到文件 |
+| `self.other_info.to_dict()` | 导出配置为字典 |
+| `self.other_info.from_dict(data)` | 从字典加载配置 |
+| `self.other_info.reset_to_defaults()` | 重置为默认值 |
+
+### 6.7 配置存储位置
+
+配置自动保存到：
+```
+data/plugin_data/<plugin_name>/config.json
+```
+
+示例：
+```json
+{
+  "enable_auto_save": true,
+  "max_records": 100,
+  "theme": "dark",
+  "player_name": "Player1",
+  "theme_color": "#1976d2"
+}
+```
+
+### 6.8 自定义配置类型
+
+如果预定义的配置类型不满足需求，可以继承 `BaseConfig` 创建自定义类型：
+
+```python
+from plugin_manager.config_types.base_config import BaseConfig
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDial
+from PyQt5.QtCore import Qt
+
+class DialConfig(BaseConfig[int]):
+    """旋钮配置 → QDial 控件"""
+    widget_type = "dial"
+    
+    def __init__(
+        self,
+        default: int = 0,
+        label: str = "",
+        min_value: int = 0,
+        max_value: int = 100,
+        **kwargs,
+    ):
+        super().__init__(default, label, **kwargs)
+        self.min_value = min_value
+        self.max_value = max_value
+    
+    def create_widget(self):
+        """创建自定义 UI 控件，返回 (控件, getter, setter, 信号)"""
+        widget = QDial()
+        widget.setRange(self.min_value, self.max_value)
+        widget.setValue(int(self.default))
+        widget.setNotchesVisible(True)
+        
+        if self.description:
+            widget.setToolTip(self.description)
+        
+        # 返回控件、getter、setter、以及 valueChanged 信号
+        return widget, widget.value, widget.setValue, widget.valueChanged
+    
+    def to_storage(self, value: int) -> int:
+        return int(value)
+    
+    def from_storage(self, data) -> int:
+        return int(data)
+
+# 使用自定义配置类型
+class MyConfig(OtherInfoBase):
+    volume = DialConfig(50, "音量", min_value=0, max_value=100)
+    sensitivity = DialConfig(5, "灵敏度", min_value=1, max_value=10)
+```
+
+**自定义配置类型要点：**
+
+| 方法/属性 | 说明 |
+|-----------|------|
+| `widget_type` | 控件类型标识 |
+| `create_widget()` | 返回 `(控件, getter, setter, 信号)` 四元组 |
+| `to_storage(value)` | 将值转换为 JSON 可序列化格式 |
+| `from_storage(data)` | 从 JSON 数据恢复值 |
+
+**信号对象说明：**
+
+信号对象可以是：
+- Qt 控件的内置信号（如 `widget.valueChanged`、`widget.textChanged`）
+- 自定义 `pyqtSignal`（需要通过 QObject 子类定义）
+
+```python
+# 方式一：使用控件的内置信号
+return widget, widget.value, widget.setValue, widget.valueChanged
+
+# 方式二：自定义信号（复杂控件）
+from PyQt5.QtCore import QObject, pyqtSignal
+
+class MySignal(QObject):
+    changed = pyqtSignal()
+
+signal_emitter = MySignal(parent=container)  # parent 防止垃圾回收
+# ... 控件变化时调用 signal_emitter.changed.emit()
+return container, get_value, set_value, signal_emitter.changed
+```
+
+---
+
+## 七、实战：带 GUI 的完整插件示例
 
 下面是一个更完整的示例——**实时统计面板插件**，展示计数器、表格等常见 UI 元素的用法：
 
@@ -654,7 +996,7 @@ class StatsPlugin(BasePlugin):
 ```
 ---
 
-## 七、VS Code 调试指南
+## 八、VS Code 调试指南
 
 ### 最简开发方式（推荐）
 
@@ -691,7 +1033,7 @@ code <安装目录>
 
 ---
 
-## 八、常见问题与最佳实践
+## 九、常见问题与最佳实践
 
 ### Q1: 我的插件为什么没有被加载？
 
@@ -717,6 +1059,33 @@ code <安装目录>
 
 ### Q3: 如何存储插件的持久化数据？
 
+**方式一：使用配置系统（推荐）**
+
+定义配置类并绑定到插件，配置会自动保存和加载：
+
+```python
+class MyConfig(OtherInfoBase):
+    setting1 = BoolConfig(True, "设置1")
+    setting2 = IntConfig(100, "设置2")
+
+class MyPlugin(BasePlugin):
+    @classmethod
+    def plugin_info(cls) -> PluginInfo:
+        return PluginInfo(name="my_plugin", other_info=MyConfig)
+    
+    def on_initialized(self):
+        # 访问配置
+        if self.other_info:
+            value = self.other_info.setting1
+    
+    def on_shutdown(self):
+        # 配置在设置对话框确认时自动保存
+        # 也可以手动保存
+        self.save_config()
+```
+
+**方式二：使用 self.data_dir**
+
 使用 `self.data_dir` —— 它指向 `<exe_dir>/data/plugin_data/<PluginClassName>/`：
 
 ```python
@@ -730,11 +1099,74 @@ def on_initialized(self):
 
 ### Q4: 插件之间如何通信？
 
-目前插件间没有直接的通信 API。间接方式：
+插件间通过**服务接口（Protocol）**进行类型安全的通讯。
 
-- **通过主进程中转**：插件 A 发送 Command → 主进程处理 → 触发 Event → 插件 B 收到
-- **通过文件系统**：插件 A 写文件到公共目录 → 插件 B 定时轮询（不推荐）
-- **共享 ZMQ Client**：未来可能会支持插件间自定义频道
+#### 1. 定义服务接口
+
+在 `shared_types/services/` 目录下创建接口定义文件：
+
+```python
+# shared_types/services/my_service.py
+from typing import Protocol, runtime_checkable
+from dataclasses import dataclass
+
+@dataclass(frozen=True, slots=True)
+class MyData:
+    """数据类型（frozen 保证不可变，线程安全）"""
+    id: int
+    name: str
+
+@runtime_checkable
+class MyService(Protocol):
+    """服务接口定义"""
+    def get_data(self, id: int) -> MyData | None: ...
+    def list_data(self, limit: int = 100) -> list[MyData]: ...
+```
+
+#### 2. 服务提供者
+
+```python
+class ProviderPlugin(BasePlugin):
+    def on_initialized(self):
+        # 注册服务（显式指定 protocol）
+        self.register_service(self, protocol=MyService)
+    
+    # 实现服务接口方法
+    def get_data(self, id: int) -> MyData | None:
+        return self._db.query(id)
+    
+    def list_data(self, limit: int = 100) -> list[MyData]:
+        return self._db.query_all(limit)
+```
+
+#### 3. 服务使用者
+
+```python
+class ConsumerPlugin(BasePlugin):
+    def on_initialized(self):
+        if self.has_service(MyService):
+            # 获取服务代理（推荐）
+            self._service = self.get_service_proxy(MyService)
+    
+    def _do_something(self):
+        # 调用服务方法（IDE 完整补全，在服务提供者线程执行）
+        data = self._service.get_data(123)
+        all_data = self._service.list_data(100)
+```
+
+#### 服务调用方式
+
+| 方法 | 说明 | 推荐 |
+|------|------|------|
+| `get_service_proxy(MyService)` | 获取代理对象，方法调用在提供者线程执行 | ✅ |
+| `call_service_async(MyService, "method", *args)` | 异步调用，返回 Future | 高级用法 |
+| `has_service(MyService)` | 检查服务是否可用 | - |
+
+#### 注意事项
+
+- **死锁风险**：不要让两个插件互相调用对方的服务
+- **线程安全**：服务方法在提供者线程执行，调用方无需关心
+- **删除接口**：不要在服务接口中暴露删除等敏感操作
 
 ### Q5: 最佳实践清单
 
@@ -790,7 +1222,14 @@ def on_initialized(self):
 # ═══ 最小可行插件模板 ═══
 
 from plugin_manager import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
+from plugin_manager.config_types import OtherInfoBase, BoolConfig, IntConfig  # 可选
 from shared_types.events import VideoSaveEvent  # 按需导入
+from shared_types.services.my_service import MyService  # 服务接口（可选）
+
+# ═══ 配置类定义（可选） ═══
+class MyConfig(OtherInfoBase):
+    enable_feature = BoolConfig(True, "启用功能")
+    max_count = IntConfig(100, "最大数量", min_value=1, max_value=1000)
 
 class MyPlugin(BasePlugin):
 
@@ -801,6 +1240,7 @@ class MyPlugin(BasePlugin):
             description="插件描述",
             window_mode=WindowMode.TAB,  # TAB / DETACHED / CLOSED
             icon=make_plugin_icon("#1976D2", "M"),
+            other_info=MyConfig,         # 👈 绑定配置类（可选）
         )
 
     def _setup_subscriptions(self) -> None:
@@ -811,6 +1251,20 @@ class MyPlugin(BasePlugin):
 
     def on_initialized(self):        # 可选：耗时初始化
         pass                          # self.data_dir 可存放数据
+        
+        # 注册服务（如果是服务提供者）
+        # self.register_service(self, protocol=MyService)
+        
+        # 获取服务代理（如果是服务使用者）
+        # if self.has_service(MyService):
+        #     self._service = self.get_service_proxy(MyService)
+        
+        # 连接配置变化信号（可选）
+        # self.config_changed.connect(self._on_config_changed)
+        
+        # 访问配置值（可选）
+        # if self.other_info:
+        #     max_count = self.other_info.max_count
 
     def on_shutdown(self):            # 可选：资源清理
         pass

@@ -12,14 +12,19 @@
 from __future__ import annotations
 
 from collections import deque
+from concurrent.futures import Future
 import threading
 from abc import abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, TypeVar, cast
 
 _E = TypeVar("_E", bound="BaseEvent")
+_T = TypeVar("_T")  # 用于服务获取方法的泛型
+
+if TYPE_CHECKING:
+    from .config_types import OtherInfoBase
 
 if TYPE_CHECKING:
     from PyQt5.QtGui import QIcon
@@ -28,6 +33,8 @@ from PyQt5.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPen, QColor, QBrush, QFont
 
 from lib_zmq_plugins.shared.base import BaseEvent, get_event_tag
+
+from .service_registry import ServiceNotFoundError
 
 if TYPE_CHECKING:
     from PyQt5.QtWidgets import QWidget
@@ -96,6 +103,36 @@ class WindowMode(str):
     }
 
 
+class _ServiceProxy:
+    """
+    服务代理对象（内部使用）
+    
+    拦截属性访问，将方法调用转换为 call_service 调用。
+    让插件开发者可以直接通过属性访问方式调用服务方法。
+    """
+    
+    def __init__(self, plugin: "BasePlugin", protocol: type):
+        object.__setattr__(self, "_plugin", plugin)
+        object.__setattr__(self, "_protocol", protocol)
+    
+    def __getattr__(self, name: str) -> Any:
+        # 返回一个可调用对象，调用时转发到 _call_service
+        def _method_call(*args, timeout: float = 10.0, **kwargs) -> Any:
+            if kwargs:
+                # 如果有 kwargs，不支持（服务方法通常只有位置参数）
+                raise TypeError(
+                    f"Service method call with keyword arguments is not supported. "
+                    f"Use positional arguments: {self._protocol.__name__}.{name}(*args)"
+                )
+            return self._plugin._call_service(
+                self._protocol, name, *args, timeout=timeout
+            )
+        return _method_call
+    
+    def __repr__(self) -> str:
+        return f"<ServiceProxy: {self._protocol.__name__}>"
+
+
 class PluginLifecycle(str, Enum):
     """插件生命周期状态"""
     NEW = "NEW"                     # 刚创建，未初始化
@@ -130,6 +167,7 @@ class LogLevel(str):
 @dataclass
 class PluginInfo:
     """插件元信息"""
+
     name: str  # 插件名称
     version: str = "1.0.0"  # 版本号
     author: str = ""  # 作者
@@ -141,6 +179,8 @@ class PluginInfo:
     log_level: LogLevel = cast(LogLevel, "DEBUG")  # 默认日志级别
     icon: QIcon | None = None  # 插件图标，None 使用默认蓝色问号
     log_config: "LogConfig | None" = None  # 日志轮转配置，None 使用全局默认值
+    # 插件自定义配置类（继承自 OtherInfoBase）
+    other_info: type["OtherInfoBase"] | None = None
 
 
 class BasePlugin(QThread):
@@ -169,6 +209,7 @@ class BasePlugin(QThread):
     # ── GUI 跨线程信号（类级别，所有实例共享连接到各自 slot）──
     gui_call = pyqtSignal(object, object, object)
     ready = pyqtSignal(object)  # 插件就绪信号（参数：插件实例）
+    config_changed = pyqtSignal(str, object)  # 配置变化信号（参数：字段名, 新值）
 
     # 队列最大容量（背压控制）
     MAX_QUEUE_SIZE = 4096
@@ -215,6 +256,35 @@ class BasePlugin(QThread):
             log_config=info.log_config,
         )
         self._log_level: LogLevel = info.log_level
+        
+        # 记录本插件注册的服务（用于 shutdown 时自动注销）
+        self._registered_protocols: list[type] = []
+
+        # ── 插件自定义配置 ──
+        self._other_info: OtherInfoBase | None = None
+        self._config_manager: PluginConfigManager | None = None
+        if info.other_info is not None:
+            from .config_manager import PluginConfigManager
+            from .app_paths import get_plugin_data_dir
+
+            # 实例化配置对象
+            self._other_info = info.other_info()
+            # 设置配置变化回调
+            self._other_info.set_on_change(self._on_config_changed)
+            # 创建配置管理器
+            data_dir = get_plugin_data_dir(type(self))
+            self._config_manager = PluginConfigManager(data_dir)
+            # 加载配置
+            self._config_manager.load(info.name, self._other_info)
+
+    def _on_config_changed(self, name: str, value: Any) -> None:
+        """配置变化回调（在配置对象中触发，需转发到主线程发射信号）"""
+        # 使用 run_on_gui 确保信号在主线程发射
+        self.run_on_gui(self._emit_config_changed, name, value)
+
+    def _emit_config_changed(self, name: str, value: Any) -> None:
+        """在主线程发射 config_changed 信号"""
+        self.config_changed.emit(name, value)
 
     # ═══════════════════════════════════════════════════════════════════
     # 属性
@@ -264,6 +334,17 @@ class BasePlugin(QThread):
     def log_level(self) -> LogLevel:
         """当前日志级别"""
         return self._log_level
+
+    @property
+    def other_info(self) -> OtherInfoBase | None:
+        """插件自定义配置对象"""
+        return self._other_info
+
+    def save_config(self) -> None:
+        """保存插件配置到文件"""
+        if self._config_manager and self._other_info:
+            self._config_manager.save(self._info.name, self._other_info)
+            self.logger.debug(f"Config saved: {self._other_info.to_dict()}")
 
     def set_log_level(self, level: LogLevel | str) -> None:
         """动态设置插件的日志级别"""
@@ -327,7 +408,10 @@ class BasePlugin(QThread):
         kwargs: dict,
     ) -> None:
         """GUI 主线程执行的槽：接收来自工作线程的回调请求"""
-        func(*args, **kwargs)
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            self.logger.error(f"GUI callback error: {e}", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════
     # 线程入口（子类不应覆写）
@@ -428,7 +512,8 @@ class BasePlugin(QThread):
         if self._lifecycle == PluginLifecycle.STOPPED:
             return
 
-        self._lifecycle = PluginLifecycle.SHUTTING_DOWN
+        with self._resource_lock:
+            self._lifecycle = PluginLifecycle.SHUTTING_DOWN
 
         # 通知线程退出
         self._stop_requested.set()
@@ -439,9 +524,20 @@ class BasePlugin(QThread):
         if not self.wait(2000):
             self.logger.warning(f"Plugin thread did not stop in time: {self.name}")
             self.terminate()  # 强制终止
+            # 注意：强制终止可能导致未完成的 Future 永久阻塞
+            # 调用方应设置超时并处理 TimeoutError 异常
 
         if self._event_dispatcher:
             self._event_dispatcher.unsubscribe_all(self)
+            
+            # 注销本插件注册的所有服务
+            for protocol in self._registered_protocols:
+                try:
+                    self._event_dispatcher.services.unregister(protocol)
+                    self.logger.debug(f"Unregistered service: {protocol.__name__}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to unregister service {protocol.__name__}: {e}")
+            self._registered_protocols.clear()
 
         if self._widget:
             self._widget.deleteLater()
@@ -451,7 +547,11 @@ class BasePlugin(QThread):
         with self._queue_lock:
             self._event_queue.clear()
 
-        self._lifecycle = PluginLifecycle.STOPPED
+        # 保存插件配置
+        self.save_config()
+
+        with self._resource_lock:
+            self._lifecycle = PluginLifecycle.STOPPED
 
     # ═══════════════════════════════════════════════════════════════════
     # 内部事件投递（由 EventDispatcher 调用）
@@ -542,6 +642,270 @@ class BasePlugin(QThread):
         if self._client:
             return self._client.request(command, timeout)
         return None
+
+    # ═══════════════════════════════════════════════════════════════════
+    # 服务注册（插件间通讯）
+    # ═══════════════════════════════════════════════════════════════════
+
+    def register_service(
+        self,
+        provider: object,
+        *,
+        protocol: type | None = None,
+    ) -> None:
+        """
+        注册服务（供其他插件调用）
+        
+        Args:
+            provider: 服务提供者实例（通常是 self）
+            protocol: 服务接口类型（可选，自动推断）
+            
+        Raises:
+            TypeError: 未实现 Protocol 的所有方法
+            
+        用法::
+        
+            class MyPlugin(BasePlugin):
+                def on_initialized(self):
+                    # 显式指定 protocol
+                    self.register_service(self, protocol=MyService)
+        """
+        if self._event_dispatcher is None:
+            self.logger.warning("Cannot register service: no dispatcher")
+            return
+        
+        # 自动推断 protocol
+        if protocol is None:
+            # 从 provider 的基类中找到 Protocol 子类
+            for base in type(provider).__mro__:
+                if (
+                    base is not object
+                    and hasattr(base, "_is_protocol")
+                    and base._is_protocol
+                ):
+                    protocol = base
+                    break
+        
+        if protocol is None:
+            self.logger.warning(
+                "Cannot register service: no protocol found. "
+                "Specify protocol= explicitly or inherit from a Protocol."
+            )
+            return
+        
+        # 验证 provider 实现了 Protocol 的所有方法
+        missing_methods = self._check_protocol_implementation(provider, protocol)
+        if missing_methods:
+            raise TypeError(
+                f"Cannot register service: {type(provider).__name__} does not implement "
+                f"{protocol.__name__}. Missing methods: {', '.join(missing_methods)}"
+            )
+        
+        # 注册服务
+        self._event_dispatcher.services.register(protocol, provider, self.name)
+        
+        # 记录已注册的 protocol（用于 shutdown 时自动注销）
+        if protocol not in self._registered_protocols:
+            self._registered_protocols.append(protocol)
+
+    def _check_protocol_implementation(
+        self,
+        provider: object,
+        protocol: type,
+    ) -> list[str]:
+        """
+        检查 provider 是否实现了 Protocol 的所有方法
+        
+        Returns:
+            缺失的方法名列表（空列表表示全部实现）
+        """
+        missing = []
+        
+        # 获取 Protocol 中定义的所有方法（不包括继承自 object 的）
+        for name in dir(protocol):
+            if name.startswith('_'):
+                continue
+            
+            attr = getattr(protocol, name, None)
+            if attr is None:
+                continue
+            
+            # 检查是否是方法（Callable）
+            if callable(attr) or isinstance(attr, property):
+                # 检查 provider 是否有该方法
+                provider_attr = getattr(type(provider), name, None)
+                if provider_attr is None:
+                    missing.append(name)
+        
+        return missing
+
+    def _get_service(self, protocol: type[_T]) -> _T:
+        """
+        获取服务实例（内部使用）
+        
+        注意：直接调用服务方法会在调用方线程执行，可能有线程安全问题。
+        推荐使用 get_service_proxy() 获取代理对象。
+        """
+        if self._event_dispatcher is None:
+            raise ServiceNotFoundError(protocol)
+        
+        return self._event_dispatcher.services.get(protocol)
+
+    def _try_get_service(self, protocol: type[_T]) -> _T | None:
+        """
+        尝试获取服务实例（内部使用）
+        
+        注意：直接调用服务方法会在调用方线程执行，可能有线程安全问题。
+        推荐使用 get_service_proxy() 获取代理对象。
+        """
+        if self._event_dispatcher is None:
+            return None
+        
+        return self._event_dispatcher.services.try_get(protocol)
+
+    def has_service(self, protocol: type) -> bool:
+        """
+        检查服务是否可用
+        
+        Args:
+            protocol: 服务接口类型
+            
+        Returns:
+            True 表示服务已注册
+        """
+        if self._event_dispatcher is None:
+            return False
+        
+        return self._event_dispatcher.services.has(protocol)
+
+    def _call_service(
+        self,
+        protocol: type,
+        method: str,
+        *args,
+        timeout: float = 10.0,
+    ) -> Any:
+        """
+        调用服务方法（内部实现）
+        
+        由 _ServiceProxy 调用，插件开发者应使用 get_service_proxy()。
+        
+        WARNING - 死锁风险:
+            如果两个插件互相调用对方的服务（A 调 B 的同时 B 调 A），
+            会产生死锁，因为双方队列都在等待对方响应。
+            
+            避免方法：
+            - 使用 call_service_async() 异步调用
+            - 设计单向依赖关系，避免循环调用
+            - 不要在服务方法实现中调用其他插件的服务
+        """
+        if self._event_dispatcher is None:
+            raise ServiceNotFoundError(protocol)
+        
+        provider = self._event_dispatcher.services.get(protocol)
+        
+        # 创建 Future 用于接收结果
+        future: Future[Any] = Future()
+        
+        # 定义在服务提供者线程执行的函数
+        def _execute_in_provider_thread(_: Any) -> None:
+            try:
+                result = getattr(provider, method)(*args)
+                future.set_result(result)
+            except Exception as e:
+                future.set_exception(e)
+        
+        # 投递到服务提供者的队列
+        success = provider._enqueue_event(_execute_in_provider_thread, None)
+        if not success:
+            raise RuntimeError(
+                f"Failed to enqueue service call: {protocol.__name__}.{method} "
+                "(provider queue full)"
+            )
+        
+        # 等待结果
+        return future.result(timeout=timeout)
+
+    def call_service_async(
+        self,
+        protocol: type,
+        method: str,
+        *args,
+    ) -> Future[Any]:
+        """
+        异步调用服务方法（非阻塞，返回 Future）
+        
+        Args:
+            protocol: 服务接口类型
+            method: 方法名
+            *args: 方法参数
+            
+        Returns:
+            Future 对象，可调用 result() 获取结果
+            
+        用法::
+        
+            future = self.call_service_async(MyService, "some_method", arg1)
+            # 做其他事情...
+            result = future.result(timeout=5.0)  # 阻塞等待结果
+        """
+        if self._event_dispatcher is None:
+            future: Future[Any] = Future()
+            future.set_exception(ServiceNotFoundError(protocol))
+            return future
+        
+        try:
+            provider = self._event_dispatcher.services.get(protocol)
+        except ServiceNotFoundError as e:
+            future = Future()
+            future.set_exception(e)
+            return future
+        
+        future: Future[Any] = Future()
+        
+        def _execute_in_provider_thread(_: Any) -> None:
+            try:
+                result = getattr(provider, method)(*args)
+                future.set_result(result)
+            except Exception as e:
+                future.set_exception(e)
+        
+        success = provider._enqueue_event(_execute_in_provider_thread, None)
+        if not success:
+            future.set_exception(RuntimeError(
+                f"Failed to enqueue service call: {protocol.__name__}.{method} "
+                "(provider queue full)"
+            ))
+        
+        return future
+
+    def get_service_proxy(self, protocol: type[_T]) -> _T:
+        """
+        获取服务代理对象（类型安全，IDE 友好）
+        
+        返回一个代理对象，通过属性访问方式调用服务方法。
+        所有方法调用都会在服务提供者线程执行，线程安全。
+        
+        Args:
+            protocol: 服务接口类型
+            
+        Returns:
+            服务代理对象（IDE 可推断类型，支持方法补全）
+            
+        用法::
+        
+            # 获取代理对象
+            service = self.get_service_proxy(MyService)
+            
+            # 直接调用方法（IDE 完整补全）
+            result = service.some_method(arg1, arg2)
+            count = service.get_count()
+            
+            # 以上调用等同于：
+            # result = self.call_service(MyService, "some_method", arg1, arg2)
+            # count = self.call_service(MyService, "get_count")
+        """
+        return _ServiceProxy(self, protocol)  # type: ignore[return-value]
 
     # ═══════════════════════════════════════════════════════════════════
     # 辅助
