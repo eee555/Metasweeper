@@ -68,7 +68,7 @@ class HistoryConfig(OtherInfoBase):
     )
 
 
-class HistoryPlugin(BasePlugin):
+class HistoryPlugin(BasePlugin[HistoryConfig]):
     """
     历史记录插件
 

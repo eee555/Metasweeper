@@ -13,7 +13,7 @@
     class MyPluginOtherInfo(OtherInfoBase):
         auto_save = BoolConfig(True, "自动保存")
         interval = IntConfig(30, "间隔(秒)", min_value=1, max_value=300)
-        theme = ChoiceConfig("dark", "主题", 
+        theme = ChoiceConfig("dark", "主题",
                             choices=[("light", "明亮"), ("dark", "暗黑")])
         theme_color = ColorConfig("#1976d2", "主题颜色")
         export_path = FileConfig("", "导出文件", filter="JSON (*.json)", save_mode=True)
@@ -33,7 +33,7 @@ from .file_config import FileConfig
 from .path_config import PathConfig
 from .long_text_config import LongTextConfig
 from .range_config import RangeConfig
-from .other_info import OtherInfoBase
+from .other_info import OtherInfoBase, ConfigT
 
 __all__ = [
     "BaseConfig",
@@ -50,4 +50,5 @@ __all__ = [
     "LongTextConfig",
     "RangeConfig",
     "OtherInfoBase",
+    "ConfigT",
 ]

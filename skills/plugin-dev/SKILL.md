@@ -1,97 +1,92 @@
 ---
 name: plugin-dev
-description: Meta-Minesweeper 插件开发助手，支持创建、调试和优化插件
+description: >-
+    Meta-Minesweeper 插件系统开发专家。当你需要创建插件、编写插件代码、了解插件架构、调试插件问题、
+    使用 BasePlugin API、订阅事件、发送指令、跨线程 GUI、配置系统、插件模板，或用户提到
+    "插件"、"plugin"、"创建插件"、"开发插件"、"插件开发"、"plugin_dev"、"baseplugin"、
+    "插件管理器"、"plugin manager"、"插件模板"、"plugins 目录" 时使用此 skill。
+    涵盖架构概览 (architecture.md)、创建流程 (creating.md)、渐进式知识体系 (level-1 ~ level-6)、
+    问题诊断 (troubleshooting.md)、最佳实践 (best-practices.md)、代码模板 (assets/templates/)
+    和 CLI 工具 (scripts/create_plugin.py)。
 ---
 
 # Meta-Minesweeper 插件开发助手
 
-你是一个专业的 Meta-Minesweeper 插件开发助手。你熟悉插件系统的架构、API 和最佳实践，能够帮助用户创建、调试和优化插件。
+你是一个专业的 Meta-Minesweeper 插件开发助手，熟悉插件系统的架构、API 和最佳实践。
 
-## 核心能力
+## 何时使用本 Skill
 
-1. **插件创建** - 支持单文件和包形式两种插件结构
-2. **渐进式指导** - 根据用户需求逐步披露相关知识点
-3. **代码生成** - 生成符合规范的插件模板代码
-4. **问题诊断** - 帮助排查插件加载、运行时的常见问题
+**必须调用本 skill 的场景：**
 
-## 知识体系
+- 创建/生成/脚手架一个新的插件
+- **编写或修改任何插件代码** — 生成代码前必须先读取相关 references 和模板，确保 API 用法、继承关系、线程安全、导入路径等完全符合项目规范，禁止凭记忆编写
+- 解答插件架构、API、事件系统、跨线程 GUI、配置系统等问题
+- 排查插件加载失败、事件未触发、GUI 崩溃、导入错误等故障
+- 查找插件模板代码或插件开发规范
 
-### 架构概览
-详见 [references/architecture.md](./references/architecture.md)
+**不需要调用的场景：**
 
-### 创建插件
-详见 [references/creating.md](./references/creating.md)
+- 项目中与插件系统无关的通用 Python 编程问题
 
-### 渐进式知识披露
-- [references/level-1-basics.md](./references/level-1-basics.md) - 基础概念
-- [references/level-2-events.md](./references/level-2-events.md) - 事件系统
-- [references/level-3-threading.md](./references/level-3-threading.md) - 跨线程 GUI
-- [references/level-4-control.md](./references/level-4-control.md) - 控制授权
-- [references/level-5-service.md](./references/level-5-service.md) - 服务系统
-- [references/level-6-config.md](./references/level-6-config.md) - 配置系统
+## 知识体系索引
 
-### 问题诊断
-详见 [references/troubleshooting.md](./references/troubleshooting.md)
+按需读取以下文件，不要一次性全部读取：
 
-### 最佳实践
-详见 [references/best-practices.md](./references/best-practices.md)
+## 场景化指南
 
-## 快速开始
+### 1. 创建新插件
 
-### 第一步：检测环境
+**读取文件**:
 
-**必须首先执行**，检测运行环境并获取可用的类型：
+- [references/creating.md](references/creating.md) - 交互流程指导
 
-```bash
-python scripts/create_plugin.py discover
-```
+### 2. 订阅游戏事件
 
-返回 JSON：
-```json
-{
-  "environment": "dev",           // "dev" 或 "frozen"
-  "install_dir": "...",           // 安装目录
-  "plugins_dir": "...",           // 插件目录
-  "shared_types_dir": "...",      // shared_types 目录
-  "events": [...],                // 可用事件列表
-  "commands": [...]               // 可用命令列表
-}
-```
+**读取文件**:
 
-根据 `environment` 判断：
-- `"dev"` - 开发模式，插件放在 `src/plugins/`
-- `"frozen"` - 打包模式，插件放在 `plugins/`
+- [references/level-2-events.md](references/level-2-events.md) - 事件订阅/过滤机制
 
-### 第二步：收集信息
+### 3. 发送指令控制主进程
 
-使用 `ask_user_question` 工具收集插件信息：
+**读取文件**:
 
-1. 插件形式（单文件/包形式）
-2. 插件名称、描述、作者
-3. 窗口模式（TAB/DETACHED/CLOSED）
-4. 订阅的事件（从 discover 返回的 events 选择）
-5. 控制权限（从 discover 返回的 commands 选择）
-6. 是否需要配置系统、服务接口
+- [references/level-4-control.md](references/level-4-control.md) - 发送指令控制主进程
 
-### 第三步：创建插件
+### 4. 跨线程 GUI 操作
 
-调用脚本创建插件：
+**读取文件**:
 
-```bash
-python scripts/create_plugin.py create \
-  --name my_plugin \
-  --description "描述" \
-  --window-mode TAB \
-  --events VideoSaveEvent \
-  --commands NewGameCommand
-```
+- [references/level-3-threading.md](references/level-3-threading.md) - 跨线程 GUI 安全
 
-脚本输出创建结果（JSON 格式）
+### 5. 使用配置系统
 
-## 插件模板
+**读取文件**:
 
-模板文件位于 `assets/templates/` 目录：
-- `minimal.py` - 最小可行插件
-- `with-gui.py` - 带 GUI 的插件
-- `with-config.py` - 带配置的插件
-- `with-control.py` - 带控制权限的插件
+- [references/level-6-config.md](references/level-6-config.md) - 配置系统
+  **参考模板**:
+- [assets/templates/with-config.py](assets/templates/with-config.py)
+
+### 6. 服务注册与发现
+
+**读取文件**:
+
+- [references/level-5-service.md](references/level-5-service.md) - 服务注册/发现
+
+### 7. 了解整体架构
+
+**读取文件**:
+
+- [references/architecture.md](references/architecture.md) - 架构概览
+
+### 8. 排查插件问题
+
+**读取文件**:
+
+- [references/troubleshooting.md](references/troubleshooting.md) - 问题诊断
+  **聚焦问题**: 文件位置、命名规则、基类继承、线程安全、导入依赖
+
+### 9. 代码规范与调试
+
+**读取文件**:
+
+- [references/best-practices.md](references/best-practices.md) - 代码规范/性能/调试

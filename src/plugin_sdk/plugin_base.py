@@ -12,6 +12,8 @@
 from __future__ import annotations
 from pathlib import Path
 
+from plugin_sdk.config_types.other_info import ConfigT
+
 
 from .service_registry import ServiceNotFoundError
 from lib_zmq_plugins.shared.base import BaseEvent, CommandResponse, get_event_tag
@@ -25,7 +27,7 @@ from abc import abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Type, TypeVar, cast
 
 _E = TypeVar("_E", bound="BaseEvent")
 _T = TypeVar("_T")  # 用于服务获取方法的泛型
@@ -167,7 +169,7 @@ class LogLevel(str):
 
 
 @dataclass
-class PluginInfo:
+class PluginInfo(Generic[ConfigT]):
     """插件元信息"""
 
     name: str  # 插件名称
@@ -182,12 +184,12 @@ class PluginInfo:
     icon: QIcon | None = None  # 插件图标，None 使用默认蓝色问号
     log_config: "LogConfig | None" = None  # 日志轮转配置，None 使用全局默认值
     # 插件自定义配置类（继承自 OtherInfoBase）
-    other_info: type["OtherInfoBase"] | None = None
+    other_info: Type[ConfigT] = cast(Any, OtherInfoBase)
     # 声明需要的控制权限（命令类型列表）
     required_controls: list[type] = field(default_factory=list)
 
 
-class BasePlugin(QThread):
+class BasePlugin(QThread, Generic[ConfigT]):
     """
     插件基类（继承 QThread，每个插件运行在独立线程中）
 
@@ -214,7 +216,7 @@ class BasePlugin(QThread):
     gui_call = pyqtSignal(object, object, object)
     ready = pyqtSignal(object)  # 插件就绪信号（参数：插件实例）
     config_changed = pyqtSignal(str, object)  # 配置变化信号（参数：字段名, 新值）
-
+    _other_info: ConfigT
     # 队列最大容量（背压控制）
     MAX_QUEUE_SIZE = 4096
 
@@ -266,7 +268,6 @@ class BasePlugin(QThread):
         self._registered_protocols: list[type] = []
 
         # ── 插件自定义配置 ──
-        self._other_info: OtherInfoBase | None = None
         self._config_manager: PluginConfigManager | None = None
         if info.other_info is not None:
             from plugin_manager.config_manager import PluginConfigManager
@@ -275,12 +276,14 @@ class BasePlugin(QThread):
             # 实例化配置对象
             self._other_info = info.other_info()
             # 设置配置变化回调
-            self._other_info.set_on_change(self._on_config_changed)
+            self._other_info.set_on_change(
+                self._on_config_changed)
             # 创建配置管理器
             data_dir = get_plugin_data_dir(type(self))
             self._config_manager = PluginConfigManager(data_dir)
             # 加载配置
-            self._config_manager.load(info.name, self._other_info)
+            self._config_manager.load(
+                info.name, self._other_info)
 
     def _on_config_changed(self, name: str, value: Any) -> None:
         """配置变化回调（在配置对象中触发，需转发到主线程发射信号）"""
@@ -341,14 +344,15 @@ class BasePlugin(QThread):
         return self._log_level
 
     @property
-    def other_info(self) -> OtherInfoBase | None:
+    def other_info(self):
         """插件自定义配置对象"""
         return self._other_info
 
     def save_config(self) -> None:
         """保存插件配置到文件"""
         if self._config_manager and self._other_info:
-            self._config_manager.save(self._info.name, self._other_info)
+            self._config_manager.save(
+                self._info.name, self._other_info)  # type: ignore
             self.logger.debug(f"Config saved: {self._other_info.to_dict()}")
 
     def set_log_level(self, level: LogLevel | str) -> None:

@@ -171,3 +171,4 @@ src/plugins/*/*.db
 .vscode/
 data/*
 .iflow/
+.claude/settings.local.json

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Generic, TypeVar
+from typing import Any, Callable, ClassVar, Generic, Type, TypeVar, overload
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import pyqtBoundSignal, pyqtSignal, QObject
@@ -162,3 +162,24 @@ class BaseConfig(ABC, Generic[T]):
         if self.validator is not None:
             return self.validator(value)
         return True
+
+    @overload
+    def __get__(self, instance: None, owner: Type[Any]) -> "BaseConfig[T]": ...
+
+    @overload
+    def __get__(self, instance: Any, owner: Type[Any]) -> T: ...
+
+    def __get__(self, instance: Any, owner: Type[Any]) -> Any:
+        # 运行时逻辑不需要变，因为 OtherInfoBase.__getattribute__ 会拦截它
+        # 这里的代码只是为了骗过 IDE 的类型检查
+        if instance is None:
+            return self
+        return self.default
+
+    def __set__(self, instance: Any, value: T) -> None:
+        """
+        告诉 IDE：这个属性可以被赋予 _T 类型的值。
+        运行时逻辑依然会被 OtherInfoBase.__setattr__ 拦截，
+        所以这里不需要写实际的逻辑。
+        """
+        pass

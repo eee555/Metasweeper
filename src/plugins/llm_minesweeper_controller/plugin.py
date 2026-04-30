@@ -6,7 +6,7 @@ from __future__ import annotations
 from ctypes import cast
 import hashlib
 import json
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -552,7 +552,7 @@ class LLMWorker(QThread):
             self.finished_signal.emit(False, f"执行异常: {str(e)}")
 
 
-class LlmMinesweeperControllerPlugin(BasePlugin):
+class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig]):
     """使用 LLM 控制扫雷的插件"""
 
     _widget: LlmMinesweeperControllerWidget

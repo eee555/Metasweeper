@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, ClassVar
+from typing import Any, Callable, ClassVar, TypeVar
 
 from .base_config import BaseConfig
 
@@ -66,7 +66,8 @@ class OtherInfoBase:
 
         # 初始化运行时值存储（初始为默认值）
         # 注意：这里必须使用 object.__setattr__ 因为我们要直接操作 _values 字典
-        values: dict[str, Any] = {name: field.default for name, field in fields.items()}
+        values: dict[str, Any] = {
+            name: field.default for name, field in fields.items()}
         object.__setattr__(self, "_values", values)
 
     def set_on_change(self, callback: Callable[[str, Any], None] | None) -> None:
@@ -197,3 +198,6 @@ class OtherInfoBase:
         values = object.__getattribute__(self, "_values")
         values_str = ", ".join(f"{k}={v!r}" for k, v in values.items())
         return f"{type(self).__name__}({values_str})"
+
+
+ConfigT = TypeVar("ConfigT", bound="OtherInfoBase",)
