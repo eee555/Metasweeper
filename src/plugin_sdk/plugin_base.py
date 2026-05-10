@@ -28,14 +28,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Type, TypeVar, cast
-
+from .config_types import OtherInfoBase
 _E = TypeVar("_E", bound="BaseEvent")
 _T = TypeVar("_T")  # 用于服务获取方法的泛型
 
 if TYPE_CHECKING:
-    from .config_types import OtherInfoBase
     from plugin_manager.logging_setup import LogConfig
-if TYPE_CHECKING:
     from PyQt5.QtGui import QIcon
 
 
@@ -581,7 +579,10 @@ class BasePlugin(QThread, Generic[ConfigT]):
             self._registered_protocols.clear()
 
         if self._widget:
-            self._widget.deleteLater()
+            try:
+                self._widget.deleteLater()
+            except RuntimeError:
+                pass
             self._widget = None
 
         # 清空队列残留事件
