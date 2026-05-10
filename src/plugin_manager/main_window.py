@@ -49,6 +49,7 @@ from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel
 from plugin_sdk.control_auth import ControlAuthorizationManager
+from plugin_sdk.config_types import OtherInfoBase
 from .app_paths import get_data_dir
 
 if TYPE_CHECKING:
@@ -158,7 +159,7 @@ class _DetachableTabBar(QTabBar):
         if (
             self._drag_start_pos is not None
             and (event.buttons() & Qt.LeftButton)
-        ):
+        ):  # type: ignore
             distance = (event.globalPos() -
                         self._drag_start_pos).manhattanLength()
             if distance > QApplication.startDragDistance():
@@ -293,7 +294,7 @@ class DetachableTabWidget(QTabWidget):
 
         # 从窗口取出 widget
         window.layout().removeWidget(widget)
-        widget.setParent(None)
+        widget.setParent(None)  # type: ignore
 
         window.deleteLater()
         del self._detached_windows[name]
@@ -322,7 +323,7 @@ class DetachableTabWidget(QTabWidget):
         # 隐藏并移除标签页，不销毁 widget（保留插件数据）
         self.removeTab(index)
         widget.hide()
-        widget.setParent(None)
+        widget.setParent(None)  # type: ignore
         self.tab_close_requested.emit(name)
 
 
@@ -399,7 +400,7 @@ class PluginSettingsDialog(QDialog):
         self,
         plugin_name: str,
         state: PluginState,
-        other_info: "OtherInfoBase | None" = None,
+        other_info: OtherInfoBase | None = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -431,8 +432,8 @@ class PluginSettingsDialog(QDialog):
         form2 = QFormLayout(grp2)
 
         self._combo_mode = QComboBox()
-        for mode in WindowMode._values():
-            label = WindowMode.LABELS.get(mode, mode)
+        for mode in WindowMode:
+            label = WindowMode.LABELS().get(mode, mode)
             self._combo_mode.addItem(label, mode)
         # WindowMode 继承自 str，直接 str() 转换
         idx = self._combo_mode.findData(str(state.window_mode))
@@ -448,8 +449,8 @@ class PluginSettingsDialog(QDialog):
         form3 = QFormLayout(grp3)
 
         self._combo_loglevel = QComboBox()
-        for level in LogLevel._values():
-            label = LogLevel.LABELS.get(level, level)
+        for level in LogLevel:
+            label = LogLevel.LABELS().get(level, level)
             self._combo_loglevel.addItem(label, level)
         # LogLevel 继承自 str，直接 str() 转换
         _lvl_idx = self._combo_loglevel.findData(str(state.log_level).upper())
@@ -748,7 +749,7 @@ class LogViewerDialog(QDialog):
         # 根据日志源设置过滤器
         if log_name == "main":
             # 主进程日志：排除插件日志
-            def filter_func(record):
+            def filter_func(record):  # type: ignore
                 return True
         else:
             # 插件日志：只显示该插件
@@ -1008,15 +1009,16 @@ class ControlAuthorizationDialog(QDialog):
 
     def _on_combo_changed(self, row: int) -> None:
         """下拉框变化时更新状态"""
-        combo = self._table.cellWidget(row, 1)
+        combo: QComboBox = self._table.cellWidget(row, 1)  # type: ignore
         plugin_name = combo.currentData()
         self._update_status(row, plugin_name, [])  # 简化，不重新计算 eligible_plugins
 
     def _on_accept(self) -> None:
         """确定按钮：保存授权"""
         for row in range(self._table.rowCount()):
-            name_item = self._table.item(row, 0)
-            combo = self._table.cellWidget(row, 1)
+            name_item: QTableWidgetItem = self._table.item(
+                row, 0)  # type: ignore
+            combo: QComboBox = self._table.cellWidget(row, 1)  # type: ignore
 
             cmd_type = name_item.data(Qt.UserRole)
             plugin_name = combo.currentData()
@@ -1240,7 +1242,7 @@ class PluginManagerWindow(QMainWindow):
         self._tray_icon.hide()
         self._state_mgr.save()
         self._manager.stop()
-        QApplication.instance().quit()
+        QApplication.instance().quit()  # type: ignore
 
     def _open_global_settings(self) -> None:
         """打开全局设置（目前显示控制授权对话框）"""
@@ -1493,7 +1495,7 @@ class PluginManagerWindow(QMainWindow):
         # 恢复选中项
         if current_name:
             for i in range(lst.count()):
-                if lst.item(i).data(Qt.UserRole) == current_name:
+                if lst.item(i).data(Qt.UserRole) == current_name:  # type: ignore
                     lst.setCurrentRow(i)
                     break
 
@@ -1639,7 +1641,7 @@ class PluginManagerWindow(QMainWindow):
                     widget = item.widget()
                     if widget is not None:
                         lay.removeWidget(widget)
-                        widget.setParent(None)
+                        widget.setParent(None)  # type: ignore
             window.blockSignals(True)  # 防止 closeEvent 二次触发
             window.close()
             window.deleteLater()
@@ -1651,7 +1653,7 @@ class PluginManagerWindow(QMainWindow):
                 widget = t.widget(i)
                 t.removeTab(i)
                 widget.hide()
-                widget.setParent(None)
+                widget.setParent(None)  # type: ignore
                 break
 
         self._closed_plugins.add(name)
@@ -1678,7 +1680,7 @@ class PluginManagerWindow(QMainWindow):
             # 应用插件自定义配置
             if other_info:
                 dlg.apply_config()
-                plugin.save_config()
+                plugin.save_config()  # type: ignore
 
             # 立即应用启用/禁用
             if current.enabled != new_state.enabled:

@@ -26,7 +26,7 @@ import threading
 from abc import abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Type, TypeVar, cast
 from .config_types import OtherInfoBase
 _E = TypeVar("_E", bound="BaseEvent")
@@ -87,22 +87,24 @@ def make_plugin_icon(
     return QIcon(pix)
 
 
-class WindowMode(str):
+class WindowMode(StrEnum):
     """窗口加载方式枚举"""
     TAB = "tab"           # 标签页内加载
     DETACHED = "detached"  # 独立窗口加载
     CLOSED = "closed"      # 不自动加载
 
     @classmethod
-    def _values(cls) -> list[str]:
-        return [cls.TAB, cls.DETACHED, cls.CLOSED]
+    def _values(cls):
+        return [level.value for level in cls]
 
-    # 用于 QComboBox 的显示标签映射
-    LABELS = {
-        TAB: "标签页内",
-        DETACHED: "独立窗口",
-        CLOSED: "不自动加载",
-    }
+    @classmethod
+    def LABELS(cls):
+
+        return {
+            cls.TAB: "标签页内",
+            cls.DETACHED: "独立窗口",
+            cls.CLOSED: "不自动加载",
+        }
 
 
 class _ServiceProxy:
@@ -144,7 +146,7 @@ class PluginLifecycle(str, Enum):
     STOPPED = "STOPPED"             # 已停止
 
 
-class LogLevel(str):
+class LogLevel(StrEnum):
     """日志级别枚举"""
     TRACE = "TRACE"
     DEBUG = "DEBUG"
@@ -153,17 +155,18 @@ class LogLevel(str):
     ERROR = "ERROR"
 
     @classmethod
-    def _values(cls) -> list[str]:
-        return [cls.TRACE, cls.DEBUG, cls.INFO, cls.WARNING, cls.ERROR]
+    def _values(cls):
+        return [level.value for level in cls]
 
-    # 用于 QComboBox 的显示标签（中文友好）
-    LABELS = {
-        TRACE: "TRACE (最详细)",
-        DEBUG: "DEBUG",
-        INFO: "INFO (常规)",
-        WARNING: "WARNING",
-        ERROR: "ERROR (仅错误)",
-    }
+    @classmethod
+    def LABELS(cls):
+        return {
+            cls.TRACE: "TRACE (最详细)",
+            cls.DEBUG: "DEBUG",
+            cls.INFO: "INFO (常规)",
+            cls.WARNING: "WARNING",
+            cls.ERROR: "ERROR (仅错误)",
+        }
 
 
 @dataclass
@@ -177,8 +180,8 @@ class PluginInfo(Generic[ConfigT]):
     enabled: bool = True  # 是否启用
     priority: int = 100  # 优先级（数值越小越先执行）
     show_window: bool = True  # 初始化时是否显示窗口
-    window_mode: WindowMode = cast(WindowMode, "tab")  # 窗口加载方式
-    log_level: LogLevel = cast(LogLevel, "DEBUG")  # 默认日志级别
+    window_mode: WindowMode = WindowMode.TAB  # 窗口加载方式
+    log_level: LogLevel = LogLevel.INFO  # 默认日志级别
     icon: QIcon | None = None  # 插件图标，None 使用默认蓝色问号
     log_config: "LogConfig | None" = None  # 日志轮转配置，None 使用全局默认值
     # 插件自定义配置类（继承自 OtherInfoBase）
@@ -359,7 +362,7 @@ class BasePlugin(QThread, Generic[ConfigT]):
         if isinstance(level, str):
             level = LogLevel(level.upper())
         self._log_level = level
-        set_plugin_log_level(self._log_sink_id, level)
+        set_plugin_log_level(self._log_sink_id, level.value)
         self.logger.debug(f"Log level changed to {level}")
 
     @property
