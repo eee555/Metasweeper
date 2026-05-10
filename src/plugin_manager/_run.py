@@ -7,7 +7,12 @@ python -m plugin_manager 仍走 __main__.py（开发模式）
 """
 
 import argparse
+import os
 import sys
+
+# 高分屏支持：必须在导入 PyQt 之前设置
+os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
+os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
 
 
 def main() -> int:
