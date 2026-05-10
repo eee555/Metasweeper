@@ -17,7 +17,7 @@ class HistoryTableModel(QAbstractTableModel):
         self,
         data: list[HistoryData],
         headers: list[str],
-        show_fields: set[str],
+        show_fields: list[str],
         parent=None,
     ):
         super().__init__(parent)
@@ -73,7 +73,7 @@ class HistoryTableModel(QAbstractTableModel):
         self._data = data
         self.endResetModel()
 
-    def update_show_fields(self, show_fields: set[str]):
+    def update_show_fields(self, show_fields: list[str]):
         self.beginResetModel()
         self._show_fields = show_fields
         self._visible_headers = [h for h in self._headers if h in show_fields]
