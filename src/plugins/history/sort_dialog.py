@@ -11,9 +11,10 @@ from PyQt5.QtWidgets import (
     QTableView,
     QSizePolicy,
     QHeaderView,
-    QDialog,
+    QWidget,
 )
 
+from shared_types.widgets import ConfirmDialog
 from .delegates import ComboBoxDelegate, EditableComboBoxDelegate
 from .models import HistoryData
 from .table_views import AutoEditTableView, SortModel
@@ -21,15 +22,17 @@ from .table_views import AutoEditTableView, SortModel
 _translate = QCoreApplication.translate
 
 
-class SortDialog(QDialog):
+class SortDialog(ConfirmDialog):
     """排序条件对话框"""
 
     def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(_translate("Form", "排序条件"))
+        super().__init__(parent, title=_translate("Form", "排序条件"))
         self.resize(400, 300)
 
-        layout = QVBoxLayout(self)
+    def _create_content(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         self.sort_table = AutoEditTableView()
         self.sort_table.setModel(SortModel(self))
@@ -49,6 +52,8 @@ class SortDialog(QDialog):
         layout.addWidget(self.sort_table)
 
         self._setup_delegates()
+
+        return widget
 
     def _setup_delegates(self):
         """设置列代理"""

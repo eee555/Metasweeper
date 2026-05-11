@@ -15,9 +15,10 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QSizePolicy,
     QHeaderView,
-    QDialog,
+    QWidget,
 )
 
+from shared_types.widgets import ConfirmDialog
 from .delegates import ComboBoxDelegate, EditableComboBoxDelegate, FilterValueDelegate
 from .models import HistoryData, LogicSymbol, CompareSymbol
 from .table_views import AutoEditTableView, FilterModel
@@ -25,16 +26,18 @@ from .table_views import AutoEditTableView, FilterModel
 _translate = QCoreApplication.translate
 
 
-class FilterDialog(QDialog):
+class FilterDialog(ConfirmDialog):
     """过滤条件对话框"""
 
     def __init__(self, float_decimals: int = 2, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(_translate("Form", "过滤条件"))
-        self.resize(700, 300)
         self._float_decimals = float_decimals
+        super().__init__(parent, title=_translate("Form", "过滤条件"))
+        self.resize(700, 300)
 
-        layout = QVBoxLayout(self)
+    def _create_content(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         self.table = AutoEditTableView()
         self.table.setModel(FilterModel(self))
@@ -54,6 +57,8 @@ class FilterDialog(QDialog):
 
         self._setup_delegates()
         self._connect_field_change_signal()
+
+        return widget
 
     def _connect_field_change_signal(self):
         """当字段列改变时，更新值列的默认值"""

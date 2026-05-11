@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import cast
 
-from PyQt5.QtCore import Qt, QCoreApplication, pyqtSignal
+from PyQt5.QtCore import QCoreApplication, pyqtSignal
 from PyQt5.QtGui import QCloseEvent as _QCloseEvent
 from PyQt5.QtWidgets import (
     QWidget,
@@ -33,6 +33,7 @@ from .models import HistoryData, CompareSymbol, LogicSymbol
 from .table_views import SortModel
 from .sort_dialog import SortDialog
 from .table_views import FilterModel
+from shared_types.enums import BaseDiaPlayEnum
 
 _translate = QCoreApplication.translate
 
@@ -56,6 +57,11 @@ class HistoryMainWidget(QWidget):
         super().__init__(parent)
         self._db_path = db_path
         self._config_path = config_path
+        self._float_decimals = float_decimals
+
+        # 存储过滤和排序条件数据（每次对话框确认后更新）
+        self._filter_rows: list[dict] = []
+        self._sort_rows: list[dict] = []
 
         self.setWindowTitle(_translate("Form", "历史记录"))
         self.resize(800, 600)
@@ -76,10 +82,6 @@ class HistoryMainWidget(QWidget):
             QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
         )
 
-        # 过滤和排序对话框
-        self.filter_dialog = FilterDialog(float_decimals, self)
-        self.sort_dialog = SortDialog(self)
-
         # 当前过滤/排序条件显示
         self.filter_label = QLabel("")
         self.filter_label.setWordWrap(True)
@@ -88,10 +90,6 @@ class HistoryMainWidget(QWidget):
 
         # 表格
         self.table = HistoryTable(self._get_show_fields(), db_path, self)
-
-        # 列设置对话框（需要在 table 创建之后）
-        self.columns_dialog = ColumnsDialog(
-            HistoryTable.HEADERS, self.table.showFields, self)
 
         # 分页
         limit_layout = QHBoxLayout()
@@ -133,14 +131,14 @@ class HistoryMainWidget(QWidget):
         try:
             filter_rows = json.loads(filter_json)
             if filter_rows:
-                self._set_filter_rows(filter_rows)
+                self._filter_rows = filter_rows
         except (json.JSONDecodeError, TypeError):
             pass
 
         try:
             sort_rows = json.loads(sort_json)
             if sort_rows:
-                self._set_sort_rows(sort_rows)
+                self._sort_rows = sort_rows
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -149,12 +147,9 @@ class HistoryMainWidget(QWidget):
 
     def _connect_signals(self):
         self.query_button.clicked.connect(self._on_query)
-        self.filter_button.clicked.connect(self.filter_dialog.show)
-        self.sort_button.clicked.connect(self.sort_dialog.show)
-        self.columns_button.clicked.connect(self.columns_dialog.show)
-        self.filter_dialog.finished.connect(lambda: self._on_query())
-        self.sort_dialog.finished.connect(lambda: self._on_query())
-        self.columns_dialog.finished.connect(self._on_columns_changed)
+        self.filter_button.clicked.connect(self._show_filter_dialog)
+        self.sort_button.clicked.connect(self._show_sort_dialog)
+        self.columns_button.clicked.connect(self._show_columns_dialog)
         self.previous_button.clicked.connect(
             lambda: self.page_spin.setValue(self.page_spin.value() - 1)
         )
@@ -164,6 +159,63 @@ class HistoryMainWidget(QWidget):
         self.one_page_combo.currentTextChanged.connect(self.load_data)
         self.page_spin.valueChanged.connect(self.load_data)
         self.table.show_fields_changed.connect(self.show_fields_changed)
+
+    def _show_filter_dialog(self):
+        """显示过滤对话框，确认后执行查询"""
+        filter_dialog = FilterDialog(self._float_decimals, self)
+        # 从已有条件数据恢复到对话框
+        if self._filter_rows:
+            model = cast(FilterModel, filter_dialog.table.model())
+            for row_data in self._filter_rows:
+                row = model.rowCount()
+                model.insertRow(row)
+                model.setData(model.index(row, FilterModel.COL_LBRACKET),
+                              row_data.get("left_bracket"))
+                model.setData(model.index(row, FilterModel.COL_FIELD),
+                              row_data.get("field"))
+                model.setData(model.index(row, FilterModel.COL_COMPARE),
+                              row_data.get("compare"))
+                model.setData(model.index(row, FilterModel.COL_VALUE),
+                              row_data.get("value"))
+                model.setData(model.index(row, FilterModel.COL_RBRACKET),
+                              row_data.get("right_bracket"))
+                model.setData(model.index(row, FilterModel.COL_LOGIC),
+                              row_data.get("logic"))
+        if filter_dialog.exec_():
+            # 保存过滤条件数据
+            model = cast(FilterModel, filter_dialog.table.model())
+            self._filter_rows = [model.get_row_data(row) for row in range(model.rowCount())]
+            self._on_query()
+
+    def _show_sort_dialog(self):
+        """显示排序对话框，确认后执行查询"""
+        sort_dialog = SortDialog(self)
+        # 从已有条件数据恢复到对话框
+        if self._sort_rows:
+            model = cast(SortModel, sort_dialog.sort_table.model())
+            for row_data in self._sort_rows:
+                row = model.rowCount()
+                model.insertRow(row)
+                model.setData(model.index(row, SortModel.COL_FIELD),
+                              row_data.get("field"))
+                model.setData(model.index(row, SortModel.COL_ORDER),
+                              row_data.get("order"))
+        if sort_dialog.exec_():
+            # 保存排序条件数据
+            model = cast(SortModel, sort_dialog.sort_table.model())
+            self._sort_rows = [model.get_row_data(row) for row in range(model.rowCount())]
+            self._on_query()
+
+    def _show_columns_dialog(self):
+        """显示列设置对话框，确认后应用更改"""
+        columns_dialog = ColumnsDialog(
+            HistoryTable.HEADERS, self.table.showFields, self)
+        if columns_dialog.exec_():
+            new_fields = columns_dialog.get_show_fields()
+            self.table.showFields = new_fields
+            self.table.model.update_show_fields(new_fields)
+            self.show_fields_changed.emit(json.dumps(
+                list(new_fields), ensure_ascii=False))
 
     def _on_query(self):
         if self.page_spin.value() > 1:
@@ -182,14 +234,6 @@ class HistoryMainWidget(QWidget):
         with open(self._config_path, "r") as f:
             return list(json.load(f))
 
-    def _on_columns_changed(self):
-        """列设置对话框关闭后应用更改"""
-        new_fields = self.columns_dialog.get_show_fields()
-        self.table.showFields = new_fields
-        self.table.model.update_show_fields(new_fields)
-        self.show_fields_changed.emit(json.dumps(
-            list(new_fields), ensure_ascii=False))
-
     def load_data(self):
         if not self._db_path.exists():
             QMessageBox.warning(self, "错误", "历史记录数据库不存在")
@@ -199,8 +243,8 @@ class HistoryMainWidget(QWidget):
             conn = sqlite3.connect(self._db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            filter_str = self.filter_dialog.gen_filter_str()
-            order_str = self.sort_dialog.gen_order_str()
+            filter_str = self._gen_filter_str()
+            order_str = self._gen_order_str()
             sql = "SELECT *, COUNT(*) OVER() AS total_count FROM history"
             if filter_str:
                 sql += " WHERE " + filter_str
@@ -291,70 +335,185 @@ class HistoryMainWidget(QWidget):
             parts.append(f"{field} {order}")
         return ", ".join(parts)
 
-    def _get_filter_rows(self) -> list[dict]:
-        """获取过滤表格的所有行数据"""
-        model = cast(FilterModel, self.filter_dialog.table.model())
-        rows = []
-        for row in range(model.rowCount()):
-            rows.append(model.get_row_data(row))
-        return rows
+    def _gen_filter_str(self) -> str | None:
+        """根据 _filter_rows 生成过滤 SQL 语句"""
+        if not self._filter_rows:
+            return ""
 
-    def _get_sort_rows(self) -> list[dict]:
-        """获取排序表格的所有行数据"""
-        model = cast(SortModel, self.sort_dialog.sort_table.model())
-        rows = []
-        for row in range(model.rowCount()):
-            rows.append(model.get_row_data(row))
-        return rows
+        filter_str = ""
+        left_count = 0
+        right_count = 0
 
-    def _set_filter_rows(self, rows: list[dict]) -> None:
-        """恢复过滤表格的行数据"""
-        model = self.filter_dialog.table.model()
-        model.removeRows(0, model.rowCount())
-        for row_data in rows:
-            row = model.rowCount()
-            model.insertRow(row)
-            model.setData(model.index(row, FilterModel.COL_LBRACKET),
-                          row_data.get("left_bracket"))
-            model.setData(model.index(row, FilterModel.COL_FIELD),
-                          row_data.get("field"))
-            model.setData(model.index(row, FilterModel.COL_COMPARE),
-                          row_data.get("compare"))
-            model.setData(model.index(row, FilterModel.COL_VALUE),
-                          row_data.get("value"), Qt.EditRole)
-            model.setData(model.index(row, FilterModel.COL_RBRACKET),
-                          row_data.get("right_bracket"))
-            model.setData(model.index(row, FilterModel.COL_LOGIC),
-                          row_data.get("logic"))
+        for row, data in enumerate(self._filter_rows):
+            field_value_type = HistoryData.get_field_value(data.get("field") or "")
 
-    def _set_sort_rows(self, rows: list[dict]) -> None:
-        """恢复排序表格的行数据"""
-        model = self.sort_dialog.sort_table.model()
-        model.removeRows(0, model.rowCount())
-        for row_data in rows:
-            row = model.rowCount()
-            model.insertRow(row)
-            model.setData(model.index(row, SortModel.COL_FIELD),
-                          row_data.get("field"))
-            model.setData(model.index(row, SortModel.COL_ORDER),
-                          row_data.get("order"))
+            left_bracket = data.get("left_bracket") or ""
+            field = data.get("field") or ""
+            compare_text = data.get("compare") or ""
+            value = data.get("value") or ""
+            right_bracket = data.get("right_bracket") or ""
+            logic_text = data.get("logic") or ""
+
+            if not field or not compare_text:
+                continue
+
+            compare = CompareSymbol.from_display_name(compare_text)
+            logic = LogicSymbol.from_display_name(logic_text).to_sql
+
+            if left_bracket == "(":
+                left_count += 1
+            elif left_bracket == "((":
+                left_count += 2
+            if right_bracket == ")":
+                right_count += 1
+            elif right_bracket == "))":
+                right_count += 2
+
+            if right_count > left_count:
+                QMessageBox.warning(
+                    self, "错误", f"第{row}行 右括号数量大于左括号数量，请检查"
+                )
+                return None
+
+            # 处理值
+            if isinstance(field_value_type, BaseDiaPlayEnum) and compare.value not in (CompareSymbol.Contains, CompareSymbol.NotContains):
+                enum_cls = field_value_type.__class__
+                for e in enum_cls:
+                    if e.display_name == value:
+                        value = str(e.value)
+                        break
+            elif compare.value in (CompareSymbol.Contains, CompareSymbol.NotContains):
+                if isinstance(field_value_type, (int, float)):
+                    values = value.split(",")
+                    for v in values:
+                        if not v.replace("-", "").replace(".", "").isdigit():
+                            QMessageBox.warning(
+                                self, "错误", f"第{row}行 {v} 不是数字"
+                            )
+                            return None
+                    value = ",".join(v for v in values)
+                elif isinstance(field_value_type, datetime):
+                    values = value.split(",")
+                    parsed_values = []
+                    for v in values:
+                        v = v.strip()
+                        if not v:
+                            continue
+                        try:
+                            ts = int(float(v))
+                            parsed_values.append(str(ts))
+                        except ValueError:
+                            try:
+                                for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+                                    try:
+                                        dt = datetime.strptime(v, fmt)
+                                        parsed_values.append(
+                                            str(int(dt.timestamp() * 1_000_000)))
+                                        break
+                                    except ValueError:
+                                        continue
+                                else:
+                                    raise ValueError(f"无法解析日期: {v}")
+                            except ValueError as e:
+                                QMessageBox.warning(
+                                    self, "错误", f"第{row}行 {v} 不是合法的日期时间"
+                                )
+                                return None
+                    value = ",".join(parsed_values) if parsed_values else ""
+                elif isinstance(field_value_type, BaseDiaPlayEnum):
+                    enum_cls = field_value_type.__class__
+                    values = value.split(",")
+                    parsed_values = []
+                    for v in values:
+                        v = v.strip()
+                        if not v:
+                            continue
+                        for e in enum_cls:
+                            if e.display_name == v:
+                                parsed_values.append(str(e.value))
+                                break
+                        else:
+                            QMessageBox.warning(
+                                self, "错误", f"第{row}行 {v} 不是合法的枚举选项"
+                            )
+                            return None
+                    value = ",".join(parsed_values) if parsed_values else ""
+                else:
+                    value = ",".join(
+                        f"'{v}'" for v in value.split(",") if v.strip())
+                value = f"({value})" if value else "()"
+            elif isinstance(field_value_type, datetime) and value:
+                try:
+                    ts = int(float(value))
+                    value = str(ts)
+                except ValueError:
+                    try:
+                        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+                            try:
+                                dt = datetime.strptime(value, fmt)
+                                value = str(int(dt.timestamp() * 1_000_000))
+                                break
+                            except ValueError:
+                                continue
+                        else:
+                            QMessageBox.warning(
+                                self, "错误", f"第{row}行 {value} 不是合法的日期时间"
+                            )
+                            return None
+                    except ValueError:
+                        QMessageBox.warning(
+                            self, "错误", f"第{row}行 {value} 不是合法的日期时间"
+                        )
+                        return None
+            elif value and not value.startswith("'"):
+                value = f"'{value}'"
+
+            is_last = row == len(self._filter_rows) - 1
+            filter_str += (
+                f" {left_bracket} {field} {compare.to_sql} {value} {right_bracket} "
+            )
+            if not is_last:
+                filter_str += logic
+
+        if left_count != right_count:
+            QMessageBox.warning(self, "错误", "左括号数量和右括号数量不匹配，请检查")
+            return None
+        return filter_str
+
+    def _gen_order_str(self) -> str:
+        """根据 _sort_rows 生成排序 SQL 语句"""
+        if not self._sort_rows:
+            return ""
+
+        orders = []
+        for row_data in self._sort_rows:
+            field = row_data.get("field") or ""
+            order_text = row_data.get("order") or ""
+            if not field:
+                continue
+            order_sql = "ASC" if order_text == _translate("Form", "升序") else "DESC"
+            orders.append(f"{field} {order_sql}")
+
+        if orders:
+            return " ORDER BY " + ", ".join(orders)
+        return ""
 
     def _save_filter_sort_state(self, filter_str: str = "", order_str: str = "") -> None:
         """发射排序和过滤状态变化信号"""
-        filter_rows = self._get_filter_rows()
-        sort_rows = self._get_sort_rows()
         self.filter_sort_state_changed.emit(
-            json.dumps(filter_rows, ensure_ascii=False), json.dumps(sort_rows, ensure_ascii=False))
+            json.dumps(self._filter_rows, ensure_ascii=False), 
+            json.dumps(self._sort_rows, ensure_ascii=False)
+        )
 
         # 更新过滤条件标签（易读格式）
-        filter_display = self._format_filter_display(filter_rows)
+        filter_display = self._format_filter_display(self._filter_rows)
         if filter_display:
             self.filter_label.setText(f"过滤: {filter_display}")
         else:
             self.filter_label.setText("过滤: 无")
 
         # 更新排序条件标签（易读格式）
-        sort_display = self._format_sort_display(sort_rows)
+        sort_display = self._format_sort_display(self._sort_rows)
         if sort_display:
             self.sort_label.setText(f"排序: {sort_display}")
         else:
@@ -366,7 +525,7 @@ class HistoryMainWidget(QWidget):
 
     def set_float_decimals(self, decimals: int) -> None:
         """动态设置小数位数"""
-        self.filter_dialog.set_float_decimals(decimals)
+        self._float_decimals = decimals
 
     def restore_show_fields(self, show_fields_json: str) -> None:
         """恢复列显示配置"""
@@ -376,8 +535,5 @@ class HistoryMainWidget(QWidget):
                 fields = self.table.HEADERS
             self.table.showFields = list(fields)
             self.table.model.update_show_fields(self.table.showFields)
-            # 同步更新列设置对话框的勾选状态
-            for field, cb in self.columns_dialog.checks.items():
-                cb.setChecked(field in self.table.showFields)
         except (json.JSONDecodeError, TypeError):
             pass

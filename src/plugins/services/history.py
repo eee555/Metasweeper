@@ -22,11 +22,17 @@ Usage::
             records = self._history.query_records(limit=100)
             for r in records:
                 print(r.rtime, r.level, r.bbbv)  # IDE 完整补全
+            
+            # 直接执行 SQL（灵活查询）
+            stats = self._history.raw_query_one(
+                "SELECT COUNT(*) as count, AVG(rtime) as avg_time FROM history WHERE level = ?",
+                (1,)
+            )
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,4 +99,46 @@ class HistoryService(Protocol):
     
     def get_last_record(self) -> GameRecord | None:
         """获取最近一条记录"""
+        ...
+
+    def raw_query(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        """
+        直接执行 SQL 查询（灵活查询）
+        
+        Args:
+            sql: SQL 查询语句（使用 ? 作为参数占位符）
+            params: 参数元组
+            
+        Returns:
+            字典列表，每行一个字典
+            
+        Example:
+            records = history.raw_query(
+                "SELECT * FROM history WHERE level = ? AND rtime < ? ORDER BY rtime LIMIT 10",
+                (1, 60.0)
+            )
+            for r in records:
+                print(r["rtime"], r["level"])
+        """
+        ...
+
+    def raw_query_one(self, sql: str, params: tuple = ()) -> dict[str, Any] | None:
+        """
+        执行 SQL 查询并返回单条结果
+        
+        Args:
+            sql: SQL 查询语句
+            params: 参数元组
+            
+        Returns:
+            单条记录字典，或 None
+            
+        Example:
+            stats = history.raw_query_one(
+                "SELECT COUNT(*) as count, AVG(rtime) as avg_time FROM history WHERE level = ?",
+                (1,)
+            )
+            if stats:
+                print(f"初级: {stats['count']}局, 平均{stats['avg_time']:.2f}s")
+        """
         ...
