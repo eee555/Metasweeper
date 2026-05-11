@@ -335,6 +335,36 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         finally:
             conn.close()
 
+    def raw_query(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        """
+        直接执行 SQL 查询
+        
+        Args:
+            sql: SQL 查询语句（使用 ? 作为参数占位符）
+            params: 参数元组
+            
+        Returns:
+            字典列表
+        """
+        db_path = self.data_dir / "history.db"
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
+    def raw_query_one(self, sql: str, params: tuple = ()) -> dict[str, Any] | None:
+        """
+        执行 SQL 查询并返回单条结果
+        """
+        results = self.raw_query(sql, params)
+        return results[0] if results else None
+
     def _on_config_changed(self, name: str, value: Any) -> None:
         if name == "float_decimals":
             self._widget.set_float_decimals(value)

@@ -24,7 +24,8 @@ class HistoryTableModel(QAbstractTableModel):
         self._data = data
         self._headers = headers
         self._show_fields = show_fields
-        self._visible_headers = [h for h in headers if h in show_fields]
+        # 直接使用 show_fields 的顺序，支持用户自定义列顺序
+        self._visible_headers = [h for h in show_fields if h in headers]
 
     def rowCount(self, parent=None):
         return len(self._data)
@@ -76,5 +77,6 @@ class HistoryTableModel(QAbstractTableModel):
     def update_show_fields(self, show_fields: list[str]):
         self.beginResetModel()
         self._show_fields = show_fields
-        self._visible_headers = [h for h in self._headers if h in show_fields]
+        # 直接使用 show_fields 的顺序
+        self._visible_headers = [h for h in show_fields if h in self._headers]
         self.endResetModel()

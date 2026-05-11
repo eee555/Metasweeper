@@ -161,9 +161,13 @@ def get_env_for_subprocess(env: dict | None = None) -> dict:
     为启动插件管理器子进程构建环境变量
 
     确保 PYTHONPATH 包含正确的路径，使子进程中的动态导入正常工作。
+    移除 QT_FONT_DPI 以让插件管理器使用独立的高分屏设置。
     """
     if env is None:
         env = dict(os.environ)
+
+    # 移除主程序的 DPI 设置，让插件管理器使用自己的高分屏配置
+    env.pop("QT_FONT_DPI", None)
 
     bundle = str(get_bundle_dir())
     exec_dir = str(get_executable_dir())
