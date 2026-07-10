@@ -15,6 +15,11 @@
 
 元扫雷生成的录像格式已获得[开源扫雷网](https://openms.top)官方认可，并参与国际排行榜。
 
+<div align="center">
+<img src="readme_pic/main_screenshot.png" width="700" alt="主界面截图"/>
+<p align="center"><em>主界面——多标签页播放器 + 可编程计数器</em></p>
+</div>
+
 
 ## 项目优势与技术亮点
 
@@ -26,6 +31,16 @@
 * **统一局面状态机**：将游戏局面抽象为自动状态机，提升算法集成度与可扩展性。
 * **概率推断引擎**：支持计算局面中任意一格是雷的概率，求解速度仅次于JSMinesweeper。
 * **光学局面识别（OBR）引擎**：可从任意扫雷应用的截屏中重建局面，实现跨游戏智能分析。
+
+<div align="center">
+<img src="readme_pic/space_probability.png" width="600" alt="概率计算与OBR"/>
+<p align="center"><em>按 Space 实时显示每格雷概率</em></p>
+</div>
+
+<div align="center">
+<img src="readme_pic/obr_probability.png" width="600" alt="概率计算与OBR"/>
+<p align="center"><em>Ctrl+Space 截屏识别外部扫雷</em></p>
+</div>
 
 ---
 
@@ -51,7 +66,13 @@
 * **Space**：即时计算当前盘面每一格的雷概率。
 * **Ctrl + Space**：截屏识别并对任何外部扫雷应用执行概率计算（OBR）。
 * **局面筛选器**：基于自定义策略的复杂条件过滤。
-* **性能指标系统**：内置 3BV/s、STNB、RQP 等指标，并支持自定义公式。
+* **可编程计数器**：内置 3BV/s、STNB、RQP、pluck、ZiNi 等 30+ 指标，支持**完整 Python 表达式语法**自定义计算公式，自由度无上限。
+* **右键拖入文件**即可播放录像，操作一气呵成。
+
+<div align="center">
+<img src="readme_pic/counter_custom.png" height="400" alt="可编程计数器"/>
+<p align="center"><em>可编程计数器——支持任意 Python 表达式自定义指标</em></p>
+</div>
 
 ---
 
@@ -59,11 +80,49 @@
 
 元扫雷不仅是游戏本体，也是一套专业分析平台。
 
-* 高级录像播放器：支持高层抽象分析，并实时呈现格子概率。
+* **多标签页录像播放器**：支持同时打开多局录像，标签页自由切换，并可在播放中绘制鼠标轨迹。
 * 兼容 **avf / rmv / mvf / [evf](https://github.com/eee555/ms_toollib/blob/main/evf%E6%A0%87%E5%87%86.md)** 四大主流录像格式。
-* 兼容[**evfs**](https://github.com/eee555/ms_toollib/blob/main/evfs%E6%A0%87%E5%87%86.md)录像集格式。
+* 兼容[**evfs**](https://github.com/eee555/ms_toollib/blob/main/evfs%E6%A0%87%E5%87%86.md)录像集格式，支持多选导出为独立 evf。
 * 对常见作弊手段（如变速齿轮）具备对抗能力。
-* 国际化支持：中文、英文、德文、波兰文等语言。
+* 国际化支持：中文、英文、德文、波兰文、日文等语言。
+* **命令行校验**：支持通过 `-c` 参数批量校验录像文件合法性。
+
+<div align="center">
+<img src="readme_pic/replay_player.png" width="700" alt="多标签页录像播放器"/>
+<p align="center"><em>多标签页录像播放器——同时播放、切换、分析多局录像</em></p>
+</div>
+
+<div align="center">
+<img src="readme_pic/replay_player_trace.png" width="700" alt="多标签页录像播放器"/>
+<p align="center"><em>录像播放器可以显示鼠标轨迹、概率计算</em></p>
+</div>
+
+---
+
+### （5）插件系统与生态扩展
+
+元扫雷的**插件管理器**（Plugin Manager）构建于 ZMQ 事件总线之上，插件与主进程解耦运行、可独立崩溃而不影响游戏。
+
+* **历史记录插件**：自动记录每局游戏的完整数据，支持右键菜单以 JSON 格式复制任一条记录，提供多种格式的导入/导出（stats.dat / meta.dat / textstats.csv）。
+* **LLM 反控扫雷插件**：通过大语言模型以自然语言指令远程控制游戏（如"打开中级"、"标雷"），实现 AI 与游戏的直接对话。
+* **雷修境界插件**：经验 / 升级 / 抽签系统，将扫雷练习游戏化，集成视频吸收自动判断机制。
+* **高级设置面板**：集中管理插件授权、事件订阅、棋盘更新安全开关等。
+* 插件 SDK 完全开放，开发者可自行编写插件并接入事件总线。
+
+<div align="center">
+<img src="readme_pic/plugin_manager.png" width="600" alt="插件管理器"/>
+<p align="center"><em>插件管理器——历史记录</em></p>
+</div>
+
+<div align="center">
+<img src="readme_pic/plugin_manager_2.png" width="600" alt="插件管理器"/>
+<p align="center"><em>插件管理器——LLM 反控</em></p>
+</div>
+
+<div align="center">
+<img src="readme_pic/plugin_manager_3.png" width="600" alt="插件管理器"/>
+<p align="center"><em>插件管理器——雷修境界</em></p>
+</div>
 
 元扫雷正处于持续演进阶段，通常 **3~12 个月发布一个版本**。
 欢迎提交 **Issue / PR / Star / Fork** ——您的参与将决定一个开源扫雷生态的未来走向。

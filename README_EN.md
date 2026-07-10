@@ -15,6 +15,11 @@
 
 Its replay formats are officially recognized by the [Open Minesweeper Network](https://openms.top) and included in international leaderboards.
 
+<div align="center">
+<img src="readme_pic/main_screenshot.png" width="700" alt="Main window screenshot"/>
+<p align="center"><em>Main window — multi-tab replay player + programmable counter</em></p>
+</div>
+
 ## Key Advantages & Technical Highlights
 
 ### (1) Algorithm & Engine System
@@ -25,6 +30,11 @@ Powered by the `ms_toollib` toolbox, Meta Minesweeper’s core strength comes fr
 * **Unified board state machine**: abstracts the game board into a formal automaton, improving algorithm composability and extensibility.
 * **Probability inference engine**: computes the probability of any tile containing a mine, with speed second only to JSMinesweeper.
 * **Optical Board Recognition (OBR)**: reconstructs board states from screenshots of *any* Minesweeper application for cross-software intelligent analysis.
+
+<div align="center">
+<img src="readme_pic/obr_probability.png" width="600" alt="Probability & OBR"/>
+<p align="center"><em>Press Space for per-tile mine probability; Ctrl+Space to OBR from screenshot</em></p>
+</div>
 
 ---
 
@@ -50,7 +60,13 @@ One of the most feature-complete and modernized Minesweeper implementations avai
 * **Space**: compute mine probability for every tile.
 * **Ctrl + Space**: screenshot + OBR to compute probabilities for external Minesweeper applications.
 * **Board filter**: complex filtering based on custom strategies.
-* **Performance metrics**: built-in 3BV/s, STNB, RQP, and custom formulas.
+* **Programmable counter**: 30+ built-in metrics (3BV/s, STNB, RQP, pluck, ZiNi, etc.) with **full Python expression syntax** for custom formulas.
+* **Drag & drop** replay files directly onto the window to start playback.
+
+<div align="center">
+<img src="readme_pic/counter_custom.png" width="500" alt="Programmable counter"/>
+<p align="center"><em>Programmable counter — full Python expression syntax for custom metrics</em></p>
+</div>
 
 ---
 
@@ -58,14 +74,36 @@ One of the most feature-complete and modernized Minesweeper implementations avai
 
 Meta Minesweeper is not just a game but a full analysis platform.
 
-* Advanced replay player with high-level analysis and real-time probabilities.
+* **Multi-tab replay player**: open multiple replays simultaneously, switch freely between tabs, and draw mouse traces during playback.
 * Supports **avf / rmv / mvf / [evf](https://github.com/eee555/ms_toollib/blob/main/evf标准.md)** formats.
-* Supports **[evfs](https://github.com/eee555/ms_toollib/blob/main/evfs标准.md)** replay-set format.
+* Supports **[evfs](https://github.com/eee555/ms_toollib/blob/main/evfs标准.md)** replay-set format with multi-select export to individual evf files.
 * Resistant to common cheating methods (e.g., speed-gear tools).
-* Internationalization: Chinese, English, German, Polish, etc.
+* Internationalization: Chinese, English, German, Polish, Japanese, etc.
+* **CLI verification**: use the `-c` flag to batch-verify replay file integrity.
 
-Meta Minesweeper is actively developed and typically releases **every 3–12 months**.
-Issues, PRs, stars, and forks are all welcome.
+<div align="center">
+<img src="readme_pic/replay_player.png" width="700" alt="Multi-tab replay player"/>
+<p align="center"><em>Multi-tab replay player — play, switch, and analyze multiple replays simultaneously</em></p>
+</div>
+
+---
+
+### (5) Plugin System & Ecosystem
+
+The **Plugin Manager** runs on a ZMQ event bus, fully decoupled from the main process — a plugin can crash without affecting the game.
+
+* **History plugin**: automatically records every game session; right-click to copy any record as JSON; import/export in stats.dat / meta.dat / textstats.csv formats.
+* **LLM Controller plugin**: control the game via natural language through a large language model ("open intermediate", "flag this tile", etc.).
+* **XianNiUpgrade plugin**: XP / level-up / lottery system that gamifies Minesweeper practice, with intelligent replay absorption.
+* **Advanced settings panel**: central management for plugin authorization, event subscriptions, board update security toggles, and more.
+* The plugin SDK is fully open — anyone can write custom plugins and hook into the event bus.
+
+<div align="center">
+<img src="readme_pic/plugin_manager.png" width="600" alt="Plugin manager"/>
+<p align="center"><em>Plugin manager — History, LLM Controller, XianNiUpgrade</em></p>
+</div>
+
+---
 
 ## Reference Links
 
