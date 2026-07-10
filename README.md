@@ -2,7 +2,7 @@
 
 **[English version is here.](README_EN.md)**
 
-- 包含8种模式的专业扫雷版本、第三代扫雷录像播放器及高性能算法工具箱
+- 包含无猜、可猜模式，录像播放器及插件系统的现代化专业扫雷版本
  
 [![](https://img.shields.io/github/release/eee555/Metasweeper.svg)](https://github.com/eee555/Metasweeper/releases)
 [![stars](https://img.shields.io/github/stars/eee555/Metasweeper)](https://github.com/eee555/Metasweeper/stargazers)
