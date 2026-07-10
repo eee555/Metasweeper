@@ -11,7 +11,7 @@
 
 ## Introduction
 
-**Meta Minesweeper** is developed by experienced professional Minesweeper players and software engineers. It is not a simple clone of traditional Minesweeper, but a complete modernization in **algorithms, performance, extensibility, and tooling**.
+**Metasweeper** is developed by experienced professional Minesweeper players and software engineers. It is not a simple clone of traditional Minesweeper, but a complete modernization in **algorithms, performance, extensibility, and tooling**.
 
 Its replay formats are officially recognized by the [Open Minesweeper Network](https://openms.top) and included in international leaderboards.
 
@@ -191,6 +191,20 @@ Per project rules, donations are distributed among contributors proportionally t
 |  *Song  | ¥72.60 | 2024-04-04 |  WeChat |    Pending   |
 
 ## Download Links
+
+### v3.3.3
+
+Uncaught exceptions now show a dialog with full traceback instead of silently crashing. Bug fixes: copying board to matrix produced all-zero data; plugin manager no longer allows multiple instances; file-association replay opening crash; game crash after modifying config via custom menu after starting; double-button mine activation crash.
+Links:
+[https://gitee.com/ee55/Metasweeper/releases/download/3.3.3/Metasweeper-3.3.3.exe](https://gitee.com/ee55/Metasweeper/releases/download/3.3.3/Metasweeper-3.3.3.exe)
+[https://github.com/eee555/Metasweeper/releases/download/3.3.3/Metasweeper-3.3.3.exe](https://github.com/eee555/Metasweeper/releases/download/3.3.3/Metasweeper-3.3.3.exe)
+
+### v3.3.2
+
+Mouse traces can now be drawn during replay playback. Added Ctrl+C to copy .board data as ASCII/emoji rendering; Ctrl+V to quickly enter research mode or paste a copied board. Counter now scales with the main window. Probability algorithm improved ~100× faster. Adjustable guess-free mine-planting algorithm improved for both speed and 100% success rate (16×30/200 mines: single planting ≤200ms). F3 to restart current game. RQP and QG now compute correctly; added max_block_len. History plugin: right-click context menu to copy a game's data as JSON. Import stats.dat from older versions. Export meta.dat, meta.all.dat, textstats.csv. Bug fixes: v3.2.2 MD5 incorrect; counter keys cannot contain uppercase letters; plugin data could attempt writing to unwritable directories; number-key difficulty switching caused crashes; replay controller image resources missing; history plugin showed "0 rows 0 pages" on first open; mine count display incorrect during replay; non-standard modes gave no XP in XianNiUpgrade; weak guessable mode could fail to re-plant mines.
+Links:
+[https://gitee.com/ee55/Metasweeper/releases/download/3.3.2/Metasweeper-3.3.2.exe](https://gitee.com/ee55/Metasweeper/releases/download/3.3.2/Metasweeper-3.3.2.exe)
+[https://github.com/eee555/Metasweeper/releases/download/3.3.2/Metasweeper-3.3.2.exe](https://github.com/eee555/Metasweeper/releases/download/3.3.2/Metasweeper-3.3.2.exe)
 
 ### v3.3.1
 
