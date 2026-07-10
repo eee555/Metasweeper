@@ -64,7 +64,7 @@ One of the most feature-complete and modernized Minesweeper implementations avai
 * **Drag & drop** replay files directly onto the window to start playback.
 
 <div align="center">
-<img src="readme_pic/counter_custom.png" width="500" alt="Programmable counter"/>
+<img src="readme_pic/counter_custom.png" height="400" alt="Programmable counter"/>
 <p align="center"><em>Programmable counter — full Python expression syntax for custom metrics</em></p>
 </div>
 
@@ -86,6 +86,11 @@ Meta Minesweeper is not just a game but a full analysis platform.
 <p align="center"><em>Multi-tab replay player — play, switch, and analyze multiple replays simultaneously</em></p>
 </div>
 
+<div align="center">
+<img src="readme_pic/replay_player_trace.png" width="700" alt="Replay player with trace"/>
+<p align="center"><em>Replay player can display mouse traces and real-time probabilities</em></p>
+</div>
+
 ---
 
 ### (5) Plugin System & Ecosystem
@@ -101,6 +106,16 @@ The **Plugin Manager** runs on a ZMQ event bus, fully decoupled from the main pr
 <div align="center">
 <img src="readme_pic/plugin_manager.png" width="600" alt="Plugin manager"/>
 <p align="center"><em>Plugin manager — History, LLM Controller, XianNiUpgrade</em></p>
+</div>
+
+<div align="center">
+<img src="readme_pic/plugin_manager_2.png" width="600" alt="LLM Controller plugin"/>
+<p align="center"><em>LLM Controller plugin — reverse-control minesweeper with natural language via a large language model</em></p>
+</div>
+
+<div align="center">
+<img src="readme_pic/plugin_manager_3.png" width="600" alt="XianNiUpgrade plugin"/>
+<p align="center"><em>XianNiUpgrade plugin — cultivates your mining realm and upgrades your artifact</em></p>
 </div>
 
 ---
@@ -191,7 +206,7 @@ Featured on llamasweeper.com (4.5 stars):
 
 Official Minesweeper software of OpenMS: [https://openms.top](https://openms.top)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=eee555/Metasweeper\&type=Date)](https://star-history.com/?repos=eee555/Metasweeper#repos=eee555/Metasweeper&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=eee555/Metasweeper&type=Date)](https://star-history.com/?repos=eee555/Metasweeper#repos=eee555/Metasweeper&eee555/Metasweeper&Date)
 
 ## Sponsorship
 
@@ -374,4 +389,9 @@ Links: [https://wws.lanzoui.com/iS3wImv2y5e](https://wws.lanzoui.com/iS3wImv2y5e
 Algorithm improvements: 37,525 boards/s in advanced mode (~3× Arbiter), 15.7 boards/s guess-free; polar chart for skill metrics; feature cleanup.
 Links: [https://wws.lanzoui.com/iq9Ocm8zdtc](https://wws.lanzoui.com/iq9Ocm8zdtc)
 [https://wws.lanzous.com/iq9Ocm8zdtc](https://wws.lanzous.com/iq9Ocm8zdtc)
+
+---
+
+
+Meta Minesweeper is actively evolving, typically with a new release every **3–12 months**. Issues, PRs, Stars, and Forks are all welcome — your participation shapes the future of an open-source minesweeper ecosystem.
 
