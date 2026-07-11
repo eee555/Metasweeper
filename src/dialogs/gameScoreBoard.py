@@ -3,11 +3,32 @@ import utils
 from ui.ui_score_board import Ui_Form
 from ui.uiComponents import RoundQWidget
 from utils.safe_eval import safe_eval
-from config.constants import BOARD_READY, BOARD_PLAYING, BOARD_WIN, BOARD_LOSS
+from config.constants import BOARD_READY, BOARD_PLAYING, BOARD_WIN, BOARD_LOSS, MIN_PIX_SIZE, MAX_PIX_SIZE
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QTableWidgetItem, QShortcut, QAbstractItemDelegate
+from PyQt5.QtWidgets import QTableWidgetItem, QShortcut, QAbstractItemDelegate, QApplication
 from PyQt5 import QtCore, QtGui
 from utils.path_utils import resource_path
+
+
+class ScoreBoardWidget(RoundQWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._on_ctrl_wheel = None
+
+    def set_ctrl_wheel_handler(self, handler):
+        self._on_ctrl_wheel = handler
+
+    def wheelEvent(self, event):
+        if self._on_ctrl_wheel and QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+            angle = event.angleDelta().y()
+            if angle > 0:
+                self._on_ctrl_wheel(1)
+            elif angle < 0:
+                self._on_ctrl_wheel(-1)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
 
 class ui_Form(Ui_Form):
     # barSetMineNum = QtCore.pyqtSignal(int)
@@ -18,7 +39,7 @@ class ui_Form(Ui_Form):
     BASE_PIX = 26
     
     def __init__(self, pix_size, parent):
-        self.QWidget = RoundQWidget(parent)
+        self.QWidget = ScoreBoardWidget(parent)
         self.setupUi(self.QWidget)
         
         self.QWidget.setWindowIcon (QtGui.QIcon (str(resource_path('media') / 'cat.ico')))
@@ -133,8 +154,9 @@ class gameScoreBoardManager():
     def __init__(self, score_board_setting, game_setting, pix_size, parent):
         # 从文件中读取指标并设置
         # self.ms_board = None
-        self.pix_size = pix_size
         self.namespace = {}
+        self.scoreboard_pixsize = game_setting.value("DEFAULT/scoreboard_pixsize", pix_size, int)
+        self.scoreboard_pixsize = max(MIN_PIX_SIZE, min(MAX_PIX_SIZE, self.scoreboard_pixsize))
         
         # 时间与定时器
         self.total_time = 0.0 # total_time = delta_time + rtime
@@ -168,7 +190,8 @@ class gameScoreBoardManager():
 
         self.update_score_board_items_type()
         self.index_num = len(self.score_board_items_type)
-        self.ui = ui_Form(pix_size, parent)
+        self.ui = ui_Form(self.scoreboard_pixsize, parent)
+        self.ui.QWidget.set_ctrl_wheel_handler(self.adjust_scale)
         self.ui.tableWidget.doubleClicked.connect(self.__table_change)
         self.ui.tableWidget.clicked.connect(self.__table_ok)
         # self.ui.tableWidget.cellChanged.connect(self.__cell_changed)
@@ -247,8 +270,17 @@ class gameScoreBoardManager():
     def invisible(self):
         # 仅控制可见性
         self.ui.QWidget.hide()
-        
-    
+
+    def adjust_scale(self, delta: int):
+        new_size = self.scoreboard_pixsize + delta
+        new_size = max(MIN_PIX_SIZE, min(MAX_PIX_SIZE, new_size))
+        if new_size == self.scoreboard_pixsize:
+            return
+        self.scoreboard_pixsize = new_size
+        self.ui.apply_scale(self.scoreboard_pixsize)
+        if hasattr(self, 'ms_board') and self.ms_board is not None:
+            self.reshow(self.ms_board)
+
     def update_namespace(self, ms_board, index_type):
         # 全部更新，以后优化方向就是部分更新, index_type现在没用
         self.namespace.update({
@@ -407,6 +439,7 @@ class gameScoreBoardManager():
         self.score_board_setting.sync()
         self.game_setting.set_value("DEFAULT/scoreboardtop", self.ui.QWidget.x())
         self.game_setting.set_value("DEFAULT/scoreboardleft", self.ui.QWidget.y())
+        self.game_setting.set_value("DEFAULT/scoreboard_pixsize", self.scoreboard_pixsize)
         self.game_setting.sync()
 
 
