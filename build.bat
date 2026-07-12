@@ -15,6 +15,7 @@ pyinstaller --noconfirm --name metaminsweeper --windowed --distpath %OUT% ^
     --icon src/media/cat.ico ^
     --clean ^
     --paths src ^
+    --hidden-import mineSweeperGUIEvent ^
     --runtime-hook package_tool\hook-debugpy-pyinstaller.py ^
     --add-data "src/media;media" ^
     src\main.py
