@@ -62,6 +62,10 @@ english.FileAssocPageDesc=Select file types to associate with %1, then click Nex
 chinese.FileAssocPageTitle=文件打开方式
 chinese.FileAssocPageDesc=勾选对应的文件类型，以添加对应文件类型使用%1的打开方式，然后点击"下一步"按钮。
 
+english.UninstallKeepDataMsg=Do you want to keep your personal data?%n%nGame settings, replays, and game data will be preserved.%n%nYes - Keep my data%nNo  - Delete everything
+
+chinese.UninstallKeepDataMsg=是否保留您的个人数据？%n%n游戏配置、录像和数据将被保留。%n%n是 - 保留我的数据%n否 - 全部删除
+
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkablealone
 
@@ -80,6 +84,13 @@ Filename: "{app}\{#AppPath}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#
 var
     Page: TWizardPage;
     AVFCheckbox, EVFCheckbox, RMVCheckbox, MVFCheckbox, EVFSCheckbox: TNewCheckbox;
+    KeepUserData: Boolean;
+
+function InitializeUninstall: Boolean;
+begin
+    Result := True;
+    KeepUserData := MsgBox(CustomMessage('UninstallKeepDataMsg'), mbConfirmation, MB_YESNO) = IDYES;
+end;
 procedure FileAssociationPage;
 begin
     Page := CreateCustomPage(wpSelectDir, CustomMessage('FileAssocPageTitle'), FmtMessage(CustomMessage('FileAssocPageDesc'), ['{#MyAppName}']));
@@ -225,6 +236,49 @@ begin
         end;
     end;
 end;
+
+procedure SaveAndWipe(AppDir: string);
+var
+    BackupDir, ScriptPath: string;
+    ResultCode: Integer;
+    RoboFlags: string;
+begin
+    BackupDir := ExpandConstant('{tmp}') + '\MS_Backup';
+    ScriptPath := ExpandConstant('{tmp}') + '\MS_Uninstall.ps1';
+    RoboFlags := '/NDL /NFL /NJH /NJS';
+
+    SaveStringToFile(ScriptPath,
+        '$src = ''' + AppDir + ''';'#13#10 +
+        '$dst = ''' + BackupDir + ''';'#13#10 +
+        '# check if personal data exists inside app dir'#13#10 +
+        '$appExeDir = "$src\' + '{#AppPath}"'#13#10 +
+        '$hasData = (Test-Path "$appExeDir\gameSetting.ini") -or ' + 
+            '(Test-Path "$appExeDir\replay")'#13#10 +
+        'if (-not $hasData) {'#13#10 +
+        '    Remove-Item $src -Recurse -Force; exit }'#13#10 +
+        '# backup personal files'#13#10 +
+        'if (Test-Path $dst) { Remove-Item $dst -Recurse -Force };'#13#10 +
+        'New-Item $dst -ItemType Directory -Force | Out-Null;'#13#10 +
+        'New-Item "$dst\' + '{#AppPath}" -ItemType Directory -Force | Out-Null;'#13#10 +
+        'foreach ($f in @("gameSetting.ini","record.ini","scoreBoardSetting.ini")) {'#13#10 +
+        '    $fp = "$appExeDir\$f"'#13#10 +
+        '    if (Test-Path $fp) { Copy-Item $fp "$dst\' + '{#AppPath}\$f" -Force }'#13#10 +
+        '};'#13#10 +
+        'if (Test-Path "$appExeDir\replay") { ' +
+            'robocopy "$appExeDir\replay" "$dst\' + '{#AppPath}\replay" ' + RoboFlags + ' /E };'#13#10 +
+        'if (Test-Path "$appExeDir\data") { ' +
+            'robocopy "$appExeDir\data" "$dst\' + '{#AppPath}\data" ' + RoboFlags + ' /E };'#13#10 +
+        '# wipe app dir, then restore'#13#10 +
+        'Remove-Item $src -Recurse -Force;'#13#10 +
+        'New-Item $src -ItemType Directory -Force | Out-Null;'#13#10 +
+        'robocopy $dst $src ' + RoboFlags + ' /E;'#13#10 +
+        'Remove-Item $dst -Recurse -Force',
+        False);
+    Exec('powershell.exe', '-ExecutionPolicy Bypass -File "' + ScriptPath + '"', '',
+        SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    DeleteFile(ScriptPath);
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
     if CurUninstallStep = usPostUninstall then
@@ -261,6 +315,14 @@ begin
         RegDeleteKeyIncludingSubkeys(HKEY_CLASSES_ROOT, '{#MyAppName}.evfs\DefaultIcon');
         RegDeleteKeyIncludingSubkeys(HKEY_CLASSES_ROOT, '{#MyAppName}.evfs');
 
+        if KeepUserData then
+        begin
+            SaveAndWipe(ExpandConstant('{app}'));
+        end
+        else
+        begin
+            DelTree('\\?\' + ExpandConstant('{app}'), True, True, True);
+        end;
     end;
 end;
 procedure InitializeWizard;

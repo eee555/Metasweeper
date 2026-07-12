@@ -350,105 +350,110 @@ class MineSweeperGUI(MainWindowGUIImportExport):
     # 生命周期函数，正式的游戏结束时调用。由游戏状态的变更触发，当且仅当由playing变为其他状态
     # 处理数据相关。不处理前端显示
     def onGameFinished(self, new_game_state):
-        # 不论如何都必然生成数据
-        if self.label.ms_board.game_board_state == 2:
-            self.label.ms_board.step_game_state("replay")
-        self.dump_evf_file_data()
-        # 发信号给插件，游戏结束了
-        board = self.label.ms_board.board
-        event = GameFinishedEvent(
-            game_state = GAME_STATE_ORDER.index(new_game_state),
-            nf = self.label.ms_board.rce == 0,
-            row = self.label.ms_board.row,
-            column = self.label.ms_board.column,
-            mine_num = self.label.ms_board.mine_num,
-            rtime = self.label.ms_board.rtime,
-            left = self.label.ms_board.left,
-            right = self.label.ms_board.right,
-            double = self.label.ms_board.double,
-            # 游戏难度（级别）。3是初级；4是中级；5是高级；6是自定义。
-            level = self.label.ms_board.level,
-            cl = self.label.ms_board.cl,
-            ce = self.label.ms_board.ce,
-            rce = self.label.ms_board.rce,
-            lce = self.label.ms_board.lce,
-            dce = self.label.ms_board.dce,
-            bbbv = self.label.ms_board.bbbv,
-            bbbv_solved = self.label.ms_board.bbbv_solved,
-            zini = self.label.ms_board.zini,
-            flag = self.label.ms_board.flag,
-            path = self.label.ms_board.path,
-            start_time = self.label.ms_board.start_time,
-            end_time = self.label.ms_board.end_time,
-            mode = self.label.ms_board.mode,
-            software = self.label.ms_board.software,
-            player_identifier = self.label.ms_board.player_identifier,
-            race_identifier = self.label.ms_board.race_identifier,
-            unique_identifier = self.label.ms_board.unique_identifier,
-            is_official = self.label.ms_board.is_official,
-            is_fair = self.label.ms_board.is_fair,
-            op = self.label.ms_board.op,
-            isl = self.label.ms_board.isl,
-            pluck = self.label.ms_board.pluck,
-            board = board if isinstance(board, list) else board.into_vec_vec(),
-            raw_data = self.label.ms_board.raw_data
-        )
+        try:
+            # 不论如何都必然生成数据
+            if self.label.ms_board.game_board_state == 2:
+                self.label.ms_board.step_game_state("replay")
+            self.dump_evf_file_data()
+            # 发信号给插件，游戏结束了
+            board = self.label.ms_board.board
+            event = GameFinishedEvent(
+                game_state = GAME_STATE_ORDER.index(new_game_state),
+                nf = self.label.ms_board.rce == 0,
+                row = self.label.ms_board.row,
+                column = self.label.ms_board.column,
+                mine_num = self.label.ms_board.mine_num,
+                rtime = self.label.ms_board.rtime,
+                left = self.label.ms_board.left,
+                right = self.label.ms_board.right,
+                double = self.label.ms_board.double,
+                # 游戏难度（级别）。3是初级；4是中级；5是高级；6是自定义。
+                level = self.label.ms_board.level,
+                cl = self.label.ms_board.cl,
+                ce = self.label.ms_board.ce,
+                rce = self.label.ms_board.rce,
+                lce = self.label.ms_board.lce,
+                dce = self.label.ms_board.dce,
+                bbbv = self.label.ms_board.bbbv,
+                bbbv_solved = self.label.ms_board.bbbv_solved,
+                zini = self.label.ms_board.zini,
+                flag = self.label.ms_board.flag,
+                path = self.label.ms_board.path,
+                start_time = self.label.ms_board.start_time,
+                end_time = self.label.ms_board.end_time,
+                mode = self.label.ms_board.mode,
+                software = self.label.ms_board.software,
+                player_identifier = self.label.ms_board.player_identifier,
+                race_identifier = self.label.ms_board.race_identifier,
+                unique_identifier = self.label.ms_board.unique_identifier,
+                is_official = self.label.ms_board.is_official,
+                is_fair = self.label.ms_board.is_fair,
+                op = self.label.ms_board.op,
+                isl = self.label.ms_board.isl,
+                pluck = self.label.ms_board.pluck,
+                board = board if isinstance(board, list) else board.into_vec_vec(),
+                raw_data = self.label.ms_board.raw_data
+            )
 
-        # 强制保存stats.dat文件
-        record = utils.StatsRecord(
-            game_state=event.game_state,
-            row=event.row,
-            column=event.column,
-            mine_num=event.mine_num,
-            rtime_ms=self.label.ms_board.rtime_ms,
-            left=event.left,
-            right=event.right,
-            double=event.double,
-            rce=event.rce,
-            lce=event.lce,
-            dce=event.dce,
-            bbbv=event.bbbv,
-            bbbv_solved=event.bbbv_solved,
-            zini=event.zini,
-            flag=event.flag,
-            path=event.path,
-            start_time=event.start_time,
-            mode=event.mode,
-            is_official=event.is_official,
-            is_fair=event.is_fair,
-            op=event.op,
-            isl=event.isl,
-            pluck=event.pluck,
-            board_bytes=utils.board_list_to_bytes(event.board),
-            short_md5 = hashlib.md5(self.label.ms_board.raw_data).digest()[:8]
-        )
-        GameServerBridge.instance().send_event(event)
+            # 强制保存stats.dat文件
+            record = utils.StatsRecord(
+                game_state=event.game_state,
+                row=event.row,
+                column=event.column,
+                mine_num=event.mine_num,
+                rtime_ms=self.label.ms_board.rtime_ms,
+                left=event.left,
+                right=event.right,
+                double=event.double,
+                rce=event.rce,
+                lce=event.lce,
+                dce=event.dce,
+                bbbv=event.bbbv,
+                bbbv_solved=event.bbbv_solved,
+                zini=event.zini,
+                flag=event.flag,
+                path=event.path,
+                start_time=event.start_time,
+                mode=event.mode,
+                is_official=event.is_official,
+                is_fair=event.is_fair,
+                op=event.op,
+                isl=event.isl,
+                pluck=event.pluck,
+                board_bytes=utils.board_list_to_bytes(event.board),
+                short_md5 = hashlib.md5(self.label.ms_board.raw_data).digest()[:8]
+            )
+            GameServerBridge.instance().send_event(event)
 
-        binary_data = record.encode()
-        # GCM 推荐 12 字节 nonce
-        nonce = get_random_bytes(12)
-        cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
-        # 加密并生成认证 tag
-        ciphertext, tag = cipher.encrypt_and_digest(binary_data)
-        dat_file_path = self.setting_path / 'stats.dat'
-        if (not dat_file_path.exists()) or dat_file_path.stat().st_size == 0:
-            with open(dat_file_path, 'wb') as f:
-                # 文件版本号
-                f.write((0).to_bytes(1, byteorder='big'))
-        # 写入：
-        # [2字节长度][12字节nonce][16字节tag][ciphertext]
-        with open(dat_file_path, 'ab') as f:
-            blob = nonce + tag + ciphertext
-            blob_length = len(blob)
-            len_bytes = blob_length.to_bytes(2, byteorder="big", signed=False)
-            f.write(len_bytes)
-            f.write(blob)
+            binary_data = record.encode()
+            # GCM 推荐 12 字节 nonce
+            nonce = get_random_bytes(12)
+            cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
+            # 加密并生成认证 tag
+            ciphertext, tag = cipher.encrypt_and_digest(binary_data)
+            dat_file_path = self.setting_path / 'stats.dat'
+            if (not dat_file_path.exists()) or dat_file_path.stat().st_size == 0:
+                with open(dat_file_path, 'wb') as f:
+                    # 文件版本号
+                    f.write((0).to_bytes(1, byteorder='big'))
+            # 写入：
+            # [2字节长度][12字节nonce][16字节tag][ciphertext]
+            with open(dat_file_path, 'ab') as f:
+                blob = nonce + tag + ciphertext
+                blob_length = len(blob)
+                len_bytes = blob_length.to_bytes(2, byteorder="big", signed=False)
+                f.write(len_bytes)
+                f.write(blob)
 
-        # 根据策略保存录像文件到磁盘
-        if self.autosave_video and self.checksum_module_ok() and\
-              new_game_state in "win":
-            self.save_evf_file()
-        self.try_append_evfs(new_game_state)
+            # 根据策略保存录像文件到磁盘
+            if self.autosave_video and self.checksum_module_ok() and\
+                  new_game_state in "win":
+                self.save_evf_file()
+            self.try_append_evfs(new_game_state)
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
 
 
     def _sync_engine(self):
@@ -470,31 +475,36 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         return used_pending
 
     def timeCount(self):
-        # 10ms时间步进的回调，改计数器、改右上角时间
-        self.time_10ms += 1
-        if self.time_10ms % 100 == 0:
-            t = self.label.ms_board.time
-            self.time_10ms = int(t * 100)
-            self.showTime(self.time_10ms // 100)
-            since_time_unix_2 = QtCore.QDateTime.currentDateTime().\
-                toMSecsSinceEpoch() - self.start_time_unix_2
-            # 防CE作弊。
-            # 假如标识不以"[lag]"开头，则误差大于100ms时重开。
-            # 假如标识以"[lag]"开头，则误差大于1000ms、或误差大于50ms且大于10%时重开。
-            gap_ms = abs(t * 1000 - since_time_unix_2)
-            if gap_ms > 100 and self.game_state == "playing":
-                if self.player_identifier[:5] != "[lag]":
-                    self.gameRestart()
-                elif gap_ms > 1000 or gap_ms > 50 and\
-                        gap_ms / min(t * 1000, since_time_unix_2) > 0.1:
-                    self.gameRestart()
+        try:
+            # 10ms时间步进的回调，改计数器、改右上角时间
+            self.time_10ms += 1
+            if self.time_10ms % 100 == 0:
+                t = self.label.ms_board.time
+                self.time_10ms = int(t * 100)
+                self.showTime(self.time_10ms // 100)
+                since_time_unix_2 = QtCore.QDateTime.currentDateTime().\
+                    toMSecsSinceEpoch() - self.start_time_unix_2
+                # 防CE作弊。
+                # 假如标识不以"[lag]"开头，则误差大于100ms时重开。
+                # 假如标识以"[lag]"开头，则误差大于1000ms、或误差大于50ms且大于10%时重开。
+                gap_ms = abs(t * 1000 - since_time_unix_2)
+                if gap_ms > 100 and self.game_state == "playing":
+                    if self.player_identifier[:5] != "[lag]":
+                        self.gameRestart()
+                    elif gap_ms > 1000 or gap_ms > 50 and\
+                            gap_ms / min(t * 1000, since_time_unix_2) > 0.1:
+                        self.gameRestart()
 
-        if self.time_10ms % 1 == 0:
-            # 计数器用100Hz的刷新率
-            # self.score_board_manager.with_namespace({
-            #     "rtime": self.time_ms / 1000,
-            #     })
-            self.score_board_manager.show(self.label.ms_board, index_type=1)
+            if self.time_10ms % 1 == 0:
+                # 计数器用100Hz的刷新率
+                # self.score_board_manager.with_namespace({
+                #     "rtime": self.time_ms / 1000,
+                #     })
+                self.score_board_manager.show(self.label.ms_board, index_type=1)
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
 
     def ai(self, i, j):
         self._sync_engine()
@@ -598,40 +608,45 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
     # 点击脸时调用，或尺寸不变时重开
     def gameRestart(self, e=None):  # 画界面，但是不埋雷，改数据而不是重新生成label
-        if self.game_state == 'show':
-            return
-        if e:
-            # 点脸周围时，会传入一个e参数
-            if not (self.MinenumTimeWigdet.width() >= e.localPos().x() >= 0 and 0 <= e.localPos().y() <= self.MinenumTimeWigdet.height()):
+        try:
+            if self.game_state == 'show':
                 return
-        # 此时self.label.ms_board是utils.abstract_game_board的实例
-        if self.game_state == 'display' or self.game_state == 'showdisplay':
-            self.label.ms_board = ms.BaseVideo(
-                [[0] * self.column for _ in range(self.row)], self.pixSize)
-            self.label.ms_board.mode = self.gameMode
-        elif self.game_state == 'study':
-            self.score_board_manager.visible()
-            self.label.ms_board = ms.BaseVideo(
-                [[0] * self.column for _ in range(self.row)], self.pixSize)
-            self.label.ms_board.mode = self.gameMode
-        self.label_info.setText(self.player_identifier)
-        self.game_state = 'ready'
-        self.enable_screenshot()
+            if e:
+                # 点脸周围时，会传入一个e参数
+                if not (self.MinenumTimeWigdet.width() >= e.localPos().x() >= 0 and 0 <= e.localPos().y() <= self.MinenumTimeWigdet.height()):
+                    return
+            # 此时self.label.ms_board是utils.abstract_game_board的实例
+            if self.game_state == 'display' or self.game_state == 'showdisplay':
+                self.label.ms_board = ms.BaseVideo(
+                    [[0] * self.column for _ in range(self.row)], self.pixSize)
+                self.label.ms_board.mode = self.gameMode
+            elif self.game_state == 'study':
+                self.score_board_manager.visible()
+                self.label.ms_board = ms.BaseVideo(
+                    [[0] * self.column for _ in range(self.row)], self.pixSize)
+                self.label.ms_board.mode = self.gameMode
+            self.label_info.setText(self.player_identifier)
+            self.game_state = 'ready'
+            self.enable_screenshot()
 
-        self.time_10ms = 0
-        self.showTime(self.time_10ms)
-        self.mineUnFlagedNum = self.minenum
-        self.showMineNum(self.mineUnFlagedNum)
-        self.set_face(14)
+            self.time_10ms = 0
+            self.showTime(self.time_10ms)
+            self.mineUnFlagedNum = self.minenum
+            self.showMineNum(self.mineUnFlagedNum)
+            self.set_face(14)
 
-        self.timer_10ms.stop()
-        self.score_board_manager.editing_row = -1
-        self.label.ms_board.reset(self.row, self.column, self.pixSize)
-        self.label.update()
+            self.timer_10ms.stop()
+            self.score_board_manager.editing_row = -1
+            self.label.ms_board.reset(self.row, self.column, self.pixSize)
+            self.label.update()
 
-        # self.label.paintProbability = False
-        # self.label.paint_cursor = False
-        # self.label.setMouseTracking(False) # 鼠标未按下时，组织移动事件回调
+            # self.label.paintProbability = False
+            # self.label.paint_cursor = False
+            # self.label.setMouseTracking(False) # 鼠标未按下时，组织移动事件回调
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
 
     def replay_current_board(self):
         if self.game_state not in (WIN, FAIL, DISPLAY, SHOW_DISPLAY, JOWIN, JOFAIL):
@@ -647,25 +662,30 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
     # 游戏结束画残局，改状态。前端的游戏结束逻辑
     def gameFinished(self):
-        if self.label.ms_board.game_board_state == 3 and self.end_then_flag:
-            self.label.ms_board.win_then_flag_all_mine()
-        elif self.label.ms_board.game_board_state == 4:
-            self.label.ms_board.loss_then_open_all_mine()
-        # 刷新游戏局面
-        self.label.update()
-        # 刷新计数器数值
-        self.timeCount()
-        self.score_board_manager.with_namespace({
-            "is_official": self.is_official(),
-            "is_fair": self.is_fair(),
-            # "row": self.row,
-            # "column": self.column,
-            # "minenum": self.minenum,
-        })
+        try:
+            if self.label.ms_board.game_board_state == 3 and self.end_then_flag:
+                self.label.ms_board.win_then_flag_all_mine()
+            elif self.label.ms_board.game_board_state == 4:
+                self.label.ms_board.loss_then_open_all_mine()
+            # 刷新游戏局面
+            self.label.update()
+            # 刷新计数器数值
+            self.timeCount()
+            self.score_board_manager.with_namespace({
+                "is_official": self.is_official(),
+                "is_fair": self.is_fair(),
+                # "row": self.row,
+                # "column": self.column,
+                # "minenum": self.minenum,
+            })
 
-        self.score_board_manager.show(self.label.ms_board, index_type=2)
-        self.enable_screenshot()
-        self.unlimit_cursor()
+            self.score_board_manager.show(self.label.ms_board, index_type=2)
+            self.enable_screenshot()
+            self.unlimit_cursor()
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
         # ms_board = self.label.ms_board
         # status = utils.GameBoardState(ms_board.game_board_state)
         # if status == utils.GameBoardState.Win:
@@ -686,85 +706,95 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # self._send_board_update_event()
 
     def gameWin(self):  # 成功后改脸和状态变量，停时间
-        self.timer_10ms.stop()
-        self.score_board_manager.editing_row = -1
+        try:
+            self.timer_10ms.stop()
+            self.score_board_manager.editing_row = -1
 
-        if self.game_state == 'joking' or self.game_state == 'show':
-            self.game_state = 'jowin'
-        elif self.game_state == 'playing':
-            self.game_state = 'win'
-        else:
-            raise RuntimeError
-        self.set_face(17)
+            if self.game_state == 'joking' or self.game_state == 'show':
+                self.game_state = 'jowin'
+            elif self.game_state == 'playing':
+                self.game_state = 'win'
+            else:
+                raise RuntimeError
+            self.set_face(17)
 
-        # if self.autosave_video and self.checksum_module_ok():
-        #     self.dump_evf_file_data()
-        #     self.save_evf_file()
+            # if self.autosave_video and self.checksum_module_ok():
+            #     self.dump_evf_file_data()
+            #     self.save_evf_file()
 
-        self.gameFinished()
+            self.gameFinished()
 
-        # 尝试弹窗，没有破纪录则不弹
-        if self.auto_notification and self.is_fair():
-            self.try_record_pop()
+            # 尝试弹窗，没有破纪录则不弹
+            if self.auto_notification and self.is_fair():
+                self.try_record_pop()
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
 
     def checksum_module_ok(self):
         return GameEngine.checksum_module_ok()
 
     # 搜集数据，生成evf文件的二进制数据，但是不保存
     def dump_evf_file_data(self):
-        if isinstance(self.label.ms_board, ms.BaseVideo):
-            if not self.label.ms_board.raw_data:
-                self.label.ms_board.use_question = False  # 禁用问号是共识
-                self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
-                self.label.ms_board.use_auto_replay = self.auto_replay > 0
+        try:
+            if isinstance(self.label.ms_board, ms.BaseVideo):
+                if not self.label.ms_board.raw_data:
+                    self.label.ms_board.use_question = False  # 禁用问号是共识
+                    self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
+                    self.label.ms_board.use_auto_replay = self.auto_replay > 0
 
-                self.label.ms_board.is_fair = self.is_fair()
-                self.label.ms_board.is_official = self.is_official()
+                    self.label.ms_board.is_fair = self.is_fair()
+                    self.label.ms_board.is_official = self.is_official()
 
-                self.label.ms_board.software = superGUI.version
-                self.label.ms_board.mode = self.gameMode
-                self.label.ms_board.player_identifier = self.player_identifier
-                self.label.ms_board.race_identifier = self.race_identifier
-                self.label.ms_board.unique_identifier = self.unique_identifier
-                self.label.ms_board.country = "XX" if not self.country else\
-                    country_name[self.country].upper()
-                self.label.ms_board.device_uuid = hashlib.md5(
-                    bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
+                    self.label.ms_board.software = superGUI.version
+                    self.label.ms_board.mode = self.gameMode
+                    self.label.ms_board.player_identifier = self.player_identifier
+                    self.label.ms_board.race_identifier = self.race_identifier
+                    self.label.ms_board.unique_identifier = self.unique_identifier
+                    self.label.ms_board.country = "XX" if not self.country else\
+                        country_name[self.country].upper()
+                    self.label.ms_board.device_uuid = hashlib.md5(
+                        bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
 
+                    self.label.ms_board.generate_evf_v4_raw_data()
+                    # 补上校验值
+                    checksum = self.checksum_guard.get_checksum(
+                        self.label.ms_board.raw_data[:-2])
+                    self.label.ms_board.checksum = checksum
+                return
+            elif isinstance(self.label.ms_board, ms.EvfVideo):
+                return
+            elif isinstance(self.label.ms_board, ms.AvfVideo):
                 self.label.ms_board.generate_evf_v4_raw_data()
-                # 补上校验值
-                checksum = self.checksum_guard.get_checksum(
-                    self.label.ms_board.raw_data[:-2])
-                self.label.ms_board.checksum = checksum
-            return
-        elif isinstance(self.label.ms_board, ms.EvfVideo):
-            return
-        elif isinstance(self.label.ms_board, ms.AvfVideo):
-            self.label.ms_board.generate_evf_v4_raw_data()
-            return
-        elif isinstance(self.label.ms_board, ms.MvfVideo):
-            self.label.ms_board.generate_evf_v4_raw_data()
-            return
-        elif isinstance(self.label.ms_board, ms.RmvVideo):
-            # rmv的国家是用户手动输入的，工具箱无法自动解析两位字母缩写
-            # 在元扫雷端解析完，传如工具箱
-            country = self.label.ms_board.country
-            if not country:
-                country = "XX"
-            elif len(country) == 2 and country.isalpha() and country.isascii():
-                file_path = superGUI.resource_path(
-                    'media') / (country.lower() + ".svg")
-                if os.path.exists(file_path):
-                    country = country.upper()
-            elif country in country_name:
-                country = country_name[country].upper()
-            elif c := country.capitalize() in country_name:
-                country = country_name[c].upper()
-            else:
-                country = "XX"
-            self.label.ms_board.country = country
-            self.label.ms_board.generate_evf_v4_raw_data()
-            return
+                return
+            elif isinstance(self.label.ms_board, ms.MvfVideo):
+                self.label.ms_board.generate_evf_v4_raw_data()
+                return
+            elif isinstance(self.label.ms_board, ms.RmvVideo):
+                # rmv的国家是用户手动输入的，工具箱无法自动解析两位字母缩写
+                # 在元扫雷端解析完，传如工具箱
+                country = self.label.ms_board.country
+                if not country:
+                    country = "XX"
+                elif len(country) == 2 and country.isalpha() and country.isascii():
+                    file_path = superGUI.resource_path(
+                        'media') / (country.lower() + ".svg")
+                    if os.path.exists(file_path):
+                        country = country.upper()
+                elif country in country_name:
+                    country = country_name[country].upper()
+                elif c := country.capitalize() in country_name:
+                    country = country_name[c].upper()
+                else:
+                    country = "XX"
+                self.label.ms_board.country = country
+                self.label.ms_board.generate_evf_v4_raw_data()
+                return
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
 
     # 将evf数据存成evf文件
     # 调试的时候不会自动存录像，见checksum_module_ok
@@ -810,19 +840,24 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.old_evfs_filename = file_name
 
     def gameFailed(self):  # 失败后改脸和状态变量
-        self.timer_10ms.stop()
-        self.score_board_manager.editing_row = -1
+        try:
+            self.timer_10ms.stop()
+            self.score_board_manager.editing_row = -1
 
-        # “自动重开比例”，大于等于该比例时，不自动重开。负数表示禁用。0相当于禁用，但可以编辑。
-        if self.label.ms_board.bbbv_solved / self.label.ms_board.bbbv * 100 < self.auto_replay:
-            self.gameRestart()
-        else:
-            if self.game_state == 'joking':
-                self.game_state = 'jofail'
+            # "自动重开比例"，大于等于该比例时，不自动重开。负数表示禁用。0相当于禁用，但可以编辑。
+            if self.label.ms_board.bbbv_solved / self.label.ms_board.bbbv * 100 < self.auto_replay:
+                self.gameRestart()
             else:
-                self.game_state = 'fail'
-            self.set_face(16)
-            self.gameFinished()
+                if self.game_state == 'joking':
+                    self.game_state = 'jofail'
+                else:
+                    self.game_state = 'fail'
+                self.set_face(16)
+                self.gameFinished()
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
 
     def try_record_pop(self):
         # 尝试弹窗，或不弹窗
@@ -992,61 +1027,66 @@ class MineSweeperGUI(MainWindowGUIImportExport):
     # 当且仅当game_state发生变化，且旧状态为"playing"时调用（即使点一下就获胜也会经过"playing"）
     # 加入evfs是空的，且当前游戏状态不是"win"，则不追加
     def try_append_evfs(self, new_game_state):
-        # 只有开启了自动保存evfs，才会保存。也要防止通过关闭这个选项，逃避自动记录重开
-        if not self.autosave_video_set:
-            self.evfs.clear()
-            return
-        if not self.checksum_module_ok():
-            return
-        # 从第一次扫开开始记录
-        if new_game_state != "win" and self.evfs.is_empty():
-            return
-        # 存在以下断言
-        # assert isinstance(self.label.ms_board, ms.BaseVideo)
-        # assert self.label.ms_board.game_board_state in (2, 3, 4)
-        if self.label.ms_board.game_board_state == 2:
-            self.label.ms_board.step_game_state("replay")
-        # 生成当前局面的数据
-        if not self.label.ms_board.raw_data:
-            self.label.ms_board.use_question = False  # 禁用问号是共识
-            self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
-            self.label.ms_board.use_auto_replay = self.auto_replay > 0
+        try:
+            # 只有开启了自动保存evfs，才会保存。也要防止通过关闭这个选项，逃避自动记录重开
+            if not self.autosave_video_set:
+                self.evfs.clear()
+                return
+            if not self.checksum_module_ok():
+                return
+            # 从第一次扫开开始记录
+            if new_game_state != "win" and self.evfs.is_empty():
+                return
+            # 存在以下断言
+            # assert isinstance(self.label.ms_board, ms.BaseVideo)
+            # assert self.label.ms_board.game_board_state in (2, 3, 4)
+            if self.label.ms_board.game_board_state == 2:
+                self.label.ms_board.step_game_state("replay")
+            # 生成当前局面的数据
+            if not self.label.ms_board.raw_data:
+                self.label.ms_board.use_question = False  # 禁用问号是共识
+                self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
+                self.label.ms_board.use_auto_replay = self.auto_replay > 0
 
-            self.label.ms_board.is_fair = self.is_fair()
-            self.label.ms_board.is_official = self.is_official()
+                self.label.ms_board.is_fair = self.is_fair()
+                self.label.ms_board.is_official = self.is_official()
 
-            self.label.ms_board.software = superGUI.version
-            self.label.ms_board.mode = self.gameMode
-            self.label.ms_board.player_identifier = self.player_identifier
-            self.label.ms_board.race_identifier = self.race_identifier
-            self.label.ms_board.unique_identifier = self.unique_identifier
-            self.label.ms_board.country = "XX" if not self.country else\
-                country_name[self.country].upper()
-            self.label.ms_board.device_uuid = hashlib.md5(
-                bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
+                self.label.ms_board.software = superGUI.version
+                self.label.ms_board.mode = self.gameMode
+                self.label.ms_board.player_identifier = self.player_identifier
+                self.label.ms_board.race_identifier = self.race_identifier
+                self.label.ms_board.unique_identifier = self.unique_identifier
+                self.label.ms_board.country = "XX" if not self.country else\
+                    country_name[self.country].upper()
+                self.label.ms_board.device_uuid = hashlib.md5(
+                    bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
 
-            self.label.ms_board.generate_evf_v4_raw_data()
-            # 补上校验值
-            checksum = self.checksum_guard.get_checksum(
-                self.label.ms_board.raw_data[:-2])
-            self.label.ms_board.checksum = checksum
-        # 计算当前单元的校验码，并追加到evfs中
-        # evfs的第一个单元的校验码，只考虑第一个录像
-        # 此后每个单元，都考虑当前录像和最后一个单元的校验码
-        if self.evfs.is_empty():
-            # self.evfs[0].checksum
-            checksum = self.checksum_guard.get_checksum(
-                self.label.ms_board.raw_data)
-            self.evfs.push(self.label.ms_board.raw_data,
-                           self.cal_evf_filename(absolute=False), checksum)
-        else:
-            evfs_len = self.evfs.len()
-            checksum = self.checksum_guard.get_checksum(
-                self.label.ms_board.raw_data + self.evfs[evfs_len - 1].checksum)
-            self.evfs.push(self.label.ms_board.raw_data,
-                           self.cal_evf_filename(absolute=False), checksum)
-        self.evfs.generate_evfs_v0_raw_data()
-        self.save_evfs_file()
+                self.label.ms_board.generate_evf_v4_raw_data()
+                # 补上校验值
+                checksum = self.checksum_guard.get_checksum(
+                    self.label.ms_board.raw_data[:-2])
+                self.label.ms_board.checksum = checksum
+            # 计算当前单元的校验码，并追加到evfs中
+            # evfs的第一个单元的校验码，只考虑第一个录像
+            # 此后每个单元，都考虑当前录像和最后一个单元的校验码
+            if self.evfs.is_empty():
+                # self.evfs[0].checksum
+                checksum = self.checksum_guard.get_checksum(
+                    self.label.ms_board.raw_data)
+                self.evfs.push(self.label.ms_board.raw_data,
+                               self.cal_evf_filename(absolute=False), checksum)
+            else:
+                evfs_len = self.evfs.len()
+                checksum = self.checksum_guard.get_checksum(
+                    self.label.ms_board.raw_data + self.evfs[evfs_len - 1].checksum)
+                self.evfs.push(self.label.ms_board.raw_data,
+                               self.cal_evf_filename(absolute=False), checksum)
+            self.evfs.generate_evfs_v0_raw_data()
+            self.save_evfs_file()
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
 
     def showMineNum(self, n):
         self.mineNumShow = n

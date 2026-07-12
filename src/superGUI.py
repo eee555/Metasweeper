@@ -22,7 +22,7 @@ from config.constants import (
 from utils.app_logger import logger
 from plugin_sdk import GameServerBridge
 
-version = "元3.3.3"
+version = "元3.3.3-alpha"
 # AES-GCM 加密。请勿开发恶意篡改历史记录的工具，可以开发有益的应用。
 STATS_DAT_KEY = bytes([173,239,218,129,84,35,95,237,23,47,166,30,121,187,124,187])  # 16字节 AES-128 key
 

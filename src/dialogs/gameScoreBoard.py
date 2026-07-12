@@ -282,45 +282,50 @@ class gameScoreBoardManager():
             self.reshow(self.ms_board)
 
     def update_namespace(self, ms_board, index_type):
-        # 全部更新，以后优化方向就是部分更新, index_type现在没用
-        self.namespace.update({
-            "time": ms_board.time,
-            "left": ms_board.left,
-            "right": ms_board.right,
-            "double": ms_board.double,
-            "cl": ms_board.cl,
-            "left_s": ms_board.left_s,
-            "right_s": ms_board.right_s,
-            "double_s": ms_board.double_s,
-            "cl_s": ms_board.cl_s,
-            "path": ms_board.path,
-            "flag": ms_board.flag,
-            "flag_s": ms_board.flag_s,
-            })
-        if index_type >= 2:
+        try:
+            # 全部更新，以后优化方向就是部分更新, index_type现在没用
             self.namespace.update({
-                "rtime": ms_board.rtime,
-                "etime": ms_board.etime,
-                "bbbv": ms_board.bbbv,
-                "bbbv_s": ms_board.bbbv_s,
-                "zini": ms_board.zini,
-                "hzini": ms_board.hzini,
-                "bbbv_solved": ms_board.bbbv_solved,
-                "op": ms_board.op,
-                "isl": ms_board.isl,
-                "stnb": ms_board.stnb,
-                "ioe": ms_board.ioe,
-                "thrp": ms_board.thrp,
-                "corr": ms_board.corr,
-                "ce": ms_board.ce,
-                "ce_s": ms_board.ce_s,
-                "rce": ms_board.rce,
-                "lce": ms_board.lce,
-                "dce": ms_board.dce,
-                "rqp": ms_board.rqp,
-                "qg": ms_board.qg,
-                "pluck": ms_board.pluck,
+                "time": ms_board.time,
+                "left": ms_board.left,
+                "right": ms_board.right,
+                "double": ms_board.double,
+                "cl": ms_board.cl,
+                "left_s": ms_board.left_s,
+                "right_s": ms_board.right_s,
+                "double_s": ms_board.double_s,
+                "cl_s": ms_board.cl_s,
+                "path": ms_board.path,
+                "flag": ms_board.flag,
+                "flag_s": ms_board.flag_s,
                 })
+            if index_type >= 2:
+                self.namespace.update({
+                    "rtime": ms_board.rtime,
+                    "etime": ms_board.etime,
+                    "bbbv": ms_board.bbbv,
+                    "bbbv_s": ms_board.bbbv_s,
+                    "zini": ms_board.zini,
+                    "hzini": ms_board.hzini,
+                    "bbbv_solved": ms_board.bbbv_solved,
+                    "op": ms_board.op,
+                    "isl": ms_board.isl,
+                    "stnb": ms_board.stnb,
+                    "ioe": ms_board.ioe,
+                    "thrp": ms_board.thrp,
+                    "corr": ms_board.corr,
+                    "ce": ms_board.ce,
+                    "ce_s": ms_board.ce_s,
+                    "rce": ms_board.rce,
+                    "lce": ms_board.lce,
+                    "dce": ms_board.dce,
+                    "rqp": ms_board.rqp,
+                    "qg": ms_board.qg,
+                    "pluck": ms_board.pluck,
+                    })
+        except Exception:
+            import traceback
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "错误", traceback.format_exc())
         # if index_type >= 3:
         #     self.namespace.update({
         #         "pluck": ms_board.pluck,

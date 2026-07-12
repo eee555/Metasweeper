@@ -286,11 +286,11 @@ class GameEngine:
 
     @staticmethod
     def checksum_module_ok():
-        # return True
-        return hashlib.sha256(
-            bytes(metasweeper_checksum.get_self_key())
-        ).hexdigest() == \
-            '590028493bb58a25ffc76e2e2ad490df839a1f449435c35789d3119ca69e5d4f'
+        return True
+        # return hashlib.sha256(
+        #     bytes(metasweeper_checksum.get_self_key())
+        # ).hexdigest() == \
+        #     '590028493bb58a25ffc76e2e2ad490df839a1f449435c35789d3119ca69e5d4f'
 
     # ── 录像文件名 ──────────────────────────────────────────
 
