@@ -200,26 +200,26 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                 # self._step_and_send('mv', i, j)
                 self.label.ms_board.step('mv', (i, j))
                 self.label.update()
+            # 按住空格后的鼠标移动事件，与概率的显示有关
+            elif self.game_state == SHOW or self.game_state == STUDY:
+                if not self.pos_is_in_board(i, j):
+                    self.label_info.setText(_translate("Form", '(是雷的概率)'))
+                else:
+                    text4 = '{:.3f}'.format(
+                        max(0, self.label.boardProbability[i//self.pixSize][j//self.pixSize]))
+                    self.label_info.setText(text4)
+            # 播放录像时的鼠标移动事件
+            elif self.game_state == SHOW_DISPLAY:
+                if not self.pos_is_in_board(i, j):
+                    self.label_info.setText(_translate("Form", '(是雷的概率)'))
+                else:
+                    text4 = '{:.3f}'.format(
+                        max(0, self.label.ms_board.game_board_poss[i//self.pixSize][j//self.pixSize]))
+                    self.label_info.setText(text4)
         except Exception:
             import traceback
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.critical(None, "错误", traceback.format_exc())
-        # 按住空格后的鼠标移动事件，与概率的显示有关
-        elif self.game_state == SHOW or self.game_state == STUDY:
-            if not self.pos_is_in_board(i, j):
-                self.label_info.setText(_translate("Form", '(是雷的概率)'))
-            else:
-                text4 = '{:.3f}'.format(
-                    max(0, self.label.boardProbability[i//self.pixSize][j//self.pixSize]))
-                self.label_info.setText(text4)
-        # 播放录像时的鼠标移动事件
-        elif self.game_state == SHOW_DISPLAY:
-            if not self.pos_is_in_board(i, j):
-                self.label_info.setText(_translate("Form", '(是雷的概率)'))
-            else:
-                text4 = '{:.3f}'.format(
-                    max(0, self.label.ms_board.game_board_poss[i//self.pixSize][j//self.pixSize]))
-                self.label_info.setText(text4)
 
     def resizeWheel(self, i, x, y):
         # 按住ctrl滚轮，调整局面大小
