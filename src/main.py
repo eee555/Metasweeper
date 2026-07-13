@@ -1,9 +1,38 @@
+import sys
+import os
+
+# ── 重定向所有 stdout/stderr 到日志文件（打包后无终端时捕获所有输出） ──
+class _TeeWriter:
+    def __init__(self, original, log_path):
+        self._original = original
+        self._log = open(log_path, "a", encoding="utf-8", buffering=1)
+    def write(self, msg):
+        if msg and msg.strip():
+            self._log.write(msg)
+            self._log.flush()
+        if self._original:
+            try:
+                self._original.write(msg)
+            except Exception:
+                pass
+    def flush(self):
+        self._log.flush()
+        if self._original:
+            try:
+                self._original.flush()
+            except Exception:
+                pass
+
+_log_dir = os.path.join(os.path.expanduser("~"), ".metasweeper")
+os.makedirs(_log_dir, exist_ok=True)
+_log_path = os.path.join(_log_dir, "crash.log")
+sys.stdout = _TeeWriter(sys.__stdout__, _log_path)
+sys.stderr = _TeeWriter(sys.__stderr__, _log_path)
+
 import time
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtNetwork import QLocalSocket, QLocalServer
-import sys
-import os
 import argparse
 import json
 import mainWindowGUI as mainWindowGUI
@@ -133,6 +162,7 @@ def cli_check_file(file_path: str) -> int:
 
 if __name__ == "__main__":
     sys.excepthook = lambda typ, val, tb: (
+        print("".join(__import__("traceback").format_exception(typ, val, tb)), file=sys.stderr),
         QtWidgets.QMessageBox.critical(
             None, "程序错误",
             "".join(__import__("traceback").format_exception(typ, val, tb)),
