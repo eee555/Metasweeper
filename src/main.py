@@ -275,20 +275,34 @@ if __name__ == "__main__":
             if 'new_game' not in ui._allowed_controls:
                 return CommandResponse(request_id=cmd.request_id, success=False)
 
-            # 根据 level 确定参数
-            if cmd.level == GameLevel.BEGINNER.value:
-                rows, cols, mines = BOARD_BEGINNER
-            elif cmd.level == GameLevel.INTERMEDIATE.value:
-                rows, cols, mines = BOARD_INTERMEDIATE
-            elif cmd.level == GameLevel.EXPERT.value:
-                rows, cols, mines = BOARD_EXPERT
+            row, column, mine_num = cmd.rows, cmd.cols, cmd.mines
+            
+            if ui.game_state == 'show':
+                return
+            ui.game_state = 'ready'
+            ui.setBoard_and_start(row, column, mine_num)
+            if cmd.pix_size:
+                ui.pixSize = cmd.pix_size
+            if isinstance(ui.label.ms_board, ms.BaseVideo):
+                ui.label.ms_board.reset(row, column, ui.pixSize)
             else:
-                # 自定义模式，使用传入的参数
-                rows, cols, mines = cmd.rows, cmd.cols, cmd.mines
+                # 解决播放录像时快捷键切换难度报错
+                ui.label.ms_board = ms.BaseVideo(
+                    [[0] * column for _ in range(row)], ui.pixSize)
+            if cmd.mode:
+                ui.gameMode = cmd.mode
+                ui.score_board_manager.with_namespace({
+                    "mode": ui.gameMode,
+                })
+                ui.score_board_manager.show(ui.label.ms_board, index_type=1)
+
+            if cmd.board:
+                ui.engine.pending_boards.append({
+                    "board": cmd.board,
+                })
 
             logger.info(
-                f"[NewGameCommand] level={cmd.level}, rows={rows}, cols={cols}, mines={mines}")
-            ui.setBoard_and_start(rows, cols, mines)
+                f"[NewGameCommand] level={cmd.mode}, rows={row}, cols={column}, mines={mine_num}, pix_size={cmd.pix_size}")
             return CommandResponse(request_id=cmd.request_id, success=True)
 
         def handle_mouse_click(cmd: MouseClickCommand):
