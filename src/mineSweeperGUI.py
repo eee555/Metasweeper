@@ -736,32 +736,58 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         return GameEngine.checksum_module_ok()
 
     # 搜集数据，生成evf文件的二进制数据，但是不保存
+    def _prepare_video_metadata(self):
+        """准备录像元数据，确保raw_data和checksum已生成"""
+        board = self.label.ms_board
+        if not board.raw_data:
+            board.use_question = False  # 禁用问号是共识
+            board.use_cursor_pos_lim = self.cursor_limit
+            board.use_auto_replay = self.auto_replay > 0
+
+            board.is_fair = self.is_fair()
+            board.is_official = self.is_official()
+
+            board.software = superGUI.version
+            board.mode = self.gameMode
+            board.player_identifier = self.player_identifier
+            board.race_identifier = self.race_identifier
+            board.unique_identifier = self.unique_identifier
+            board.country = "XX" if not self.country else\
+                country_name[self.country].upper()
+            board.device_uuid = hashlib.md5(
+                bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
+
+        # rmv的国家是用户手动输入的，工具箱无法自动解析两位字母缩写
+        # 在元扫雷端解析完，传入工具箱
+        if isinstance(board, ms.RmvVideo) and not board.raw_data:
+            country = board.country
+            if not country:
+                country = "XX"
+            elif len(country) == 2 and country.isalpha() and country.isascii():
+                file_path = superGUI.resource_path(
+                    'media') / (country.lower() + ".svg")
+                if os.path.exists(file_path):
+                    country = country.upper()
+            elif country in country_name:
+                country = country_name[country].upper()
+            elif c := country.capitalize() in country_name:
+                country = country_name[c].upper()
+            else:
+                country = "XX"
+            board.country = country
+
+        # 生成raw_data（如果尚未生成）
+        if not board.raw_data:
+            board.generate_evf_v4_raw_data()
+            # 补上校验值
+            checksum = self.checksum_guard.get_checksum(
+                board.raw_data[:-2])
+            board.checksum = checksum
+
     def dump_evf_file_data(self):
         try:
             if isinstance(self.label.ms_board, ms.BaseVideo):
-                if not self.label.ms_board.raw_data:
-                    self.label.ms_board.use_question = False  # 禁用问号是共识
-                    self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
-                    self.label.ms_board.use_auto_replay = self.auto_replay > 0
-
-                    self.label.ms_board.is_fair = self.is_fair()
-                    self.label.ms_board.is_official = self.is_official()
-
-                    self.label.ms_board.software = superGUI.version
-                    self.label.ms_board.mode = self.gameMode
-                    self.label.ms_board.player_identifier = self.player_identifier
-                    self.label.ms_board.race_identifier = self.race_identifier
-                    self.label.ms_board.unique_identifier = self.unique_identifier
-                    self.label.ms_board.country = "XX" if not self.country else\
-                        country_name[self.country].upper()
-                    self.label.ms_board.device_uuid = hashlib.md5(
-                        bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
-
-                    self.label.ms_board.generate_evf_v4_raw_data()
-                    # 补上校验值
-                    checksum = self.checksum_guard.get_checksum(
-                        self.label.ms_board.raw_data[:-2])
-                    self.label.ms_board.checksum = checksum
+                self._prepare_video_metadata()
                 return
             elif isinstance(self.label.ms_board, ms.EvfVideo):
                 return
@@ -772,24 +798,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                 self.label.ms_board.generate_evf_v4_raw_data()
                 return
             elif isinstance(self.label.ms_board, ms.RmvVideo):
-                # rmv的国家是用户手动输入的，工具箱无法自动解析两位字母缩写
-                # 在元扫雷端解析完，传如工具箱
-                country = self.label.ms_board.country
-                if not country:
-                    country = "XX"
-                elif len(country) == 2 and country.isalpha() and country.isascii():
-                    file_path = superGUI.resource_path(
-                        'media') / (country.lower() + ".svg")
-                    if os.path.exists(file_path):
-                        country = country.upper()
-                elif country in country_name:
-                    country = country_name[country].upper()
-                elif c := country.capitalize() in country_name:
-                    country = country_name[c].upper()
-                else:
-                    country = "XX"
-                self.label.ms_board.country = country
-                self.label.ms_board.generate_evf_v4_raw_data()
+                self._prepare_video_metadata()
                 return
         except Exception:
             import traceback
@@ -1043,29 +1052,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             if self.label.ms_board.game_board_state == 2:
                 self.label.ms_board.step_game_state("replay")
             # 生成当前局面的数据
-            if not self.label.ms_board.raw_data:
-                self.label.ms_board.use_question = False  # 禁用问号是共识
-                self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
-                self.label.ms_board.use_auto_replay = self.auto_replay > 0
-
-                self.label.ms_board.is_fair = self.is_fair()
-                self.label.ms_board.is_official = self.is_official()
-
-                self.label.ms_board.software = superGUI.version
-                self.label.ms_board.mode = self.gameMode
-                self.label.ms_board.player_identifier = self.player_identifier
-                self.label.ms_board.race_identifier = self.race_identifier
-                self.label.ms_board.unique_identifier = self.unique_identifier
-                self.label.ms_board.country = "XX" if not self.country else\
-                    country_name[self.country].upper()
-                self.label.ms_board.device_uuid = hashlib.md5(
-                    bytes(str(uuid.getnode()).encode())).hexdigest().encode("UTF-8")
-
-                self.label.ms_board.generate_evf_v4_raw_data()
-                # 补上校验值
-                checksum = self.checksum_guard.get_checksum(
-                    self.label.ms_board.raw_data[:-2])
-                self.label.ms_board.checksum = checksum
+            self._prepare_video_metadata()
             # 计算当前单元的校验码，并追加到evfs中
             # evfs的第一个单元的校验码，只考虑第一个录像
             # 此后每个单元，都考虑当前录像和最后一个单元的校验码
