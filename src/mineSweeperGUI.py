@@ -1501,6 +1501,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.renderer.unlimit_cursor(self.mainWindow)
 
     def closeEvent_(self):
+        # 扫到一半关闭主界面，也要存录像
+        self.game_state = 'ready'
         self.unlimit_cursor()
         self.game_setting.set_value(
             "DEFAULT/mainwintop", str(self.mainWindow.y()))
