@@ -101,7 +101,7 @@ class HistoryConfig(OtherInfoBase):
     )
 
     saved_computed_columns = TextConfig(
-        default="[{\"name\": \"bbbvs\", \"expression\": \"py_safe_div(bbbv,rtime)\", \"result_type\": \"float\"}, {\"name\": \"距今天数\", \"expression\": \"py_days_since(start_time)\", \"result_type\": \"int\"}, {\"name\": \"距今月数\", \"expression\": \"py_months_since(start_time)\", \"result_type\": \"int\"}, {\"name\": \"ces\", \"expression\": \"py_safe_div(ce,rtime)\", \"result_type\": \"float\"}, {\"name\": \"cls\", \"expression\": \"py_safe_div(cl,rtime)\", \"result_type\": \"float\"}, {\"name\": \"corr\", \"expression\": \"py_safe_div(ce,cl)\", \"result_type\": \"float\"}, {\"name\": \"thrp\", \"expression\": \"py_safe_div(bbbv,ce)\", \"result_type\": \"float\"}, {\"name\": \"ioe\", \"expression\": \"py_safe_div(bbbv,cl)\", \"result_type\": \"float\"}]",
+        default="[{\"name\": \"bbbvs\", \"expression\": \"py_safe_div(bbbv_solved,rtime)\", \"result_type\": \"float\"}, {\"name\": \"距今天数\", \"expression\": \"py_days_since(start_time)\", \"result_type\": \"int\"}, {\"name\": \"距今月数\", \"expression\": \"py_months_since(start_time)\", \"result_type\": \"int\"}, {\"name\": \"ces\", \"expression\": \"py_safe_div(ce,rtime)\", \"result_type\": \"float\"}, {\"name\": \"cls\", \"expression\": \"py_safe_div(cl,rtime)\", \"result_type\": \"float\"}, {\"name\": \"corr\", \"expression\": \"py_safe_div(ce,cl)\", \"result_type\": \"float\"}, {\"name\": \"thrp\", \"expression\": \"py_safe_div(bbbv_solved,ce)\", \"result_type\": \"float\"}, {\"name\": \"ioe\", \"expression\": \"py_safe_div(bbbv_solved,cl)\", \"result_type\": \"float\"}]",
         label="saved_computed_columns",
         visible=False,
     )
