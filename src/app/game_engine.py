@@ -39,6 +39,7 @@ class GameEngine:
         self._max_solutions: int = 0
 
         self.pending_boards: list[dict] = []
+        # 是否使用预设局面。使用预设局面时，保存的录像模式必定为upk
         self.use_pending_boards_flag = False
 
         self._state_change_handlers = {
@@ -142,7 +143,7 @@ class GameEngine:
             return
         board = self.ms_board.board
         game_board = self.ms_board.game_board
-        if gm == MODE_STRONG_NO_GUESS:
+        if gm == MODE_STRONG_NO_GUESS and self.game_state != READY:
             if board[i][j] >= 0 and \
                     not ms.is_able_to_solve(game_board, (i, j)):
                 b = board.into_vec_vec()

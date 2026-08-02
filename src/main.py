@@ -16,7 +16,7 @@ from utils.app_logger import logger
 # 插件系统（新）
 from plugin_sdk import GameServerBridge
 from plugin_manager.app_paths import get_env_for_subprocess
-from shared_types.commands import NewGameCommand, MouseClickCommand
+from shared_types.commands import NewGameCommand, NewPresetGameCommand, MouseClickCommand, InitOpenCommand
 from shared_types.enums import GameLevel
 import subprocess
 from config.constants import (
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 
         # 注册控制命令处理器（自动在主线程执行）
         def handle_new_game(cmd: NewGameCommand):
-            """处理新游戏命令"""
+            """处理随机新游戏命令"""
             from lib_zmq_plugins.shared.base import CommandResponse
 
             if 'new_game' not in ui._allowed_controls:
@@ -262,8 +262,24 @@ if __name__ == "__main__":
                 rows, cols, mines = cmd.rows, cmd.cols, cmd.mines
 
             logger.info(
-                f"[NewGameCommand] level={cmd.level}, rows={rows}, cols={cols}, mines={mines}")
+                f"[NewGameCommand] level={cmd.level}, rows={rows}, cols={cols}, mines={mines}, mode={cmd.mode}")
+            ui.gameMode = cmd.mode
             ui.setBoard_and_start(rows, cols, mines)
+            return CommandResponse(request_id=cmd.request_id, success=True)
+
+        def handle_new_preset_game(cmd: NewPresetGameCommand):
+            """处理新预设游戏命令"""
+            from lib_zmq_plugins.shared.base import CommandResponse
+
+            logger.info(
+                f"[NewPresetGameCommand] board={cmd.board}, mode={cmd.mode}")
+            
+            ui.engine.pending_boards.append({
+                "board": cmd.board,
+                "game_mode": cmd.mode,
+            })
+            ui.gameMode = cmd.mode
+            ui.setBoard_and_start(len(cmd.board), len(cmd.board[0]), sum(row.count(-1) for row in cmd.board))
             return CommandResponse(request_id=cmd.request_id, success=True)
 
         def handle_mouse_click(cmd: MouseClickCommand):
@@ -278,9 +294,26 @@ if __name__ == "__main__":
             success = ui.execute_cell_click(cmd.row, cmd.col, cmd.button)
             return CommandResponse(request_id=cmd.request_id, success=success)
 
+        
+        def handle_init_open(cmd: InitOpenCommand):
+            """处理初始化翻开命令"""
+            from lib_zmq_plugins.shared.base import CommandResponse
+
+            if not ui.engine.use_pending_boards_flag:
+                return CommandResponse(request_id=cmd.request_id, success=False)
+            logger.info(
+                f"[InitOpenCommand] row={cmd.row}, col={cmd.col}")
+            success = ui.execute_cell_click(cmd.row, cmd.col, 0)
+            return CommandResponse(request_id=cmd.request_id, success=success)
+        
+
         GameServerBridge.instance().register_handler(NewGameCommand, handle_new_game)
+        GameServerBridge.instance().register_handler(NewPresetGameCommand, handle_new_preset_game)
         GameServerBridge.instance().register_handler(
             MouseClickCommand, handle_mouse_click)
+        GameServerBridge.instance().register_handler(
+            InitOpenCommand, handle_init_open)
+        
 
         # _translate = QtCore.QCoreApplication.translate
         hwnd = int(ui.mainWindow.winId())
