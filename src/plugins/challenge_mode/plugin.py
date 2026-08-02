@@ -1,7 +1,7 @@
 """
 challenge_mode - 无猜闯关插件
 
-顺序闯关，共1000关（难度1#0 ~ 难度100#9），不可跳关。
+顺序闯关，共1000关（难度1#0 ~ 难度100#9），已解锁关卡可选。
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from Crypto.Random import get_random_bytes
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
 from shared_types.enums import GameMode
-from shared_types.commands import NewPresetGameCommand, MouseClickCommand
+from shared_types.commands import NewPresetGameCommand, InitOpenCommand
 
 from .widgets import ChallengeModeUI
 
@@ -70,10 +70,10 @@ class ChallengeModePlugin(BasePlugin):
             name="无猜闯关",
             version="1.0.0",
             author="eee555",
-            description=_translate("Form", "顺序闯关模式 - 共1000关，不可跳关"),
+            description=_translate("Form", "顺序闯关模式 - 共1000关，已解锁关卡可选"),
             icon=make_plugin_icon("#E65100", "闯", 64),
             window_mode=WindowMode.TAB,
-            required_controls=[NewPresetGameCommand, MouseClickCommand],
+            required_controls=[NewPresetGameCommand, InitOpenCommand],
         )
 
     def _setup_subscriptions(self) -> None:
@@ -87,6 +87,7 @@ class ChallengeModePlugin(BasePlugin):
             start_cb=self._on_start_click,
             next_cb=self._on_next_click,
             reset_cb=self._on_reset_click,
+            select_cb=self._on_level_select,
         )
         return self._ui
 
@@ -124,17 +125,23 @@ class ChallengeModePlugin(BasePlugin):
                 data = json.loads(raw)
                 self._current_level = data.get("current_level", 0)
                 self._completed = set(data.get("completed", []))
+                self._max_reached = max(
+                    data.get("max_reached", self._current_level),
+                    (max(self._completed) + 1 if self._completed else 0),
+                )
                 self.logger.info(f"已加载存档，当前第 {self._current_level + 1} 关")
                 return
             except Exception as e:
                 self.logger.warning(f"读取存档失败: {e}")
         self._current_level = 0
+        self._max_reached = 0
         self._completed = set()
 
     def _save(self):
         path = self.data_dir / "save.dat"
         data = {
             "current_level": self._current_level,
+            "max_reached": self._max_reached,
             "completed": sorted(self._completed),
         }
         raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -145,9 +152,13 @@ class ChallengeModePlugin(BasePlugin):
     # ═══════════════════════════════════════════════════════════
 
     def _start_level(self, index: int):
-        if not self._levels or index >= len(self._levels):
+        if not self._levels or index < 0 or index >= len(self._levels):
+            return
+        if index > self._max_reached:
+            self.logger.warning(f"关卡 {index + 1} 未解锁，无法选择")
             return
         self._current_level = index
+        self._max_reached = max(self._max_reached, index)
         level = self._levels[index]
         board = level["b"]
 
@@ -162,13 +173,16 @@ class ChallengeModePlugin(BasePlugin):
 
         r = level.get("x")
         c = level.get("y")
-        self.send_command(MouseClickCommand(row=r, col=c, button=0))
+        self.send_command(InitOpenCommand(row=r, col=c))
 
         self._save()
         self._push_ui_update()
 
     def _on_start_click(self):
-        self._start_level(self._current_level)
+        self._start_level(self._ui.selected_level_index())
+
+    def _on_level_select(self, index: int):
+        self._start_level(index)
 
     def _on_next_click(self):
         if self._current_level in self._completed:
@@ -178,6 +192,7 @@ class ChallengeModePlugin(BasePlugin):
 
     def _on_reset_click(self):
         self._current_level = 0
+        self._max_reached = 0
         self._completed = set()
         self._save()
         self._push_ui_update()
@@ -187,18 +202,26 @@ class ChallengeModePlugin(BasePlugin):
     # ═══════════════════════════════════════════════════════════
 
     def _on_game_finished(self, event: GameFinishedEvent):
-        if event.game_state != GameMode.StrictNoGuess.value or not event.is_fair:
+        if self._current_level >= len(self._levels):
+            return
+        level = self._levels[self._current_level]
+
+        if event.game_state != 6 or not event.is_fair:
+            return
+        if event.board != level["b"]:
+            # 棋盘不匹配，忽略
             return
 
-        if self._current_level < len(self._levels):
-            self._completed.add(self._current_level)
-            self._save()
-            self._push_ui_update()
+        self._completed.add(self._current_level)
+        if self._current_level == self._max_reached and self._current_level + 1 < len(self._levels):
+            self._max_reached = self._current_level + 1
+        self._save()
+        self._push_ui_update()
 
-            if self._ui and self._ui.is_auto_next():
-                next_idx = self._current_level + 1
-                if next_idx < len(self._levels):
-                    self._start_level(next_idx)
+        if self._ui and self._ui.is_auto_next():
+            next_idx = self._current_level + 1
+            if next_idx < len(self._levels):
+                self._start_level(next_idx)
 
     def _on_close(self, event: CloseEvent):
         self._save()
@@ -221,4 +244,5 @@ class ChallengeModePlugin(BasePlugin):
             "mines": level["m"] if level else 0,
             "completed": idx in self._completed,
             "all_done": len(self._completed) >= total,
+            "max_level": self._max_reached + 1,
         })

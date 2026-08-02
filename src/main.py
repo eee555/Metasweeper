@@ -299,7 +299,7 @@ if __name__ == "__main__":
             """处理初始化翻开命令"""
             from lib_zmq_plugins.shared.base import CommandResponse
 
-            if not ui.engine.use_pending_boards_flag:
+            if not ui.engine.pending_boards or ui.game_state != 'ready':
                 return CommandResponse(request_id=cmd.request_id, success=False)
             logger.info(
                 f"[InitOpenCommand] row={cmd.row}, col={cmd.col}")

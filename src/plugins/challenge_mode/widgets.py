@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QPushButton, QCheckBox, QMessageBox,
+    QPushButton, QCheckBox, QMessageBox, QSpinBox,
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QCoreApplication
 
@@ -22,17 +22,26 @@ class ChallengeModeUI(QWidget):
         self._start_cb = None
         self._next_cb = None
         self._reset_cb = None
+        self._select_cb = None
         self._level_num = 1
         self._setup_ui()
         self._signal_update.connect(self._do_update)
 
-    def set_callbacks(self, start_cb=None, next_cb=None, reset_cb=None):
+    def set_callbacks(self, start_cb=None, next_cb=None, reset_cb=None, select_cb=None):
         self._start_cb = start_cb
         self._next_cb = next_cb
         self._reset_cb = reset_cb
+        self._select_cb = select_cb
 
     def is_auto_next(self) -> bool:
         return self._auto_next_cb.isChecked()
+
+    def selected_level_index(self) -> int:
+        return self._level_select.value() - 1
+
+    def _on_level_changed(self, value: int):
+        if self._select_cb:
+            self._select_cb(value - 1)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -57,6 +66,25 @@ class ChallengeModeUI(QWidget):
         )
         self._info_label.setAlignment(Qt.AlignCenter)
         info_layout.addWidget(self._info_label)
+
+        select_layout = QHBoxLayout()
+        select_layout.addStretch()
+        self._select_label = QLabel(_translate("Form", "选择关卡:"))
+        self._select_label.setStyleSheet(
+            "font-size: 13px; color: #666666; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
+        )
+        select_layout.addWidget(self._select_label)
+        self._level_select = QSpinBox()
+        self._level_select.setRange(1, 1)
+        self._level_select.setFixedWidth(90)
+        self._level_select.setAlignment(Qt.AlignCenter)
+        self._level_select.setStyleSheet(
+            "QSpinBox { padding: 3px; font-size: 13px; }"
+        )
+        self._level_select.valueChanged.connect(self._on_level_changed)
+        select_layout.addWidget(self._level_select)
+        select_layout.addStretch()
+        info_layout.addLayout(select_layout)
 
         btn_layout = QHBoxLayout()
         self._start_btn = QPushButton(_translate("Form", "开始本关"))
@@ -120,6 +148,7 @@ class ChallengeModeUI(QWidget):
         )
         self._start_btn.setText(_translate("Form", "开始本关"))
         self._next_btn.setText(_translate("Form", "下一关"))
+        self._select_label.setText(_translate("Form", "选择关卡:"))
         self._auto_next_cb.setText(_translate("Form", "自动下一关"))
         self._reset_btn.setToolTip(_translate("Form", "重置闯关进度"))
         self._congrats_label.setText(_translate("Form", "恭喜通关！"))
@@ -151,6 +180,7 @@ class ChallengeModeUI(QWidget):
         mines = data["mines"]
         completed = data["completed"]
         all_done = data["all_done"]
+        max_level = data["max_level"]
 
         self._level_num = idx + 1
         self._level_label.setText(
@@ -162,6 +192,11 @@ class ChallengeModeUI(QWidget):
             .replace("%2", str(col))
             .replace("%3", str(mines))
         )
+
+        self._level_select.blockSignals(True)
+        self._level_select.setMaximum(max_level)
+        self._level_select.setValue(idx + 1)
+        self._level_select.blockSignals(False)
 
         self._next_btn.setEnabled(completed and not all_done)
         self._congrats_frame.setVisible(all_done)

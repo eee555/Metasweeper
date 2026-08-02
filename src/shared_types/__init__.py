@@ -12,6 +12,8 @@ from .events import (
 
 from .commands import (
     NewGameCommand,
+    NewPresetGameCommand,
+    MouseClickCommand,
     COMMAND_TYPES,
 )
 
@@ -32,6 +34,8 @@ __all__ = [
     "EVENT_TYPES",
     # 指令
     "NewGameCommand",
+    "NewPresetGameCommand",
+    "MouseClickCommand",
     "COMMAND_TYPES",
     # 枚举
     "BaseDiaPlayEnum",

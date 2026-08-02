@@ -637,11 +637,13 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         if self.game_state not in (WIN, FAIL, DISPLAY, SHOW_DISPLAY, JOWIN, JOFAIL):
             return
         board = self.label.ms_board.board.into_vec_vec() if hasattr(self.label.ms_board.board, 'into_vec_vec') else self.label.ms_board.board
-        gm = getattr(self.label.ms_board, 'mode', self.gameMode)
-        self.gameMode = gm
+        # self.label.ms_board有可能为upk，此时延用此前的gameMode，否则，改为ms_board的gameMode
+        temp_gm = getattr(self.label.ms_board, 'mode', self.gameMode)
+        if temp_gm != GameMode.UPK.value:
+            self.gameMode = temp_gm
         self.engine.pending_boards.append({
             "board": board,
-            "game_mode": gm,
+            "game_mode": self.gameMode,
         })
         self.gameRestart()
 

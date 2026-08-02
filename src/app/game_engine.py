@@ -70,10 +70,12 @@ class GameEngine:
         self._game_mode = value
 
     @property
+    # 这个值似乎没有得到维护
     def game_state(self) -> str:
         return self._game_state
 
     @game_state.setter
+    # 这个值似乎没有得到维护
     def game_state(self, new_state: str) -> None:
         if new_state == self._game_state:
             return
@@ -143,7 +145,7 @@ class GameEngine:
             return
         board = self.ms_board.board
         game_board = self.ms_board.game_board
-        if gm == MODE_STRONG_NO_GUESS and self.game_state != READY:
+        if gm == MODE_STRONG_NO_GUESS and self.ms_board.game_board_state == BOARD_PLAYING:
             if board[i][j] >= 0 and \
                     not ms.is_able_to_solve(game_board, (i, j)):
                 b = board.into_vec_vec()
