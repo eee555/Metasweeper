@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, pyqtProperty
 
 from shared_types.enums import GameBoardState, GameLevel, GameMode
 from plugins.services.history import HistoryService
@@ -27,6 +27,7 @@ from .queries import (
     SQL_WINRATE_MONTHLY,
     SQL_PROGRESS_ASC, SQL_PROGRESS_DESC,
     SQL_TOPN_AVG,
+    SQL_BV_DISTRIBUTION,
     PROGRESS_METRICS,
     LEVEL_NAMES, MODE_NAMES,
     build_where,
@@ -43,11 +44,23 @@ class StatsBridge(QObject):
 
     dataChanged = pyqtSignal()
     topNChanged = pyqtSignal()
+    bvBeginnerMinChanged = pyqtSignal()
+    bvBeginnerMaxChanged = pyqtSignal()
+    bvIntermediateMinChanged = pyqtSignal()
+    bvIntermediateMaxChanged = pyqtSignal()
+    bvExpertMinChanged = pyqtSignal()
+    bvExpertMaxChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._history: HistoryService | None = None
-        self._top_n: int = 10  # 前N名平均，0=全部平均
+        self._top_n: int = 10
+        self._bv_beginner_min: int = 2
+        self._bv_beginner_max: int = 54
+        self._bv_intermediate_min: int = 30
+        self._bv_intermediate_max: int = 128
+        self._bv_expert_min: int = 100
+        self._bv_expert_max: int = 288
 
     def set_history_service(self, service: HistoryService) -> None:
         self._history = service
@@ -208,3 +221,106 @@ class StatsBridge(QObject):
     @pyqtSlot()
     def refresh(self) -> None:
         self.dataChanged.emit()
+
+    # ── BV 范围配置属性 ──────────────────────────────────
+
+    @pyqtProperty(int, notify=bvBeginnerMinChanged)  # type: ignore
+    def bvBeginnerMin(self) -> int:
+        return self._bv_beginner_min
+
+    @pyqtSlot(int)
+    def setBvBeginnerMin(self, v: int) -> None:
+        if self._bv_beginner_min != v:
+            self._bv_beginner_min = v
+            self.bvBeginnerMinChanged.emit()
+
+    @pyqtProperty(int, notify=bvBeginnerMaxChanged)  # type: ignore
+    def bvBeginnerMax(self) -> int:
+        return self._bv_beginner_max
+
+    @pyqtSlot(int)
+    def setBvBeginnerMax(self, v: int) -> None:
+        if self._bv_beginner_max != v:
+            self._bv_beginner_max = v
+            self.bvBeginnerMaxChanged.emit()
+
+    @pyqtProperty(int, notify=bvIntermediateMinChanged)  # type: ignore
+    def bvIntermediateMin(self) -> int:
+        return self._bv_intermediate_min
+
+    @pyqtSlot(int)
+    def setBvIntermediateMin(self, v: int) -> None:
+        if self._bv_intermediate_min != v:
+            self._bv_intermediate_min = v
+            self.bvIntermediateMinChanged.emit()
+
+    @pyqtProperty(int, notify=bvIntermediateMaxChanged)  # type: ignore
+    def bvIntermediateMax(self) -> int:
+        return self._bv_intermediate_max
+
+    @pyqtSlot(int)
+    def setBvIntermediateMax(self, v: int) -> None:
+        if self._bv_intermediate_max != v:
+            self._bv_intermediate_max = v
+            self.bvIntermediateMaxChanged.emit()
+
+    @pyqtProperty(int, notify=bvExpertMinChanged)  # type: ignore
+    def bvExpertMin(self) -> int:
+        return self._bv_expert_min
+
+    @pyqtSlot(int)
+    def setBvExpertMin(self, v: int) -> None:
+        if self._bv_expert_min != v:
+            self._bv_expert_min = v
+            self.bvExpertMinChanged.emit()
+
+    @pyqtProperty(int, notify=bvExpertMaxChanged)  # type: ignore
+    def bvExpertMax(self) -> int:
+        return self._bv_expert_max
+
+    @pyqtSlot(int)
+    def setBvExpertMax(self, v: int) -> None:
+        if self._bv_expert_max != v:
+            self._bv_expert_max = v
+            self.bvExpertMaxChanged.emit()
+
+    # ── BV 分布查询 ──────────────────────────────────────
+
+    @pyqtSlot(int, int, int, result=str)
+    def getBvDistribution(self, level: int, mode: int, winsOnly: int) -> str:
+        """
+        查询 BV 分布数据。
+
+        Args:
+            level: 3=初级, 4=中级, 5=高级
+            mode: -1=全部, 0=标准, 4=Win7, 5=经典无猜, ...
+            winsOnly: 0=全部, 1=仅胜局
+
+        Returns:
+            JSON 字符串，如 {"2": 5, "3": 12, ...}
+        """
+        if self._history is None:
+            return "{}"
+        try:
+            win_states = (
+                GameBoardState.Win.value,
+                GameBoardState.Win.value,
+            )
+            extra = []
+            extra_params: list[int] = []
+            if winsOnly:
+                extra.append(
+                    f"game_state IN ({', '.join('?' * len(win_states))})")
+                extra_params.extend(win_states)
+            where, params = build_where(
+                level=level,
+                mode=None if mode < 0 else mode,
+                extra_conditions=extra if extra else None,
+            )
+            params = params + tuple(extra_params)
+            sql = SQL_BV_DISTRIBUTION.format(where=where)
+            rows = self._history.raw_query(sql, params)
+            result = {str(row["bbbv"]): row["count"] for row in rows}
+            return json.dumps(result, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({"error": str(e)})

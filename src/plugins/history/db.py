@@ -45,7 +45,8 @@ def _register_custom_functions(conn: sqlite3.Connection) -> None:
             if func and callable(func):
                 num_params = len(node.args.args)
                 try:
-                    conn.create_function(node.name, num_params, func)
+                    conn.create_function(
+                        node.name, num_params, func)  # type: ignore
                 except sqlite3.Error:
                     pass
 

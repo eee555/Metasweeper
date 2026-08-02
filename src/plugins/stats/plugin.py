@@ -32,6 +32,48 @@ class StatsConfig(OtherInfoBase):
         step=1,
         description=_translate("Form", "设置0则显示全部平均，设置N则显示前N名的平均值"),
     )
+    bv_beginner_min = IntConfig(
+        default=2,
+        label=_translate("Form", "初级BV最小值"),
+        min_value=1,
+        max_value=999,
+        step=1,
+    )
+    bv_beginner_max = IntConfig(
+        default=54,
+        label=_translate("Form", "初级BV最大值"),
+        min_value=1,
+        max_value=999,
+        step=1,
+    )
+    bv_intermediate_min = IntConfig(
+        default=30,
+        label=_translate("Form", "中级BV最小值"),
+        min_value=1,
+        max_value=999,
+        step=1,
+    )
+    bv_intermediate_max = IntConfig(
+        default=128,
+        label=_translate("Form", "中级BV最大值"),
+        min_value=1,
+        max_value=999,
+        step=1,
+    )
+    bv_expert_min = IntConfig(
+        default=100,
+        label=_translate("Form", "高级BV最小值"),
+        min_value=1,
+        max_value=999,
+        step=1,
+    )
+    bv_expert_max = IntConfig(
+        default=288,
+        label=_translate("Form", "高级BV最大值"),
+        min_value=1,
+        max_value=999,
+        step=1,
+    )
 
 
 class StatsPlugin(BasePlugin[StatsConfig]):
@@ -57,8 +99,8 @@ class StatsPlugin(BasePlugin[StatsConfig]):
 
     def __init__(self, info):
         super().__init__(info)
-        self._bridge: StatsBridge | None = None
-        self._quick_widget: QQuickWidget | None = None
+        self._bridge: StatsBridge = None  # type: ignore
+        self._quick_widget: QQuickWidget = None  # type: ignore
 
     def _setup_subscriptions(self) -> None:
         self.subscribe(GameFinishedEvent, self._on_game_finished)
@@ -118,17 +160,43 @@ class StatsPlugin(BasePlugin[StatsConfig]):
         if self._bridge:
             top_n = self.other_info.top_n
             self.run_on_gui(lambda: self._bridge.setTopN(top_n))
+            cfg = self.other_info
+            self.run_on_gui(
+                lambda: self._bridge.setBvBeginnerMin(cfg.bv_beginner_min))
+            self.run_on_gui(
+                lambda: self._bridge.setBvBeginnerMax(cfg.bv_beginner_max))
+            self.run_on_gui(lambda: self._bridge.setBvIntermediateMin(
+                cfg.bv_intermediate_min))
+            self.run_on_gui(lambda: self._bridge.setBvIntermediateMax(
+                cfg.bv_intermediate_max))
+            self.run_on_gui(
+                lambda: self._bridge.setBvExpertMin(cfg.bv_expert_min))
+            self.run_on_gui(
+                lambda: self._bridge.setBvExpertMax(cfg.bv_expert_max))
 
     def _on_config_changed(self, name: str, value: Any) -> None:
         """配置变化时同步到 bridge 并刷新。"""
-        if name == "top_n" and self._bridge:
-            self.run_on_gui(lambda: self._bridge.setTopN(value))
+        if not self._bridge:
+            return
+        mapping = {
+            "top_n": self._bridge.setTopN,
+            "bv_beginner_min": self._bridge.setBvBeginnerMin,
+            "bv_beginner_max": self._bridge.setBvBeginnerMax,
+            "bv_intermediate_min": self._bridge.setBvIntermediateMin,
+            "bv_intermediate_max": self._bridge.setBvIntermediateMax,
+            "bv_expert_min": self._bridge.setBvExpertMin,
+            "bv_expert_max": self._bridge.setBvExpertMax,
+        }
+        setter = mapping.get(name)
+        if setter:
+            self.run_on_gui(lambda v=value: setter(v))
             self.run_on_gui(self._bridge.refresh)
 
     def _on_game_finished(self, event: GameFinishedEvent) -> None:
         """游戏结束后延迟刷新统计数据，等待录像保存完成"""
         if self._bridge:
-            self.run_on_gui(lambda: QTimer.singleShot(2000, self._bridge.refresh))
+            self.run_on_gui(lambda: QTimer.singleShot(
+                2000, self._bridge.refresh))
 
     def _on_language_change(self, event: LanguageChangeEvent) -> None:
         """语言变化时重新加载 QML"""

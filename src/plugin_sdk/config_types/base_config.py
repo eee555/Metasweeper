@@ -95,10 +95,10 @@ class BaseConfig(ABC, Generic[T]):
         widget_type: UI 控件类型标识，由工厂使用
     """
 
-    default: T
-    label: str = ""
-    description: str = ""
-    validator: Callable[[T], bool] | None = None
+    default: T  # 默认值
+    label: str = ""  # 显示标签
+    description: str = ""  # tooltip 提示
+    validator: Callable[[T], bool] | None = None  # 自定义验证函数
     visible: bool = True  # 是否在 UI 中展示
 
     # 类变量：用于 UI 工厂识别

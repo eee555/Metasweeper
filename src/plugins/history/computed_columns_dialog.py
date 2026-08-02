@@ -178,7 +178,7 @@ class ComputedColumnsDialog(ConfirmDialog):
                             if func and callable(func):
                                 try:
                                     conn.create_function(
-                                        node.name, len(node.args.args), func)
+                                        node.name, len(node.args.args), func)  # type: ignore
                                 except sqlite3.Error:
                                     pass
                 except SyntaxError:
@@ -205,6 +205,8 @@ class ComputedColumnsDialog(ConfirmDialog):
             name_item = self.table.item(row, 0)
             expr_item = self.table.item(row, 1)
             type_widget = self.table.cellWidget(row, 2)
+            if type_widget is None or not isinstance(type_widget, QComboBox):
+                continue
 
             name = name_item.text().strip() if name_item else ""
             expression = expr_item.text().strip() if expr_item else ""

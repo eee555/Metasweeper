@@ -228,7 +228,7 @@ class HistoryTable(QWidget):
         if row_idx < 0:
             return
         result = {}
-        headers = self.table.horizontalHeader().visibleSectionNames()
+        headers = self.table.horizontalHeader().visibleSectionNames()  # type: ignore
         for idx, field in enumerate(headers):
             value = self.model.data(
                 self.model.index(row_idx, idx), Qt.DisplayRole)

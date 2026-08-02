@@ -67,7 +67,7 @@ FROM history
 
 SQL_SUMMARY_PARAMS = (
     GameBoardState.Win.value, GameBoardState.Fail.value,
-    GameBoardState.Win.value, GameBoardState.Jowin.value,
+    GameBoardState.Win.value, GameBoardState.Win.value,
     GameBoardState.Win.value, GameBoardState.Win.value,
     GameBoardState.Win.value,
     GameBoardState.Win.value, GameBoardState.Win.value,
@@ -246,6 +246,19 @@ SELECT
 FROM ordered
 WHERE metric_value = running_best
 ORDER BY start_time
+"""
+
+
+# ── BV 分布 ──────────────────────────────────────────────
+
+SQL_BV_DISTRIBUTION = """
+SELECT
+    bbbv,
+    COUNT(*) AS count
+FROM history
+{where}
+GROUP BY bbbv
+ORDER BY bbbv
 """
 
 
