@@ -17,6 +17,7 @@ from config.constants import (
     CELL_UNOPENED, CELL_FLAGGED, CELL_MINE,
     BOARD_WIN, BOARD_PLAYING, BOARD_PreFlaging, BOARD_Display
 )
+from typing import List, Tuple
 
 
 class GameEngine:
@@ -150,6 +151,8 @@ class GameEngine:
                     not ms.is_able_to_solve(game_board, (i, j)):
                 b = board.into_vec_vec()
                 b[i][j] = CELL_MINE
+                for x, y in self.pos_round_cell(i, j):
+                    b[x][y] = b[x][y] + 1 if b[x][y] >= 0 else b[x][y]
                 self.ms_board.board = b
             return
         elif gm == MODE_WEAK_NO_GUESS:
@@ -157,6 +160,8 @@ class GameEngine:
             if code == 3:
                 b = board.into_vec_vec()
                 b[i][j] = CELL_MINE
+                for x, y in self.pos_round_cell(i, j):
+                    b[x][y] = b[x][y] + 1 if b[x][y] >= 0 else b[x][y]
                 self.ms_board.board = b
             elif code == 2:
                 b, _, self._max_block_len, self._max_solutions = utils.enumerate_change_board(board, game_board, [(i, j)])
@@ -217,6 +222,8 @@ class GameEngine:
             for (x, y) in is_mine_round + not_mine_round:
                 if not ms.is_able_to_solve(self.ms_board.game_board, (x, y)):
                     board[x][y] = CELL_MINE
+                    for xx, yy in self.pos_round_cell(x, y):
+                        board[xx][yy] = board[xx][yy] + 1 if board[xx][yy] >= 0 else board[xx][yy]
             self.ms_board.board = board
             return
         elif gm == MODE_WEAK_NO_GUESS:
@@ -235,6 +242,8 @@ class GameEngine:
             else:
                 for (x, y) in is_mine_round + not_mine_round:
                     board[x][y] = CELL_MINE
+                    for xx, yy in self.pos_round_cell(x, y):
+                        board[xx][yy] = board[xx][yy] + 1 if board[xx][yy] >= 0 else board[xx][yy]
                 self.ms_board.board = board
         elif gm == MODE_QUASI_NO_GUESS:
             must_guess = True
@@ -285,9 +294,13 @@ class GameEngine:
     def cell_is_in_board(self, i: int, j: int) -> bool:
         return 0 <= i < self.row and 0 <= j < self.column
 
-    def pos_is_in_board(self, i, j) -> bool:
+    def pos_is_in_board(self, i: int, j: int) -> bool:
         return 0 <= i < self.row * self.pixSize and \
                0 <= j < self.column * self.pixSize
+
+    def pos_round_cell(self, r: int, c: int) -> List[Tuple[int, int]]:
+        return [(i, j) for i in range(max(0, r - 1), min(self.row, r + 2))
+                for j in range(max(0, c - 1), min(self.column, c + 2)) if (i, j) != (r, c)]
 
     @staticmethod
     def checksum_module_ok():

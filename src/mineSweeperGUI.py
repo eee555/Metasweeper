@@ -645,6 +645,12 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             "board": board,
             "game_mode": self.gameMode,
         })
+        # F3重开后，强无猜、弱无猜下雷数可能不一样
+        self.minenum = sum(1 for row in board for cell in row if cell == -1)
+        self.score_board_manager.with_namespace({
+            "minenum": self.minenum,
+        })
+        self.score_board_manager.show(self.label.ms_board, index_type=1)
         self.gameRestart()
 
     # 游戏结束画残局，改状态。前端的游戏结束逻辑
