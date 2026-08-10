@@ -27,12 +27,12 @@
 <context>
     <name>ControlAuthorizationDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="885"/>
+        <location filename="../plugin_manager/main_window.py" line="893"/>
         <source>控制授权配置</source>
         <translation>制御認可設定</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="896"/>
+        <location filename="../plugin_manager/main_window.py" line="904"/>
         <source>每个控制命令只能授权给一个插件。
 未授权的控制命令，所有插件都不能使用。
 下拉列表仅显示声明了该权限的插件。</source>
@@ -41,37 +41,37 @@
 ドロップダウンは権限を宣言したプラグインのみ表示します。</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="907"/>
+        <location filename="../plugin_manager/main_window.py" line="915"/>
         <source>控制命令</source>
         <translation>コマンド</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="907"/>
+        <location filename="../plugin_manager/main_window.py" line="915"/>
         <source>授权插件</source>
         <translation>認可プラグイン</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="907"/>
+        <location filename="../plugin_manager/main_window.py" line="915"/>
         <source>状态</source>
         <translation>状態</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="959"/>
+        <location filename="../plugin_manager/main_window.py" line="967"/>
         <source>未授权</source>
         <translation>未認可</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1002"/>
+        <location filename="../plugin_manager/main_window.py" line="1010"/>
         <source>无申请</source>
         <translation>申请なし</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1005"/>
+        <location filename="../plugin_manager/main_window.py" line="1013"/>
         <source>● 已授权</source>
         <translation>● 認可済</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1008"/>
+        <location filename="../plugin_manager/main_window.py" line="1016"/>
         <source>○ 未授权</source>
         <translation>○ 未認可</translation>
     </message>
@@ -87,7 +87,7 @@
 <context>
     <name>Dialog</name>
     <message>
-        <location filename="../shared_types/widgets/confirm_dialog.py" line="52"/>
+        <location filename="../shared_types/widgets/confirm_dialog.py" line="54"/>
         <source>对话框</source>
         <translation>ダイアログ</translation>
     </message>
@@ -255,57 +255,57 @@
         <translation>チュートリアル</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="246"/>
+        <location filename="ui_about.py" line="244"/>
         <source>开发：王嘉宁、李京志</source>
         <translation>開発：王嘉寧、李京志</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="247"/>
+        <location filename="ui_about.py" line="245"/>
         <source>致谢：濮天羿、向飞宇、钟言、翁逸杰、张砷镓、Thomas Kolar</source>
         <translation>謝辞：濮天羿、向飛宇、鐘言、翁逸杰、張砷鎵、Thomas Kolar</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="248"/>
+        <location filename="ui_about.py" line="246"/>
         <source>元扫雷接受有益的贡献，包括新的玩法、规则、插件等。</source>
         <translation>新たな遊び方やルール、プラグインの貢献を歓迎します。</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="249"/>
+        <location filename="ui_about.py" line="247"/>
         <source>作者</source>
         <translation>作者</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="250"/>
+        <location filename="ui_about.py" line="248"/>
         <source>反馈</source>
         <translation>フィードバック</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="252"/>
+        <location filename="ui_about.py" line="249"/>
         <source>感谢您考虑支持我们的开源项目，赞助时请备注项目名称+您的称呼+其他要求，例如元扫雷+张先生+建议添加**功能。您的赞助将有助于项目的持续发展和改进，使我们能够继续提高软件的质量。</source>
         <translation>スポンサーにはプロジェクト名＋お名前＋要望をご記入ください（例：Metasweeper＋鈴木＋XX機能追加希望）。ご支援がプロジェクトの発展に役立ちます。</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="253"/>
+        <location filename="ui_about.py" line="250"/>
         <source>赞助</source>
         <translation>スポンサー</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="254"/>
+        <location filename="ui_about.py" line="251"/>
         <source>1. 在非商业用途前提下，用户有权不受任何限制地对“元扫雷”软件进行复制、存储及传播。</source>
         <translation>1. 非営利目的の場合、ユーザーはMetasweeperを無制限に複製、保存、配布できます。</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="255"/>
+        <location filename="ui_about.py" line="252"/>
         <source>2. 由“元扫雷”软件生成的录像文件，其全部所有权归对应玩家本人所有。</source>
         <translation>2. 本ソフトで生成したリプレイファイルの所有権は該当プレイヤーに帰属します。</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="256"/>
+        <location filename="ui_about.py" line="253"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;3. 本项目源代码遵循GPLv3并附加额外条款发布。该额外条款特别禁止任何未经开发团队授权的商业使用行为，并对项目相关收益的分配方式作出明确约定。具体内容详见&lt;a href=&quot;https://github.com/eee555/Metasweeper/blob/master/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;LICENSE&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;3. 本プロジェクトのソースコードはGPLv3及び追加条項に従って公開されています。追加条項は、開発チームの許可なき商業利用を禁止し、プロジェクト収益の分配方法を明示します。詳細は&lt;a href=&quot;https://github.com/eee555/Metasweeper/blob/master/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;LICENSE&lt;/span&gt;&lt;/a&gt;を参照してください。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="ui_about.py" line="257"/>
+        <location filename="ui_about.py" line="254"/>
         <source>协议</source>
         <translation>ライセンス</translation>
     </message>
@@ -435,32 +435,32 @@
         <translation>上級</translation>
     </message>
     <message>
-        <location filename="ui_advanced.py" line="109"/>
+        <location filename="ui_advanced.py" line="87"/>
         <source>高级设置</source>
         <translation>詳細設定</translation>
     </message>
     <message>
-        <location filename="ui_advanced.py" line="110"/>
+        <location filename="ui_advanced.py" line="88"/>
         <source>插件类</source>
         <translation>プラグイン操作</translation>
     </message>
     <message>
-        <location filename="ui_advanced.py" line="111"/>
+        <location filename="ui_advanced.py" line="89"/>
         <source>允许插件的控制类命令后（如点击格子、重开新局等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。</source>
         <translation>プラグインによる制御命令（セルクリック、新規ゲーム等）を許可すると、当該リプレイは自動的に「非公式」とマークされ、ランキングや統計に反映されません。各命令の権限は&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;プラグイン管理器&lt;/a&gt;で設定してください。</translation>
     </message>
     <message>
-        <location filename="ui_advanced.py" line="112"/>
+        <location filename="ui_advanced.py" line="90"/>
         <source>算法类</source>
         <translation>アルゴリズム</translation>
     </message>
     <message>
-        <location filename="ui_advanced.py" line="113"/>
+        <location filename="ui_advanced.py" line="91"/>
         <source>勾选后永远使用筛选法埋雷，否则会适时改用调整法</source>
         <translation>ONで常にふるい法、OFFで状況に応じ調整法</translation>
     </message>
     <message>
-        <location filename="ui_advanced.py" line="114"/>
+        <location filename="ui_advanced.py" line="92"/>
         <source>永远使用筛选法埋雷（不推荐）</source>
         <translation>常にふるい法で配置（非推奨）</translation>
     </message>
@@ -480,192 +480,187 @@
         <translation>ホイールで速度変更</translation>
     </message>
     <message>
-        <location filename="../plugins/History/columns_dialog.py" line="69"/>
+        <location filename="../plugins/History/columns_dialog.py" line="67"/>
         <source>全选</source>
         <translation>すべて選択</translation>
     </message>
     <message>
-        <location filename="../plugins/History/plugin.py" line="30"/>
+        <location filename="../plugins/History/plugin.py" line="76"/>
         <source>小数位数</source>
         <translation>小数点桁数</translation>
     </message>
     <message>
-        <location filename="../plugins/History/plugin.py" line="30"/>
+        <location filename="../plugins/History/plugin.py" line="76"/>
         <source>查询窗口中浮点数显示的小数位数</source>
         <translation>照会画面の小数点表示桁数</translation>
     </message>
     <message>
-        <location filename="../plugins/History/plugin.py" line="57"/>
+        <location filename="../plugins/History/plugin.py" line="147"/>
         <source>每页条数</source>
         <translation>1ページの件数</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="130"/>
+        <location filename="../plugins/History/main_widget.py" line="142"/>
         <source>历史记录</source>
         <translation>履歴</translation>
     </message>
     <message>
-        <location filename="../plugins/History/plugin.py" line="85"/>
+        <location filename="../plugins/History/plugin.py" line="175"/>
         <source>游戏历史记录（SQLite 持久化）</source>
         <translation>ゲーム履歴（SQLite保存）</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="131"/>
+        <location filename="../plugins/History/main_widget.py" line="143"/>
         <source>查询</source>
         <translation>照会</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="132"/>
+        <location filename="../plugins/History/main_widget.py" line="144"/>
         <source>过滤</source>
         <translation>フィルター</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="133"/>
+        <location filename="../plugins/History/main_widget.py" line="145"/>
         <source>排序</source>
         <translation>並び替え</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="134"/>
+        <location filename="../plugins/History/main_widget.py" line="146"/>
         <source>列设置</source>
         <translation>列設定</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="135"/>
+        <location filename="../plugins/History/main_widget.py" line="148"/>
         <source>上一页</source>
         <translation>前へ</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="136"/>
+        <location filename="../plugins/History/main_widget.py" line="149"/>
         <source>下一页</source>
         <translation>次へ</translation>
     </message>
     <message>
-        <location filename="../plugins/History/filter_dialog.py" line="365"/>
+        <location filename="../plugins/History/filter_dialog.py" line="395"/>
         <source>错误</source>
         <translation>エラー</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="272"/>
+        <location filename="../plugins/History/main_widget.py" line="305"/>
         <source>共0行,0页</source>
         <translation>0行,0ページ</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="278"/>
+        <location filename="../plugins/History/main_widget.py" line="311"/>
         <source>共%1行,%2页</source>
         <translation>合計%1行,%2ページ</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="284"/>
+        <location filename="../plugins/History/main_widget.py" line="316"/>
         <source>加载历史记录失败: %1</source>
         <translation>履歴読込失敗: %1</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="389"/>
+        <location filename="../plugins/History/main_widget.py" line="426"/>
         <source>第%1行 右括号数量大于左括号数量，请检查</source>
         <translation>%1行目 右括弧＞左括弧です</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="408"/>
+        <location filename="../plugins/History/main_widget.py" line="537"/>
         <source>第%1行 %2 不是数字</source>
         <translation>%1行目 %2 は数字ではありません</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="490"/>
+        <location filename="../plugins/History/main_widget.py" line="527"/>
         <source>第%1行 %2 不是合法的日期时间</source>
         <translation>%1行目 %2 は有効な日時ではありません</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="458"/>
+        <location filename="../plugins/History/main_widget.py" line="495"/>
         <source>第%1行 %2 不是合法的枚举选项</source>
         <translation>%1行目 %2 は無効な選択肢です</translation>
     </message>
     <message>
-        <location filename="../plugins/History/filter_dialog.py" line="365"/>
+        <location filename="../plugins/History/filter_dialog.py" line="395"/>
         <source>左括号数量和右括号数量不匹配，请检查</source>
         <translation>括弧の数が一致しません</translation>
     </message>
     <message>
-        <location filename="../plugins/History/sort_dialog.py" line="130"/>
+        <location filename="../plugins/History/sort_dialog.py" line="135"/>
         <source>升序</source>
         <translation>昇順</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="542"/>
+        <location filename="../plugins/History/main_widget.py" line="589"/>
         <source>过滤: %1</source>
         <translation>フィルター: %1</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="545"/>
+        <location filename="../plugins/History/main_widget.py" line="592"/>
         <source>过滤: 无</source>
         <translation>フィルター: なし</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="550"/>
+        <location filename="../plugins/History/main_widget.py" line="597"/>
         <source>排序: %1</source>
         <translation>並び替え: %1</translation>
     </message>
     <message>
-        <location filename="../plugins/History/main_widget.py" line="553"/>
+        <location filename="../plugins/History/main_widget.py" line="600"/>
         <source>排序: 无</source>
         <translation>並び替え: なし</translation>
     </message>
     <message>
-        <location filename="../plugins/History/history_table.py" line="131"/>
+        <location filename="../plugins/History/history_table.py" line="158"/>
         <source>播放</source>
         <translation>再生</translation>
     </message>
     <message>
-        <location filename="../plugins/History/history_table.py" line="132"/>
-        <source>导出</source>
-        <translation>エクスポート</translation>
-    </message>
-    <message>
-        <location filename="../plugins/History/history_table.py" line="134"/>
+        <location filename="../plugins/History/history_table.py" line="161"/>
         <source>刷新</source>
         <translation>更新</translation>
     </message>
     <message>
-        <location filename="../plugins/History/history_table.py" line="190"/>
+        <location filename="../plugins/History/history_table.py" line="217"/>
         <source>导出evf文件</source>
         <translation>evfをエクスポート</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="139"/>
+        <location filename="../plugins/History/table_views.py" line="141"/>
         <source>左括号</source>
         <translation>左括弧</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="139"/>
+        <location filename="../plugins/History/table_views.py" line="141"/>
         <source>字段</source>
         <translation>フィールド</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="139"/>
+        <location filename="../plugins/History/table_views.py" line="141"/>
         <source>比较符</source>
         <translation>比較演算子</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="139"/>
+        <location filename="../plugins/History/table_views.py" line="141"/>
         <source>值</source>
         <translation>値</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="139"/>
+        <location filename="../plugins/History/table_views.py" line="141"/>
         <source>右括号</source>
         <translation>右括弧</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="139"/>
+        <location filename="../plugins/History/table_views.py" line="141"/>
         <source>逻辑符</source>
         <translation>論理演算子</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="209"/>
+        <location filename="../plugins/History/table_views.py" line="222"/>
         <source>排序字段</source>
         <translation>並び替えフィールド</translation>
     </message>
     <message>
-        <location filename="../plugins/History/table_views.py" line="209"/>
+        <location filename="../plugins/History/table_views.py" line="222"/>
         <source>升序/降序</source>
         <translation>昇順／降順</translation>
     </message>
@@ -720,52 +715,52 @@
         <translation>含まない</translation>
     </message>
     <message>
-        <location filename="../plugins/History/filter_dialog.py" line="34"/>
+        <location filename="../plugins/History/filter_dialog.py" line="35"/>
         <source>过滤条件</source>
         <translation>フィルター条件</translation>
     </message>
     <message>
-        <location filename="../plugins/History/sort_dialog.py" line="74"/>
+        <location filename="../plugins/History/sort_dialog.py" line="79"/>
         <source>添加</source>
         <translation>追加</translation>
     </message>
     <message>
-        <location filename="../plugins/History/sort_dialog.py" line="75"/>
+        <location filename="../plugins/History/sort_dialog.py" line="80"/>
         <source>插入</source>
         <translation>挿入</translation>
     </message>
     <message>
-        <location filename="../plugins/History/sort_dialog.py" line="76"/>
+        <location filename="../plugins/History/sort_dialog.py" line="81"/>
         <source>删除</source>
         <translation>削除</translation>
     </message>
     <message>
-        <location filename="../plugins/History/sort_dialog.py" line="29"/>
+        <location filename="../plugins/History/sort_dialog.py" line="30"/>
         <source>排序条件</source>
         <translation>並び替え条件</translation>
     </message>
     <message>
-        <location filename="../plugins/History/sort_dialog.py" line="64"/>
+        <location filename="../plugins/History/sort_dialog.py" line="69"/>
         <source>降序</source>
         <translation>降順</translation>
     </message>
     <message>
-        <location filename="../plugins/History/columns_dialog.py" line="56"/>
+        <location filename="../plugins/History/columns_dialog.py" line="55"/>
         <source>列设置（右键/Ctrl+Shift+↑↓ 排序）</source>
         <translation>列設定（右クリ/Ctrl+Shift+↑↓）</translation>
     </message>
     <message>
-        <location filename="../plugins/History/columns_dialog.py" line="70"/>
+        <location filename="../plugins/History/columns_dialog.py" line="68"/>
         <source>取消全选</source>
         <translation>全解除</translation>
     </message>
     <message>
-        <location filename="../plugins/History/columns_dialog.py" line="126"/>
+        <location filename="../plugins/History/columns_dialog.py" line="124"/>
         <source>上移 (Ctrl+Shift+↑)</source>
         <translation>上へ (Ctrl+Shift+↑)</translation>
     </message>
     <message>
-        <location filename="../plugins/History/columns_dialog.py" line="127"/>
+        <location filename="../plugins/History/columns_dialog.py" line="125"/>
         <source>下移 (Ctrl+Shift+↓)</source>
         <translation>下へ (Ctrl+Shift+↓)</translation>
     </message>
@@ -2135,77 +2130,77 @@ li { margin: 6px 0; }
         <translation>カスタム</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="64"/>
+        <location filename="../mainWindowGUIImportExport.py" line="171"/>
         <source>正在验证程序...</source>
         <translation>プログラムを検証中...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="80"/>
+        <location filename="../mainWindowGUIImportExport.py" line="187"/>
         <source>正在验证录像...</source>
         <translation>リプレイを検証中...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="86"/>
+        <location filename="../mainWindowGUIImportExport.py" line="193"/>
         <source>正在解析录像 {cur}/{total}...</source>
         <translation>リプレイ解析中 {cur}/{total}...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="107"/>
+        <location filename="../mainWindowGUIImportExport.py" line="214"/>
         <source>正在写入 stats.dat  {cur}/{total}...</source>
         <translation>stats.dat 書込中 {cur}/{total}...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="113"/>
+        <location filename="../mainWindowGUIImportExport.py" line="220"/>
         <source>完成！</source>
         <translation>完了！</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="564"/>
+        <location filename="../mainWindowGUIImportExport.py" line="671"/>
         <source>选择验证程序</source>
         <translation>検証プログラム選択</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="564"/>
+        <location filename="../mainWindowGUIImportExport.py" line="671"/>
         <source>程序 (*.exe);;所有文件 (*)</source>
         <translation>プログラム (*.exe);;すべてのファイル (*)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="571"/>
+        <location filename="../mainWindowGUIImportExport.py" line="678"/>
         <source>选择录像</source>
         <translation>リプレイ選択</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="571"/>
+        <location filename="../mainWindowGUIImportExport.py" line="678"/>
         <source>录像文件 (*.evf *.evfs);;所有文件 (*)</source>
         <translation>リプレイファイル (*.evf *.evfs);;すべてのファイル (*)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="578"/>
+        <location filename="../mainWindowGUIImportExport.py" line="685"/>
         <source>选择录像文件夹</source>
         <translation>リプレイフォルダ選択</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="587"/>
+        <location filename="../mainWindowGUIImportExport.py" line="694"/>
         <source>请选择验证程序和录像路径</source>
         <translation>検証プログラムとリプレイパスを選択してください</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="857"/>
+        <location filename="../mineSweeperGUI.py" line="866"/>
         <source>标准（盲扫）</source>
         <translation>標準 (ブラインド)</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUIEvent.py" line="188"/>
+        <location filename="../mineSweeperGUIEvent.py" line="187"/>
         <source>(是雷的概率)</source>
         <translation>(地雷確率)</translation>
     </message>
     <message>
-        <location filename="../mineSweeperVideoPlayer.py" line="47"/>
+        <location filename="../mineSweeperVideoPlayer.py" line="65"/>
         <source>打开文件</source>
         <translation>ファイルを開く</translation>
     </message>
     <message>
-        <location filename="../mineSweeperVideoPlayer.py" line="47"/>
+        <location filename="../mineSweeperVideoPlayer.py" line="65"/>
         <source>All(*.avf *.evf *.rmv *.mvf *.evfs);;Arbiter video(*.avf);;Metasweeper video(*.evf);;Vienna MineSweeper video(*.rmv);;Minesweeper Clone 0.97(*.mvf);;Metasweeper video set(*.evfs)</source>
         <translation>All(*.avf *.evf *.rmv *.mvf *.evfs);;Arbiter video(*.avf);;Metasweeper video(*.evf);;Vienna MineSweeper video(*.rmv);;Minesweeper Clone 0.97(*.mvf);;Metasweeper video set(*.evfs)</translation>
     </message>
@@ -2215,32 +2210,32 @@ li { margin: 6px 0; }
         <translation>ファイル選択</translation>
     </message>
     <message>
-        <location filename="../plugins/History/filter_dialog.py" line="253"/>
+        <location filename="../plugins/History/filter_dialog.py" line="277"/>
         <source>第{n}行 右括号数量大于左括号数量，请检查</source>
         <translation>{n}行目 右括弧が左括弧より多い、確認してください</translation>
     </message>
     <message>
-        <location filename="../plugins/History/filter_dialog.py" line="271"/>
+        <location filename="../plugins/History/filter_dialog.py" line="296"/>
         <source>第{n}行 {val} 不是数字</source>
         <translation>{n}行目 {val} は数字ではありません</translation>
     </message>
     <message>
-        <location filename="../plugins/History/filter_dialog.py" line="350"/>
+        <location filename="../plugins/History/filter_dialog.py" line="379"/>
         <source>第{n}行 {val} 不是合法的日期时间</source>
         <translation>{n}行目 {val} は有効な日時ではありません</translation>
     </message>
     <message>
-        <location filename="../plugins/History/filter_dialog.py" line="319"/>
+        <location filename="../plugins/History/filter_dialog.py" line="346"/>
         <source>第{n}行 {val} 不是合法的枚举选项</source>
         <translation>{n}行目 {val} は有効な列挙オプションではありません</translation>
     </message>
     <message>
-        <location filename="../plugins/History/history_table.py" line="133"/>
+        <location filename="../plugins/History/history_table.py" line="160"/>
         <source>复制JSON</source>
         <translation>JSONをコピー</translation>
     </message>
     <message>
-        <location filename="../plugins/History/history_table.py" line="185"/>
+        <location filename="../plugins/History/history_table.py" line="211"/>
         <source>找不到主程序 (main.py 或 metaminesweeper.exe)</source>
         <translation>メインプログラムが見つかりません (main.py または metaminesweeper.exe)</translation>
     </message>
@@ -2310,64 +2305,9 @@ li { margin: 6px 0; }
         <translation>未初期化</translation>
     </message>
     <message>
-        <location filename="../shared_types/enums.py" line="165"/>
+        <location filename="../shared_types/enums.py" line="169"/>
         <source>win7</source>
         <translation>win7</translation>
-    </message>
-    <message>
-        <location filename="ui_about.py" line="244"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="ui_about.py" line="245"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/#/guide/[5.教程.术语]扫雷术语介绍.md&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[5.教程.术语]扫雷术语介绍.md&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/#/guide/[5.教程.术语]扫雷术语介绍.md&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[5.教程.术语]扫雷术语介绍.md&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="ui_about.py" line="251"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Github：&lt;a href=&quot;https://github.com/eee555/Metasweeper/issues&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://github.com/eee555/Metasweeper/issues&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Gitee：&lt;a href=&quot;https://gitee.com/ee55/Metasweeper/issues&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://gitee.com/ee55/Metasweeper/issues&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Discord：&lt;a href=&quot;https://discord.gg/ks8ngPX5bT&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://discord.gg/ks8ngPX5bT&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;QQ群：&lt;a href=&quot;https://qm.qq.com/q/hNShGUQkJG&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://qm.qq.com/q/hNShGUQkJG&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Github：&lt;a href=&quot;https://github.com/eee555/Metasweeper/issues&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://github.com/eee555/Metasweeper/issues&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Gitee：&lt;a href=&quot;https://gitee.com/ee55/Metasweeper/issues&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://gitee.com/ee55/Metasweeper/issues&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Discord：&lt;a href=&quot;https://discord.gg/ks8ngPX5bT&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://discord.gg/ks8ngPX5bT&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;QQ群：&lt;a href=&quot;https://qm.qq.com/q/hNShGUQkJG&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://qm.qq.com/q/hNShGUQkJG&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="115"/>
-        <source>复制类</source>
-        <translation>コピー</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="116"/>
-        <source>Ctrl+C 复制格式</source>
-        <translation>Ctrl+C コピー形式</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="117"/>
-        <source>局面数组</source>
-        <translation>盤面配列</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="118"/>
-        <source>.board 字符串</source>
-        <translation>.board 文字列</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="119"/>
-        <source>.board 文件（粘贴到文件系统）</source>
-        <translation>.board ファイル (ファイルシステムに貼付)</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="120"/>
-        <source>Render（仅 .board 格式）</source>
-        <translation>Render (.board形式のみ)</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="121"/>
-        <source>ascii</source>
-        <translation>ascii</translation>
-    </message>
-    <message>
-        <location filename="ui_advanced.py" line="122"/>
-        <source>emoji</source>
-        <translation>emoji</translation>
     </message>
     <message>
         <location filename="ui_import.py" line="169"/>
@@ -2410,37 +2350,37 @@ li { margin: 6px 0; }
         <translation>空を表示</translation>
     </message>
     <message>
-        <location filename="../dialogs/videoControl.py" line="523"/>
+        <location filename="../dialogs/videoControl.py" line="664"/>
         <source>录像</source>
         <translation>Replay</translation>
     </message>
     <message>
-        <location filename="../dialogs/videoControl.py" line="220"/>
+        <location filename="../dialogs/videoControl.py" line="208"/>
         <source>导出选中的录像</source>
         <translation>Export selected replays</translation>
     </message>
     <message>
-        <location filename="../dialogs/videoControl.py" line="362"/>
+        <location filename="../dialogs/videoControl.py" line="417"/>
         <source>时间</source>
         <translation>時間</translation>
     </message>
     <message>
-        <location filename="../dialogs/videoControl.py" line="366"/>
+        <location filename="../dialogs/videoControl.py" line="418"/>
         <source>坐标</source>
         <translation>座標</translation>
     </message>
     <message>
-        <location filename="../dialogs/videoControl.py" line="376"/>
+        <location filename="../dialogs/videoControl.py" line="420"/>
         <source>类型</source>
         <translation>種類</translation>
     </message>
     <message>
-        <location filename="../dialogs/videoControl.py" line="380"/>
+        <location filename="../dialogs/videoControl.py" line="422"/>
         <source>详情</source>
         <translation>詳細</translation>
     </message>
     <message>
-        <location filename="../dialogs/videoControl.py" line="554"/>
+        <location filename="../dialogs/videoControl.py" line="751"/>
         <source>目录</source>
         <translation>Directory</translation>
     </message>
@@ -2457,32 +2397,32 @@ li { margin: 6px 0; }
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="87"/>
         <source>━━━ 元扫雷 3.2.2 ━━━</source>
-        <translation type="unfinished"></translation>
+        <translation>━━━ 元扫雷 3.2.2 ━━━</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="111"/>
         <source>━━━ 元扫雷 3.3.1+ ━━━</source>
-        <translation type="unfinished"></translation>
+        <translation>━━━ 元扫雷 3.3.1+ ━━━</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="117"/>
         <source>选择道藏目录...</source>
-        <translation type="unfinished"></translation>
+        <translation>道蔵ディレクトリを選択...</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="120"/>
         <source>导入道行存档:</source>
-        <translation type="unfinished"></translation>
+        <translation>道行セーブをインポート:</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="125"/>
         <source>提示：请选择旧版安装目录下 data/plugin_data/XianNiUpgrade/ 文件夹</source>
-        <translation type="unfinished"></translation>
+        <translation>ヒント：旧バージョンのインストールディレクトリ配下の data/plugin_data/XianNiUpgrade/ フォルダを選択してください</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="152"/>
         <source>选择道藏目录</source>
-        <translation type="unfinished"></translation>
+        <translation>道蔵ディレクトリを選択</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="187"/>
@@ -2592,113 +2532,207 @@ th { background: #F3E5F5; color: #6A1B9A; }
 &lt;h3&gt;五、存档说明&lt;/h3&gt;
 &lt;p&gt;存档文件 &lt;code&gt;player_data.dat&lt;/code&gt; 保存在插件数据目录，包含多玩家信息、修行日志和已导入录像记录（最多保存 1000 条）。不可轻易删除，否则只能在下个版本中用“吸收灵气”重新导入录像。&lt;/p&gt;
 </source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;style&gt;
+h2 { color: #6A1B9A; border-bottom: 2px solid #CE93D8; padding-bottom: 4px; }
+h3 { color: #8E24AA; margin-top: 16px; }
+b { color: #4A148C; }
+code { background: #F3E5F5; padding: 1px 4px; border-radius: 2px; }
+ul { margin: 4px 0; }
+li { margin: 2px 0; }
+table { border-collapse: collapse; margin: 8px 0; }
+td, th { border: 1px solid #E1BEE7; padding: 4px 10px; text-align: center; }
+th { background: #F3E5F5; color: #6A1B9A; }
+&lt;/style&gt;
+
+&lt;div style=&quot;color:#4A148C; font-style:italic; font-size:14px; line-height:1.8; padding:12px 16px; border-radius:6px; margin-bottom:16px;&quot;&gt;
+&lt;p style=&quot;margin:8px 0;&quot;&gt;順ならば凡、逆ならば仙、ただ心の中の一念のみ。&lt;br&gt;
+我ら修行者は天に逆らって歩み、天命と争う。&lt;/p&gt;
+&lt;p style=&quot;margin:8px 0;&quot;&gt;マインスイーパもまた道の修行の如し——&lt;br&gt;
+一歩一歩が胸を騒がせ、一念に生、一念に死す；&lt;br&gt;
+迷いを打ち破り、本源を見極めてこそ超脱に至る。&lt;/p&gt;
+&lt;p style=&quot;margin:8px 0;&quot;&gt;今《仙逆》の法則をもって、この天地の道統を立てる：&lt;br&gt;
+勝てば道行を積み、修業を積み、境界を破り、長生を証す；&lt;br&gt;
+敗れれば凡塵に帰り、再び立ち上がり、道心を鍛える。&lt;/p&gt;
+&lt;p style=&quot;margin:8px 0; text-align:right;&quot;&gt;—— 道は須臾たりとも離れべからず&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;h2&gt;📜 天地の法則 · 修仙の要義&lt;/h2&gt;
+
+&lt;h3&gt;一、道行と修業&lt;/h3&gt;
+&lt;p&gt;毎局&lt;b&gt;マインスイーパ勝利&lt;/b&gt;（ゲーム状態が勝利に転じたとき）で道行経験値を獲得。経験値が溜まると境界レベルが上がり、全&lt;b&gt;100レベル&lt;/b&gt;：&lt;/p&gt;
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;レベル&lt;/th&gt;&lt;th&gt;境界名&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.0&lt;/td&gt;&lt;td&gt;凡人&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.1-15&lt;/td&gt;&lt;td&gt;凝気一層 ~ 凝気十五層&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.16-19&lt;/td&gt;&lt;td&gt;筑基初期 ~ 筑基大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.20-23&lt;/td&gt;&lt;td&gt;結丹初期 ~ 結丹大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.24-27&lt;/td&gt;&lt;td&gt;元嬰初期 ~ 元嬰大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.28-31&lt;/td&gt;&lt;td&gt;化神初期 ~ 化神大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.32-35&lt;/td&gt;&lt;td&gt;嬰変初期 ~ 嬰変大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.36-39&lt;/td&gt;&lt;td&gt;問鼎初期 ~ 問鼎大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.40-41&lt;/td&gt;&lt;td&gt;陰虚 ~ 陽実&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.42-45&lt;/td&gt;&lt;td&gt;窺涅初期 ~ 窺涅大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.46-49&lt;/td&gt;&lt;td&gt;浄涅初期 ~ 浄涅大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.50-53&lt;/td&gt;&lt;td&gt;砕涅初期 ~ 砕涅大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.54-58&lt;/td&gt;&lt;td&gt;天人一衰 ~ 天人五衰&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.59-62&lt;/td&gt;&lt;td&gt;空涅初期 ~ 空涅大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.63-66&lt;/td&gt;&lt;td&gt;空霊初期 ~ 空霊大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.67-79&lt;/td&gt;&lt;td&gt;空玄初期 ~ 空玄九劫&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.80-83&lt;/td&gt;&lt;td&gt;空劫初期 ~ 空劫大円満&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.84-88&lt;/td&gt;&lt;td&gt;大尊 ~ 大天尊&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Lv.89-100&lt;/td&gt;&lt;td&gt;踏天の一橋 ~ 煌天境&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+&lt;h3&gt;二、経験値計算式&lt;/h3&gt;
+
+&lt;p&gt;&lt;b&gt;基礎経験値&lt;/b&gt;（全モード・難易度で有効）：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;雷密度が ≤ 80％（標準/Win7/弱無猜）または ≤ 30％（古典無猜/強無猜）の場合：&lt;br&gt;
+  &lt;code&gt;基礎 = k × 1.08^(雷数/マス数 × 341) × min(行,列)^1.2 × max(行,列)^1.6 / 17411&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;それ以外：基礎 = 0&lt;/li&gt;
+&lt;li&gt;k はモード係数：標準=1、Win7=0.8、古典無猜=0.2、強無猜=0.25、弱無猜=2、その他=0（経験値なし）&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;b&gt;レア局面経験値&lt;/b&gt;（標準モード・標準難易度のみ）：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;3BV、Op、Isl、Cell1~Cell8 の計11指標の分布における希少度を集計&lt;/li&gt;
+&lt;li&gt;各指標について &lt;code&gt;p = min(P(X≤v), P(X≥v))&lt;/code&gt;（両側累積確率）をとり、&lt;br&gt;
+  &lt;code&gt;(0.5 / p)^1.2&lt;/code&gt; を累加&lt;/li&gt;
+&lt;li&gt;上級：&lt;code&gt;希少経験 = 累計値&lt;/code&gt;；中級：&lt;code&gt;累計値 / 8&lt;/code&gt;；初級：&lt;code&gt;累計値 / 100&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;b&gt;競速経験値&lt;/b&gt;（標準モード・標準難易度のみ）：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;初級：&lt;code&gt;(1/100) × (10/rtime)^3.5&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;中級：&lt;code&gt;(1/8) × (60/rtime)^3.5&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;上級：&lt;code&gt;(240/rtime)^3.5&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;b&gt;効率経験値&lt;/b&gt;（標準モード・標準難易度のみ）：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;効率指標 &lt;code&gt;IOE = 3BV / (lefts + rights + chordings)&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;初級：IOE ≥ 0.95 のとき &lt;code&gt;IOE^3.5&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;中級：IOE ≥ 0.9 のとき &lt;code&gt;10 × IOE^4&lt;/code&gt;（旗付け）/ &lt;code&gt;20 × IOE^5&lt;/code&gt;（ブラインド）&lt;/li&gt;
+&lt;li&gt;上級：IOE ≥ 0.8 のとき &lt;code&gt;1 × IOE^20&lt;/code&gt;（旗付け）/ &lt;code&gt;1200 × IOE^50&lt;/code&gt;（ブラインド）&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;b&gt;総経験値&lt;/b&gt; = 基礎 + 希少 + 競速 + 効率、上限 99999/局。&lt;/p&gt;
+
+&lt;h3&gt;三、多修分身&lt;/h3&gt;
+&lt;p&gt;プラグインは&lt;b&gt;複数プレイヤー識別子&lt;/b&gt;に対応。毎局、主識別子に基づいてレベルと道行を独立に計算します。識別子を変更すると、そのプレイヤーの修行データに自動的に切り替わります。&lt;/p&gt;
+
+&lt;h3&gt;四、霊気吸収&lt;/h3&gt;
+&lt;p&gt;他バージョンのマインスイーパ録画をインポートして経験値を得られます：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;「霊気吸収」ボタンをクリック&lt;/li&gt;
+&lt;li&gt;対応バージョンの &lt;b&gt;exe 検証プログラム&lt;/b&gt; を選択（例：metasweeper.exe）&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;録画ディレクトリ&lt;/b&gt;（replay フォルダ）を選択&lt;/li&gt;
+&lt;li&gt;プラグインが自動で exe MD5 を検証 → exe を実行してレポート生成 → 有効な録画を解析 → 重複排除して経験値追加&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;現在対応しているバージョン：&lt;/p&gt;
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;バージョン&lt;/th&gt;&lt;th&gt;MD5&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Metasweeper 3.2.2&lt;/td&gt;&lt;td&gt;&lt;code&gt;3271d11bab9afc8b0a2b9546e13d46cd&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+&lt;h3&gt;五、セーブデータの説明&lt;/h3&gt;
+&lt;p&gt;セーブファイル &lt;code&gt;player_data.dat&lt;/code&gt; はプラグインのデータディレクトリに保存され、複数プレイヤー情報、修行ログ、インポート済み録画記録（最大1000件）を含みます。軽々に削除しないでください。削除すると次バージョンで「霊気吸収」により録画を再インポートするしかありません。&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="517"/>
         <source>3.2.2 验证失败，查看日志</source>
-        <translation type="unfinished"></translation>
+        <translation>3.2.2 検証に失敗しました。ログを確認してください</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="519"/>
         <source>3.2.2 没有新的灵箓</source>
-        <translation type="unfinished"></translation>
+        <translation>3.2.2 新しい霊符はありません</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="523"/>
         <source>3.2.2 新增 %1 道灵箓，获 %2 道行</source>
-        <translation type="unfinished"></translation>
+        <translation>3.2.2 霊符を%1枚吸収し、道行%2を獲得しました</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="530"/>
         <source>3.3.1+ 未找到有效道藏</source>
-        <translation type="unfinished"></translation>
+        <translation>3.3.1+ 有効な道蔵が見つかりませんでした</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="533"/>
         <source>导入道藏</source>
-        <translation type="unfinished"></translation>
+        <translation>道蔵をインポート</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="533"/>
         <source>发现 %1 位道友，共 %2 道行，确认导入？</source>
-        <translation type="unfinished"></translation>
+        <translation>%1人の道友、合計%2の道行を見つけました。インポートしますか？</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="541"/>
         <source>3.3.1+ 导入 %1 位道友，获 %2 道行</source>
-        <translation type="unfinished"></translation>
+        <translation>3.3.1+ 道友%1人をインポートし、道行%2を獲得しました</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="544"/>
         <source>请填写至少一种吸收方式</source>
-        <translation type="unfinished"></translation>
+        <translation>吸収方法を少なくとも1つ指定してください</translation>
     </message>
     <message>
-        <location filename="../plugin_sdk/config_types/path_config.py" line="64"/>
-        <source>选择目录</source>
-        <translation>ディレクトリ選択</translation>
+        <location filename="../shared_types/enums.py" line="167"/>
+        <source>UPK</source>
+        <translation>UPK</translation>
     </message>
     <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="9"/>
-        <source>鼠标点击（MouseClickCommand）</source>
-        <translation>マウスクリック (MouseClickCommand)</translation>
+        <location filename="../plugins/History/main_widget.py" line="147"/>
+        <source>计算列</source>
+        <translation>計算列</translation>
     </message>
     <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="10"/>
-        <source>重开新局（NewGameCommand）</source>
-        <translation>新規ゲーム (NewGameCommand)</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="11"/>
-        <source>棋盘更新（BoardUpdateEvent）</source>
-        <translation>盤面更新 (BoardUpdateEvent)</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="62"/>
-        <source>允许{label}</source>
-        <translation>{label}を許可</translation>
+        <location filename="../plugins/History/history_table.py" line="159"/>
+        <source>导出录像</source>
+        <translation>録画をエクスポート</translation>
     </message>
 </context>
 <context>
     <name>LogViewerDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="652"/>
+        <location filename="../plugin_manager/main_window.py" line="656"/>
         <source>日志查看</source>
         <translation>ログ表示</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="674"/>
+        <location filename="../plugin_manager/main_window.py" line="679"/>
         <source>日志源:</source>
         <translation>ログソース:</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="677"/>
+        <location filename="../plugin_manager/main_window.py" line="682"/>
         <source>主进程</source>
         <translation>メインプロセス</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="679"/>
+        <location filename="../plugin_manager/main_window.py" line="684"/>
         <source>插件: {name}</source>
         <translation>プラグイン: {name}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="686"/>
+        <location filename="../plugin_manager/main_window.py" line="692"/>
         <source>等级:</source>
         <translation>レベル:</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="697"/>
+        <location filename="../plugin_manager/main_window.py" line="703"/>
         <source>自动滚动</source>
         <translation>自動スクロール</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="702"/>
+        <location filename="../plugin_manager/main_window.py" line="709"/>
         <source>显示来源</source>
         <translation>ソース表示</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="707"/>
+        <location filename="../plugin_manager/main_window.py" line="715"/>
         <source>清空</source>
         <translation>クリア</translation>
     </message>
@@ -2706,157 +2740,157 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="ui_main_board.py" line="586"/>
+        <location filename="ui_main_board.py" line="632"/>
         <source>元扫雷</source>
         <translation>Metasweeper</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="587"/>
+        <location filename="ui_main_board.py" line="633"/>
         <source>游戏</source>
         <translation>ゲーム</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="588"/>
+        <location filename="ui_main_board.py" line="640"/>
         <source>导出</source>
         <translation>エクスポート</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="590"/>
+        <location filename="ui_main_board.py" line="634"/>
         <source>设置</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="591"/>
+        <location filename="ui_main_board.py" line="635"/>
         <source>语言</source>
         <translation>言語</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="592"/>
+        <location filename="ui_main_board.py" line="636"/>
         <source>帮助</source>
         <translation>ヘルプ</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="593"/>
+        <location filename="ui_main_board.py" line="637"/>
         <source>查看</source>
         <translation>表示</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="594"/>
+        <location filename="ui_main_board.py" line="642"/>
         <source>新游戏</source>
         <translation>新規ゲーム</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="595"/>
+        <location filename="ui_main_board.py" line="643"/>
         <source>初级</source>
         <translation>初級</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="596"/>
+        <location filename="ui_main_board.py" line="644"/>
         <source>中级</source>
         <translation>中級</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="597"/>
+        <location filename="ui_main_board.py" line="645"/>
         <source>高级</source>
         <translation>上級</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="598"/>
+        <location filename="ui_main_board.py" line="646"/>
         <source>自定义</source>
         <translation>カスタム</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="599"/>
+        <location filename="ui_main_board.py" line="647"/>
         <source>退出</source>
         <translation>終了</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="600"/>
+        <location filename="ui_main_board.py" line="648"/>
         <source>游戏设置</source>
         <translation>ゲーム設定</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="601"/>
+        <location filename="ui_main_board.py" line="649"/>
         <source>关于</source>
         <translation>バージョン情報</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="602"/>
+        <location filename="ui_main_board.py" line="650"/>
         <source>快捷键设置</source>
         <translation>ショートカット設定</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="603"/>
+        <location filename="ui_main_board.py" line="651"/>
         <source>打开</source>
         <translation>開く</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="604"/>
+        <location filename="ui_main_board.py" line="652"/>
         <source>鼠标设置</source>
         <translation>マウス設定</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="605"/>
+        <location filename="ui_main_board.py" line="653"/>
         <source>保存</source>
         <translation>保存</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="606"/>
+        <location filename="ui_main_board.py" line="654"/>
         <source>回放</source>
         <translation>リプレイ</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="607"/>
+        <location filename="ui_main_board.py" line="655"/>
         <source>检查更新</source>
         <translation>更新確認</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="608"/>
+        <location filename="ui_main_board.py" line="656"/>
         <source>录像目录</source>
         <translation>リプレイフォルダ</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="609"/>
+        <location filename="ui_main_board.py" line="657"/>
         <source>设置目录</source>
         <translation>設定フォルダ</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="610"/>
+        <location filename="ui_main_board.py" line="658"/>
         <source>成就</source>
         <translation>実績</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="611"/>
+        <location filename="ui_main_board.py" line="659"/>
         <source>个人纪录</source>
         <translation>個人記録</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="612"/>
+        <location filename="ui_main_board.py" line="660"/>
         <source>插件</source>
         <translation>プラグイン</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="613"/>
+        <location filename="ui_main_board.py" line="661"/>
         <source>高级设置</source>
         <translation>詳細設定</translation>
     </message>
     <message>
-        <location filename="ui_main_board.py" line="614"/>
+        <location filename="ui_main_board.py" line="662"/>
         <source>Arbiter dat</source>
         <translation>Arbiter dat</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="268"/>
+        <location filename="../mainWindowGUIImportExport.py" line="375"/>
         <source>导入</source>
         <translation>インポート</translation>
     </message>
     <message>
-        <location filename="../main.py" line="190"/>
+        <location filename="../main.py" line="219"/>
         <source>插件管理器</source>
         <translation>プラグインマネージャ</translation>
     </message>
     <message>
-        <location filename="../main.py" line="177"/>
+        <location filename="../main.py" line="204"/>
         <source>找不到 plugin_manager.exe：
 {path}
 
@@ -2867,398 +2901,433 @@ th { background: #F3E5F5; color: #6A1B9A; }
 プラグインは無効になります。</translation>
     </message>
     <message>
-        <location filename="../main.py" line="190"/>
+        <location filename="../main.py" line="219"/>
         <source>启动 plugin_manager 失败：
 {err}</source>
         <translation>plugin_manager の起動に失敗:
 {err}</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="296"/>
+        <location filename="../mainWindowGUIImportExport.py" line="403"/>
         <source>导入失败</source>
         <translation>インポート失敗</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="58"/>
+        <location filename="../mainWindowGUIImportExport.py" line="165"/>
         <source>路径不存在</source>
         <translation>パスが存在しません</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="71"/>
+        <location filename="../mainWindowGUIImportExport.py" line="178"/>
         <source>无法读取验证程序</source>
         <translation>検証プログラムが読めません</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="76"/>
+        <location filename="../mainWindowGUIImportExport.py" line="183"/>
         <source>未知的验证程序版本</source>
         <translation>未知の検証プログラムバージョン</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="93"/>
+        <location filename="../mainWindowGUIImportExport.py" line="200"/>
         <source>验证失败</source>
         <translation>検証失敗</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="98"/>
+        <location filename="../mainWindowGUIImportExport.py" line="205"/>
         <source>没有新的录像需要导入</source>
         <translation>インポートする新しいリプレイはありません</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="117"/>
+        <location filename="../mainWindowGUIImportExport.py" line="224"/>
         <source>成功导入 {n} 条录像</source>
         <translation>{n} 個のリプレイをインポートしました</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="277"/>
+        <location filename="../mainWindowGUIImportExport.py" line="384"/>
         <source>导入成功</source>
         <translation>インポート成功</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="243"/>
+        <location filename="../mainWindowGUIImportExport.py" line="350"/>
         <source>选择旧版 stats.dat</source>
         <translation>旧版 stats.dat を選択</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="243"/>
+        <location filename="../mainWindowGUIImportExport.py" line="350"/>
         <source>DAT 文件 (stats.dat *.dat);;所有文件 (*)</source>
         <translation>DAT ファイル (stats.dat *.dat);;すべてのファイル (*)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="253"/>
+        <location filename="../mainWindowGUIImportExport.py" line="360"/>
         <source>不能导入当前正在使用的 stats.dat</source>
         <translation>現在使用中の stats.dat はインポートできません</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="261"/>
+        <location filename="../mainWindowGUIImportExport.py" line="368"/>
         <source>旧版 stats.dat 中没有有效记录</source>
         <translation>旧版 stats.dat に有効な記録がありません</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="268"/>
+        <location filename="../mainWindowGUIImportExport.py" line="375"/>
         <source>共 {n} 条记录，全部与当前重复</source>
         <translation>{n} 件の記録、すべて重複</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="274"/>
+        <location filename="../mainWindowGUIImportExport.py" line="381"/>
         <source>成功导入 {n} 条记录</source>
         <translation>{n} 件の記録をインポートしました</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="276"/>
+        <location filename="../mainWindowGUIImportExport.py" line="383"/>
         <source>，跳过 {n} 条重复</source>
         <translation>、{n} 件の重複をスキップ</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="296"/>
+        <location filename="../mainWindowGUIImportExport.py" line="403"/>
         <source>不支持的 stats.dat 版本 (v{ver})，请升级程序</source>
         <translation>未対応の stats.dat バージョン (v{ver})、アップグレードしてください</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="524"/>
+        <location filename="../mainWindowGUIImportExport.py" line="631"/>
         <source>导出失败</source>
         <translation>エクスポート失敗</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="471"/>
+        <location filename="../mainWindowGUIImportExport.py" line="578"/>
         <source>stats.dat 不存在或为空</source>
         <translation>stats.dat が存在しないか空です</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="361"/>
+        <location filename="../mainWindowGUIImportExport.py" line="468"/>
         <source>导出 Arbiter Textstats CSV（全部）</source>
         <translation>Arbiter Textstats CSV をエクスポート（すべて）</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="361"/>
+        <location filename="../mainWindowGUIImportExport.py" line="468"/>
         <source>Textstats CSV 文件 (*.csv)</source>
         <translation>Textstats CSV ファイル (*.csv)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="368"/>
+        <location filename="../mainWindowGUIImportExport.py" line="475"/>
         <source>导出 Arbiter Stats CSV</source>
         <translation>Arbiter Stats CSV をエクスポート</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="368"/>
+        <location filename="../mainWindowGUIImportExport.py" line="475"/>
         <source>Stats CSV 文件 (*.csv)</source>
         <translation>Stats CSV ファイル (*.csv)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="516"/>
+        <location filename="../mainWindowGUIImportExport.py" line="623"/>
         <source>未找到有效的记录</source>
         <translation>有効な記録が見つかりません</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="539"/>
+        <location filename="../mainWindowGUIImportExport.py" line="646"/>
         <source>导出成功</source>
         <translation>エクスポート成功</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="539"/>
+        <location filename="../mainWindowGUIImportExport.py" line="646"/>
         <source>已导出 {n} 条记录到
 {path}</source>
         <translation>{n} 件の記録をエクスポートしました
 {path}</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="477"/>
+        <location filename="../mainWindowGUIImportExport.py" line="584"/>
         <source>导出 meta.all.dat</source>
         <translation>meta.all.dat をエクスポート</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="477"/>
+        <location filename="../mainWindowGUIImportExport.py" line="584"/>
         <source>Meta All DAT 文件 (*.all.dat)</source>
         <translation>Meta All DAT ファイル (*.all.dat)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="484"/>
+        <location filename="../mainWindowGUIImportExport.py" line="591"/>
         <source>导出 meta.dat</source>
         <translation>meta.dat をエクスポート</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="484"/>
+        <location filename="../mainWindowGUIImportExport.py" line="591"/>
         <source>Meta DAT 文件 (*.dat)</source>
         <translation>Meta DAT ファイル (*.dat)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="524"/>
+        <location filename="../mainWindowGUIImportExport.py" line="631"/>
         <source>未找到记录</source>
         <translation>記録が見つかりません</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="1551"/>
+        <location filename="../mineSweeperGUI.py" line="1559"/>
         <source>粘贴失败</source>
         <translation>貼り付け失敗</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="1551"/>
+        <location filename="../mineSweeperGUI.py" line="1559"/>
         <source>剪贴板内容无法识别为扫雷局面</source>
         <translation>クリップボードの内容がマインスイーパ盤面として認識できません</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="638"/>
+        <source>数据</source>
+        <translation>データ</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="641"/>
+        <source>复制局面</source>
+        <translation>局面をコピー</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="663"/>
+        <source>局面数组</source>
+        <translation>局面配列</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="664"/>
+        <source>.board 文件（ascii）</source>
+        <translation>.boardファイル（ascii）</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="665"/>
+        <source>.board 文件（emoji）</source>
+        <translation>.boardファイル（emoji）</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="666"/>
+        <source>局面图片（png）</source>
+        <translation>局面画像（png）</translation>
+    </message>
+    <message>
+        <location filename="ui_main_board.py" line="667"/>
+        <source>局面图片（svg）</source>
+        <translation>局面画像（svg）</translation>
     </message>
 </context>
 <context>
     <name>PluginManagerWindow</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1849"/>
+        <location filename="../plugin_manager/main_window.py" line="1861"/>
         <source>插件管理器</source>
         <translation>プラグインマネージャー</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1218"/>
+        <location filename="../plugin_manager/main_window.py" line="1230"/>
         <source>选项</source>
         <translation>オプション</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1219"/>
+        <location filename="../plugin_manager/main_window.py" line="1231"/>
         <source>设置</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1220"/>
+        <location filename="../plugin_manager/main_window.py" line="1232"/>
         <source>基础设置...</source>
         <translation>基本設定...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1221"/>
+        <location filename="../plugin_manager/main_window.py" line="1233"/>
         <source>控制授权...</source>
         <translation>認可設定...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1222"/>
+        <location filename="../plugin_manager/main_window.py" line="1234"/>
         <source>启动调试</source>
         <translation>デバッグ開始</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1324"/>
+        <location filename="../plugin_manager/main_window.py" line="1336"/>
         <source>插件开发指南</source>
         <translation>開発ガイド</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1227"/>
+        <location filename="../plugin_manager/main_window.py" line="1239"/>
         <source>查看</source>
         <translation>表示</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1228"/>
+        <location filename="../plugin_manager/main_window.py" line="1240"/>
         <source>日志查看</source>
         <translation>ログ表示</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1229"/>
+        <location filename="../plugin_manager/main_window.py" line="1241"/>
         <source>工具栏</source>
         <translation>ツールバー</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1230"/>
+        <location filename="../plugin_manager/main_window.py" line="1242"/>
         <source>刷新</source>
         <translation>更新</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1231"/>
+        <location filename="../plugin_manager/main_window.py" line="1243"/>
         <source>刷新插件列表</source>
         <translation>プラグイン一覧を更新</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1232"/>
+        <location filename="../plugin_manager/main_window.py" line="1244"/>
         <source>控制授权</source>
         <translation>認可設定</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1233"/>
+        <location filename="../plugin_manager/main_window.py" line="1245"/>
         <source>配置插件控制命令权限</source>
         <translation>コマンド権限を設定</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1234"/>
+        <location filename="../plugin_manager/main_window.py" line="1246"/>
         <source>插件列表</source>
         <translation>プラグイン一覧</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1239"/>
+        <location filename="../plugin_manager/main_window.py" line="1251"/>
         <source>正在连接...</source>
         <translation>接続中...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1236"/>
+        <location filename="../plugin_manager/main_window.py" line="1248"/>
         <source>插件管理器 - 右键打开菜单</source>
         <translation>プラグインマネージャー - 右クリック</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1237"/>
+        <location filename="../plugin_manager/main_window.py" line="1249"/>
         <source>显示主窗口</source>
         <translation>ウィンドウ表示</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1238"/>
+        <location filename="../plugin_manager/main_window.py" line="1250"/>
         <source>退出</source>
         <translation>終了</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1465"/>
+        <location filename="../plugin_manager/main_window.py" line="1477"/>
         <source>调试已启动</source>
         <translation>デバッグ開始済</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1304"/>
+        <location filename="../plugin_manager/main_window.py" line="1316"/>
         <source>未找到插件开发指南文档：
 {path}</source>
         <translation>開発ガイドが見つかりません:
 {path}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1315"/>
+        <location filename="../plugin_manager/main_window.py" line="1327"/>
         <source>无法读取文档：
 {error}</source>
         <translation>ドキュメントを読めません:
 {error}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1379"/>
+        <location filename="../plugin_manager/main_window.py" line="1391"/>
         <source>设置已保存</source>
         <translation>設定を保存しました</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1435"/>
+        <location filename="../plugin_manager/main_window.py" line="1447"/>
         <source>已连接到主进程</source>
         <translation>メインプロセスに接続済</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1435"/>
+        <location filename="../plugin_manager/main_window.py" line="1447"/>
         <source>未连接 (重连 {n} 次)</source>
         <translation>未接続 (再接続 {n})</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1435"/>
+        <location filename="../plugin_manager/main_window.py" line="1447"/>
         <source>未连接到主进程</source>
         <translation>メインプロセスに未接続</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1468"/>
+        <location filename="../plugin_manager/main_window.py" line="1480"/>
         <source>调试服务已在端口 5678 启动，等待 VS Code 连接。重启插件管理器可关闭调试。</source>
         <translation>ポート5678でデバッグサーバー起動。再起動で終了。</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1486"/>
+        <location filename="../plugin_manager/main_window.py" line="1498"/>
         <source>插件 {name} 就绪</source>
         <translation>プラグイン {name} 準備完了</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1557"/>
+        <location filename="../plugin_manager/main_window.py" line="1569"/>
         <source>已加载 {total} 个插件，{enabled} 个已启用</source>
         <translation>{total} プラグイン中 {enabled} 有効</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1580"/>
+        <location filename="../plugin_manager/main_window.py" line="1592"/>
         <source>启用</source>
         <translation>有効</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1581"/>
+        <location filename="../plugin_manager/main_window.py" line="1593"/>
         <source>禁用</source>
         <translation>無効</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1591"/>
+        <location filename="../plugin_manager/main_window.py" line="1603"/>
         <source>插件详情</source>
         <translation>プラグイン情報</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1592"/>
+        <location filename="../plugin_manager/main_window.py" line="1604"/>
         <source>名称: {name}</source>
         <translation>名前: {name}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1594"/>
+        <location filename="../plugin_manager/main_window.py" line="1606"/>
         <source>版本: {v}</source>
         <translation>バージョン: {v}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1596"/>
+        <location filename="../plugin_manager/main_window.py" line="1608"/>
         <source>作者: {a}</source>
         <translation>作者: {a}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1598"/>
+        <location filename="../plugin_manager/main_window.py" line="1610"/>
         <source>暂无描述</source>
         <translation>説明なし</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1599"/>
+        <location filename="../plugin_manager/main_window.py" line="1611"/>
         <source>描述: {d}</source>
         <translation>説明: {d}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1610"/>
+        <location filename="../plugin_manager/main_window.py" line="1622"/>
         <source>打开窗口</source>
         <translation>ウィンドウを開く</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1611"/>
+        <location filename="../plugin_manager/main_window.py" line="1623"/>
         <source>关闭窗口</source>
         <translation>ウィンドウを閉じる</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1621"/>
+        <location filename="../plugin_manager/main_window.py" line="1633"/>
         <source>打开日志</source>
         <translation>ログを開く</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1630"/>
+        <location filename="../plugin_manager/main_window.py" line="1642"/>
         <source>设置...</source>
         <translation>設定...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1849"/>
+        <location filename="../plugin_manager/main_window.py" line="1861"/>
         <source>程序已在系统托盘中运行</source>
         <translation>システムトレイで実行中</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1858"/>
+        <location filename="../plugin_manager/main_window.py" line="1870"/>
         <source>确认关闭</source>
         <translation>終了確認</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1858"/>
+        <location filename="../plugin_manager/main_window.py" line="1870"/>
         <source>关闭窗口将停止插件管理器，确定吗？</source>
         <translation>終了するとプラグインマネージャーが停止します。よろしいですか？</translation>
     </message>
@@ -3312,6 +3381,34 @@ th { background: #F3E5F5; color: #6A1B9A; }
     </message>
 </context>
 <context>
+    <name>ReplayAnalysis</name>
+    <message>
+        <location filename="../replay_analysis/guess.py" line="50"/>
+        <source>猜雷</source>
+        <translation>推測</translation>
+    </message>
+    <message>
+        <location filename="../replay_analysis/combo_click.py" line="38"/>
+        <source>连击</source>
+        <translation>連続クリック</translation>
+    </message>
+    <message>
+        <location filename="../replay_analysis/flag.py" line="73"/>
+        <source>标雷</source>
+        <translation>旗立て</translation>
+    </message>
+    <message>
+        <location filename="../replay_analysis/flag.py" line="49"/>
+        <source>双击{dce}次，解决{bbbv}bv</source>
+        <translation>ダブルクリック{dce}回、解決{bbbv}bv</translation>
+    </message>
+    <message>
+        <location filename="../replay_analysis/flag.py" line="76"/>
+        <source>取消标雷</source>
+        <translation>旗を解除</translation>
+    </message>
+</context>
+<context>
     <name>SettingsDialog</name>
     <message>
         <location filename="../plugin_manager/main_window.py" line="521"/>
@@ -3319,204 +3416,132 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <translation>基本設定</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="530"/>
+        <location filename="../plugin_manager/main_window.py" line="531"/>
         <source>主进程文件日志</source>
         <translation>メインプロセスファイルログ</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="557"/>
+        <location filename="../plugin_manager/main_window.py" line="558"/>
         <source>日志等级</source>
         <translation>ログレベル</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="541"/>
+        <location filename="../plugin_manager/main_window.py" line="542"/>
         <source>主进程日志文件的记录等级</source>
         <translation>メインプロセスログファイルの記録レベル</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="547"/>
+        <location filename="../plugin_manager/main_window.py" line="548"/>
         <source>日志查看器</source>
         <translation>ログビューア</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="558"/>
+        <location filename="../plugin_manager/main_window.py" line="559"/>
         <source>日志查看器显示的日志等级</source>
         <translation>ログビューアに表示するログレベル</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="564"/>
+        <location filename="../plugin_manager/main_window.py" line="566"/>
         <source>自动滚动</source>
         <translation>自動スクロール</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="569"/>
+        <location filename="../plugin_manager/main_window.py" line="572"/>
         <source>显示来源</source>
         <translation>ソース表示</translation>
     </message>
 </context>
 <context>
-    <name>VideoControl</name>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="33"/>
-        <source>危险的猜雷（正确概率 {0}）</source>
-        <translation>Dangerous guess (correct probability {0})</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="34"/>
-        <source>高难度的判雷（{0}）</source>
-        <translation>High-difficulty judgment ({0})</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="35"/>
-        <source>可以判雷时选择猜雷</source>
-        <translation>Guess when judgment was possible</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="36"/>
-        <source>鼠标轨迹过于弯曲（{0}%）</source>
-        <translation>Mouse trace too curved ({0}%)</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="37"/>
-        <source>鼠标轨迹弯曲（{0}%）</source>
-        <translation>Mouse trace curved ({0}%)</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="38"/>
-        <source>笔直的鼠标轨迹</source>
-        <translation>Straight mouse trace</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="39"/>
-        <source>可以判雷时视野的转移</source>
-        <translation>Vision transfer when judgment was possible</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/videoControl.py" line="40"/>
-        <source>教科书式的FL局部（{0} 步）</source>
-        <translation>Textbook FL local ({0} steps)</translation>
-    </message>
-</context>
-<context>
     <name>VideoLoadProgress</name>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="138"/>
         <source>打开录像</source>
         <translation>リプレイを開く</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="144"/>
         <source>正在打开录像...</source>
         <translation>リプレイを開いています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="81"/>
         <source>正在创建录像对象...</source>
         <translation>リプレイオブジェクトを作成しています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="85"/>
         <source>正在解析录像集...</source>
         <translation>リプレイセットを解析しています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="87"/>
         <source>录像集解析完成</source>
         <translation>リプレイセットの解析が完了しました</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="89"/>
         <source>正在分析录像集...</source>
         <translation>リプレイセットを分析しています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="91"/>
         <source>录像集分析完成</source>
         <translation>リプレイセットの分析が完了しました</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="105"/>
         <source>正在计算 pluck...</source>
         <translation>pluck を計算しています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="97"/>
         <source>正在解析录像...</source>
         <translation>リプレイを解析しています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="99"/>
         <source>录像解析完成</source>
         <translation>リプレイの解析が完了しました</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="101"/>
         <source>正在分析录像...</source>
         <translation>リプレイを分析しています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="103"/>
         <source>录像分析完成</source>
         <translation>リプレイの分析が完了しました</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="165"/>
         <source>正在创建录像目录...</source>
         <translation>リプレイディレクトリを作成しています...</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="173"/>
         <source>录像加载完成</source>
         <translation>リプレイの読み込みが完了しました</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="203"/>
         <source>正在分析本地事件...</source>
         <translation>ローカルイベントを分析しています...</translation>
     </message>
     <message>
-        <source>正在分析本地事件... ({current}/{total})</source>
-        <translation>ローカルイベントを分析しています... ({current}/{total})</translation>
-    </message>
-    <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="193"/>
         <source>事件列表创建完成</source>
         <translation>イベントリストを作成しました</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="218"/>
         <source>打开录像失败</source>
         <translation>リプレイを開けませんでした</translation>
     </message>
     <message>
+        <location filename="../mineSweeperVideoPlayer.py" line="218"/>
         <source>录像解析失败：</source>
         <translation>リプレイの解析に失敗しました: </translation>
-    </message>
-</context>
-<context>
-    <name>ReplayAnalysis</name>
-    <message>
-        <source>猜雷</source>
-        <translation>推測</translation>
-    </message>
-    <message>
-        <source>连击</source>
-        <translation>連続クリック</translation>
-    </message>
-    <message>
-        <source>标雷</source>
-        <translation>旗立て</translation>
-    </message>
-    <message>
-        <source>pluck={pluck}(+{pluck_diff})，雷{mine}，最小{minimum}，密度{density}</source>
-        <translation>pluck={pluck}(+{pluck_diff})、地雷{mine}、最小{minimum}、密度{density}</translation>
-    </message>
-    <message>
-        <source>右左间隔{right_left}，标双间隔{flag_double}</source>
-        <translation>右左間隔{right_left}、旗-ダブル間隔{flag_double}</translation>
-    </message>
-    <message>
-        <source>长度{length}，间隔最大{max_interval}，最小{min_interval}，平均{average_interval}</source>
-        <translation>長さ{length}、最大間隔{max_interval}、最小{min_interval}、平均{average_interval}</translation>
-    </message>
-    <message>
-        <source>双击{dce}次，解决{bbbv}bv</source>
-        <translation>ダブルクリック{dce}回、解決{bbbv}bv</translation>
-    </message>
-    <message>
-        <source>取消标雷</source>
-        <translation>旗を解除</translation>
-    </message>
-</context>
-<context>
-    <name>ReleaseFrame</name>
-    <message>
-        <location filename="../dialogs/CheckUpdateGui.py" line="68"/>
-        <source>unfold</source>
-        <translation>展開</translation>
     </message>
 </context>
 </TS>

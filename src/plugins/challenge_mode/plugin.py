@@ -68,9 +68,9 @@ class ChallengeModePlugin(BasePlugin):
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
             name="无猜闯关",
-            version="1.0.0",
+            version="1.0.0-beta",
             author="eee555",
-            description=_translate("Form", "顺序闯关模式 - 共1000关，已解锁关卡可选"),
+            description=_translate("Form", "顺序闯关模式 - 共1000个精心设计的关卡"),
             icon=make_plugin_icon("#E65100", "闯", 64),
             window_mode=WindowMode.TAB,
             required_controls=[NewPresetGameCommand, InitOpenCommand],

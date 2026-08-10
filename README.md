@@ -230,6 +230,18 @@
 
 
 ## 下载链接
+
+### 正式版v3.3.4：
+- 新增统计插件v1.0.0
+- 新增无猜关卡插件v1.0.0-beta
+- 历史记录插件现在支持“计算列”
+- 现在计数器和扫雷界面窗口大小可以变化同步，可以单独按下“ctrl”并滚动滚轮来调整
+- 现在历史插件的数据库采用压缩存储，减小了体积
+- 调整了菜单布局，新增了复制到png和svg格式图片
+- 现在F3等重开事件，结束后录像的模式变为UPK且official
+- 修复了以下bug：标错雷后，游戏结束后，计算plucky时可能崩溃；按住空格的时候按F2或切换模式崩溃；evf录像尺寸大于65535字节时，evfs编码算法报错崩溃；回放时雷数不变；强可猜模式下F3重开，必然起手踩雷  
+链接：[https://gitee.com/ee55/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe](https://gitee.com/ee55/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe)、[https://github.com/eee555/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe](https://github.com/eee555/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe)
+
 ### 正式版v3.3.3：
 - 任何未捕获异常会弹对话框显示完整 traceback，不再无声闪退
 - 修复了以下bug：将局面复制到矩阵时矩阵全0，插件管理器不再能多开，文件关联打开录像报错，游戏开始后通过自定义菜单修改配置确定后闪退，双键踩雷后闪退  

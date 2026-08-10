@@ -1,5 +1,5 @@
 pyQt5==5.15.11
-ms-toollib>=1.5.15
+ms-toollib>=1.5.17
 setuptools==83.0.0
 msgspec>=0.20.0
 zmq>=0.0.0
