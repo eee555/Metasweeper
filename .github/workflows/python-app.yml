@@ -101,6 +101,10 @@ jobs:
             --hidden-import win32event `
             --hidden-import winerror `
             --hidden-import ms_toollib `
+            --hidden-import PyQt5.QtQuickWidgets `
+            --hidden-import PyQt5.QtQuick `
+            --hidden-import PyQt5.QtQml `
+            --hidden-import PyQt5.QtChart `
             --exclude PIL --exclude Pillow --exclude Cython `
             --exclude setuptools --exclude pkg_resources `
             --exclude psutil --exclude numpy `
@@ -149,8 +153,8 @@ jobs:
           $qt = "dist\metasweeper\_internal\PyQt5\Qt5"
 
           # 1) 删除不用的 Qt 模块 DLL (~8.6 MB)
+          # 注意：Qt5Quick/Qt5Qml/Qt5QmlModels 被 stats 插件(QQuickWidget/QML)使用，必须保留
           $unusedDlls = @(
-            "Qt5Quick.dll", "Qt5Qml.dll", "Qt5QmlModels.dll",
             "Qt5DBus.dll"
           )
           foreach ($dll in $unusedDlls) {
