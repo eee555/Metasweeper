@@ -467,6 +467,11 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.engine.layMine(i, j)
         if self.engine.use_pending_boards_flag:
             self.gameMode = self.engine.gameMode
+            self.score_board_manager.with_namespace({
+                "mode": self.gameMode,
+            })
+            self.score_board_manager.show(
+                self.label.ms_board, index_type=1)
 
     def timeCount(self):
         # 10ms时间步进的回调，改计数器、改右上角时间
