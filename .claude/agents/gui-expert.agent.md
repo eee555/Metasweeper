@@ -23,15 +23,15 @@ user-invocable: true
 | `src/ui/mineNumLabel.py` | 数字标签控件 |
 | `src/mainWindowGUI.py` | 主窗口（拖拽、键盘） |
 | `src/superGUI.py` | UI 布局基类 |
-| `src/gameSettings.py` | 设置对话框 |
-| `src/gameAbout.py` | 关于对话框 |
-| `src/gameScoreBoard.py` | 计分板 |
-| `src/gameAdvancedSettings.py` | 高级设置 |
-| `src/gameDefinedParameter.py` | 自定义参数 |
-| `src/gameSettingShortcuts.py` | 快捷键设置 |
+| `src/dialogs/gameSettings.py` | 设置对话框 |
+| `src/dialogs/gameAbout.py` | 关于对话框 |
+| `src/dialogs/gameScoreBoard.py` | 计分板 |
+| `src/dialogs/gameAdvancedSettings.py` | 高级设置 |
+| `src/dialogs/gameDefinedParameter.py` | 自定义参数 |
+| `src/dialogs/gameSettingShortcuts.py` | 快捷键设置 |
 | `src/mine_num_bar.py` | 雷数显示栏 |
-| `src/gameRecordPop.py` | 录像弹窗 |
-| `src/videoControl.py` | 录像播放控制 |
+| `src/dialogs/gameRecordPop.py` | 录像弹窗 |
+| `src/dialogs/videoControl.py` | 录像播放控制 |
 | `src/ui/de_DE.ts` 等 | 翻译文件 |
 
 **主进程 UI 架构**：

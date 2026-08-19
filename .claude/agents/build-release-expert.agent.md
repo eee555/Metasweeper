@@ -43,7 +43,7 @@ build.bat 执行：
 | 依赖 | 用途 |
 |------|------|
 | PyQt5==5.15.11 | GUI 框架 |
-| ms-toollib>=1.5.10 | 扫雷算法（Rust） |
+| ms-toollib>=1.5.17 | 扫雷算法（Rust） |
 | msgspec>=0.20.0 | 高性能序列化 |
 | zmq>=0.0.0 | 进程间通信 |
 | pywin32>=311 | Windows API |
@@ -51,6 +51,11 @@ build.bat 执行：
 | debugpy>=1.8.20 | 调试 |
 | requests>=2.33.1 | HTTP 请求 |
 | pycryptodome>=3.20.0 | AES 加密 |
+| setuptools==83.0.0 | 打包工具 |
+| PyQt5-stubs>=5.15.6.0 | PyQt5 类型存根 |
+| textdistance | 文本距离计算 |
+| PyMCUlib>=1.0.3 | MCU 库 |
+| pyqtchart | 图表组件 |
 
 ## 工作原则
 

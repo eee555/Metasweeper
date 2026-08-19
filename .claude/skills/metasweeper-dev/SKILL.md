@@ -40,10 +40,11 @@ ui.ui_main_board.Ui_MainWindow         # 自动生成的 UI 表单
 
 ```
 READY → PLAYING → WIN / FAIL
-                  ↘ JOKING → JOWIN / JOFAIL
+                   ↘ JOKING → JOWIN / JOFAIL
 DISPLAY / SHOW_DISPLAY（录像回放）
 SHOW（概率显示）
-STUDY（分析模式）
+STUDY（研究/分析模式）
+MODIFY（修改模式）
 ```
 
 状态变更入口：`mineSweeperGUI.py` 中 `game_state` 的 setter（line ~240-300）。
@@ -70,7 +71,7 @@ STUDY（分析模式）
 | 导出 CSV | `mainWindowGUIImportExport.py:349-435` | 解密 → 过滤 → csv.writer |
 | 导出 meta.dat | `mainWindowGUIImportExport.py:437-509` | 解密 → 过滤 → 重新加密写入 |
 
-AES-128-GCM 密钥在 `superGUI.STATS_DAT_KEY`。
+AES-128-GCM 密钥在 `superGUI.STATS_DAT_KEY`（`src/superGUI.py:27`）。
 
 ## 常见修改场景
 

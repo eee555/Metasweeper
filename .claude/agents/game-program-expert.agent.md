@@ -36,11 +36,11 @@ main.py (入口)
 | `src/mineSweeperGUIEvent.py` | 鼠标/键盘事件处理，游戏状态机 |
 | `src/superGUI.py` | UI 布局基类，版本号，配置管理 |
 | `src/mineSweeperVideoPlayer.py` | 录像播放器 |
-| `src/gameSettings.py` | 设置对话框 |
-| `src/gameScoreBoard.py` | 计分板 |
-| `src/gameAbout.py` | 关于对话框 |
+| `src/dialogs/gameSettings.py` | 设置对话框 |
+| `src/dialogs/gameScoreBoard.py` | 计分板 |
+| `src/dialogs/gameAbout.py` | 关于对话框 |
 | `src/captureScreen.py` | 截屏功能 |
-| `src/utils.py` | 工具函数 |
+| `src/utils/` | 工具函数 |
 
 ## 工作原则
 

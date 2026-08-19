@@ -97,9 +97,11 @@ Meta Minesweeper is not just a game but a full analysis platform.
 
 The **Plugin Manager** runs on a ZMQ event bus, fully decoupled from the main process — a plugin can crash without affecting the game.
 
-* **History plugin**: automatically records every game session; right-click to copy any record as JSON; import/export in stats.dat / meta.dat / textstats.csv formats.
+* **History plugin**: automatically records every game session; right-click to copy any record as JSON; import/export in stats.dat / meta.dat / textstats.csv formats; supports "calculated columns".
 * **LLM Controller plugin**: control the game via natural language through a large language model ("open intermediate", "flag this tile", etc.).
 * **XianNiUpgrade plugin**: XP / level-up / lottery system that gamifies Minesweeper practice, with intelligent replay absorption.
+* **Stats plugin v1.0.0**: provides game data statistics and analysis.
+* **Challenge Mode plugin v1.0.0-beta**: provides guess-free mode level challenges.
 * **Advanced settings panel**: central management for plugin authorization, event subscriptions, board update security toggles, and more.
 * The plugin SDK is fully open — anyone can write custom plugins and hook into the event bus.
 
@@ -244,6 +246,20 @@ Per project rules, donations are distributed among contributors proportionally t
 |  *Song  | ¥72.60 | 2024-04-04 |  WeChat |    Pending   |
 
 ## Download Links
+
+### v3.3.4
+
+- New Stats plugin v1.0.0
+- New Challenge Mode plugin v1.0.0-beta
+- History plugin now supports "calculated columns"
+- Counter and game board window sizes can now be independently scaled with Ctrl+scroll
+- History plugin database now uses compressed storage, reducing file size
+- Adjusted menu layout; added copy to PNG and SVG image formats
+- F3 restart now produces UPK fair replays
+- Bug fixes: plucky calculation crash after wrong flag; crash when pressing F2 or switching mode while holding Space; evfs encoding crash for replays >65535 bytes; mine count not updating during replay; guaranteed mine hit on F3 restart in strong guessable mode
+Links:
+[https://gitee.com/ee55/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe](https://gitee.com/ee55/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe)
+[https://github.com/eee555/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe](https://github.com/eee555/Metasweeper/releases/download/3.3.4/Metasweeper-3.3.4.exe)
 
 ### v3.3.3
 

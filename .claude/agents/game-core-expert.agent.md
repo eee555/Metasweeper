@@ -38,6 +38,7 @@ display → showdisplay (播放+概率)
 | `src/superGUI.py` | 游戏配置、模式切换 |
 | `src/metasweeper_checksum.py` | 录像校验 |
 | `src/safe_eval.py` | 安全表达式求值 |
+| `src/replay_analysis/` | 录像分析模块（combo_click、flag、guess等分析） |
 
 ## ms_toollib 集成
 

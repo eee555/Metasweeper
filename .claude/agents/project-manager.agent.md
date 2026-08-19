@@ -77,7 +77,11 @@ src/
 ├── plugin_manager/            # 插件管理器进程
 ├── plugins/                   # 内置插件
 ├── ui/                        # UI 组件
-└── replay/                    # 录像文件
+├── replay/                    # 录像文件（用户数据，已 gitignore）
+├── replay_analysis/           # 录像分析模块
+├── dialogs/                   # 对话框组件
+├── config/                    # 配置常量
+└── utils/                     # 工具函数
 ```
 
 ## 子智能体管理能力

@@ -152,7 +152,8 @@ user-invocable: true
 | zmq | `src/lib_zmq_plugins/` |
 | shared-types | `src/shared_types/` |
 | build | `*.spec`, `build.bat`, `Metaminesweeper.iss` |
-| replay | `src/replay/` |
+| replay | `src/replay/`（用户录像文件，已 gitignore） |
+| replay-analysis | `src/replay_analysis/`（录像分析模块） |
 
 ## 工作原则
 
