@@ -121,4 +121,27 @@ class ConfirmDialog(QDialog):
 
     def buttons(self) -> dict[QDialogButtonBox.StandardButton, QPushButton]:
         """获取所有按钮"""
-        return {btn: self.button_box.button(btn) for btn in self._buttons}
+        result: dict[QDialogButtonBox.StandardButton, QPushButton] = {}
+        flags = self._buttons
+        for btn in (
+            QDialogButtonBox.Ok,
+            QDialogButtonBox.Cancel,
+            QDialogButtonBox.Save,
+            QDialogButtonBox.Discard,
+            QDialogButtonBox.Apply,
+            QDialogButtonBox.Reset,
+            QDialogButtonBox.RestoreDefaults,
+            QDialogButtonBox.Help,
+            QDialogButtonBox.SaveAll,
+            QDialogButtonBox.Yes,
+            QDialogButtonBox.YesToAll,
+            QDialogButtonBox.No,
+            QDialogButtonBox.NoToAll,
+            QDialogButtonBox.Abort,
+            QDialogButtonBox.Retry,
+            QDialogButtonBox.Ignore,
+            QDialogButtonBox.Close,
+        ):
+            if bool(flags & btn) and (b := self.button_box.button(btn)) is not None:
+                result[btn] = b
+        return result
