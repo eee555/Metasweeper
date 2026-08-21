@@ -16,11 +16,12 @@ from PyQt5.QtWidgets import (
     QFrame, QAbstractItemView, QPushButton, QFileDialog,
     QMessageBox, QDialog, QLineEdit, QTextBrowser, QDialogButtonBox
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QCoreApplication
+from PyQt5.QtCore import Qt, pyqtSignal, QCoreApplication, QTimer
 
 _translate = QCoreApplication.translate
-from PyQt5.QtGui import QPixmap, QResizeEvent, QPainter
+from PyQt5.QtGui import QPixmap, QResizeEvent, QPainter, QShowEvent
 
+from .config import DEFAULT_API_URL
 from .models import LEVEL_NAMES, LEVEL_LABELS, MODE_LABELS
 
 
@@ -184,6 +185,7 @@ class RulesDialog(QDialog):
 
     @staticmethod
     def _build_content() -> str:
+        rank_url = DEFAULT_API_URL
         return _translate("Form", """\
 <style>
 h2 { color: #6A1B9A; border-bottom: 2px solid #CE93D8; padding-bottom: 4px; }
@@ -192,6 +194,7 @@ b { color: #4A148C; }
 code { background: #F3E5F5; padding: 1px 4px; border-radius: 2px; }
 ul { margin: 4px 0; }
 li { margin: 2px 0; }
+ol { margin: 4px 0; padding-left: 22px; }
 table { border-collapse: collapse; margin: 8px 0; }
 td, th { border: 1px solid #E1BEE7; padding: 4px 10px; text-align: center; }
 th { background: #F3E5F5; color: #6A1B9A; }
@@ -290,7 +293,37 @@ th { background: #F3E5F5; color: #6A1B9A; }
 
 <h3>五、存档说明</h3>
 <p>存档文件 <code>player_data.dat</code> 保存在插件数据目录，包含多玩家信息、修行日志和已导入录像记录（最多保存 1000 条）。不可轻易删除，否则只能在下个版本中用“吸收灵气”重新导入录像。</p>
-""")
+
+<h3>六、排行榜</h3>
+<p>排行站默认地址：<a href="{rank_url}">{rank_url}</a></p>
+<p><b>游戏标识</b>是排行主键，不会出现在公开榜上。公开<b>道号</b>自动来自<b>开源扫雷网</b>：请先在 openms 个人主页绑定与游戏相同的扫雷标识；有真实姓名则显示姓名，否则显示用户 ID。标识未绑定时回退为游戏标识。</p>
+
+<h3>第一步：改游戏玩家标识</h3>
+<ol>
+<li>打开主进程「<b>设置</b>」→「<b>游戏设置</b>」→「<b>标识</b>」</li>
+<li>默认「匿名玩家」<b>不能上榜</b>，请先改成你自己的标识</li>
+<li>在开源扫雷网个人主页「概览」底部<b>添加并绑定</b>相同标识</li>
+</ol>
+
+<h3>第二步：上传方式</h3>
+<ul>
+<li><b>手动</b>：本 Tab「<b>上传排行</b>」按钮</li>
+<li><b>自动</b>：设置里勾选「<b>自动上传排行</b>」→ 每局公平胜利后静默上传</li>
+<li>首次实际上传时会自动生成「<b>上传令牌</b>」并保存到设置</li>
+<li>成功不弹窗、不打开浏览器（自动上传）；手动上传可按设置打开排行页</li>
+</ul>
+
+<h3>务必注意</h3>
+<ul>
+<li>须启用插件管理器中的「<b>SaoleiWebsite</b>」插件以解析网内昵称</li>
+<li><b>换电脑</b>须在设置里点「复制」拷贝「上传令牌」，粘贴到新电脑设置，否则无法继续更新同一标识</li>
+<li>建议生成后立即点「<b>复制</b>」备份；误改且已保存后，只有旧备份或旧 config 能恢复</li>
+<li>令牌丢失则无法覆盖已有排行记录</li>
+<li>这是<b>荣誉榜</b>：本地改档后仍可用自己的令牌上传</li>
+<li>客户端 60 秒内不连发；期间有新成绩则到期后补传当时最新修为</li>
+</ul>
+<p>首次打开本 Tab 时会自动弹出本「天地法则」说明，关闭后不再打扰。</p>
+""").replace("{rank_url}", rank_url)
 
 
 class LevelDisplay(QWidget):
@@ -298,6 +331,7 @@ class LevelDisplay(QWidget):
 
     absorb_clicked = pyqtSignal()
     law_clicked = pyqtSignal()
+    upload_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -367,6 +401,18 @@ class LevelDisplay(QWidget):
         )
         self._absorb_btn.clicked.connect(self.absorb_clicked.emit)
         btn_row.addWidget(self._absorb_btn)
+
+        self._upload_btn = QPushButton(_translate("Form", "上传排行"))
+        self._upload_btn.setFixedHeight(22)
+        self._upload_btn.setCursor(Qt.PointingHandCursor)
+        self._upload_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #26A69A; border: none; "
+            "font-size: 12px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
+            "QPushButton:hover { color: #00897B; }"
+            "QPushButton:disabled { color: #BDBDBD; }"
+        )
+        self._upload_btn.clicked.connect(self.upload_clicked.emit)
+        btn_row.addWidget(self._upload_btn)
         info_layout.addLayout(btn_row)
 
         layout.addWidget(info_frame, stretch=1)
@@ -384,7 +430,11 @@ class LevelDisplay(QWidget):
     def retranslateUi(self):
         self._law_btn.setText(_translate("Form", "天地法则"))
         self._absorb_btn.setText(_translate("Form", "吸收灵气"))
+        self._upload_btn.setText(_translate("Form", "上传排行"))
         self._image_label.setText(_translate("Form", "等待仙躯\n形象加载..."))
+
+    def set_upload_enabled(self, enabled: bool):
+        self._upload_btn.setEnabled(enabled)
 
     def set_image(self, raw_bytes: bytes | None):
         if raw_bytes:
@@ -420,6 +470,9 @@ class XianNiUpgradeUI(QWidget):
         self._absorb_cb = None
         self._validate_save_cb = None
         self._absorb_save_cb = None
+        self._upload_cb = None
+        self._first_visible_cb = None
+        self._first_visible_scheduled = False
         self._setup_ui()
         self._signal_update.connect(self._do_update)
 
@@ -431,6 +484,32 @@ class XianNiUpgradeUI(QWidget):
         self._validate_save_cb = validate_cb
         self._absorb_save_cb = absorb_cb
 
+    def set_upload_callback(self, cb):
+        self._upload_cb = cb
+
+    def set_first_visible_callback(self, cb):
+        self._first_visible_cb = cb
+
+    def showEvent(self, event: QShowEvent):
+        super().showEvent(event)
+        if (
+            self._first_visible_cb
+            and not self._first_visible_scheduled
+            and self.isVisible()
+        ):
+            self._first_visible_scheduled = True
+            # 勿在 showEvent 栈内同步 exec_()；延迟到布局/绘制完成后再弹
+            QTimer.singleShot(150, self._invoke_first_visible_cb)
+
+    def _invoke_first_visible_cb(self) -> None:
+        cb = self._first_visible_cb
+        if cb is None or not self.isVisible():
+            return
+        cb()
+
+    def set_upload_enabled(self, enabled: bool):
+        self._level_display.set_upload_enabled(enabled)
+
     def _setup_ui(self):
         layout = QVBoxLayout(self)
 
@@ -438,6 +517,7 @@ class XianNiUpgradeUI(QWidget):
         self._level_display.setStyleSheet("margin-bottom: 4px;")
         self._level_display.absorb_clicked.connect(self._on_absorb_clicked)
         self._level_display.law_clicked.connect(self._on_law_clicked)
+        self._level_display.upload_clicked.connect(self._on_upload_clicked)
         layout.addWidget(self._level_display, 3)
 
         self._log_group = QGroupBox(_translate("Form", "修行日志"))
@@ -493,6 +573,13 @@ class XianNiUpgradeUI(QWidget):
                     off += length
             except Exception:
                 self._assets.clear()
+
+    def _on_upload_clicked(self):
+        if not self._upload_cb:
+            QMessageBox.warning(self, _translate("Form", "提示"), _translate("Form", "插件未就绪"))
+            return
+        self.set_upload_enabled(False)
+        self._upload_cb()
 
     def _on_law_clicked(self):
         dialog = RulesDialog(self)

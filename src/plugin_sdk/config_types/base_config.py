@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Generic, Type, TypeVar, overload
 
+from PyQt5.QtCore import QCoreApplication, pyqtBoundSignal, pyqtSignal, QObject
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import pyqtBoundSignal, pyqtSignal, QObject
 
 T = TypeVar("T")
 
@@ -88,7 +88,7 @@ class BaseConfig(ABC, Generic[T]):
         default: 默认值
         label: 显示标签
         description: tooltip 提示
-        validator: 自定义验证函数
+        validator: 自定义验证函数。可返回 True/None（通过）、False（通用失败）或 str（错误文案）
         visible: 是否在 UI 中展示（默认 True，设为 False 可隐藏）
 
     类属性:
@@ -98,7 +98,7 @@ class BaseConfig(ABC, Generic[T]):
     default: T  # 默认值
     label: str = ""  # 显示标签
     description: str = ""  # tooltip 提示
-    validator: Callable[[T], bool] | None = None  # 自定义验证函数
+    validator: Callable[[T], bool | str | None] | None = None  # 自定义验证函数
     visible: bool = True  # 是否在 UI 中展示
 
     # 类变量：用于 UI 工厂识别
@@ -149,7 +149,7 @@ class BaseConfig(ABC, Generic[T]):
         """
         pass
 
-    def validate(self, value: T) -> bool:
+    def validate(self, value: T) -> str | None:
         """
         验证值是否有效
 
@@ -157,11 +157,18 @@ class BaseConfig(ABC, Generic[T]):
             value: 待验证的值
 
         Returns:
-            True 表示有效
+            None 表示通过；str 为错误文案
         """
-        if self.validator is not None:
-            return self.validator(value)
-        return True
+        if self.validator is None:
+            return None
+        result = self.validator(value)
+        if result is True or result is None:
+            return None
+        if result is False:
+            return QCoreApplication.translate("Form", "该值无效")
+        if isinstance(result, str):
+            return result or QCoreApplication.translate("Form", "该值无效")
+        return QCoreApplication.translate("Form", "该值无效")
 
     @overload
     def __get__(self, instance: None, owner: Type[Any]) -> "BaseConfig[T]": ...
