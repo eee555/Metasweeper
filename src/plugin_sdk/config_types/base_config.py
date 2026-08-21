@@ -90,6 +90,7 @@ class BaseConfig(ABC, Generic[T]):
         description: tooltip 提示
         validator: 自定义验证函数。可返回 True/None（通过）、False（通用失败）或 str（错误文案）
         visible: 是否在 UI 中展示（默认 True，设为 False 可隐藏）
+        readonly: 是否在设置页只读展示（默认 False）
 
     类属性:
         widget_type: UI 控件类型标识，由工厂使用
@@ -100,6 +101,7 @@ class BaseConfig(ABC, Generic[T]):
     description: str = ""  # tooltip 提示
     validator: Callable[[T], bool | str | None] | None = None  # 自定义验证函数
     visible: bool = True  # 是否在 UI 中展示
+    readonly: bool = False  # 设置页是否只读
 
     # 类变量：用于 UI 工厂识别
     widget_type: ClassVar[str] = "base"

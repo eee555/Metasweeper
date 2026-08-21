@@ -7,7 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtCore import QCoreApplication
+from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from .base_config import BaseConfig, ConfigWidgetWrapper
 
@@ -22,6 +23,7 @@ class TextConfig(BaseConfig[str]):
         label: 显示标签
         placeholder: 占位符文本
         password: 是否为密码输入（显示为 ***）
+        copy_button: 是否在输入框右侧显示「复制」按钮
         description: tooltip 提示
 
     用法::
@@ -32,6 +34,7 @@ class TextConfig(BaseConfig[str]):
 
     placeholder: str = ""
     password: bool = False
+    copy_button: bool = False
 
     widget_type = "textedit"
 
@@ -40,20 +43,47 @@ class TextConfig(BaseConfig[str]):
         self.default = str(self.default)
 
     def create_widget(self) -> ConfigWidgetWrapper:
-        """创建 QLineEdit 控件"""
-        widget = QLineEdit()
-        widget.setText(str(self.default))
+        """创建 QLineEdit 控件（可选附带复制按钮）"""
+        line_edit = QLineEdit()
+        line_edit.setText(str(self.default))
 
         if self.placeholder:
-            widget.setPlaceholderText(self.placeholder)
+            line_edit.setPlaceholderText(self.placeholder)
 
         if self.password:
-            widget.setEchoMode(QLineEdit.Password)
+            line_edit.setEchoMode(QLineEdit.Password)
+
+        if self.readonly:
+            line_edit.setReadOnly(True)
+
+        host: QWidget = line_edit
+        if self.copy_button:
+            host = QWidget()
+            row = QHBoxLayout(host)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.addWidget(line_edit, 1)
+
+            copy_btn = QPushButton(QCoreApplication.translate("Form", "复制"))
+
+            def _update_copy_enabled(_: str = "") -> None:
+                copy_btn.setEnabled(bool(line_edit.text().strip()))
+
+            def _copy_to_clipboard() -> None:
+                text = line_edit.text().strip()
+                if text:
+                    QApplication.clipboard().setText(text)
+
+            line_edit.textChanged.connect(_update_copy_enabled)
+            copy_btn.clicked.connect(_copy_to_clipboard)
+            row.addWidget(copy_btn)
+            _update_copy_enabled()
 
         if self.description:
-            widget.setToolTip(self.description)
+            host.setToolTip(self.description)
 
-        return ConfigWidgetWrapper(widget, widget.text, widget.setText, widget.textChanged)
+        return ConfigWidgetWrapper(
+            host, line_edit.text, line_edit.setText, line_edit.textChanged
+        )
 
     def to_storage(self, value: str) -> str:
         """转换为存储格式"""

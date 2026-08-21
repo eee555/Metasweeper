@@ -119,9 +119,10 @@ class XianNiUpgradeConfig(OtherInfoBase):
     api_url = TextConfig(
         default=DEFAULT_API_URL,
         label=_translate("Form", "排行站地址"),
-        description=_translate("Form", "排行站根地址，上传时会 POST 到 {地址}/api/upload"),
+        description=_translate("Form", "官方排行站地址（固定），上传时会 POST 到 {地址}/api/upload"),
         placeholder="https://leixiu-rank.pages.dev",
         validator=_validate_api_url,
+        readonly=True,
     )
 
     auto_upload = BoolConfig(
@@ -137,6 +138,7 @@ class XianNiUpgradeConfig(OtherInfoBase):
         default="",
         label=_translate("Form", "上传令牌"),
         password=True,
+        copy_button=True,
         description=_translate(
             "Form",
             "首次上传前自动生成。换电脑请点击右侧「复制」，在新电脑设置里粘贴。"
