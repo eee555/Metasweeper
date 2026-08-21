@@ -55,6 +55,23 @@ from .app_paths import get_data_dir
 if TYPE_CHECKING:
     from .plugin_manager import PluginManager
 
+
+def _resolve_plugin_config_path(plugin: BasePlugin | None) -> Path | None:
+    """解析插件 config.json 路径；兼容未重启时旧版 BasePlugin 无 config_file_path。"""
+    if plugin is None or plugin.other_info is None:
+        return None
+    path = getattr(plugin, "config_file_path", None)
+    if path is not None:
+        return path
+    try:
+        from .config_manager import PluginConfigManager
+        from .app_paths import get_plugin_data_dir
+
+        data_dir = get_plugin_data_dir(type(plugin))
+        return PluginConfigManager(data_dir).config_path(plugin.info.name)
+    except Exception:
+        return None
+
 import loguru
 logger = loguru.logger.bind(name="MainWindow")
 
@@ -476,7 +493,7 @@ class PluginSettingsDialog(QDialog):
             grp4_layout.addWidget(scroll_area)
 
             if plugin is not None:
-                config_path = plugin.config_file_path
+                config_path = _resolve_plugin_config_path(plugin)
                 if config_path is not None:
                     hints_fn = getattr(type(other_info), "settings_extra_hints", None)
                     if callable(hints_fn):

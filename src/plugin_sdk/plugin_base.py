@@ -664,6 +664,34 @@ class BasePlugin(QObject, Generic[ConfigT]):
         """
         return {}
 
+    def run_validate_config(
+        self,
+        pending: dict[str, Any],
+        timeout: float = 15.0,
+    ) -> dict[str, str]:
+        """在插件线程执行 validate_config，供设置页从 GUI 线程安全调用。"""
+        if QThread.currentThread() == self._thread or not self._thread.isRunning():
+            try:
+                result = self.validate_config(pending)
+                return result if isinstance(result, dict) else {}
+            except Exception as e:
+                return {"_plugin": str(e)}
+
+        future: Future[dict[str, str]] = Future()
+
+        def _run(_: Any) -> None:
+            try:
+                result = self.validate_config(pending)
+                future.set_result(result if isinstance(result, dict) else {})
+            except Exception as e:
+                future.set_exception(e)
+
+        self._enqueue_event(_run, None)
+        try:
+            return future.result(timeout=timeout)
+        except Exception as e:
+            return {"_plugin": str(e)}
+
     def on_shutdown(self) -> None:
         """插件关闭前回调"""
         pass
