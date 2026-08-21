@@ -22,8 +22,8 @@ Rectangle {
     // ── 筛选状态 ──
     property int currentLevel: -1   // -1 = 全部
     property int currentMode: -1    // -1 = 全部
-    property real startUs: 0         // 毫秒时间戳，0 = 不限
-    property real endUs: 0           // 毫秒时间戳，0 = 不限
+    property double startUs: 0       // 毫秒时间戳，0 = 不限（double 避免单精度丢失精度）
+    property double endUs: 0         // 毫秒时间戳，0 = 不限
     property int topN: 0             // 前N名平均，0=全部平均
 
     property var levelNames: ({})
@@ -155,20 +155,22 @@ Rectangle {
     function refreshAll() {
         try {
             var summary = JSON.parse(bridge.getSummary(root.currentLevel, root.currentMode, root.startUs, root.endUs));
-            root.summaryData = summary || {};
-            // 获取 topN 平均值并合并
-            if (root.topN > 0 && root.summaryData) {
+            summary = summary || {};
+            // 获取 topN 平均值并合并到局部对象，
+            // 最后一次性整体赋值给 summaryData 以触发 QML 绑定刷新
+            if (root.topN > 0) {
                 var metrics = ["rtime", "3bvs", "ioe", "thrp", "corr", "ces", "cls"];
                 for (var i = 0; i < metrics.length; i++) {
                     try {
                         var topnResult = JSON.parse(bridge.getTopNAvg(metrics[i], root.currentLevel, root.currentMode, root.startUs, root.endUs));
                         if (topnResult && topnResult.topn_avg != null) {
                             var key = metrics[i] === "rtime" ? "avg_win_time" : "avg_" + metrics[i];
-                            root.summaryData[key] = topnResult.topn_avg;
+                            summary[key] = topnResult.topn_avg;
                         }
                     } catch (e2) { /* ignore */ }
                 }
             }
+            root.summaryData = summary;
             trendChart.refresh();
         } catch (e) {
             console.warn("refreshAll error:", e);

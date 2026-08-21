@@ -286,8 +286,8 @@ class StatsBridge(QObject):
 
     # ── BV 分布查询 ──────────────────────────────────────
 
-    @pyqtSlot(int, int, int, result=str)
-    def getBvDistribution(self, level: int, mode: int, winsOnly: int) -> str:
+    @pyqtSlot(int, int, int, int, result=str)
+    def getBvDistribution(self, level: int, mode: int, winsOnly: int, nfFilter: int) -> str:
         """
         查询 BV 分布数据。
 
@@ -295,6 +295,7 @@ class StatsBridge(QObject):
             level: 3=初级, 4=中级, 5=高级
             mode: -1=全部, 0=标准, 4=Win7, 5=经典无猜, ...
             winsOnly: 0=全部, 1=仅胜局
+            nfFilter: -1=全部, 0=标旗, 1=NF
 
         Returns:
             JSON 字符串，如 {"2": 5, "3": 12, ...}
@@ -315,6 +316,7 @@ class StatsBridge(QObject):
             where, params = build_where(
                 level=level,
                 mode=None if mode < 0 else mode,
+                nf=None if nfFilter < 0 else bool(nfFilter),
                 extra_conditions=extra if extra else None,
             )
             params = params + tuple(extra_params)

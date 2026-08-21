@@ -27,6 +27,7 @@ Rectangle {
     // ── 状态 ──
     property int winsOnly: 1       // 0=全部, 1=仅胜局
     property int currentMode: 0    // -1=全部, 0=标准
+    property int nfFilter: -1      // -1=全部, 0=标旗, 1=NF
     property bool showCount: false  // 是否显示局数文字
     property var beginnerData: ({})
     property var intermediateData: ({})
@@ -59,9 +60,9 @@ Rectangle {
     // ── 数据加载 ──
     function loadData() {
         try {
-            beginnerData = JSON.parse(bridge.getBvDistribution(3, currentMode, winsOnly));
-            intermediateData = JSON.parse(bridge.getBvDistribution(4, currentMode, winsOnly));
-            expertData = JSON.parse(bridge.getBvDistribution(5, currentMode, winsOnly));
+            beginnerData = JSON.parse(bridge.getBvDistribution(3, currentMode, winsOnly, nfFilter));
+            intermediateData = JSON.parse(bridge.getBvDistribution(4, currentMode, winsOnly, nfFilter));
+            expertData = JSON.parse(bridge.getBvDistribution(5, currentMode, winsOnly, nfFilter));
         } catch (e) {
             console.warn("BvAnalysisView loadData error:", e);
         }
@@ -200,6 +201,21 @@ Rectangle {
                 id: showCountSwitch
                 checked: root.showCount
                 onCheckedChanged: root.showCount = checked
+            }
+
+            Label {
+                text: "NF"
+                color: "#333333"
+                font.pixelSize: 13
+            }
+
+            Switch {
+                id: nfSwitch
+                checked: root.nfFilter === 1
+                onCheckedChanged: {
+                    root.nfFilter = checked ? 1 : -1;
+                    root.loadData();
+                }
             }
 
             Item {

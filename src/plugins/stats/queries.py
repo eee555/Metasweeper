@@ -89,7 +89,7 @@ SELECT ROUND(AVG(metric_val), 2) AS topn_avg FROM (
     FROM history
     {where_and} game_state = ?
     AND {metric_expr} > 0
-    ORDER BY {order}
+    ORDER BY metric_val {order}
     LIMIT ?
 ) sub
 """
@@ -269,6 +269,7 @@ def build_where(
     mode: int | None = None,
     start_us: int | None = None,
     end_us: int | None = None,
+    nf: bool | None = None,
     extra_conditions: list[str] | None = None,
 ) -> tuple[str, tuple]:
     """
@@ -292,6 +293,9 @@ def build_where(
     if end_us is not None:
         conditions.append("start_time <= ?")
         params.append(end_us)
+    if nf is not None:
+        conditions.append("nf = ?")
+        params.append(1 if nf else 0)
     if extra_conditions:
         conditions.extend(extra_conditions)
 

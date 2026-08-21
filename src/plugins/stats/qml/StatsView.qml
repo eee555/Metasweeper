@@ -22,11 +22,11 @@ Rectangle {
         id: navModel
         ListElement {
             name: "综合统计"
-            icon: "\u{1F4CA}"
+            navIcon: "\u{1F4CA}"
         }
         ListElement {
             name: "BV分析"
-            icon: "\u{26A1}"
+            navIcon: "\u{26A1}"
         }
     }
 
@@ -91,7 +91,7 @@ Rectangle {
                             spacing: 8
 
                             Text {
-                                text: icon
+                                text: navIcon
                                 font.pixelSize: 14
                                 anchors.verticalCenter: parent.verticalCenter
                             }
