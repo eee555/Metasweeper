@@ -82,7 +82,10 @@ class OtherInfoBase:
     def __getattribute__(self, name: str) -> Any:
         """获取属性 - 拦截配置字段访问"""
         # 先获取 _fields 和 _values（避免无限递归）
-        if name.startswith("_") or name in ("to_dict", "from_dict", "reset_to_defaults", "get_fields", "set_on_change"):
+        if name.startswith("_") or name in (
+            "to_dict", "to_log_dict", "from_dict", "reset_to_defaults", "get_fields",
+            "set_on_change", "apply_pending",
+        ):
             return object.__getattribute__(self, name)
 
         try:
@@ -107,8 +110,9 @@ class OtherInfoBase:
 
         if name in fields:
             field = fields[name]
-            if not field.validate(value):
-                raise ValueError(f"Invalid value for '{name}': {value}")
+            error = field.validate(value)
+            if error:
+                raise ValueError(error)
 
             old_value = values.get(name, field.default)
             values[name] = value
@@ -119,6 +123,25 @@ class OtherInfoBase:
                 on_change(name, value)
         else:
             object.__setattr__(self, name, value)
+
+    def apply_pending(self, data: dict[str, Any], *, silent: bool = False) -> None:
+        """
+        写入设置页已经校验过的值，不再次调用字段 validator。
+
+        联网校验若在确定时跑过一遍，保存时不应再打一次。
+        silent=True 时不触发 on_change（设置页从 GUI 线程写入时使用）。
+        """
+        fields = object.__getattribute__(self, "_fields")
+        values = object.__getattribute__(self, "_values")
+        on_change = object.__getattribute__(self, "_on_change")
+
+        for name, new_value in data.items():
+            if name not in fields:
+                continue
+            old_value = values.get(name, fields[name].default)
+            values[name] = new_value
+            if not silent and on_change is not None and old_value != new_value:
+                on_change(name, new_value)
 
     @classmethod
     def get_fields(cls) -> dict[str, BaseConfig]:
@@ -147,6 +170,22 @@ class OtherInfoBase:
             name: field.to_storage(values.get(name, field.default))
             for name, field in fields.items()
         }
+
+    def to_log_dict(self) -> dict[str, Any]:
+        """
+        导出供日志使用的字典：password=True 的非空字段打码。
+        不改变 to_dict() / config.json 明文。
+        """
+        fields = object.__getattribute__(self, "_fields")
+        data = self.to_dict()
+        redacted: dict[str, Any] = {}
+        for name, value in data.items():
+            field = fields.get(name)
+            if field is not None and getattr(field, "password", False):
+                redacted[name] = "***" if value else value
+            else:
+                redacted[name] = value
+        return redacted
 
     def from_dict(self, data: dict[str, Any], silent: bool = True) -> None:
         """
@@ -194,9 +233,9 @@ class OtherInfoBase:
                 on_change(name, field.default)
 
     def __repr__(self) -> str:
-        fields = object.__getattribute__(self, "_fields")
-        values = object.__getattribute__(self, "_values")
-        values_str = ", ".join(f"{k}={v!r}" for k, v in values.items())
+        values_str = ", ".join(
+            f"{k}={v!r}" for k, v in self.to_log_dict().items()
+        )
         return f"{type(self).__name__}({values_str})"
 
 

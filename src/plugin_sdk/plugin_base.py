@@ -372,12 +372,19 @@ class BasePlugin(QObject, Generic[ConfigT]):
         """插件自定义配置对象"""
         return self._other_info
 
+    @property
+    def config_file_path(self) -> "Path | None":
+        """插件 config.json 的完整路径；无自定义配置时为 None。"""
+        if self._config_manager is None:
+            return None
+        return self._config_manager.config_path(self._info.name)
+
     def save_config(self) -> None:
         """保存插件配置到文件"""
         if self._config_manager and self._other_info:
             self._config_manager.save(
                 self._info.name, self._other_info)  # type: ignore
-            self.logger.debug(f"Config saved: {self._other_info.to_dict()}")
+            self.logger.debug(f"Config saved: {self._other_info.to_log_dict()}")
 
     def set_log_level(self, level: LogLevel | str) -> None:
         """动态设置插件的日志级别"""
@@ -644,6 +651,46 @@ class BasePlugin(QObject, Generic[ConfigT]):
     def on_initialized(self) -> None:
         """插件初始化完成回调"""
         pass
+
+    def validate_config(self, pending: dict[str, Any]) -> dict[str, str]:
+        """
+        设置页在字段 validator 通过后调用，用于跨字段或依赖插件状态的校验。
+
+        Args:
+            pending: 设置页即将写入的字段名到当前控件值的映射
+
+        Returns:
+            {字段名: 错误文案}，空 dict 表示通过
+        """
+        return {}
+
+    def run_validate_config(
+        self,
+        pending: dict[str, Any],
+        timeout: float = 15.0,
+    ) -> dict[str, str]:
+        """在插件线程执行 validate_config，供设置页从 GUI 线程安全调用。"""
+        if QThread.currentThread() == self._thread or not self._thread.isRunning():
+            try:
+                result = self.validate_config(pending)
+                return result if isinstance(result, dict) else {}
+            except Exception as e:
+                return {"_plugin": str(e)}
+
+        future: Future[dict[str, str]] = Future()
+
+        def _run(_: Any) -> None:
+            try:
+                result = self.validate_config(pending)
+                future.set_result(result if isinstance(result, dict) else {})
+            except Exception as e:
+                future.set_exception(e)
+
+        self._enqueue_event(_run, None)
+        try:
+            return future.result(timeout=timeout)
+        except Exception as e:
+            return {"_plugin": str(e)}
 
     def on_shutdown(self) -> None:
         """插件关闭前回调"""

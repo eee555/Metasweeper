@@ -9,11 +9,18 @@ import math
 import json
 import base64
 import hashlib
+import secrets
 import subprocess
+import threading
+import time
+import urllib.error
+import urllib.request
+import webbrowser
 from pathlib import Path
 from datetime import datetime
+from typing import Any
 
-from PyQt5.QtCore import QCoreApplication
+from PyQt5.QtCore import QCoreApplication, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QWidget, QMessageBox
 
 _translate = QCoreApplication.translate
@@ -25,10 +32,28 @@ import ms_toollib as ms
 
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
+from plugins.services.saolei_website import SaoleiWebsiteService
 
-from .widgets import XianNiUpgradeUI
+from .config import (
+    XianNiUpgradeConfig,
+    DEFAULT_API_URL,
+    DEFAULT_IDENTIFIER,
+    VALIDATE_TIMEOUT_SEC,
+    api_url_transport_error,
+    resolve_api_url,
+)
+from .widgets import XianNiUpgradeUI, RulesDialog
 from .models import get_image_index
 from . import distribution as _dist
+
+# 游戏设置默认玩家标识，站点与插件均拒绝以此上传
+_ANONYMOUS_IDENTIFIERS = frozenset({
+    DEFAULT_IDENTIFIER,
+    "匿名玩家",
+})
+_UPLOAD_TIMEOUT_SEC = 10
+_AUTO_UPLOAD_MIN_INTERVAL_SEC = 60
+_AUTO_UPLOAD_MAX_INTERVAL_SEC = 600
 
 
 # 预计算累积分布表（稀有局面用）
@@ -111,8 +136,10 @@ def _total_xp(level: int) -> int:
     )
 
 
-class XianNiUpgradePlugin(BasePlugin):
+class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
     """修仙升级插件"""
+
+    _schedule_pending = pyqtSignal()
 
     @classmethod
     def plugin_info(cls) -> PluginInfo:
@@ -123,6 +150,7 @@ class XianNiUpgradePlugin(BasePlugin):
             description=_translate("Form", "仙逆背景的修炼体系 - 每局扫雷胜利获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者"),
             icon=make_plugin_icon("#8E24AA", "仙", 64),
             window_mode=WindowMode.TAB,
+            other_info=XianNiUpgradeConfig,
         )
 
     def _setup_subscriptions(self) -> None:
@@ -136,14 +164,137 @@ class XianNiUpgradePlugin(BasePlugin):
         self._ui.set_image_dir(assets_path)
         self._ui.set_absorb_callbacks(self.validate_replays, self.absorb_replays)
         self._ui.set_save_callbacks(self.validate_save, self.absorb_save)
+        self._ui.set_upload_callback(self.upload_ranking)
+        self._ui.set_first_visible_callback(self._maybe_show_rules_dialog)
         return self._ui
 
     def on_initialized(self) -> None:
+        self._guide_dialog_open = False
+        self._upload_in_progress = False
+        self._pending_upload = False
+        self._last_upload_attempt = 0.0
+        self._auto_upload_fail_count = 0
+        self._pending_timer = QTimer(self)
+        self._pending_timer.setSingleShot(True)
+        self._pending_timer.timeout.connect(self._on_pending_upload_timeout)
+        self._schedule_pending.connect(self._start_pending_timer)
         self._load_data()
+        self._migrate_config_flags()
+        self._saolei_service = self.wait_for_service(SaoleiWebsiteService, timeout=10.0)
+        if self._saolei_service is None:
+            self.logger.warning("SaoleiWebsiteService 未就绪，排行昵称将回退为游戏标识")
         self._push_ui_update()
 
+    def _migrate_config_flags(self) -> None:
+        """rank_upload_guide_seen → rules_dialog_seen；丢弃 display_name。"""
+        if not self.other_info:
+            return
+        path = self.data_dir / "config.json"
+        if not path.exists():
+            return
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError):
+            return
+        if not isinstance(raw, dict):
+            return
+        changed = False
+        if "rank_upload_guide_seen" in raw and "rules_dialog_seen" not in raw:
+            self.other_info.rules_dialog_seen = bool(raw["rank_upload_guide_seen"])
+            changed = True
+        if "display_name" in raw:
+            changed = True
+        if changed:
+            self.save_config()
+
     def on_shutdown(self) -> None:
+        timer = getattr(self, "_pending_timer", None)
+        if timer is not None:
+            timer.stop()
         self._save_data()
+
+    def validate_config(self, pending: dict[str, Any]) -> dict[str, str]:
+        """令牌与当前游戏标识联网校验；匿名标识禁止开自动上传。"""
+        errors: dict[str, str] = {}
+        identifier = self._current_identifier()
+        token = str(pending.get("upload_token") or "").strip()
+        api_url = resolve_api_url(str(pending.get("api_url") or ""))
+
+        if token and not self._is_anonymous_identifier(identifier):
+            token_error = self._verify_upload_token(api_url, identifier, token)
+            if token_error:
+                errors["upload_token"] = token_error
+
+        auto_upload = bool(pending.get("auto_upload", False))
+        if auto_upload and identifier in _ANONYMOUS_IDENTIFIERS:
+            errors["auto_upload"] = _translate(
+                "Form",
+                "当前仍是默认匿名标识，请先在游戏设置中修改玩家标识后再开启自动上传。",
+            )
+        return errors
+
+    def _current_identifier(self) -> str:
+        identifiers = getattr(self, "_identifiers", None) or []
+        pid = getattr(self, "_current_pid", 0)
+        if identifiers and 0 <= pid < len(identifiers):
+            return str(identifiers[pid] or "").strip()
+        return ""
+
+    @staticmethod
+    def _is_anonymous_identifier(identifier: str) -> bool:
+        name = (identifier or "").strip()
+        return (not name) or name in _ANONYMOUS_IDENTIFIERS
+
+    def _verify_upload_token(self, api_url: str, identifier: str, token: str) -> str | None:
+        """
+        POST /api/verify。403 视为令牌不匹配；registered:false / 200 通过；
+        网络失败返回错误文案。超时约 5 秒。
+        """
+        transport_error = api_url_transport_error(api_url)
+        if transport_error:
+            return transport_error
+
+        url = api_url.rstrip("/") + "/api/verify"
+        body = json.dumps(
+            {"identifier": identifier, "upload_token": token},
+            ensure_ascii=False,
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+                "User-Agent": f"MetaSweeper-XianNiUpgrade/{self.info.version}",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=VALIDATE_TIMEOUT_SEC) as resp:
+                status = int(getattr(resp, "status", 200))
+                resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                return _translate(
+                    "Form",
+                    "令牌与当前玩家标识不匹配。请确认上传令牌，或更换玩家标识后重试。",
+                )
+            return _translate("Form", "无法校验上传令牌（HTTP %1）").replace(
+                "%1", str(e.code)
+            )
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            self.logger.warning(f"校验上传令牌失败: {e}")
+            return _translate("Form", "无法校验上传令牌，请检查网络。")
+        except Exception as e:
+            self.logger.warning(f"校验上传令牌异常: {e}")
+            return _translate("Form", "无法校验上传令牌，请检查网络。")
+
+        if not (200 <= status < 300):
+            return _translate("Form", "无法校验上传令牌（HTTP %1）").replace(
+                "%1", str(status)
+            )
+        # registered: false 或其它 200 均通过
+        return None
 
     def _calc_xp(self, event: GameFinishedEvent) -> int:
         """每局获得的经验值"""
@@ -552,6 +703,333 @@ class XianNiUpgradePlugin(BasePlugin):
             "history": self._history[::-1][:100],
         }
 
+    # ═══════════════════════════════════════════════════════════
+    # 上传排行（仅当前 identifier 的 level + total_xp）
+    # ═══════════════════════════════════════════════════════════
+
+    def upload_ranking(self) -> None:
+        """由「上传排行」按钮回调。不受 60 秒客户端跳过限制。"""
+        if getattr(self, "_upload_in_progress", False):
+            ui = getattr(self, "_ui", None)
+            if ui is not None:
+                ui.set_upload_enabled(True)
+            return
+        self._start_upload(silent=False, bypass_throttle=True)
+
+    def _maybe_auto_upload(self) -> None:
+        """胜利后静默上传；匿名标识直接跳过。"""
+        if not self.other_info or not self.other_info.auto_upload:
+            self._pending_upload = False
+            return
+        identifier = self._current_identifier()
+        if self._is_anonymous_identifier(identifier):
+            self.logger.info("自动上传跳过：当前仍是默认匿名标识")
+            self._pending_upload = False
+            return
+        if getattr(self, "_upload_in_progress", False):
+            self._pending_upload = True
+            return
+        if not self._throttle_allows_upload():
+            self._pending_upload = True
+            self._start_pending_timer()
+            return
+        self._start_upload(silent=True, bypass_throttle=False)
+
+    def _throttle_allows_upload(self) -> bool:
+        last = getattr(self, "_last_upload_attempt", 0.0)
+        if last <= 0:
+            return True
+        elapsed = time.monotonic() - last
+        return elapsed >= self._auto_upload_interval()
+
+    def _auto_upload_interval(self) -> float:
+        fails = getattr(self, "_auto_upload_fail_count", 0)
+        interval = _AUTO_UPLOAD_MIN_INTERVAL_SEC * (2 ** min(max(fails, 0), 3))
+        return float(min(interval, _AUTO_UPLOAD_MAX_INTERVAL_SEC))
+
+    def _start_pending_timer(self) -> None:
+        if not getattr(self, "_pending_upload", False):
+            return
+        timer = getattr(self, "_pending_timer", None)
+        if timer is None or timer.isActive():
+            return
+        last = getattr(self, "_last_upload_attempt", 0.0)
+        elapsed = time.monotonic() - last if last > 0 else self._auto_upload_interval()
+        remaining_ms = max(0, int((self._auto_upload_interval() - elapsed) * 1000))
+        timer.start(remaining_ms)
+
+    def _on_pending_upload_timeout(self) -> None:
+        if not getattr(self, "_pending_upload", False):
+            return
+        self._pending_upload = False
+        self._maybe_auto_upload()
+
+    def _start_upload(self, *, silent: bool, bypass_throttle: bool) -> None:
+        """准备 payload 并在后台线程 POST。silent 时成功不弹窗、不打开浏览器。"""
+        if getattr(self, "_upload_in_progress", False):
+            if not silent:
+                ui = getattr(self, "_ui", None)
+                if ui is not None:
+                    self.run_on_gui(ui.set_upload_enabled, True)
+            else:
+                self._pending_upload = True
+            return
+        if not bypass_throttle and not self._throttle_allows_upload():
+            self._pending_upload = True
+            self._start_pending_timer()
+            return
+
+        self._upload_in_progress = True
+        try:
+            data = self._build_update_data()
+            identifier = (data.get("player_name") or "").strip()
+            if self._is_anonymous_identifier(identifier):
+                if silent:
+                    self.logger.info("自动上传跳过：当前仍是默认匿名标识")
+                    self._upload_in_progress = False
+                    return
+                self.run_on_gui(
+                    self._show_upload_result,
+                    False,
+                    _translate(
+                        "Form",
+                        "当前玩家标识为空或仍是默认「匿名玩家」，无法上传排行。请先在游戏设置中修改玩家标识。",
+                    ),
+                    False,
+                )
+                return
+
+            api_url = ""
+            token = ""
+            if self.other_info:
+                api_url = resolve_api_url(self.other_info.api_url or "")
+                token = (self.other_info.upload_token or "").strip()
+            else:
+                api_url = DEFAULT_API_URL
+
+            display_name = self._resolve_rank_display_name(identifier)
+
+            transport_error = api_url_transport_error(api_url)
+            if transport_error:
+                if silent:
+                    self.logger.warning(f"自动上传跳过：{transport_error}")
+                    self._upload_in_progress = False
+                    return
+                self.run_on_gui(
+                    self._show_upload_result,
+                    False,
+                    transport_error,
+                    False,
+                )
+                return
+
+            if not token:
+                token = secrets.token_urlsafe(32)
+                if self.other_info:
+                    self.other_info.upload_token = token
+                    self.save_config()
+                    self.logger.info("已生成并保存上传令牌")
+
+            payload = {
+                "identifier": identifier,
+                "level": int(data["level"]),
+                "total_xp": int(data["total_xp"]),
+                "plugin_version": self.info.version,
+                "upload_token": token,
+                "display_name": display_name,
+            }
+            self.logger.info(
+                f"准备上传排行: identifier={identifier!r} display_name={display_name!r} "
+                f"level={payload['level']} total_xp={payload['total_xp']} "
+                f"plugin_version={payload['plugin_version']} silent={silent}"
+            )
+
+            self._last_upload_attempt = time.monotonic()
+            thread = threading.Thread(
+                target=self._upload_ranking_worker,
+                args=(api_url, payload, silent),
+                daemon=True,
+                name="xianni-upload",
+            )
+            thread.start()
+        except Exception as e:
+            self.logger.error(f"准备上传排行失败: {e}", exc_info=True)
+            if silent:
+                self._upload_in_progress = False
+                self._auto_upload_fail_count = getattr(self, "_auto_upload_fail_count", 0) + 1
+                self._schedule_pending_after_result()
+                return
+            self.run_on_gui(
+                self._show_upload_result,
+                False,
+                _translate("Form", "上传失败: %1").replace("%1", str(e)),
+                False,
+            )
+
+    def _upload_ranking_worker(self, api_url: str, payload: dict, silent: bool = False) -> None:
+        """在后台线程执行 HTTP POST，禁止操作 GUI 控件。"""
+        transport_error = api_url_transport_error(api_url)
+        if transport_error:
+            self.run_on_gui(
+                self._show_upload_result, False, transport_error, silent
+            )
+            return
+        url = api_url.rstrip("/") + "/api/upload"
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+                # urllib 默认 UA 会被 Cloudflare 1010 拦截，表现为假的 403
+                "User-Agent": f"MetaSweeper-XianNiUpgrade/{self.info.version}",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=_UPLOAD_TIMEOUT_SEC) as resp:
+                status = getattr(resp, "status", 200)
+                if 200 <= int(status) < 300:
+                    self.logger.info("排行上传成功")
+                    self.run_on_gui(
+                        self._show_upload_result,
+                        True,
+                        _translate("Form", "排行已上传。"),
+                        silent,
+                    )
+                    return
+                self.logger.warning(f"排行上传返回异常状态: {status}")
+                self.run_on_gui(
+                    self._show_upload_result,
+                    False,
+                    _translate("Form", "上传失败（HTTP %1）").replace("%1", str(status)),
+                    silent,
+                )
+        except urllib.error.HTTPError as e:
+            raw = b""
+            try:
+                raw = e.read() or b""
+            except Exception:
+                raw = b""
+            text = raw.decode("utf-8", errors="replace")
+            self.logger.warning(f"排行上传被拒绝: HTTP {e.code} {text[:500]}")
+            self.run_on_gui(
+                self._show_upload_result,
+                False,
+                self._format_upload_http_error(e.code, text),
+                silent,
+            )
+        except urllib.error.URLError as e:
+            reason = e.reason
+            timed_out = isinstance(reason, TimeoutError) or (
+                isinstance(reason, OSError) and "timed out" in str(reason).lower()
+            )
+            if timed_out:
+                self.logger.warning("排行上传超时")
+                msg = _translate("Form", "上传超时，请检查网络或排行站地址。")
+            else:
+                self.logger.warning(f"排行上传无法连接: {reason}")
+                msg = _translate("Form", "无法连接排行站，请检查网络或 API 地址。")
+            self.run_on_gui(self._show_upload_result, False, msg, silent)
+        except TimeoutError:
+            self.logger.warning("排行上传超时")
+            self.run_on_gui(
+                self._show_upload_result,
+                False,
+                _translate("Form", "上传超时，请检查网络或排行站地址。"),
+                silent,
+            )
+        except Exception as e:
+            self.logger.error(f"排行上传异常: {e}", exc_info=True)
+            self.run_on_gui(
+                self._show_upload_result,
+                False,
+                _translate("Form", "上传失败: %1").replace("%1", str(e)),
+                silent,
+            )
+
+    @staticmethod
+    def _format_upload_http_error(code: int, body: str = "") -> str:
+        err = ""
+        if body:
+            try:
+                parsed = json.loads(body)
+                if isinstance(parsed, dict):
+                    err = str(parsed.get("error") or parsed.get("detail") or "")
+                    if parsed.get("error_code") == 1010 or parsed.get("error_name") == "browser_signature_banned":
+                        return _translate(
+                            "Form",
+                            "排行站 Cloudflare 拦截了上传（1010）。请在 Pages 项目关闭 Bot Fight Mode 后重试。",
+                        )
+            except Exception:
+                err = ""
+        if code == 403:
+            if "令牌" in err or "token" in err.lower():
+                return _translate(
+                    "Form",
+                    "令牌不匹配，无法更新该标识。请确认上传令牌，或更换玩家标识后重试。",
+                )
+            if err:
+                return _translate("Form", "上传被拒绝：%1").replace("%1", err)
+            return _translate(
+                "Form",
+                "令牌不匹配，无法更新该标识。请确认上传令牌，或更换玩家标识后重试。",
+            )
+        if code == 429:
+            return _translate("Form", "上传过于频繁，请稍后再试。")
+        if code == 400:
+            if err:
+                return _translate("Form", "服务器拒绝了本次数据：%1").replace("%1", err)
+            return _translate("Form", "服务器拒绝了本次数据（校验失败）。")
+        return _translate("Form", "上传失败（HTTP %1）").replace("%1", str(code))
+
+    def _schedule_pending_after_result(self) -> None:
+        if getattr(self, "_pending_upload", False):
+            self._schedule_pending.emit()
+
+    def _show_upload_result(self, success: bool, message: str, silent: bool = False) -> None:
+        """在 GUI 线程展示结果并恢复按钮。silent 时只记日志。"""
+        self._upload_in_progress = False
+        if success:
+            self._auto_upload_fail_count = 0
+        elif silent:
+            self._auto_upload_fail_count = getattr(self, "_auto_upload_fail_count", 0) + 1
+        self._schedule_pending_after_result()
+
+        if silent:
+            if success:
+                self.logger.info("自动上传成功")
+            else:
+                self.logger.warning(f"自动上传失败: {message}")
+            return
+
+        parent = getattr(self, "_ui", None)
+        try:
+            if success:
+                QMessageBox.information(
+                    parent, _translate("Form", "上传排行"), message
+                )
+                self._maybe_open_site()
+            else:
+                QMessageBox.warning(
+                    parent, _translate("Form", "上传排行"), message
+                )
+        finally:
+            if parent is not None:
+                parent.set_upload_enabled(True)
+
+    def _maybe_open_site(self) -> None:
+        if not self.other_info or not self.other_info.open_site_after_upload:
+            return
+        url = (self.other_info.api_url or "").strip().rstrip("/")
+        if not url:
+            return
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            self.logger.warning(f"打开排行页失败: {e}")
+
     def _on_game_finished(self, event: GameFinishedEvent):
         # self.logger.info(event.game_state)
         # self.logger.info(event)
@@ -593,6 +1071,8 @@ class XianNiUpgradePlugin(BasePlugin):
             self._save_data()
             self._push_ui_update()
 
+        self._maybe_auto_upload()
+
     def _on_close(self, event: CloseEvent):
         self._save_data()
 
@@ -602,6 +1082,49 @@ class XianNiUpgradePlugin(BasePlugin):
 
     def _push_ui_update(self):
         self._ui._signal_update.emit(self._build_update_data())
+
+    def _resolve_rank_display_name(self, identifier: str) -> str:
+        key = (identifier or "").strip()
+        if not key:
+            return ""
+        service = getattr(self, "_saolei_service", None)
+        if service is None:
+            service = self.wait_for_service(SaoleiWebsiteService, timeout=2.0)
+            if service is not None:
+                self._saolei_service = service
+        if service is None:
+            self.logger.warning("SaoleiWebsiteService 不可用，排行昵称回退为游戏标识")
+            return key
+        try:
+            return service.get_rank_display_name(key)
+        except Exception as e:
+            self.logger.warning(f"解析开源扫雷网昵称失败，回退为游戏标识: {e}")
+            return key
+
+    def _maybe_show_rules_dialog(self) -> None:
+        """Tab 首次可见时弹出一次天地法则（经 run_on_gui 投递到 GUI 线程）。"""
+        if not self.other_info or self.other_info.rules_dialog_seen:
+            return
+        if getattr(self, "_guide_dialog_open", False):
+            return
+        self.run_on_gui(self._show_rules_dialog)
+
+    def _show_rules_dialog(self) -> None:
+        """在 GUI 主线程执行模态天地法则；勿在 showEvent 调用栈内同步 exec_()。"""
+        if not self.other_info or self.other_info.rules_dialog_seen:
+            return
+        if getattr(self, "_guide_dialog_open", False):
+            return
+        ui = getattr(self, "_ui", None)
+        if ui is None or not ui.isVisible():
+            return
+        self._guide_dialog_open = True
+        try:
+            RulesDialog(parent=ui).exec_()
+            self.other_info.rules_dialog_seen = True
+            self.save_config()
+        finally:
+            self._guide_dialog_open = False
 
 
 

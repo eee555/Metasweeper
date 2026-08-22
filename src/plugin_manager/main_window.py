@@ -46,7 +46,7 @@ from PyQt5.QtWidgets import (
 
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager
-from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel
+from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
 from shared_types.widgets.toggle_switch import ToggleSwitch
 from plugin_sdk.control_auth import ControlAuthorizationManager
 from plugin_sdk.config_types import OtherInfoBase
@@ -54,6 +54,23 @@ from .app_paths import get_data_dir
 
 if TYPE_CHECKING:
     from .plugin_manager import PluginManager
+
+
+def _resolve_plugin_config_path(plugin: BasePlugin | None) -> Path | None:
+    """解析插件 config.json 路径；兼容未重启时旧版 BasePlugin 无 config_file_path。"""
+    if plugin is None or plugin.other_info is None:
+        return None
+    path = getattr(plugin, "config_file_path", None)
+    if path is not None:
+        return path
+    try:
+        from .config_manager import PluginConfigManager
+        from .app_paths import get_plugin_data_dir
+
+        data_dir = get_plugin_data_dir(type(plugin))
+        return PluginConfigManager(data_dir).config_path(plugin.info.name)
+    except Exception:
+        return None
 
 import loguru
 logger = loguru.logger.bind(name="MainWindow")
@@ -402,10 +419,12 @@ class PluginSettingsDialog(QDialog):
         state: PluginState,
         other_info: OtherInfoBase | None = None,
         parent=None,
+        plugin: BasePlugin | None = None,
     ):
         super().__init__(parent)
         self._name = plugin_name
         self._other_info = other_info
+        self._plugin = plugin
 
         self.setWindowTitle(self.tr("插件设置 - {n}").format(n=plugin_name))
         self.setMinimumWidth(400)
@@ -473,18 +492,70 @@ class PluginSettingsDialog(QDialog):
             scroll_area.setMinimumHeight(150)
             grp4_layout.addWidget(scroll_area)
 
+            if plugin is not None:
+                config_path = _resolve_plugin_config_path(plugin)
+                if config_path is not None:
+                    hints_fn = getattr(type(other_info), "settings_extra_hints", None)
+                    if callable(hints_fn):
+                        for text in hints_fn(config_path):
+                            hint = QLabel(text)
+                            hint.setWordWrap(True)
+                            hint.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                            hint.setStyleSheet("color: #666; font-size: 11px;")
+                            grp4_layout.addWidget(hint)
+                    upload_field = other_info._fields.get("upload_token")
+                    if upload_field is not None:
+                        path_line = self.tr("配置文件：{path}").format(path=str(config_path))
+                        scroll_area.set_field_description(
+                            "upload_token",
+                            f"{upload_field.description}\n\n{path_line}",
+                        )
+
             layout.addWidget(grp4)
             self._config_widget = scroll_area
 
         layout.addStretch()
 
-        # 按钮
+        # 按钮：确定时先用控件当前值校验，通过才关闭
         btns = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
-        btns.accepted.connect(self.accept)
+        btns.accepted.connect(self._on_ok_clicked)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
+
+    def _on_ok_clicked(self) -> None:
+        """点确定：字段 validator → plugin.validate_config，失败不关窗。"""
+        if self._config_widget is None:
+            self.accept()
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            errors = self._config_widget.validate_pending(self._plugin)
+        except Exception as e:
+            errors = {"_plugin": str(e)}
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        if errors:
+            self._config_widget.highlight_errors(errors)
+            lines = [
+                self.tr("{label}：{reason}").format(
+                    label=self._config_widget.field_label(name),
+                    reason=reason,
+                )
+                for name, reason in errors.items()
+            ]
+            QMessageBox.warning(
+                self,
+                self.tr("配置无效"),
+                "\n".join(lines),
+            )
+            return
+
+        self._config_widget.clear_highlights()
+        self.accept()
 
     @property
     def result_state(self) -> PluginState:
@@ -1726,7 +1797,7 @@ class PluginManagerWindow(QMainWindow):
         plugin = self._manager.plugins.get(name)
         other_info = plugin.other_info if plugin else None
 
-        dlg = PluginSettingsDialog(name, current, other_info, parent=self)
+        dlg = PluginSettingsDialog(name, current, other_info, parent=self, plugin=plugin)
         if dlg.exec_() == QDialog.Accepted:
             new_state = dlg.result_state
             self._state_mgr.set(name, new_state)

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PyQt5.QtCore import Qt, pyqtSignal, QCoreApplication
 from PyQt5.QtWidgets import (
@@ -20,7 +20,9 @@ from plugin_sdk.config_types.base_config import ConfigWidgetBase
 from plugin_sdk.config_types.other_info import OtherInfoBase
 
 if TYPE_CHECKING:
-    pass
+    from plugin_sdk.plugin_base import BasePlugin
+
+_ERROR_LABEL_STYLE = "color: #c62828; font-weight: bold;"
 
 
 class OtherInfoWidget(QWidget):
@@ -46,12 +48,14 @@ class OtherInfoWidget(QWidget):
         super().__init__(parent)
         self._other_info = other_info
         self._widgets: dict[str, ConfigWidgetBase] = {}
+        self._labels: dict[str, QLabel] = {}
+        self._default_label_style: dict[str, str] = {}
+        self._descriptions: dict[str, str] = {}
 
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         """构建 UI"""
-        # 使用 FormLayout 布局
         layout = QFormLayout(self)
         layout.setSpacing(10)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -60,7 +64,6 @@ class OtherInfoWidget(QWidget):
         fields = self._other_info._fields
 
         if not fields:
-            # 无配置项时显示提示
             _tr = QCoreApplication.translate
             label = QLabel(_tr("Form", "此插件无自定义配置"))
             label.setStyleSheet("color: gray; font-style: italic;")
@@ -68,57 +71,120 @@ class OtherInfoWidget(QWidget):
             return
 
         for name, config_field in fields.items():
-            # 跳过不可见的配置项（用于插件存储私有数据）
             if not config_field.visible:
                 continue
 
-            # 使用 config_field 自己的 create_widget 方法
             widget = config_field.create_widget()
-
-            # 设置当前值
             current = getattr(self._other_info, name)
             widget.set_value(current)
 
-            # 创建标签
             label = QLabel(config_field.label)
-
-            # 添加到布局
             layout.addRow(label, widget)
 
-            # 保存引用
             self._widgets[name] = widget
+            self._labels[name] = label
+            self._default_label_style[name] = label.styleSheet() or ""
 
-            # 连接变化信号
+            if config_field.description:
+                widget.setToolTip(config_field.description)
+                self._descriptions[name] = config_field.description
+
             widget.value_change.connect(lambda *_, n=name: self._on_changed(n))
 
     def _on_changed(self, name: str) -> None:
-        """
-        控件值变化时只发射信号，不立即应用到配置
-
-        Args:
-            name: 字段名
-        """
         widget = self._widgets[name]
         value = widget.get_value()
-        # 只发射 UI 信号，不修改配置对象
-        # 配置将在 apply_to_config() 时统一应用
         self.config_changed.emit(name, value)
 
+    def collect_pending(self) -> dict[str, Any]:
+        """读取控件当前值，尚未写入 other_info。"""
+        return {name: widget.get_value() for name, widget in self._widgets.items()}
+
+    def validate_pending(self, plugin: BasePlugin | None) -> dict[str, str]:
+        """
+        校验即将保存的配置：字段 validator → plugin.validate_config。
+
+        Returns:
+            {字段名: 错误文案}，空 dict 表示通过
+        """
+        errors: dict[str, str] = {}
+        pending = self.collect_pending()
+
+        for name, value in pending.items():
+            field = self._other_info._fields.get(name)
+            if field is None:
+                continue
+            error = field.validate(value)
+            if error:
+                errors[name] = error
+
+        if plugin is not None:
+            run_fn = getattr(plugin, "run_validate_config", None)
+            if callable(run_fn):
+                try:
+                    plugin_errors = run_fn(pending)
+                except Exception as e:
+                    errors["_plugin"] = str(e)
+                else:
+                    if isinstance(plugin_errors, dict):
+                        for key, message in plugin_errors.items():
+                            if message:
+                                errors[str(key)] = str(message)
+            else:
+                validate_fn = getattr(plugin, "validate_config", None)
+                if callable(validate_fn):
+                    try:
+                        plugin_errors = validate_fn(pending)
+                    except Exception as e:
+                        errors["_plugin"] = str(e)
+                    else:
+                        if isinstance(plugin_errors, dict):
+                            for key, message in plugin_errors.items():
+                                if message:
+                                    errors[str(key)] = str(message)
+
+        return errors
+
+    def field_label(self, name: str) -> str:
+        if name == "_plugin":
+            return QCoreApplication.translate("Form", "插件")
+        field = self._other_info._fields.get(name)
+        if field is not None and field.label:
+            return field.label
+        return name
+
+    def set_field_description(self, field_name: str, text: str) -> None:
+        widget = self._widgets.get(field_name)
+        if widget is not None:
+            widget.setToolTip(text)
+        self._descriptions[field_name] = text
+
+    def highlight_errors(self, errors: dict[str, str]) -> None:
+        for name, label in self._labels.items():
+            if name in errors:
+                label.setStyleSheet(_ERROR_LABEL_STYLE)
+            else:
+                label.setStyleSheet(self._default_label_style.get(name, ""))
+
+    def clear_highlights(self) -> None:
+        for name, label in self._labels.items():
+            label.setStyleSheet(self._default_label_style.get(name, ""))
+
     def apply_to_config(self) -> None:
-        """将所有 UI 值同步到 OtherInfo 配置对象（此时才触发变化回调）"""
-        for name, widget in self._widgets.items():
-            # 设置配置值，此时会触发 OtherInfoBase 的变化回调
-            setattr(self._other_info, name, widget.get_value())
+        """
+        将 UI 值写入 other_info。
+
+        设置页在确定时已跑过 validator，此处用 apply_pending 避免重复联网校验。
+        """
+        self._other_info.apply_pending(self.collect_pending(), silent=True)
 
     def refresh_from_config(self) -> None:
-        """从 OtherInfo 配置对象刷新 UI 值"""
         for name, widget in self._widgets.items():
             value = getattr(self._other_info, name)
             widget.set_value(value)
 
     @property
     def other_info(self) -> OtherInfoBase:
-        """获取配置对象"""
         return self._other_info
 
 
@@ -136,22 +202,31 @@ class OtherInfoScrollArea(QScrollArea):
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
 
-        # 创建内部 widget
         self._inner_widget = OtherInfoWidget(other_info, self)
         self.setWidget(self._inner_widget)
-
-        # 转发信号
         self._inner_widget.config_changed.connect(self.config_changed.emit)
 
+    def validate_pending(self, plugin: BasePlugin | None) -> dict[str, str]:
+        return self._inner_widget.validate_pending(plugin)
+
+    def field_label(self, name: str) -> str:
+        return self._inner_widget.field_label(name)
+
+    def set_field_description(self, field_name: str, text: str) -> None:
+        self._inner_widget.set_field_description(field_name, text)
+
+    def highlight_errors(self, errors: dict[str, str]) -> None:
+        self._inner_widget.highlight_errors(errors)
+
+    def clear_highlights(self) -> None:
+        self._inner_widget.clear_highlights()
+
     def apply_to_config(self) -> None:
-        """将所有 UI 值同步到 OtherInfo 配置对象"""
         self._inner_widget.apply_to_config()
 
     def refresh_from_config(self) -> None:
-        """从 OtherInfo 配置对象刷新 UI 值"""
         self._inner_widget.refresh_from_config()
 
     @property
     def other_info(self) -> OtherInfoBase:
-        """获取配置对象"""
         return self._inner_widget.other_info
