@@ -80,8 +80,13 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             return
         import tempfile, os
         from PyQt5.QtCore import QMimeData, QUrl
+        from PyQt5.QtGui import QPixmap, QPainter
         from PyQt5.QtWidgets import QApplication
-        pixmap = self.frame_1.grab()
+        pixmap = QPixmap(self.centralwidget.size())
+        pixmap.fill(self.centralwidget.palette().window().color())
+        painter = QPainter(pixmap)
+        self.centralwidget.render(painter)
+        painter.end()
         path = os.path.join(tempfile.gettempdir(), "metasweeper_board.png")
         pixmap.save(path, "PNG")
         mime = QMimeData()
@@ -114,15 +119,16 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         for val, path in cell_paths.items():
             if os.path.exists(path):
                 renderers[val] = QSvgRenderer(path)
-        board_origin = label.mapTo(self.frame_1, QPoint(0, 0))
+        board_origin = label.mapTo(self.centralwidget, QPoint(0, 0))
         buf = QBuffer()
         buf.open(QBuffer.WriteOnly)
         gen = QSvgGenerator()
         gen.setOutputDevice(buf)
-        gen.setSize(self.frame_1.size())
-        gen.setViewBox(self.frame_1.rect())
+        gen.setSize(self.centralwidget.size())
+        gen.setViewBox(self.centralwidget.rect())
         painter = QPainter(gen)
-        self.frame_1.render(painter)
+        painter.fillRect(self.centralwidget.rect(), self.centralwidget.palette().window())
+        self.centralwidget.render(painter)
         for i in range(rows):
             for j in range(cols):
                 cell = game_board[i][j]
@@ -138,10 +144,14 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         svg_path = os.path.join(tempfile.gettempdir(), "metasweeper_board.svg")
         with open(svg_path, "w", encoding="utf-8") as f:
             f.write(svg_text)
-        pixmap = self.frame_1.grab()
+        preview = QPixmap(self.centralwidget.size())
+        preview.fill(self.centralwidget.palette().window().color())
+        painter = QPainter(preview)
+        self.centralwidget.render(painter)
+        painter.end()
         mime = QMimeData()
         mime.setText(svg_text)
-        mime.setImageData(pixmap.toImage())
+        mime.setImageData(preview.toImage())
         mime.setUrls([QUrl.fromLocalFile(svg_path)])
         QApplication.clipboard().setMimeData(mime)
 
