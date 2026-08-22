@@ -10,6 +10,7 @@
 """
 
 from __future__ import annotations
+import inspect
 from pathlib import Path
 
 from plugin_sdk.config_types.other_info import ConfigT
@@ -331,6 +332,54 @@ class BasePlugin(QObject, Generic[ConfigT]):
         return self._info.name
 
     @property
+    def plugin_dir(self) -> Path:
+        """插件文件自身的目录（基于子类定义所在的 .py 文件推算）。"""
+        module = inspect.getmodule(type(self))
+        file_path = getattr(module, "__file__", None)
+        if file_path:
+            return Path(file_path).resolve().parent
+        # 极少数情况下无法定位源文件，回退到工作目录
+        return Path.cwd()
+
+    # ═══════════════════════════════════════════════════════════════════
+    # README
+    # ═══════════════════════════════════════════════════════════════════
+    def get_readme_text(self) -> str:
+        """读取插件目录下 README.md 的内容。
+
+        子类可通过重写 :meth:`load_READMD` 自定义 README 的来源与内容。
+        找不到文件时返回空字符串。
+        """
+        return self.load_READMD()
+
+    def load_READMD(self) -> str:
+        """加载 README 内容，子类可重写以自定义来源。
+
+        默认实现在 :attr:`plugin_dir` 中按以下顺序查找并返回第一个存在的文件：
+        ``README.md`` / ``readme.md``（包形式插件），以及
+        ``<插件文件名>_README.md``（用于单文件插件，避免多个单文件插件
+        共用 ``plugins/README.md`` 互相覆盖）。
+
+        Returns:
+            README 文本内容；不存在时返回空字符串。
+        """
+        candidates = ["README.md", "readme.md"]
+        # 单文件插件的专属 README：<模块文件名>_README.md
+        module = inspect.getmodule(type(self))
+        file_path = getattr(module, "__file__", None)
+        if file_path:
+            candidates.append(f"{Path(file_path).stem}_README.md")
+
+        for name in candidates:
+            path = self.plugin_dir / name
+            if path.is_file():
+                try:
+                    return path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    return ""
+        return ""
+
+    @property
     def is_enabled(self) -> bool:
         return self._info.enabled
 
@@ -384,7 +433,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
         if self._config_manager and self._other_info:
             self._config_manager.save(
                 self._info.name, self._other_info)  # type: ignore
-            self.logger.debug(f"Config saved: {self._other_info.to_log_dict()}")
+            self.logger.debug(
+                f"Config saved: {self._other_info.to_log_dict()}")
 
     def set_log_level(self, level: LogLevel | str) -> None:
         """动态设置插件的日志级别"""

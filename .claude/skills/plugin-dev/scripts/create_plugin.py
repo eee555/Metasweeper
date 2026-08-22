@@ -7,9 +7,8 @@
     python create_plugin.py create --name my_plugin --description "描述" [options]
 
 功能:
-    - 根据参数生成插件代码
+    - 根据参数生成插件代码（包形式 / 目录结构）
     - 动态读取可用的控制命令和订阅事件
-    - 支持单文件和模块化包结构
     - 自动生成订阅代码、控制申请、服务接口
 """
 from __future__ import annotations
@@ -116,9 +115,6 @@ def discover_commands() -> list[dict[str, Any]]:
     return commands
 
 
-# ═══════════════════════════════════════════════════════════════════
-# 代码生成 - 单文件模式
-# ═══════════════════════════════════════════════════════════════════
 
 def _to_class_name(name: str) -> str:
     """将插件名转换为类名前缀
@@ -129,206 +125,6 @@ def _to_class_name(name: str) -> str:
         my_awesome_plugin -> MyAwesomePlugin
     """
     return "".join(word.capitalize() for word in name.split("_"))
-
-
-def generate_single_file_plugin(
-    name: str,
-    description: str = "",
-    version: str = "1.0.0",
-    author: str = "",
-    window_mode: str = "TAB",
-    icon_color: str = "#4CAF50",
-    icon_char: str = "",
-    events: list[str] = None,
-    commands: list[str] = None,
-    needs_config: bool = False,
-    needs_service: bool = False,
-    service_name: str = "",
-) -> str:
-    """生成单文件插件代码"""
-    if events is None:
-        events = []
-    if commands is None:
-        commands = []
-
-    if not icon_char:
-        icon_char = name[0].upper()
-
-    needs_gui = window_mode != "CLOSED"
-    class_prefix = _to_class_name(name)
-    lines = []
-
-    # 文件头
-    lines.append(f'"""')
-    lines.append(f'{name} - {description}')
-    lines.append(f'"""')
-    lines.append('from __future__ import annotations')
-    lines.append('')
-
-    # 导入
-    imports = []
-    if needs_gui:
-        imports.append(
-            'from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel')
-        imports.append('from PyQt5.QtCore import pyqtSignal')
-
-    sdk_imports = ['BasePlugin', 'PluginInfo']
-    if needs_gui:
-        sdk_imports.extend(['make_plugin_icon', 'WindowMode'])
-    if needs_config:
-        sdk_imports.extend(['OtherInfoBase', 'BoolConfig'])
-    imports.append(f'from plugin_sdk import {", ".join(sdk_imports)}')
-
-    if events:
-        imports.append(f'from shared_types.events import {", ".join(events)}')
-    if commands:
-        imports.append(
-            f'from shared_types.commands import {", ".join(commands)}')
-    if needs_service and service_name:
-        imports.append(f'from plugins.services.{name} import {service_name}')
-
-    lines.extend(imports)
-    lines.append('')
-
-    # 配置类
-    if needs_config:
-        lines.append(f'class {class_prefix}Config(OtherInfoBase):')
-        lines.append(f'    """插件配置"""')
-        lines.append('    ')
-        lines.append('    enable_feature = BoolConfig(')
-        lines.append('        default=True,')
-        lines.append('        label="启用功能",')
-        lines.append('    )')
-        lines.append('')
-        lines.append('')
-
-    # Widget 类
-    widget_name = f'{class_prefix}Widget'
-    if needs_gui:
-        lines.append(f'class {widget_name}(QWidget):')
-        lines.append(f'    """插件 UI"""')
-        lines.append('    ')
-        lines.append('    _update_signal = pyqtSignal(str)')
-        lines.append('')
-        lines.append('    def __init__(self, parent=None):')
-        lines.append('        super().__init__(parent)')
-        lines.append('        layout = QVBoxLayout(self)')
-        lines.append('        ')
-        lines.append('        self._label = QLabel("就绪")')
-        lines.append('        layout.addWidget(self._label)')
-        lines.append('        ')
-        lines.append('        self._update_signal.connect(self._on_update)')
-        lines.append('')
-        lines.append('    def _on_update(self, text: str) -> None:')
-        lines.append('        """更新显示文本"""')
-        lines.append('        self._label.setText(text)')
-        lines.append('')
-        lines.append('')
-
-    # 主插件类
-    plugin_name = f'{class_prefix}Plugin'
-    lines.append(f'class {plugin_name}(BasePlugin[{class_prefix}Config]):')
-    lines.append(f'    """{description}"""')
-    lines.append('')
-
-    # plugin_info
-    lines.append('    @classmethod')
-    lines.append('    def plugin_info(cls) -> PluginInfo:')
-    lines.append('        return PluginInfo(')
-    lines.append(f'            name="{name}",')
-    lines.append(f'            version="{version}",')
-    if author:
-        lines.append(f'            author="{author}",')
-    lines.append(f'            description="{description}",')
-
-    if needs_gui:
-        lines.append(f'            window_mode=WindowMode.{window_mode},')
-        lines.append(
-            f'            icon=make_plugin_icon("{icon_color}", "{icon_char}"),')
-    else:
-        lines.append(f'            window_mode=WindowMode.CLOSED,')
-
-    if needs_config:
-        lines.append(f'            other_info={class_prefix}Config,')
-    if commands:
-        lines.append(f'            required_controls=[{", ".join(commands)}],')
-
-    lines.append('        )')
-    lines.append('')
-
-    # _setup_subscriptions
-    lines.append('    def _setup_subscriptions(self) -> None:')
-    if events:
-        for event in events:
-            handler_name = f'_on_{event.lower().replace("event", "")}'
-            lines.append(
-                f'        self.subscribe({event}, self.{handler_name})')
-    else:
-        lines.append('        pass')
-    lines.append('')
-
-    # _create_widget
-    if needs_gui:
-        lines.append('    def _create_widget(self) -> QWidget | None:')
-        lines.append(f'        self._widget = {widget_name}()')
-        lines.append('        return self._widget')
-        lines.append('')
-
-    # on_initialized
-    lines.append('    def on_initialized(self) -> None:')
-    lines.append(f'        self.logger.info("{plugin_name} 已初始化")')
-
-    if needs_service and service_name:
-        lines.append('        ')
-        lines.append('        # 注册服务接口')
-        lines.append(
-            f'        self.register_service(self, protocol={service_name})')
-        lines.append(f'        self.logger.info("{service_name} 已注册")')
-
-    if commands:
-        lines.append('        ')
-        lines.append('        # 检查控制权限')
-        for cmd in commands:
-            lines.append(f'        has_auth = self.has_control_auth({cmd})')
-            lines.append(
-                f'        self.logger.info(f"{cmd} 权限: {{has_auth}}")')
-
-    if needs_config:
-        lines.append('        ')
-        lines.append(
-            '        self.config_changed.connect(self._on_config_changed)')
-
-    lines.append('')
-
-    # on_control_auth_changed
-    if commands:
-        lines.append(
-            '    def on_control_auth_changed(self, cmd_type, granted: bool) -> None:')
-        lines.append('        """控制权限变更回调"""')
-        for cmd in commands:
-            lines.append(f'        if cmd_type == {cmd}:')
-            lines.append('            self.logger.info(f"权限变更: {granted}")')
-        lines.append('')
-
-    # _on_config_changed
-    if needs_config:
-        lines.append(
-            '    def _on_config_changed(self, name: str, value) -> None:')
-        lines.append('        """配置变化回调"""')
-        lines.append('        self.logger.info(f"配置变化: {name} = {value}")')
-        lines.append('')
-
-    # 事件处理器 - 带类型提示
-    for event in events:
-        handler_name = f'_on_{event.lower().replace("event", "")}'
-        lines.append(f'    def {handler_name}(self, event: {event}) -> None:')
-        lines.append(f'        """处理 {event}"""')
-        lines.append(f'        self.logger.info(f"收到 {event}")')
-        if needs_gui:
-            lines.append('        # self._widget._update_signal.emit("...")')
-        lines.append('')
-
-    return '\n'.join(lines)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -591,6 +387,15 @@ def generate_package_files(
     return files
 
 
+def generate_readme(name: str, description: str = "") -> str:
+    """生成插件 README.md 内容（空骨架）。
+
+    默认生成一个仅含标题的空 README，插件作者可后续填充。
+    """
+    desc = description or name
+    return f"# {name}\n\n{desc}\n"
+
+
 def generate_service_interface(service_name: str, description: str = "") -> str:
     """生成服务接口文件"""
     # 从 ServiceName 提取基础名（去掉 Service 后缀）
@@ -667,64 +472,44 @@ def cmd_create(args):
         service_file.write_text(service_content, encoding="utf-8")
         created_files.append(str(service_file))
 
-    if args.package:
-        # 包形式 - 生成多个文件
-        files = generate_package_files(
-            name=args.name,
-            description=args.description or "",
-            version=args.version,
-            author=args.author or "",
-            window_mode=args.window_mode,
-            icon_color=args.icon_color,
-            icon_char=args.icon_char or "",
-            events=args.events.split(",") if args.events else [],
-            commands=args.commands.split(",") if args.commands else [],
-            needs_config=args.config,
-            needs_service=args.service,
-            service_name=_to_class_name(
-                args.name) + "Service" if args.service else "",
-        )
+    # 包形式 - 生成多个文件（唯一支持的插件结构）
+    files = generate_package_files(
+        name=args.name,
+        description=args.description or "",
+        version=args.version,
+        author=args.author or "",
+        window_mode=args.window_mode,
+        icon_color=args.icon_color,
+        icon_char=args.icon_char or "",
+        events=args.events.split(",") if args.events else [],
+        commands=args.commands.split(",") if args.commands else [],
+        needs_config=args.config,
+        needs_service=args.service,
+        service_name=_to_class_name(
+            args.name) + "Service" if args.service else "",
+    )
 
-        pkg_dir = plugins_dir / args.name
-        pkg_dir.mkdir(parents=True, exist_ok=True)
+    pkg_dir = plugins_dir / args.name
+    pkg_dir.mkdir(parents=True, exist_ok=True)
 
-        for filename, content in files.items():
-            file_path = pkg_dir / filename
-            file_path.write_text(content, encoding="utf-8")
-            created_files.append(str(file_path))
+    for filename, content in files.items():
+        file_path = pkg_dir / filename
+        file_path.write_text(content, encoding="utf-8")
+        created_files.append(str(file_path))
 
-        result = {
-            "success": True,
-            "is_package": True,
-            "files": created_files,
-        }
-    else:
-        # 单文件形式
-        code = generate_single_file_plugin(
-            name=args.name,
-            description=args.description or "",
-            version=args.version,
-            author=args.author or "",
-            window_mode=args.window_mode,
-            icon_color=args.icon_color,
-            icon_char=args.icon_char or "",
-            events=args.events.split(",") if args.events else [],
-            commands=args.commands.split(",") if args.commands else [],
-            needs_config=args.config,
-            needs_service=args.service,
-            service_name=_to_class_name(
-                args.name) + "Service" if args.service else "",
-        )
+    # 生成空 README.md
+    readme_file = pkg_dir / "README.md"
+    readme_file.write_text(
+        generate_readme(args.name, args.description or ""),
+        encoding="utf-8",
+    )
+    created_files.append(str(readme_file))
 
-        plugin_file = plugins_dir / f"{args.name}.py"
-        plugin_file.write_text(code, encoding="utf-8")
-        created_files.append(str(plugin_file))
-
-        result = {
-            "success": True,
-            "is_package": False,
-            "files": created_files,
-        }
+    result = {
+        "success": True,
+        "is_package": True,
+        "files": created_files,
+    }
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
@@ -747,7 +532,6 @@ def main():
                           choices=["TAB", "DETACHED", "CLOSED"], help="窗口模式")
     p_create.add_argument("--icon-color", default="#4CAF50", help="图标颜色")
     p_create.add_argument("--icon-char", default="", help="图标字符")
-    p_create.add_argument("--package", action="store_true", help="创建包形式插件")
     p_create.add_argument("--events", default="", help="订阅的事件，逗号分隔")
     p_create.add_argument("--commands", default="", help="需要的控制权限，逗号分隔")
     p_create.add_argument("--config", type=lambda x: x.lower() == "true", default=True, help="是否需要配置系统（默认True）")

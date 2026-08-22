@@ -39,8 +39,7 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 ├── metaminsweeper.exe          # 主程序
 ├── plugin_manager.exe          # 插件管理器
 ├── plugins/                    # 👈 用户插件放这里！
-│   ├── my_hello.py             # 你的插件（单文件）
-│   ├── my_complex/             # 或包形式插件
+│   ├── my_complex/             # 包形式插件（唯一支持的插件结构）
 │   │   ├── __init__.py
 │   │   └── utils.py
 │   └── services/               # 👈 服务接口定义
@@ -78,15 +77,10 @@ plugin_manager 启动
   → 实例化并注册到 PluginManager
 ```
 
-## 支持两种形式
+## 插件形式
 
-**单文件插件**（推荐新手使用）：
-```
-plugins/
-└── my_plugin.py          # 一个 .py 文件 = 一个插件
-```
+插件一律以**包形式（目录结构）**组织：
 
-**包形式插件**（适合复杂插件）：
 ```
 plugins/
 └── my_plugin/
@@ -99,5 +93,5 @@ plugins/
 
 - 文件/目录名以 `_` 开头的会被跳过（如 `_template.py`）
 - `services` 目录会被跳过（它是服务接口定义，不是插件）
-- 单个 `.py` 文件中可以定义多个继承 `BasePlugin` 的类，都会被加载
 - 包形式插件中，只有 `__init__.py` 中导出的 `BasePlugin` 子类会被发现
+- 单个 `__init__.py` 文件中可以定义多个继承 `BasePlugin` 的类，都会被加载

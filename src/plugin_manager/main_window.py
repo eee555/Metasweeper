@@ -7,6 +7,7 @@
 - 增强型连接状态显示（含 endpoint、重连次数、实时心跳检测）
 """
 from __future__ import annotations
+import loguru
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -23,6 +24,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLayout,
     QListWidget,
     QListWidgetItem,
     QListView,
@@ -48,6 +50,7 @@ from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
 from shared_types.widgets.toggle_switch import ToggleSwitch
+from shared_types.widgets.confirm_dialog import ConfirmDialog
 from plugin_sdk.control_auth import ControlAuthorizationManager
 from plugin_sdk.config_types import OtherInfoBase
 from .app_paths import get_data_dir
@@ -72,7 +75,7 @@ def _resolve_plugin_config_path(plugin: BasePlugin | None) -> Path | None:
     except Exception:
         return None
 
-import loguru
+
 logger = loguru.logger.bind(name="MainWindow")
 
 
@@ -495,17 +498,20 @@ class PluginSettingsDialog(QDialog):
             if plugin is not None:
                 config_path = _resolve_plugin_config_path(plugin)
                 if config_path is not None:
-                    hints_fn = getattr(type(other_info), "settings_extra_hints", None)
+                    hints_fn = getattr(
+                        type(other_info), "settings_extra_hints", None)
                     if callable(hints_fn):
                         for text in hints_fn(config_path):
                             hint = QLabel(text)
                             hint.setWordWrap(True)
-                            hint.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                            hint.setTextInteractionFlags(
+                                Qt.TextSelectableByMouse)
                             hint.setStyleSheet("color: #666; font-size: 11px;")
                             grp4_layout.addWidget(hint)
                     upload_field = other_info._fields.get("upload_token")
                     if upload_field is not None:
-                        path_line = self.tr("配置文件：{path}").format(path=str(config_path))
+                        path_line = self.tr("配置文件：{path}").format(
+                            path=str(config_path))
                         scroll_area.set_field_description(
                             "upload_token",
                             f"{upload_field.description}\n\n{path_line}",
@@ -1113,9 +1119,51 @@ class ControlAuthorizationDialog(QDialog):
         self.accept()
 
 
+class _PluginReadmeDialog(ConfirmDialog):
+    """插件 README 查看对话框（Markdown 渲染）。"""
+
+    def __init__(self, plugin_name: str, content: str, parent=None):
+        self._content = content
+        super().__init__(
+            parent=parent,
+            title=parent.tr("{name} - README").format(name=plugin_name)
+            if parent else f"{plugin_name} - README",
+            buttons=QDialogButtonBox.Close,
+        )
+        self.resize(720, 520)
+
+    def _create_content(self) -> QLayout:
+        from PyQt5.QtWidgets import QTextBrowser
+        from PyQt5.QtGui import QFont, QPalette, QColor
+
+        layout = QVBoxLayout()
+        if not self._content:
+            label = QLabel(self.tr("该插件目录下未找到 README.md"))
+            label.setWordWrap(True)
+            layout.addWidget(label)
+            return layout
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.setMarkdown(self._content)
+
+        font = QFont("Microsoft YaHei", 11)
+        font.setStyleHint(QFont.SansSerif)
+        browser.setFont(font)
+
+        palette = browser.palette()
+        palette.setColor(QPalette.Text, QColor("#24292f"))
+        palette.setColor(QPalette.Link, QColor("#0969da"))
+        palette.setColor(QPalette.LinkVisited, QColor("#8250df"))
+        browser.setPalette(palette)
+
+        layout.addWidget(browser)
+        return layout
+
 # ═══════════════════════════════════════════════════════════════════
 # 主窗口
 # ═══════════════════════════════════════════════════════════════════
+
 
 class PluginManagerWindow(QMainWindow):
     """插件管理器主窗口"""
@@ -1703,9 +1751,13 @@ class PluginManagerWindow(QMainWindow):
         # 打开日志文件
         act_log = menu.addAction("📋 " + self.tr("打开日志"))
 
+        # 查看 README
+        act_readme = menu.addAction("📖 " + self.tr("查看 README"))
+
         act_open.triggered.connect(lambda: self._open_plugin_window(name))
         act_close.triggered.connect(lambda: self._close_plugin_window(name))
         act_log.triggered.connect(lambda: self._open_plugin_log(name))
+        act_readme.triggered.connect(lambda: self._open_plugin_readme(name))
 
         menu.addSeparator()
 
@@ -1790,6 +1842,27 @@ class PluginManagerWindow(QMainWindow):
         """打开插件日志查看对话框"""
         self._open_log_viewer(initial_log=name)
 
+    def _open_plugin_readme(self, name: str) -> None:
+        """打开插件 README 查看对话框。
+
+        调用插件的 ``get_readme_text()``（默认读取插件目录下 README.md，
+        子类可重写 ``load_READMD`` 自定义来源），并以 Markdown 渲染展示。
+        """
+        plugin = self._manager.plugins.get(name)
+        if not plugin:
+            return
+
+        try:
+            text = plugin.get_readme_text()
+        except Exception as e:  # noqa: BLE001
+            QMessageBox.warning(
+                self, self.tr("README"),
+                self.tr("读取 README 失败: {err}").format(err=e))
+            return
+
+        dlg = _PluginReadmeDialog(name, text, parent=self)
+        dlg.exec_()
+
     def _open_plugin_settings(self, name: str) -> None:
         """打开插件设置对话框"""
         current = self._effective_state(name)
@@ -1797,7 +1870,8 @@ class PluginManagerWindow(QMainWindow):
         plugin = self._manager.plugins.get(name)
         other_info = plugin.other_info if plugin else None
 
-        dlg = PluginSettingsDialog(name, current, other_info, parent=self, plugin=plugin)
+        dlg = PluginSettingsDialog(
+            name, current, other_info, parent=self, plugin=plugin)
         if dlg.exec_() == QDialog.Accepted:
             new_state = dlg.result_state
             self._state_mgr.set(name, new_state)
