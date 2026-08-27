@@ -25,6 +25,7 @@ user-invocable: true
 | `src/shared_types/events.py` | 事件类型定义（BoardUpdateEvent 等） |
 | `src/shared_types/commands.py` | 指令类型定义（NewGameCommand、MouseClickCommand） |
 | `src/shared_types/enums.py` | 枚举定义（GameBoardState、ButtonEventType 等） |
+| `src/shared_types/widgets/` | 共享控件包（ConfirmDialog、EditableComboBox、ToggleSwitch，跨进程 GUI 复用） |
 | `src/plugin_sdk/server_bridge.py` | 主进程 ZMQ 桥接器（单例） |
 | `src/plugin_manager/event_dispatcher.py` | 事件分发器 |
 

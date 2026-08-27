@@ -1,5 +1,5 @@
 ---
-description: "GUI专家。负责元扫雷所有 PyQt5 界面开发，包括主进程界面、插件管理器界面、插件内界面。精通跨线程GUI安全、信号槽模式、国际化审查与翻译、样式美化。触发词：界面、UI、GUI、控件、样式、美化、翻译、i18n、国际化、快捷键、窗口、对话框、PyQt、QDialog、QWidget、布局、信号槽、ui文件、跨线程GUI、插件界面、插件GUI、插件管理器界面、mineLabel、config_widget、翻译文件、ts文件、qm文件、lupdate、lrelease"
+description: "GUI专家。负责元扫雷所有 PyQt5 界面开发，包括主进程界面、插件管理器界面、插件内界面。精通跨线程GUI安全、信号槽模式、国际化审查与翻译、样式美化。触发词：界面、UI、GUI、控件、样式、美化、翻译、i18n、国际化、快捷键、窗口、对话框、PyQt、QDialog、QWidget、布局、信号槽、ui文件、跨线程GUI、插件界面、插件GUI、插件管理器界面、mineLabel、config_widget、翻译文件、ts文件、qm文件、lupdate、lrelease、共享控件、ConfirmDialog、EditableComboBox、ToggleSwitch、shared_types/widgets、对话框基类"
 name: "gui-expert"
 user-invocable: true
 ---
@@ -96,6 +96,21 @@ class MyPlugin(BasePlugin):
 def on_event(self, event):
     self.run_on_gui(self._update_gui, event.data)
 ```
+
+## 共享控件库（src/shared_types/widgets/）
+
+跨进程共享的自定义控件包，主进程、插件管理器、插件内界面均可复用：
+
+| 控件 | 用途 |
+|------|------|
+| `ConfirmDialog(QDialog)` | 确认/取消对话框基类：子类重写 `_create_content()` 返回 QLayout，重写 `_on_accepted()`/`_on_rejected()`；构造时可指定标准按钮组合，用 `button()`/`buttons()` 获取按钮 |
+| `EditableComboBox(QComboBox)` | 可编辑下拉框 |
+| `ToggleSwitch(QWidget)` | 开关控件 |
+
+**使用规范**：
+
+- 新对话框优先继承 `ConfirmDialog` 而非直接继承 `QDialog`
+- 该包位于 `shared_types/` 下，修改其中控件定义需同步考虑两个进程，并通知 comm-expert 审查
 
 ## 通用工作原则
 

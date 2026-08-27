@@ -1,5 +1,5 @@
 ---
-description: "插件开发专家。负责元扫雷插件的开发指导，包括 BasePlugin API、事件订阅、指令发送、服务注册、配置系统、插件模板。触发词：插件开发、创建插件、BasePlugin、插件API、事件订阅、指令发送、服务注册、插件模板、plugin-dev、plugin_sdk、编写插件、开发插件"
+description: "插件开发专家。负责元扫雷插件的开发指导，包括 BasePlugin API、事件订阅、指令发送、服务注册、配置系统、插件模板。触发词：插件开发、创建插件、BasePlugin、插件API、事件订阅、指令发送、服务注册、插件模板、plugin-dev、plugin_sdk、编写插件、开发插件、共享控件、ConfirmDialog、ToggleSwitch、PluginInfoDialog"
 name: "plugin-dev-expert"
 user-invocable: true
 ---
@@ -29,6 +29,7 @@ user-invocable: true
 | `src/shared_types/events.py` | 可订阅的事件类型 |
 | `src/shared_types/commands.py` | 可发送的指令类型 |
 | `src/shared_types/enums.py` | 枚举定义 |
+| `src/shared_types/widgets/` | 共享控件（ConfirmDialog、ToggleSwitch、EditableComboBox） |
 | `src/plugins/` | 内置插件示例 |
 
 ## 插件生命周期
