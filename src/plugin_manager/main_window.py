@@ -46,6 +46,7 @@ from PyQt5.QtWidgets import (
     QDialog,
 )
 
+from .plugin_info_dialog import PluginInfoDialog
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
@@ -1718,18 +1719,9 @@ class PluginManagerWindow(QMainWindow):
 
         menu.addSeparator()
 
-        # 插件详情（子菜单，只读）
-        detail_menu = QMenu("ℹ️ " + self.tr("插件详情"), self)
-        detail_menu.addAction(self.tr("名称: {name}").format(
-            name=plugin.name)).setEnabled(False)
-        detail_menu.addAction(self.tr("版本: {v}").format(
-            v=plugin.info.version)).setEnabled(False)
-        detail_menu.addAction(self.tr("作者: {a}").format(
-            a=plugin.info.author or '-')).setEnabled(False)
-        desc = plugin.info.description or self.tr("暂无描述")
-        detail_menu.addAction(
-            self.tr("描述: {d}").format(d=desc)).setEnabled(False)
-        menu.addMenu(detail_menu)
+        # 插件详情（点击打开详情对话框，只读展示订阅/权限信息）
+        act_detail = menu.addAction("ℹ️ " + self.tr("插件详情"))
+        act_detail.triggered.connect(lambda: self._open_plugin_info(name))
 
         menu.addSeparator()
 
@@ -1761,12 +1753,42 @@ class PluginManagerWindow(QMainWindow):
 
         menu.addSeparator()
 
+        # 一键授权控制权限（仅 READY 且声明了控制权限的插件）
+        required_controls = plugin.info.required_controls or []
+        if lc == PluginLifecycle.READY and required_controls:
+            act_control_auth = menu.addAction(
+                "🔐 " + self.tr("一键授权控制权限"))
+            act_control_auth.triggered.connect(
+                lambda: self._authorize_plugin_controls(name))
+
         # 设置
         act_settings = menu.addAction("⚙️ " + self.tr("设置..."))
         act_settings.triggered.connect(
             lambda: self._open_plugin_settings(name))
 
         menu.exec_(self._list.viewport().mapToGlobal(pos))
+
+    def _authorize_plugin_controls(self, name: str) -> None:
+        """一键授权：将插件声明的所有控制权限授权给它"""
+        plugin = self._manager.plugins.get(name)
+        if not plugin or plugin.lifecycle != PluginLifecycle.READY:
+            return
+
+        required = plugin.info.required_controls or []
+        if not required:
+            return
+
+        auth_manager = ControlAuthorizationManager.instance()
+        for cmd_type in required:
+            auth_manager.authorize(cmd_type, name)
+        auth_manager.save()
+
+        self.statusBar().showMessage(
+            self.tr("已授权 {n} 个控制命令给插件 {name}").format(
+                n=len(required), name=name
+            ),
+            3000,
+        )
 
     def _toggle_plugin(self, name: str, enable: bool) -> None:
         """切换插件启用状态"""
@@ -1861,6 +1883,15 @@ class PluginManagerWindow(QMainWindow):
             return
 
         dlg = _PluginReadmeDialog(name, text, parent=self)
+        dlg.exec_()
+
+    def _open_plugin_info(self, name: str) -> None:
+        """打开插件详情对话框（只读展示订阅/权限信息）"""
+        plugin = self._manager.plugins.get(name)
+        if not plugin:
+            return
+
+        dlg = PluginInfoDialog(plugin, parent=self)
         dlg.exec_()
 
     def _open_plugin_settings(self, name: str) -> None:
