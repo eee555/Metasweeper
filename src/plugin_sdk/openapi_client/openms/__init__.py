@@ -74,6 +74,24 @@ from .models_gen import (
     WeeklySetIn,
     WeeklyTournament,
 )
+from .models_requests import (
+    AccountlinkCreateAccountLinkIn,
+    CustomrankingRefreshPluckRankIn,
+    TournamentAllowTournamentIn,
+    TournamentCancelTournamentIn,
+    TournamentGscCreateGscParticipantIn,
+    TournamentGscFinishGscTaskIn,
+    TournamentGscNewGscTournamentIn,
+    TournamentGscRegisterGscParticipantIdentifierIn,
+    TournamentSetTournamentIn,
+    TournamentSetTournamentStaffIn,
+    TournamentValidateTournamentIn,
+    TournamentWeeklyCreateWeeklyParticipantIn,
+    TournamentWeeklyNewWeeklyTournamentIn,
+    TournamentWeeklySetWeeklyTournamentIn,
+    UserprofileUpdateUserAvatarIn,
+    UserprofileUpdateUserProfileIn,
+)
 
 DEFAULT_BASE_URL = "https://openms.top"
 
@@ -98,9 +116,10 @@ def create_client(
         transport: 自定义传输层实现（如 QtNetworkTransport）；默认 requests 传输
     """
     spec = json.loads(_SPEC_PATH.read_text(encoding="utf-8"))
+    registry = build_model_registry(_models_gen)
     return SpecDrivenClient(
         spec,
-        build_model_registry(_models_gen),
+        registry,
         base_url=base_url,
         timeout=timeout,
         user_agent=user_agent,
@@ -161,4 +180,20 @@ __all__ = [
     "WeeklyParticipant2",
     "WeeklySetIn",
     "WeeklyTournament",
+    "AccountlinkCreateAccountLinkIn",
+    "CustomrankingRefreshPluckRankIn",
+    "TournamentAllowTournamentIn",
+    "TournamentCancelTournamentIn",
+    "TournamentGscCreateGscParticipantIn",
+    "TournamentGscFinishGscTaskIn",
+    "TournamentGscNewGscTournamentIn",
+    "TournamentGscRegisterGscParticipantIdentifierIn",
+    "TournamentSetTournamentIn",
+    "TournamentSetTournamentStaffIn",
+    "TournamentValidateTournamentIn",
+    "TournamentWeeklyCreateWeeklyParticipantIn",
+    "TournamentWeeklyNewWeeklyTournamentIn",
+    "TournamentWeeklySetWeeklyTournamentIn",
+    "UserprofileUpdateUserAvatarIn",
+    "UserprofileUpdateUserProfileIn",
 ]

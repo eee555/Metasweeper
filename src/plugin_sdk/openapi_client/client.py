@@ -192,9 +192,19 @@ class SpecDrivenClient:
 
     @staticmethod
     def _struct_to_flat_dict(body: Any) -> dict[str, Any]:
-        """把 msgspec.Struct / dict / 基础类型展平为可编码的扁平 dict"""
+        """把 msgspec.Struct / dict / 基础类型展平为可编码的扁平 dict
+
+        Struct 字段经 msgspec.field(name=...) 重命名时，asdict 返回的是
+        Python 属性名而非编码名，故这里用 fields() 取 encode_name 做键映射，
+        保证 form/multipart 编码使用 spec 里的原始字段名。
+        """
         if isinstance(body, msgspec.Struct):
-            return {k: v for k, v in msgspec.structs.asdict(body).items() if v is not None}
+            name_map = {f.name: f.encode_name for f in msgspec.structs.fields(body)}
+            return {
+                name_map.get(k, k): v
+                for k, v in msgspec.structs.asdict(body).items()
+                if v is not None
+            }
         if isinstance(body, dict):
             return {k: v for k, v in body.items() if v is not None}
         raise SpecError(f"请求体类型不支持: {type(body).__name__}")

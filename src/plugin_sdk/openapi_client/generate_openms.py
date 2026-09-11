@@ -3,9 +3,11 @@
 一条命令完成全部代码生成:
     1. 下载/刷新 openapi.json -> openms/openapi.json（缓存基线）
     2. datamodel-code-generator 生成 msgspec.Struct 模型 -> openms/models_gen.py
-    3. 生成端点门面 -> openms/api_endpoints.py
-    4. 生成薄封装包入口 -> openms/__init__.py（导出 create_client / OpenmsApi / 全部模型类）
-    5. 对生成物做 import 自检
+    3. 为内联 requestBody schema 合成命名请求模型 -> openms/models_requests.py
+       （datamodel-code-generator 只处理 $ref 命名模型，内联 schema 会回退 dict）
+    4. 生成端点门面 -> openms/api_endpoints.py
+    5. 生成薄封装包入口 -> openms/__init__.py（导出 create_client / OpenmsApi / 全部模型类）
+    6. 对生成物做 import 自检
 
 运行方式（二选一，项目根或 src 目录下均可）::
 
@@ -39,7 +41,9 @@ if str(_SRC_DIR) not in sys.path:
 from plugin_sdk.openapi_client.codegen import (  # noqa: E402
     download_spec,
     generate_endpoints_facade,
+    generate_request_models_module,
     run_model_codegen,
+    synthesize_request_models,
 )
 
 # ---------------------------------------------------------------- 默认参数
@@ -52,6 +56,7 @@ FACADE_CLASS_NAME = "OpenmsApi"
 OUTPUT_DIR = Path(__file__).resolve().parent / "openms"
 SPEC_PATH = OUTPUT_DIR / "openapi.json"
 MODELS_PATH = OUTPUT_DIR / "models_gen.py"
+REQUEST_MODELS_PATH = OUTPUT_DIR / "models_requests.py"
 FACADE_PATH = OUTPUT_DIR / "api_endpoints.py"
 INIT_PATH = OUTPUT_DIR / "__init__.py"
 
@@ -60,31 +65,44 @@ INIT_TITLE = "openms API 客户端（自动生成）"
 
 
 # ---------------------------------------------------------------- 生成入口
-def generate_init(models_path: Path, title: str = INIT_TITLE) -> list[str]:
-    """生成 openms/__init__.py 薄封装
-
-    通过导入刚生成的 models_gen 枚举全部 msgspec.Struct 模型类，
-    生成显式 import 列表（IDE 补全友好），并导出 create_client 工厂。
-
-    Returns:
-        导出的模型类名列表
-    """
-    # 以 openms 包的父目录（openapi_client）为基准导入 models_gen，
-    # 避免依赖 openms 包本身已存在 __init__.py
-    module_name = "plugin_sdk.openapi_client.openms.models_gen"
-    models_module = importlib.import_module(module_name)
-
-    # 枚举全部 msgspec.Struct 模型类（按名称排序，保证输出稳定）
-    model_names = sorted(
-        name for name, obj in vars(models_module).items()
+def _enum_struct_models(module_name: str) -> list[str]:
+    """枚举模块内全部 msgspec.Struct 模型类名（按名称排序，保证输出稳定）"""
+    module = importlib.import_module(module_name)
+    return sorted(
+        name for name, obj in vars(module).items()
         if not name.startswith("_")
         and isinstance(obj, type)
         and obj.__module__ == module_name
         and hasattr(obj, "__struct_fields__")
     )
 
-    models_import = ",\n    ".join(model_names)
-    all_lines = "\n".join(f'    "{n}",' for n in model_names)
+
+def generate_init(models_path: Path, title: str = INIT_TITLE) -> list[str]:
+    """生成 openms/__init__.py 薄封装
+
+    通过导入刚生成的 models_gen / models_requests 枚举全部 msgspec.Struct
+    模型类，生成显式 import 列表（IDE 补全友好），并导出 create_client 工厂。
+
+    Returns:
+        导出的模型类名列表（两个模型模块合并）
+    """
+    # 以 openms 包的父目录（openapi_client）为基准导入模型模块，
+    # 避免依赖 openms 包本身已存在 __init__.py
+    gen_module = "plugin_sdk.openapi_client.openms.models_gen"
+    req_module = "plugin_sdk.openapi_client.openms.models_requests"
+    gen_names = _enum_struct_models(gen_module)
+    req_names = _enum_struct_models(req_module) if REQUEST_MODELS_PATH.exists() else []
+
+    gen_import = ",\n    ".join(gen_names)
+    gen_all = "\n".join(f'    "{n}",' for n in gen_names)
+    if req_names:
+        req_import = ",\n    ".join(req_names)
+        req_import_block = f"from .models_requests import (\n    {req_import},\n)\n"
+        req_all = "\n".join(f'    "{n}",' for n in req_names)
+        req_all_block = f"{req_all}\n"
+    else:
+        req_import_block = ""
+        req_all_block = ""
 
     src = f'''"""
 {title}
@@ -111,9 +129,9 @@ from plugin_sdk.openapi_client.transport import Transport
 from . import models_gen as _models_gen
 from .api_endpoints import OpenmsApi
 from .models_gen import (
-    {models_import},
+    {gen_import},
 )
-
+{req_import_block}
 DEFAULT_BASE_URL = "{DEFAULT_BASE_URL}"
 
 # 缓存的 openapi.json（与本包一起分发，运行期只读）
@@ -137,9 +155,10 @@ def create_client(
         transport: 自定义传输层实现（如 QtNetworkTransport）；默认 requests 传输
     """
     spec = json.loads(_SPEC_PATH.read_text(encoding="utf-8"))
+    registry = build_model_registry(_models_gen)
     return SpecDrivenClient(
         spec,
-        build_model_registry(_models_gen),
+        registry,
         base_url=base_url,
         timeout=timeout,
         user_agent=user_agent,
@@ -150,11 +169,11 @@ def create_client(
 __all__ = [
     "create_client",
     "OpenmsApi",
-{all_lines}
-]
+{gen_all}
+{req_all_block}]
 '''
     INIT_PATH.write_text(src, encoding="utf-8")
-    return model_names
+    return gen_names + req_names
 
 
 def self_check() -> None:
@@ -204,32 +223,41 @@ def main() -> int:
           f"schemas={len(spec.get('components', {}).get('schemas', {}))}")
 
     # 2. 生成模型文件
-    print(f"[2/5] 生成模型 -> {MODELS_PATH}")
+    print(f"[2/6] 生成模型 -> {MODELS_PATH}")
     run_model_codegen(SPEC_PATH, MODELS_PATH)
 
+    # 2.5 为内联 requestBody schema 合成命名请求模型
+    # （datamodel-code-generator 只处理 $ref 命名模型，内联 schema 会回退 dict）
+    print(f"[3/6] 合成内联请求模型 -> {REQUEST_MODELS_PATH}")
+    request_models = synthesize_request_models(spec)
+    n_req = generate_request_models_module(spec, request_models, REQUEST_MODELS_PATH)
+    print(f"      合成 {n_req} 个请求模型: {', '.join(sorted(request_models.values()))}")
+
     # 3. 生成端点门面
-    print(f"[3/5] 生成端点门面 -> {FACADE_PATH}")
+    print(f"[4/6] 生成端点门面 -> {FACADE_PATH}")
     n_methods = generate_endpoints_facade(
         spec,
         FACADE_PATH,
         facade_class_name=FACADE_CLASS_NAME,
         models_import_module=".models_gen",
+        request_models=request_models,
+        request_models_import_module=".models_requests",
         title="openms API 端点门面（自动生成）",
     )
     print(f"      共生成 {n_methods} 个端点方法")
 
     # 4. 生成包入口 __init__.py
-    print(f"[4/5] 生成包入口 -> {INIT_PATH}")
+    print(f"[5/6] 生成包入口 -> {INIT_PATH}")
     model_names = generate_init(MODELS_PATH)
     print(f"      导出 {len(model_names)} 个模型类")
 
     # 5. import 自检
-    print("[5/5] 生成物 import 自检")
+    print("[6/6] 生成物 import 自检")
     self_check()
 
     print()
     print("生成完成，产物清单:")
-    for p in (SPEC_PATH, MODELS_PATH, FACADE_PATH, INIT_PATH):
+    for p in (SPEC_PATH, MODELS_PATH, REQUEST_MODELS_PATH, FACADE_PATH, INIT_PATH):
         print(f"  {p.relative_to(_SRC_DIR)}  ({p.stat().st_size} bytes)")
     return 0
 

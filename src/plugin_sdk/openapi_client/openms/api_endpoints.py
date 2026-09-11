@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from .models_gen import AccountLinkCompleteOut, AccountLinkQueue, CustomPluckRankOut, CustomPluckRecordOut, DBTaskResult, GSCParticipant, GSCTournament, LogFileOut, LogPollOut, LogTailOut, NewWeeklyTournamentOut, RefreshCustomPluckRankOut, RunningTaskHealthOut, TaskIdIn, Tournament, TournamentNewsOut, TournamentParticipant, TournamentUserRankingOut, UserMS, UserMS2, UserProfile, VideoModel, VideoModel2, VideoModel3, VideoSummaryOut, WeeklyParticipant, WeeklyParticipant2
+from .models_requests import AccountlinkCreateAccountLinkIn, CustomrankingRefreshPluckRankIn, TournamentAllowTournamentIn, TournamentCancelTournamentIn, TournamentGscCreateGscParticipantIn, TournamentGscFinishGscTaskIn, TournamentGscNewGscTournamentIn, TournamentGscRegisterGscParticipantIdentifierIn, TournamentSetTournamentIn, TournamentSetTournamentStaffIn, TournamentValidateTournamentIn, TournamentWeeklyCreateWeeklyParticipantIn, TournamentWeeklyNewWeeklyTournamentIn, TournamentWeeklySetWeeklyTournamentIn, UserprofileUpdateUserAvatarIn, UserprofileUpdateUserProfileIn
 from plugin_sdk.openapi_client.client import SpecDrivenClient
 
 
@@ -26,7 +27,7 @@ GET /api/accountlink/admin/queue"""
         return self._client.call("accountlink_api_get_account_link_queue")
 
 
-    def accountlink_create_account_link(self, body: dict[str, Any]) -> AccountLinkQueue:
+    def accountlink_create_account_link(self, body: AccountlinkCreateAccountLinkIn) -> AccountLinkQueue:
         """Create Account Link
 
 POST /api/accountlink/create/"""
@@ -138,7 +139,7 @@ GET /api/customranking/pluck/player"""
         return self._client.call("customranking_api_player_pluck_records", player_id=player_id)
 
 
-    def customranking_refresh_pluck_rank(self, body: dict[str, Any]) -> RefreshCustomPluckRankOut:
+    def customranking_refresh_pluck_rank(self, body: CustomrankingRefreshPluckRankIn) -> RefreshCustomPluckRankOut:
         """Refresh Pluck Rank
 
 POST /api/customranking/pluck/refresh"""
@@ -159,14 +160,14 @@ GET /api/msuser/records_abstract"""
         return self._client.call("msuser_api_get_records_abstract", user_id=user_id)
 
 
-    def tournament_allow_tournament(self, body: dict[str, Any]) -> None:
+    def tournament_allow_tournament(self, body: TournamentAllowTournamentIn) -> None:
         """Allow Tournament
 
 POST /api/tournament/allow"""
         return self._client.call("tournament_api_allow_tournament", body=body)
 
 
-    def tournament_cancel_tournament(self, body: dict[str, Any]) -> None:
+    def tournament_cancel_tournament(self, body: TournamentCancelTournamentIn) -> None:
         """Cancel Tournament
 
 POST /api/tournament/cancel"""
@@ -229,21 +230,21 @@ GET /api/tournament/gsc/admin-info"""
         return self._client.call("tournament_gsc_api_get_GSC_tournament", order=order)
 
 
-    def tournament_gsc_new_GSC_tournament(self, body: dict[str, Any]) -> None:
+    def tournament_gsc_new_GSC_tournament(self, body: TournamentGscNewGscTournamentIn) -> None:
         """New Gsc Tournament
 
 POST /api/tournament/gsc/new"""
         return self._client.call("tournament_gsc_api_new_GSC_tournament", body=body)
 
 
-    def tournament_gsc_create_gsc_participant(self, body: dict[str, Any]) -> None:
+    def tournament_gsc_create_gsc_participant(self, body: TournamentGscCreateGscParticipantIn) -> None:
         """Create Gsc Participant
 
 POST /api/tournament/gsc/participant"""
         return self._client.call("tournament_gsc_api_create_gsc_participant", body=body)
 
 
-    def tournament_gsc_register_gsc_participant_identifier(self, body: dict[str, Any]) -> None:
+    def tournament_gsc_register_gsc_participant_identifier(self, body: TournamentGscRegisterGscParticipantIdentifierIn) -> None:
         """Register Gsc Participant Identifier
 
 POST /api/tournament/gsc/participant/identifier"""
@@ -264,7 +265,7 @@ GET /api/tournament/gsc/task"""
         return self._client.call("tournament_gsc_api_get_gsc_task", order=order)
 
 
-    def tournament_gsc_finish_gsc_task(self, body: dict[str, Any]) -> None:
+    def tournament_gsc_finish_gsc_task(self, body: TournamentGscFinishGscTaskIn) -> None:
         """Finish Gsc Task
 
 POST /api/tournament/gsc/task/finish"""
@@ -278,14 +279,14 @@ GET /api/tournament/participants"""
         return self._client.call("tournament_api_get_participant_list", tournament_id=tournament_id)
 
 
-    def tournament_set_tournament(self, body: dict[str, Any]) -> None:
+    def tournament_set_tournament(self, body: TournamentSetTournamentIn) -> None:
         """Set Tournament
 
 POST /api/tournament/set"""
         return self._client.call("tournament_api_set_tournament", body=body)
 
 
-    def tournament_set_tournament_staff(self, body: dict[str, Any]) -> Tournament:
+    def tournament_set_tournament_staff(self, body: TournamentSetTournamentStaffIn) -> Tournament:
         """Set Tournament Staff
 
 POST /api/tournament/set_staff"""
@@ -299,21 +300,21 @@ GET /api/tournament/user-ranking"""
         return self._client.call("tournament_api_get_tournament_user_ranking", sort_by=sort_by, start=start, end=end)
 
 
-    def tournament_validate_tournament(self, body: dict[str, Any]) -> None:
+    def tournament_validate_tournament(self, body: TournamentValidateTournamentIn) -> None:
         """Validate Tournament
 
 POST /api/tournament/validate"""
         return self._client.call("tournament_api_validate_tournament", body=body)
 
 
-    def tournament_weekly_new_weekly_tournament(self, body: dict[str, Any]) -> NewWeeklyTournamentOut:
+    def tournament_weekly_new_weekly_tournament(self, body: TournamentWeeklyNewWeeklyTournamentIn) -> NewWeeklyTournamentOut:
         """New Weekly Tournament
 
 POST /api/tournament/weekly/new"""
         return self._client.call("tournament_weekly_api_new_weekly_tournament", body=body)
 
 
-    def tournament_weekly_create_weekly_participant(self, body: dict[str, Any]) -> WeeklyParticipant2:
+    def tournament_weekly_create_weekly_participant(self, body: TournamentWeeklyCreateWeeklyParticipantIn) -> WeeklyParticipant2:
         """Create Weekly Participant
 
 POST /api/tournament/weekly/participant"""
@@ -327,7 +328,7 @@ GET /api/tournament/weekly/results"""
         return self._client.call("tournament_weekly_api_get_results", tournament_id=tournament_id)
 
 
-    def tournament_weekly_set_weekly_tournament(self, body: dict[str, Any]) -> None:
+    def tournament_weekly_set_weekly_tournament(self, body: TournamentWeeklySetWeeklyTournamentIn) -> None:
         """Set Weekly Tournament
 
 POST /api/tournament/weekly/set"""
@@ -369,14 +370,14 @@ GET /api/userprofile/infoupdated"""
         return self._client.call("userprofile_api_get_user_info_updated", since=since)
 
 
-    def userprofile_update_user_avatar(self, body: dict[str, Any]) -> None:
+    def userprofile_update_user_avatar(self, body: UserprofileUpdateUserAvatarIn) -> None:
         """Update User Avatar
 
 POST /api/userprofile/update_avatar"""
         return self._client.call("userprofile_api_update_user_avatar", body=body)
 
 
-    def userprofile_update_user_profile(self, body: dict[str, Any]) -> None:
+    def userprofile_update_user_profile(self, body: UserprofileUpdateUserProfileIn) -> None:
         """Update User Profile
 
 POST /api/userprofile/update_profile"""

@@ -24,8 +24,20 @@ python src/plugin_sdk/openapi_client/generate_openms.py
 |------|------|
 | `openapi.json` | spec 缓存基线（随包分发，运行期只读） |
 | `models_gen.py` | datamodel-code-generator 生成的 msgspec.Struct 模型 |
+| `models_requests.py` | 内联 requestBody 合成的命名请求模型（见下） |
 | `api_endpoints.py` | 端点门面 `OpenmsApi`（带完整类型注解，IDE 补全友好） |
 | `__init__.py` | 薄封装：导出 `create_client()` / `OpenmsApi` / 全部模型类 |
+
+### 内联请求体模型
+
+datamodel-code-generator 只为 `$ref` 指向的命名模型生成 Struct；若端点的
+requestBody schema 是内联定义（properties 直接挂在 schema 上，无 `$ref`），
+body 会回退成 `dict[str, Any]`。生成脚本会自动扫描这类端点，按
+`operationId`（去掉 `_api` 段后 PascalCase + `In` 后缀，如
+`tournament_api_set_tournament` → `TournamentSetTournamentIn`）合成命名
+请求模型，输出到 `models_requests.py`，并在门面方法签名上使用。
+命名与既有 `components/schemas` 冲突或字段名不合法的端点仍回退 dict 并
+打印警告。
 
 ## 运行期用法
 

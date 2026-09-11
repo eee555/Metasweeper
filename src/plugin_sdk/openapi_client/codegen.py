@@ -12,6 +12,7 @@ openapi_client - API 代码生成工具（生成期依赖，非运行期依赖�
 from __future__ import annotations
 
 import json
+import keyword
 import re
 import subprocess
 import sys
@@ -92,6 +93,157 @@ def _schema_to_annotation(schema: dict[str, Any] | None, required: bool) -> str:
     return ann
 
 
+def _inline_schema_to_annotation(schema: dict[str, Any] | None, required: bool) -> str:
+    """把内联请求体字段的 JSON schema 转为 Python 类型注解字符串
+
+    相比 _schema_to_annotation 额外支持 anyOf/oneOf 组合
+    （如 anyOf[{string,date-time}, {null}] -> str | None），
+    这是 FastAPI 风格可选字段的常见写法。
+    """
+    ann, nullable = _inline_base_annotation(schema)
+    if (not required or nullable) and ann != "None":
+        ann = f"{ann} | None"
+    return ann
+
+
+def _inline_base_annotation(schema: dict[str, Any] | None) -> tuple[str, bool]:
+    """解析内联字段 schema 的基础注解，返回 (注解, 是否可空)"""
+    if schema is None:
+        return "Any", False
+    if "$ref" in schema:
+        return schema["$ref"].rsplit("/", 1)[-1], False
+    if "anyOf" in schema or "oneOf" in schema:
+        branches = schema.get("anyOf") or schema.get("oneOf") or []
+        non_null = [b for b in branches if b.get("type") != "null"]
+        has_null = len(non_null) != len(branches)
+        parts = [_inline_base_annotation(b)[0] for b in non_null]
+        if not parts:
+            return "None", False
+        ann = parts[0] if len(parts) == 1 else " | ".join(parts)
+        return ann, has_null
+    if schema.get("type") == "array":
+        inner, _ = _inline_base_annotation(schema.get("items"))
+        return f"list[{inner}]", False
+    return _PRIMITIVE_MAP.get(schema.get("type", ""), "Any"), False
+
+
+def _pascal_case(snake: str) -> str:
+    """snake_case -> PascalCase（用于合成请求模型命名）"""
+    return "".join(part.capitalize() for part in snake.split("_") if part)
+
+
+def _synthesize_model_name(operation_id: str) -> str:
+    """operationId -> 合成请求模型名
+
+    规则：复用门面方法名（去掉 _api 段）做 PascalCase，再追加 In 后缀。
+    如 tournament_api_set_tournament -> TournamentSetTournamentIn。
+    """
+    return _pascal_case(_method_name(operation_id)) + "In"
+
+
+def synthesize_request_models(spec: dict[str, Any]) -> dict[str, str]:
+    """扫描 spec 全部 paths，为内联 requestBody schema 合成命名请求模型
+
+    datamodel-code-generator 只为 $ref 指向的命名模型生成 Struct，
+    内联（properties 直接挂在 requestBody schema 上）的请求体会回退成
+    dict[str, Any]。本函数为这类端点按 operationId 合成命名模型，
+    返回 operationId -> 模型名 的映射（仅含合成成功的端点）。
+
+    命名冲突（与 components/schemas 或其他合成名重复）或字段名不是
+    合法 Python 标识符的端点会被跳过（门面回退 dict）并打印警告。
+    """
+    existing = set(spec.get("components", {}).get("schemas", {}).keys())
+    used: set[str] = set(existing)
+    mapping: dict[str, str] = {}
+
+    for path, methods in sorted(spec.get("paths", {}).items()):
+        for http_method, op in methods.items():
+            if http_method not in ("get", "post", "put", "delete", "patch"):
+                continue
+            op_id = op.get("operationId")
+            if not op_id:
+                continue
+            content = op.get("requestBody", {}).get("content", {})
+            body_schema = next(iter(content.values()), {}).get("schema", {})
+            # 仅处理内联 object（有 properties 且无 $ref）
+            if "$ref" in body_schema or "properties" not in body_schema:
+                continue
+
+            model_name = _synthesize_model_name(op_id)
+            if model_name in used:
+                print(f"[警告] 合成请求模型名 {model_name}（{op_id}）与既有模型冲突，"
+                      f"该端点 body 回退 dict[str, Any]")
+                continue
+            # 字段名必须可直接作为 Python 属性名（合法标识符且非关键字），
+            # 否则 msgspec rename 后 asdict/form 编码的键名映射会引入额外复杂度
+            bad_fields = [
+                n for n in body_schema["properties"]
+                if not n.isidentifier() or keyword.iskeyword(n)
+            ]
+            if bad_fields:
+                print(f"[警告] {op_id} 请求体字段名不合法: {bad_fields}，"
+                      f"该端点 body 回退 dict[str, Any]")
+                continue
+
+            used.add(model_name)
+            mapping[op_id] = model_name
+    return mapping
+
+
+def generate_request_models_module(
+    spec: dict[str, Any],
+    request_models: dict[str, str],
+    output_path: str | Path,
+    title: str = "合成请求模型（自动生成）",
+) -> int:
+    """根据 synthesize_request_models 的映射生成请求模型模块
+
+    用 msgspec.Struct 手写代码生成方式（不经过 datamodel-code-generator），
+    字段类型映射复用 _inline_schema_to_annotation：
+    - required 字段无默认值，optional 字段默认 None
+    - required 字段排在 optional 之前（msgspec 要求无默认值字段在前）
+
+    Returns:
+        生成的模型类数量
+    """
+    # 反查 operationId -> 内联 schema
+    op_schemas: dict[str, dict[str, Any]] = {}
+    for path, methods in spec.get("paths", {}).items():
+        for http_method, op in methods.items():
+            op_id = op.get("operationId")
+            if op_id in request_models:
+                content = op.get("requestBody", {}).get("content", {})
+                op_schemas[op_id] = next(iter(content.values()), {}).get("schema", {})
+
+    classes_src: list[str] = []
+    for op_id in sorted(request_models):
+        model_name = request_models[op_id]
+        schema = op_schemas.get(op_id, {})
+        properties: dict[str, Any] = schema.get("properties", {})
+        required: set[str] = set(schema.get("required", []))
+        # required 字段在前（msgspec.Struct 无默认值字段必须排在有默认值字段之前）
+        ordered = [n for n in properties if n in required] + \
+                  [n for n in properties if n not in required]
+        field_lines: list[str] = []
+        for name in ordered:
+            ann = _inline_schema_to_annotation(properties[name], name in required)
+            if name in required:
+                field_lines.append(f"    {name}: {ann}")
+            else:
+                field_lines.append(f"    {name}: {ann} = None")
+        body = "\n".join(field_lines) if field_lines else "    pass"
+        classes_src.append(f"class {model_name}(Struct):\n{body}\n")
+
+    file_src = (
+        AUTO_GEN_HEADER.format(title=title)
+        + "from __future__ import annotations\n\n"
+        + "from msgspec import Struct\n\n\n"
+        + "\n\n".join(classes_src)
+    )
+    Path(output_path).write_text(file_src, encoding="utf-8")
+    return len(request_models)
+
+
 def _response_annotation(op: dict[str, Any]) -> str:
     """从 200 响应解析返回类型注解；无响应体返回 None"""
     content = op.get("responses", {}).get("200", {}).get("content", {})
@@ -121,6 +273,8 @@ def generate_endpoints_facade(
     output_path: str | Path,
     facade_class_name: str = "Api",
     models_import_module: str = ".models_gen",
+    request_models: dict[str, str] | None = None,
+    request_models_import_module: str = ".models_requests",
     title: str = "端点门面（自动生成）",
 ) -> int:
     """遍历 spec paths，生成端点门面类（补全友好层）
@@ -130,15 +284,20 @@ def generate_endpoints_facade(
         output_path: 门面文件输出路径（如 api/api_endpoints.py）
         facade_class_name: 生成的门面类名（默认 "Api"）
         models_import_module: 模型模块的导入路径（默认相对导入 ".models_gen"）
+        request_models: operationId -> 合成请求模型名 的映射（见
+            synthesize_request_models）；命中的端点 body 参数使用合成模型注解
+        request_models_import_module: 合成请求模型所在模块的导入路径
         title: 生成文件 docstring 标题
 
     Returns:
         生成的端点方法数量
     """
+    request_models = request_models or {}
     valid_models = set(spec.get("components", {}).get("schemas", {}).keys())
 
-    # 收集所有被引用的模型名，用于 import
+    # 收集所有被引用的模型名，用于 import（区分命名模型/合成请求模型两个模块）
     referenced_models: set[str] = set()
+    referenced_request_models: set[str] = set()
     methods_src: list[str] = []
 
     for path, methods in sorted(spec.get("paths", {}).items()):
@@ -168,7 +327,12 @@ def generate_endpoints_facade(
             rb = op.get("requestBody", {}).get("content", {})
             if rb:
                 body_schema = next(iter(rb.values()), {}).get("schema", {})
-                if "$ref" in body_schema:
+                if op_id in request_models:
+                    # 内联 schema 已合成命名请求模型，body 类型化
+                    model_name = request_models[op_id]
+                    referenced_request_models.add(model_name)
+                    sig_parts.append(f"body: {model_name}")
+                elif "$ref" in body_schema:
                     model_name = body_schema["$ref"].rsplit("/", 1)[-1]
                     referenced_models.add(model_name)
                     sig_parts.append(f"body: {model_name}")
@@ -195,11 +359,17 @@ def generate_endpoints_facade(
 
     imports = ", ".join(sorted(referenced_models))
     import_line = f"from {models_import_module} import {imports}\n" if imports else ""
+    req_imports = ", ".join(sorted(referenced_request_models))
+    req_import_line = (
+        f"from {request_models_import_module} import {req_imports}\n"
+        if req_imports else ""
+    )
     file_src = (
         AUTO_GEN_HEADER.format(title=title)
         + "from __future__ import annotations\n\n"
         + "from typing import Any\n\n"
         + import_line
+        + req_import_line
         + "from plugin_sdk.openapi_client.client import SpecDrivenClient\n\n\n"
         + f"class {facade_class_name}:\n"
         + f"    \"\"\"API 端点门面（补全友好层）\n\n"
