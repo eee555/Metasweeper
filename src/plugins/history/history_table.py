@@ -272,12 +272,14 @@ class HistoryTable(QWidget):
     def save_evf(self, evf_path: str):
         replay_id = self._get_current_replay_id()
         if replay_id is None:
-            return
+            return False
         raw_data = self._read_raw_data(replay_id)
         if raw_data is None:
-            return
+            return False
         with open(evf_path, "wb") as f:
             f.write(raw_data)
+        
+        return True
 
     def play_row(self):
         exec_dir = get_executable_dir()
@@ -298,7 +300,12 @@ class HistoryTable(QWidget):
             prefix="metasweeper_", suffix=".evf", delete=False
         ) as tmp:
             temp_filename = Path(tmp.name)
-        self.save_evf(str(temp_filename))
+        if not self.save_evf(str(temp_filename)):
+            QMessageBox.warning(
+                self, _translate("Form", "错误"), _translate(
+                    "Form", "保存 evf 文件失败")
+            )
+            return
         if main_py.exists():
             subprocess.Popen(
                 [sys.executable, str(main_py), str(temp_filename)])

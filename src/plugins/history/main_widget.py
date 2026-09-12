@@ -283,15 +283,19 @@ class HistoryMainWidget(QWidget):
                     return
                 # 构建查询字段：显示字段 + 计算列
                 show_fields = list(self.table.showFields)
+                # replay_id 用于播放、导出和删除，即使用户隐藏该列也必须保留在查询结果中。
+                query_fields = list(show_fields)
+                if "replay_id" not in query_fields:
+                    query_fields.insert(0, "replay_id")
                 if self._computed_columns:
                     computed_names = [
                         col.name for col in self._computed_columns]
                     for name in computed_names:
-                        if name not in show_fields:
-                            show_fields.append(name)
+                        if name not in query_fields:
+                            query_fields.append(name)
                 select_fields = ','.join(
                     f'"{f}"' if f not in _PHYSICAL_FIELDS else f
-                    for f in show_fields
+                    for f in query_fields
                 )
                 # 有计算列时用子查询，否则直接查原表
                 subquery = ComputedColumn.build_subquery_sql(
