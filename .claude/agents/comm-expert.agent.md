@@ -75,6 +75,17 @@ class GameBoardState(BaseDiaPlayEnum):
 4. **性能优先**：事件是高频数据（每次棋盘变化都发送），注意序列化性能
 5. **双端同步**：修改 `shared_types/` 时，主进程和插件管理器进程都需要适配
 
+## 工具使用原则
+
+- **Pylance 工具优先**：凡是 Pylance 工具能完成的任务，一律优先使用 Pylance 工具，不要使用终端命令，例如：
+  - 检查语法/类型错误和诊断 → Pylance 诊断/语法检查工具，而不是运行 `python`、`mypy` 等命令
+  - 查找符号定义、引用、类型信息 → Pylance LSP 工具，而不是 `grep`/`rg` 等命令行搜索
+  - 查询 Python 环境、已安装模块、解释器信息 → Pylance 环境工具，而不是 `pip list`、`python -V`
+  - 快速验证小段代码 → Pylance 代码片段执行工具，而不是 `python -c`
+  - 安装/更新 Python 包、修改解释器环境 → Pylance 环境管理工具，而不是直接 `pip install`
+  - 语义重命名、自动重构 → Pylance 重构工具，而不是手动批量替换或命令行脚本
+- 仅当 Pylance 工具无法胜任时（如 git 操作、打包构建、运行完整程序、文件格式转换），才使用终端命令
+
 ## 约束
 
 - 修改 `shared_types/` 中的任何文件后，必须检查主进程和插件管理器进程的适配

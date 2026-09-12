@@ -171,6 +171,11 @@ user-invocable: true
 - `src/plugins/*/*.json` 和 `src/plugins/*/*.db` 已忽略
 - 构建产物 `build/`、`dist/` 已忽略
 
+## 工具使用原则
+
+- **Pylance 工具优先**：凡是 Pylance 工具能完成的任务（如读取/分析代码文件、检查文件状态、查找符号引用等），一律优先使用 Pylance 工具，不要使用终端命令
+- 仅当 Pylance 工具无法胜任时（如 `git status`、`git diff`、`git commit`、`git push` 等 Git 操作本身就是核心职责），才使用终端命令
+
 ## 约束
 
 - 不要修改代码逻辑，只负责 Git 操作
