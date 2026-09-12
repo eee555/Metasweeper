@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (
 )
 
 from shared_types.widgets import ConfirmDialog
-from .computed_column import ComputedColumn
+from .computed_column import ComputedColumn, validate_column_name
 
 _translate = QCoreApplication.translate
 
@@ -134,21 +134,14 @@ class ComputedColumnsDialog(ConfirmDialog):
         if not columns:
             return True  # 没有计算列，无需验证
 
-        # 检查列名合法性
+        # 检查列名合法性（统一校验入口：正则 + 保留字）
         for col in columns:
-            if not col.name.strip():
+            error = validate_column_name(col.name)
+            if error:
                 QMessageBox.warning(
                     self,
                     _translate("Form", "验证失败"),
-                    _translate("Form", "列名不能为空"),
-                )
-                return False
-            if not col.name.isidentifier():
-                QMessageBox.warning(
-                    self,
-                    _translate("Form", "验证失败"),
-                    _translate("Form", "列名 '%1' 不是合法标识符").replace(
-                        "%1", col.name),
+                    _translate("Form", error).replace("%1", col.name),
                 )
                 return False
 

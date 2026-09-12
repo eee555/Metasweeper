@@ -5,7 +5,7 @@
 from __future__ import annotations
 from .widgets import HistoryMainWidget
 from .compression import compress, decompress
-from .computed_column import ComputedColumn
+from .computed_column import ComputedColumn, validate_column_name
 from plugins.services.history import HistoryService, GameRecord
 from shared_types.events import GameFinishedEvent, LanguageChangeEvent
 from plugin_sdk import (
@@ -17,7 +17,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from .db import db_connection
+from .db import db_connection, delete_record_tx, ensure_indexes
 
 import msgspec
 from PyQt5.QtCore import QCoreApplication, QThread, pyqtSignal
@@ -25,28 +25,32 @@ from PyQt5.QtWidgets import QWidget
 
 _translate = QCoreApplication.translate
 
+# raw_data → replay_data 迁移批次大小
+_MIGRATE_BATCH = 100
+
 
 class _CompressionMigrateWorker(QThread):
     """后台压缩迁移工作线程，静默处理旧数据"""
 
-    def __init__(self, db_path: Path, batch_size: int = 100, parent=None):
+    def __init__(self, db_path: Path, logger: Any = None,
+                 batch_size: int = 100, parent=None):
         super().__init__(parent)
         self._db_path = db_path
+        self._logger = logger
         self._batch_size = batch_size
 
     def run(self):
         with db_connection(self._db_path, register_custom_functions=False) as conn:
             try:
                 cursor = conn.cursor()
-                # 检查 compressed 列是否存在
-                cursor.execute("PRAGMA table_info(history)")
-                cols = {row[1] for row in cursor.fetchall()}
-                if "compressed" not in cols:
+                # 检查 replay_data 表是否存在
+                cursor.execute("PRAGMA table_info(replay_data)")
+                if not cursor.fetchall():
                     return  # schema 还没升级，跳过
 
                 while True:
                     cursor.execute(
-                        "SELECT replay_id, raw_data FROM history "
+                        "SELECT replay_id, raw_data FROM replay_data "
                         "WHERE compressed = 0 AND raw_data IS NOT NULL "
                         "LIMIT ?",
                         (self._batch_size,),
@@ -59,15 +63,17 @@ class _CompressionMigrateWorker(QThread):
                             continue
                         compressed_data = compress(raw_data)
                         cursor.execute(
-                            "UPDATE history SET raw_data = ?, compressed = 1 "
+                            "UPDATE replay_data SET raw_data = ?, compressed = 1 "
                             "WHERE replay_id = ?",
                             (compressed_data, replay_id),
                         )
                     conn.commit()
                 # 所有记录压缩完成，VACUUM 回收磁盘空间
                 cursor.execute("VACUUM")
-            except Exception:
-                pass  # 静默失败，下次启动继续
+            except Exception as e:
+                # 静默失败但记录警告，下次启动继续
+                if self._logger is not None:
+                    self._logger.warning(f"后台压缩迁移失败: {e}")
 
 
 class HistoryConfig(OtherInfoBase):
@@ -285,17 +291,16 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         # 检查是否有未压缩的记录
         with db_connection(db_path, register_custom_functions=False) as conn:
             cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(history)")
-            cols = {row[1] for row in cursor.fetchall()}
-            if "compressed" not in cols:
-                return
+            cursor.execute("PRAGMA table_info(replay_data)")
+            if not cursor.fetchall():
+                return  # schema 还没升级，跳过
             cursor.execute(
-                "SELECT COUNT(*) FROM history WHERE compressed = 0 AND raw_data IS NOT NULL"
+                "SELECT COUNT(*) FROM replay_data WHERE compressed = 0 AND raw_data IS NOT NULL"
             )
             count = cursor.fetchone()[0]
         if count > 0:
             self._migrate_worker = _CompressionMigrateWorker(
-                db_path)
+                db_path, logger=self.logger)
             self._migrate_worker.start()
             self.logger.info(f"后台压缩迁移启动，待处理 {count} 条记录")
 
@@ -317,7 +322,16 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         return []
 
     def set_computed_columns(self, columns: list[ComputedColumn]) -> None:
-        """更新计算列配置"""
+        """更新计算列配置（统一校验入口：非法列名拒绝并记录警告）"""
+        valid: list[ComputedColumn] = []
+        for col in columns:
+            error = validate_column_name(col.name)
+            if error:
+                self.logger.warning(
+                    f"已拒绝非法计算列: {error.replace('%1', col.name)}")
+                continue
+            valid.append(col)
+        columns = valid
         if self.other_info:
             self.other_info.saved_computed_columns = ComputedColumn.to_json(
                 columns)
@@ -325,6 +339,15 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         # 通知 widget 刷新
         if hasattr(self, '_widget'):
             self._widget.on_computed_columns_changed(columns)
+
+    def on_shutdown(self) -> None:
+        """插件关闭（卸载/禁用/退出）前等待后台压缩迁移线程结束，
+        避免线程仍在写库时连接被中断"""
+        worker = getattr(self, '_migrate_worker', None)
+        if worker is not None and worker.isRunning():
+            self.logger.info("等待后台压缩迁移线程结束...")
+            worker.wait()
+            self.logger.info("后台压缩迁移线程已结束")
 
     # ── 数据库 ──────────────────────────────────────────────
 
@@ -336,7 +359,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                 cursor.execute("PRAGMA table_info(history)")
                 cols = {row[1] for row in cursor.fetchall()}
                 if "game_state" in cols:
-                    # 旧 schema 缺少 compressed 列则追加
+                    # 旧 schema 缺少 compressed 列则追加（列保留，供回退读取）
                     if "compressed" not in cols:
                         cursor.execute(
                             "ALTER TABLE history ADD COLUMN compressed INTEGER DEFAULT 0"
@@ -346,6 +369,10 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                     # 清理旧版本遗留的 VIEW（改用子查询方式不再需要）
                     cursor.execute("DROP VIEW IF EXISTS history_view")
                     conn.commit()
+                    # 拆分 raw_data 到 replay_data 子表
+                    self._migrate_raw_data_to_replay(conn)
+                    # 确保查询索引存在
+                    ensure_indexes(conn)
                     return
                 self.logger.info("旧 schema，迁移中…")
                 cursor.executescript("DROP TABLE IF EXISTS history;")
@@ -387,13 +414,69 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                     op                  INTEGER,
                     isl                 INTEGER,
                     pluck               REAL,
-                    board               TEXT,
-                    raw_data            BLOB,
-                    compressed          INTEGER DEFAULT 0
+                    board               TEXT
+                )
+            """)
+            # 录像数据子表（与 history 分离，避免 BLOB 拖慢元数据查询）
+            cursor.execute("""
+                CREATE TABLE replay_data (
+                    replay_id  INTEGER PRIMARY KEY,
+                    raw_data   BLOB,
+                    compressed INTEGER DEFAULT 0
                 )
             """)
             conn.commit()
+            # 确保查询索引存在
+            ensure_indexes(conn)
             self.logger.info(f"Database created: {db_path}")
+
+    def _migrate_raw_data_to_replay(self, conn: sqlite3.Connection) -> None:
+        """将 history.raw_data 中的录像数据分批迁移到 replay_data 子表（幂等）
+
+        迁移后 history.raw_data 置 NULL 但列保留（回退兼容中间态旧库）。
+        """
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS replay_data (
+                replay_id  INTEGER PRIMARY KEY,
+                raw_data   BLOB,
+                compressed INTEGER DEFAULT 0
+            )
+        """)
+        conn.commit()
+        # history 没有 raw_data 列说明已是新结构，无需迁移
+        cursor.execute("PRAGMA table_info(history)")
+        cols = {row[1] for row in cursor.fetchall()}
+        if "raw_data" not in cols:
+            return
+        migrated = 0
+        while True:
+            cursor.execute(
+                "SELECT replay_id, raw_data, compressed FROM history "
+                "WHERE raw_data IS NOT NULL LIMIT ?",
+                (_MIGRATE_BATCH,),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                break
+            for replay_id, raw_data, compressed in rows:
+                cursor.execute(
+                    "INSERT OR REPLACE INTO replay_data "
+                    "(replay_id, raw_data, compressed) VALUES (?, ?, ?)",
+                    (replay_id, raw_data, int(bool(compressed))),
+                )
+                # 置 NULL 标记已迁移（幂等），列保留供回退读取
+                cursor.execute(
+                    "UPDATE history SET raw_data = NULL WHERE replay_id = ?",
+                    (replay_id,),
+                )
+            conn.commit()
+            migrated += len(rows)
+        if migrated:
+            self.logger.info(
+                f"已迁移 {migrated} 条录像数据到 replay_data 子表")
+            # 迁移完成后 VACUUM 回收磁盘空间
+            cursor.execute("VACUUM")
 
     # ── 事件处理 ──────────────────────────────────────────
 
@@ -403,10 +486,10 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             import json
             data["board"] = json.dumps(data["board"], separators=(",", ":"))
         data.pop("timestamp", None)
-        # 压缩 raw_data
-        if data.get("raw_data") is not None:
-            data["raw_data"] = compress(data["raw_data"])
-            data["compressed"] = 1
+        # raw_data/compressed 不写入 history 元数据表，拆到 replay_data 子表
+        raw_data = data.pop("raw_data", None)
+        data.pop("compressed", None)
+        raw_compressed = compress(raw_data) if raw_data is not None else None
         columns = ", ".join(data.keys())
         placeholders = ", ".join(f":{k}" for k in data.keys())
 
@@ -417,6 +500,13 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                 f"INSERT INTO history ({columns}) VALUES ({placeholders})",
                 data,
             )
+            # 录像数据写入子表（与元数据同一事务）
+            if raw_compressed is not None:
+                cursor.execute(
+                    "INSERT INTO replay_data (replay_id, raw_data, compressed) "
+                    "VALUES (?, ?, 1)",
+                    (cursor.lastrowid, raw_compressed),
+                )
             conn.commit()
             self.logger.info(
                 f"Saved: game_state={event.game_state} time={event.rtime:.1f}s"
@@ -502,15 +592,11 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         return records[0] if records else None
 
     def delete_record(self, record_id: int) -> bool:
-        """删除指定记录"""
+        """删除指定记录（元数据 + 录像数据同一事务）"""
         db_path = self.data_dir / "history.db"
         with db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM history WHERE replay_id = ?", (record_id,)
-            )
+            deleted = delete_record_tx(conn, record_id)
             conn.commit()
-            deleted = cursor.rowcount > 0
             if deleted:
                 self.logger.info(f"Deleted record: {record_id}")
             return deleted
@@ -543,7 +629,9 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
 
     def _on_config_changed(self, name: str, value: Any) -> None:
         if name == "float_decimals":
-            self._widget.set_float_decimals(value)
+            # widget 可能在配置变更时尚未创建（如启用前修改配置）
+            if hasattr(self, '_widget'):
+                self._widget.set_float_decimals(value)
         elif name == "saved_custom_functions":
             from .db import set_custom_script
             set_custom_script(value or "")

@@ -8,17 +8,23 @@ import json
 import sqlite3
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from .db import db_connection
+from .db import db_connection, delete_record_tx
 
-from PyQt5.QtCore import Qt, QCoreApplication, pyqtSignal
+from PyQt5.QtCore import (
+    Qt, QCoreApplication, pyqtSignal, QTimer,
+)
 from PyQt5.QtGui import QCloseEvent as _QCloseEvent
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QMenu,
+    QLabel,
+    QDialog,
+    QDialogButtonBox,
     QTableView,
     QAbstractItemView,
     QApplication,
@@ -28,6 +34,7 @@ from PyQt5.QtWidgets import (
 )
 
 from shared_types.enums import BaseDiaPlayEnum
+from shared_types.widgets import ConfirmDialog
 
 from plugin_manager.app_paths import get_executable_dir
 
@@ -37,6 +44,30 @@ from .compression import decompress
 from .computed_column import ComputedColumn
 
 _translate = QCoreApplication.translate
+
+
+class _DeleteConfirmDialog(ConfirmDialog):
+    """删除记录确认对话框（基于共享 ConfirmDialog 基类）"""
+
+    def __init__(self, parent=None):
+        super().__init__(
+            parent,
+            title=_translate("Form", "删除确认"),
+            buttons=QDialogButtonBox.Yes | QDialogButtonBox.No,
+        )
+        self.resize(320, 120)
+
+    def _create_content(self):
+        layout = QVBoxLayout()
+        label = QLabel(
+            _translate("Form", "确定要删除选中的这条历史记录吗？\n该操作不可恢复。"))
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        return layout
+
+    def _on_accepted(self):
+        # 确认逻辑由调用方在 exec_() 返回后处理
+        pass
 
 
 class HistoryTable(QWidget):
@@ -158,8 +189,28 @@ class HistoryTable(QWidget):
         menu.addAction(_translate("Form", "播放"), self.play_row)
         menu.addAction(_translate("Form", "导出录像"), self.export_row)
         menu.addAction(_translate("Form", "复制JSON"), self.export_row_json)
+        menu.addAction(_translate("Form", "删除"), self.delete_row)
         menu.addAction(_translate("Form", "刷新"), self.refresh)
         menu.exec_(self.table.mapToGlobal(pos))
+
+    def delete_row(self):
+        """删除当前选中的记录（确认后执行，删除后刷新）"""
+        replay_id = self._get_current_replay_id()
+        if replay_id is None:
+            return
+        dialog = _DeleteConfirmDialog(self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+        try:
+            with db_connection(self._db_path) as conn:
+                delete_record_tx(conn, replay_id)
+                conn.commit()
+        except sqlite3.Error as e:
+            QMessageBox.warning(
+                self, _translate("Form", "错误"),
+                _translate("Form", "删除记录失败: %1").replace("%1", str(e)))
+            return
+        self.refresh()
 
     def _get_current_replay_id(self) -> int | None:
         row_idx = self.table.currentIndex().row()
@@ -173,15 +224,49 @@ class HistoryTable(QWidget):
         return getattr(self.model._data[row_idx], "replay_id", None)
 
     def _read_raw_data(self, replay_id: int) -> bytes | None:
+        """读取录像原始数据（兼容三种库形态）
+
+        a) 新库 / 已迁移库：数据在 replay_data 子表
+        b) 中间态旧库：优先 replay_data，回退 history.raw_data
+        c) 全压缩旧库：raw_data 在 history.raw_data 且 compressed=1
+        """
         with db_connection(self._db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT raw_data FROM history WHERE replay_id = ?", (
-                    replay_id,)
-            )
-            row = cursor.fetchone()
+            # 优先读 replay_data 子表
+            try:
+                cursor.execute(
+                    "SELECT raw_data, compressed FROM replay_data "
+                    "WHERE replay_id = ?",
+                    (replay_id,),
+                )
+                row = cursor.fetchone()
+            except sqlite3.OperationalError:
+                row = None  # 子表不存在（极旧数据库）
             if row and row[0] is not None:
-                return decompress(row[0])
+                # 子表内 compressed 列恒有值（0/1），按列判断
+                return decompress(row[0], compressed=bool(row[1]))
+            # 回退读 history.raw_data（中间态旧库尚未迁移的数据）
+            try:
+                try:
+                    cursor.execute(
+                        "SELECT raw_data, compressed FROM history "
+                        "WHERE replay_id = ?",
+                        (replay_id,),
+                    )
+                    row = cursor.fetchone()
+                    flag = bool(row[1]) if row and row[1] is not None else None
+                except sqlite3.OperationalError:
+                    # 极旧数据库没有 compressed 列
+                    cursor.execute(
+                        "SELECT raw_data FROM history WHERE replay_id = ?",
+                        (replay_id,),
+                    )
+                    row = cursor.fetchone()
+                    flag = None
+            except sqlite3.OperationalError:
+                return None  # history 表结构异常（理论上不可达），放弃读取
+            if row and row[0] is not None:
+                return decompress(row[0], compressed=flag)
             return None
 
     def save_evf(self, evf_path: str):
@@ -196,22 +281,37 @@ class HistoryTable(QWidget):
 
     def play_row(self):
         exec_dir = get_executable_dir()
-        temp_filename = exec_dir / "tmp.evf"
-        self.save_evf(str(temp_filename))
-
         exe = exec_dir / "metasweeper.exe"
         main_py = exec_dir / "src" / "main.py"
 
+        # 主程序不存在时直接提示，避免白写临时文件
+        # （修正旧文案：误写为 metaminesweeper.exe，实际找 metasweeper.exe）
+        if not main_py.exists() and not exe.exists():
+            QMessageBox.warning(
+                self, _translate("Form", "错误"), _translate(
+                    "Form", "找不到主程序 (main.py 或 metasweeper.exe)")
+            )
+            return
+
+        # 临时 evf 写到系统临时目录（exe 目录在 Program Files 下无写权限）
+        with tempfile.NamedTemporaryFile(
+            prefix="metasweeper_", suffix=".evf", delete=False
+        ) as tmp:
+            temp_filename = Path(tmp.name)
+        self.save_evf(str(temp_filename))
         if main_py.exists():
             subprocess.Popen(
                 [sys.executable, str(main_py), str(temp_filename)])
-        elif exe.exists():
-            subprocess.Popen([str(exe), str(temp_filename)])
         else:
-            QMessageBox.warning(
-                self, _translate("Form", "错误"), _translate(
-                    "Form", "找不到主程序 (main.py 或 metaminesweeper.exe)")
-            )
+            subprocess.Popen([str(exe), str(temp_filename)])
+        # 回放进程启动后延迟清理临时文件（留足进程读取文件的时间）
+        def _cleanup():
+            try:
+                temp_filename.unlink(missing_ok=True)
+            except OSError:
+                pass  # 文件仍被回放进程占用，留待系统清理临时目录
+
+        QTimer.singleShot(10_000, _cleanup)
 
     def export_row(self):
         file_path, _ = QFileDialog.getSaveFileName(

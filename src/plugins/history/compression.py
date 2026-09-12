@@ -1,8 +1,7 @@
-"""
-录像数据压缩/解压工具
+"""录像数据压缩/解压工具
 
-使用 zlib 压缩 raw_data (BLOB)，通过 magic byte 前缀检测是否已压缩，
-无需依赖 compressed 列即可正确读取。
+使用 zlib 压缩 raw_data (BLOB)，优先按 compressed 列标志判断是否已压缩，
+无标志时回退到 magic byte 前缀检测。
 """
 
 from __future__ import annotations
@@ -20,16 +19,25 @@ def compress(data: bytes | None) -> bytes | None:
     return zlib.compress(data, level=6)
 
 
-def decompress(data: bytes | None) -> bytes | None:
+def decompress(
+    data: bytes | None,
+    compressed: bool | None = None,
+) -> bytes | None:
     """
-    解压数据。自动检测是否已压缩：
-    - None → None
-    - 以 zlib magic byte 开头 → 解压
-    - 否则 → 原样返回（兼容未压缩的旧数据）
+    解压数据。优先按 compressed 标志判断：
+    - None 输入 → None
+    - compressed=True → 已压缩，直接解压
+    - compressed=False → 未压缩，原样返回
+    - compressed=None → 无标志，回退 magic byte 检测（兼容极旧数据）
     """
     if data is None:
         return None
-    if data[:1] == _ZLIB_MAGIC:
+    if compressed is None:
+        # 兜底：按 magic byte 检测
+        if data[:1] == _ZLIB_MAGIC:
+            return zlib.decompress(data)
+        return data
+    if compressed:
         return zlib.decompress(data)
     return data
 

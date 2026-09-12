@@ -31,14 +31,17 @@ from PyQt5.QtWidgets import (
 from .columns_dialog import ColumnsDialog
 from .filter_dialog import FilterDialog
 from .history_table import HistoryTable
-from .models import HistoryData, CompareSymbol, LogicSymbol
+from .models import HistoryData
+from .query_builder import build_where, build_order_by
 from .table_views import SortModel
 from .sort_dialog import SortDialog
 from .table_views import FilterModel
 from .computed_column import ComputedColumn
-from shared_types.enums import BaseDiaPlayEnum
 
 _translate = QCoreApplication.translate
+
+# history 表物理字段集合（SELECT 拼接时非物理字段需双引号包裹）
+_PHYSICAL_FIELDS = frozenset(HistoryData.fields())
 
 
 class HistoryMainWidget(QWidget):
@@ -251,11 +254,6 @@ class HistoryMainWidget(QWidget):
         else:
             self.load_data()
 
-    def _get_limit_str(self):
-        per_page = int(self.one_page_combo.currentText())
-        offset = (self.page_spin.value() - 1) * per_page
-        return f" LIMIT {per_page} OFFSET {offset}"
-
     def _get_show_fields(self) -> list[str]:
         if not self._config_path.exists():
             return list(HistoryData.fields())
@@ -272,8 +270,17 @@ class HistoryMainWidget(QWidget):
             with db_connection(self._db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                filter_str = self._gen_filter_str()
+                filter_result = self._gen_filter_str()
+                if filter_result is None:
+                    # 过滤条件校验失败：更新标签后提前返回
+                    self._save_filter_sort_state()
+                    return
+                filter_str, filter_params = filter_result
                 order_str = self._gen_order_str()
+                if order_str is None:
+                    # 排序条件校验失败：更新标签后提前返回
+                    self._save_filter_sort_state()
+                    return
                 # 构建查询字段：显示字段 + 计算列
                 show_fields = list(self.table.showFields)
                 if self._computed_columns:
@@ -282,7 +289,10 @@ class HistoryMainWidget(QWidget):
                     for name in computed_names:
                         if name not in show_fields:
                             show_fields.append(name)
-                select_fields = ','.join(show_fields)
+                select_fields = ','.join(
+                    f'"{f}"' if f not in _PHYSICAL_FIELDS else f
+                    for f in show_fields
+                )
                 # 有计算列时用子查询，否则直接查原表
                 subquery = ComputedColumn.build_subquery_sql(
                     self._computed_columns)
@@ -293,11 +303,12 @@ class HistoryMainWidget(QWidget):
                 sql = f"SELECT {select_fields}, COUNT(*) OVER() AS total_count FROM {from_clause}"
                 if filter_str:
                     sql += " WHERE " + filter_str
-                elif filter_str is None:
-                    return
                 sql += order_str
-                sql += self._get_limit_str()
-                cursor.execute(sql)
+                # LIMIT/OFFSET 参数绑定
+                per_page = int(self.one_page_combo.currentText())
+                offset = (self.page_spin.value() - 1) * per_page
+                sql += " LIMIT ? OFFSET ?"
+                cursor.execute(sql, (*filter_params, per_page, offset))
                 datas = cursor.fetchall()
 
                 if not datas:
@@ -316,6 +327,8 @@ class HistoryMainWidget(QWidget):
             QMessageBox.warning(
                 self, _translate("Form", "错误"),
                 _translate("Form", "加载历史记录失败: %1").replace("%1", str(e)))
+            # 查询出错也要更新过滤/排序标签
+            self._save_filter_sort_state()
             return
 
         self.table.load(history_data)
@@ -373,6 +386,21 @@ class HistoryMainWidget(QWidget):
             parts.append(f"{field} {order}")
         return ", ".join(parts)
 
+    def _get_known_fields(self) -> set[str]:
+        """获取字段白名单（物理字段 + 已加载计算列名）"""
+        fields = set(HistoryData.fields())
+        fields.update(col.name for col in self._computed_columns)
+        return fields
+
+    def _get_field_types(self) -> dict:
+        """获取字段类型样本值映射（供查询构建器做枚举/日期/数值转换）"""
+        types = {
+            f: HistoryData.get_field_value(f) for f in HistoryData.fields()
+        }
+        for col in self._computed_columns:
+            types[col.name] = 0 if col.result_type == "int" else 0.0
+        return types
+
     def _get_field_value_type(self, field_name: str):
         """获取字段值类型（支持计算列）"""
         result = HistoryData.get_field_value(field_name)
@@ -387,194 +415,39 @@ class HistoryMainWidget(QWidget):
                     return 0.0
         return None
 
-    def _gen_filter_str(self) -> str | None:
-        """根据 _filter_rows 生成过滤 SQL 语句"""
+    def _gen_filter_str(self) -> tuple[str, list] | None:
+        """根据 _filter_rows 生成过滤 SQL 片段与绑定参数
+
+        Returns:
+            (sql_fragment, params)，无过滤条件时为 ("", [])；
+            校验失败时弹出错误提示并返回 None。
+        """
         if not self._filter_rows:
-            return ""
-
-        filter_str = ""
-        left_count = 0
-        right_count = 0
-
-        for row, data in enumerate(self._filter_rows):
-            field_value_type = self._get_field_value_type(
-                data.get("field") or "")
-
-            left_bracket = data.get("left_bracket") or ""
-            field = data.get("field") or ""
-            compare_text = data.get("compare") or ""
-            value = data.get("value") or ""
-            right_bracket = data.get("right_bracket") or ""
-            logic_text = data.get("logic") or ""
-
-            if not field or not compare_text:
-                continue
-
-            compare = CompareSymbol.from_display_name(compare_text)
-            logic = LogicSymbol.from_display_name(logic_text).to_sql
-
-            if left_bracket == "(":
-                left_count += 1
-            elif left_bracket == "((":
-                left_count += 2
-            if right_bracket == ")":
-                right_count += 1
-            elif right_bracket == "))":
-                right_count += 2
-
-            if right_count > left_count:
-                QMessageBox.warning(
-                    self, _translate("Form", "错误"),
-                    _translate("Form", "第%1行 右括号数量大于左括号数量，请检查").replace(
-                        "%1", str(row))
-                )
-                return None
-
-            # 处理值
-            if isinstance(field_value_type, BaseDiaPlayEnum) and compare.value not in (CompareSymbol.Contains, CompareSymbol.NotContains):
-                enum_cls = field_value_type.__class__
-                for e in enum_cls:
-                    if e.display_name == value:
-                        value = str(e.value)
-                        break
-            elif compare.value in (CompareSymbol.Contains, CompareSymbol.NotContains):
-                if isinstance(field_value_type, (int, float)):
-                    values = value.split(",")
-                    for v in values:
-                        if not v.replace("-", "").replace(".", "").isdigit():
-                            QMessageBox.warning(
-                                self, _translate("Form", "错误"),
-                                _translate("Form", "第%1行 %2 不是数字").replace(
-                                    "%1", str(row)).replace("%2", v)
-                            )
-                            return None
-                    value = ",".join(v for v in values)
-                elif isinstance(field_value_type, datetime):
-                    values = value.split(",")
-                    parsed_values = []
-                    for v in values:
-                        v = v.strip()
-                        if not v:
-                            continue
-                        try:
-                            ts = int(float(v))
-                            parsed_values.append(str(ts))
-                        except ValueError:
-                            try:
-                                for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
-                                    try:
-                                        dt = datetime.strptime(v, fmt)
-                                        parsed_values.append(
-                                            str(int(dt.timestamp() * 1_000_000)))
-                                        break
-                                    except ValueError:
-                                        continue
-                                else:
-                                    raise ValueError(f"无法解析日期: {v}")
-                            except ValueError as e:
-                                QMessageBox.warning(
-                                    self, _translate("Form", "错误"),
-                                    _translate("Form", "第%1行 %2 不是合法的日期时间").replace(
-                                        "%1", str(row)).replace("%2", v)
-                                )
-                                return None
-                    value = ",".join(parsed_values) if parsed_values else ""
-                elif isinstance(field_value_type, BaseDiaPlayEnum):
-                    enum_cls = field_value_type.__class__
-                    values = value.split(",")
-                    parsed_values = []
-                    for v in values:
-                        v = v.strip()
-                        if not v:
-                            continue
-                        for e in enum_cls:
-                            if e.display_name == v:
-                                parsed_values.append(str(e.value))
-                                break
-                        else:
-                            QMessageBox.warning(
-                                self, _translate("Form", "错误"),
-                                _translate("Form", "第%1行 %2 不是合法的枚举选项").replace(
-                                    "%1", str(row)).replace("%2", v)
-                            )
-                            return None
-                    value = ",".join(parsed_values) if parsed_values else ""
-                else:
-                    value = ",".join(
-                        f"'{v}'" for v in value.split(",") if v.strip())
-                value = f"({value})" if value else "()"
-            elif isinstance(field_value_type, datetime) and value:
-                try:
-                    ts = int(float(value))
-                    value = str(ts)
-                except ValueError:
-                    try:
-                        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
-                            try:
-                                dt = datetime.strptime(value, fmt)
-                                value = str(int(dt.timestamp() * 1_000_000))
-                                break
-                            except ValueError:
-                                continue
-                        else:
-                            QMessageBox.warning(
-                                self, _translate("Form", "错误"),
-                                _translate("Form", "第%1行 %2 不是合法的日期时间").replace(
-                                    "%1", str(row)).replace("%2", value)
-                            )
-                            return None
-                    except ValueError:
-                        QMessageBox.warning(
-                            self, _translate("Form", "错误"),
-                            _translate("Form", "第%1行 %2 不是合法的日期时间").replace(
-                                "%1", str(row)).replace("%2", value)
-                        )
-                        return None
-            elif isinstance(field_value_type, (int, float)) and value:
-                try:
-                    float(value)
-                except ValueError:
-                    QMessageBox.warning(
-                        self, _translate("Form", "错误"),
-                        _translate("Form", "第%1行 %2 不是数字").replace(
-                            "%1", str(row)).replace("%2", value)
-                    )
-                    return None
-            elif value and not value.startswith("'"):
-                value = f"'{value}'"
-
-            is_last = row == len(self._filter_rows) - 1
-            filter_str += (
-                f" {left_bracket} {field} {compare.to_sql} {value} {right_bracket} "
+            return "", []
+        try:
+            return build_where(
+                self._filter_rows,
+                self._get_known_fields(),
+                self._get_field_types(),
             )
-            if not is_last:
-                filter_str += logic
-
-        if left_count != right_count:
-            QMessageBox.warning(
-                self, _translate("Form", "错误"),
-                _translate("Form", "左括号数量和右括号数量不匹配，请检查"))
+        except ValueError as e:
+            QMessageBox.warning(self, _translate("Form", "错误"), str(e))
             return None
-        return filter_str
 
-    def _gen_order_str(self) -> str:
-        """根据 _sort_rows 生成排序 SQL 语句"""
-        if not self._sort_rows:
-            return ""
+    def _gen_order_str(self) -> str | None:
+        """根据 _sort_rows 生成排序 SQL 片段
 
-        orders = []
-        for row_data in self._sort_rows:
-            field = row_data.get("field") or ""
-            order_text = row_data.get("order") or ""
-            if not field:
-                continue
-            order_sql = "ASC" if order_text == _translate(
-                "Form", "升序") else "DESC"
-            orders.append(f"{field} {order_sql}")
-
-        if orders:
-            return " ORDER BY " + ", ".join(orders)
-        return ""
+        Returns:
+            ORDER BY 片段；无排序条件时默认按 replay_id 倒序（最新在前）；
+            校验失败时弹出错误提示并返回 None。
+        """
+        try:
+            return build_order_by(
+                self._sort_rows, self._get_known_fields()
+            ) or " ORDER BY replay_id DESC"
+        except ValueError as e:
+            QMessageBox.warning(self, _translate("Form", "错误"), str(e))
+            return None
 
     def _save_filter_sort_state(self, filter_str: str = "", order_str: str = "") -> None:
         """发射排序和过滤状态变化信号"""
