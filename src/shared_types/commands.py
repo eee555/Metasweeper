@@ -42,7 +42,7 @@ class NewPresetGameCommand(BaseCommand, tag="new_preset_game"):
         board: 可选，预设局面，-1表示雷
         mode: 可选，游戏模式，使用 GameMode 枚举值
     """
-    board: List[List[int]] = None
+    board: List[List[int]] = None # type: ignore
     mode: Optional[int] = GameMode.Standard.value
 
 

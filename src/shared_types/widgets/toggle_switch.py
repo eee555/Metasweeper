@@ -80,11 +80,11 @@ class ToggleSwitch(QWidget):
 
     # ── 属性动画 ──────────────────────────────────────────
 
-    @pyqtProperty(float)
-    def handle_position(self) -> float:
+    @pyqtProperty(float) # pyright: ignore[reportArgumentType]
+    def handle_position(self) -> float: # pyright: ignore[reportRedeclaration]
         return self._handle_position
 
-    @handle_position.setter
+    @handle_position.setter # pyright: ignore[reportArgumentType]
     def handle_position(self, pos: float):
         self._handle_position = max(0.0, min(1.0, pos))
         self.update()
