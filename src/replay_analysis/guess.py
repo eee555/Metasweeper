@@ -83,8 +83,6 @@ class GuessEventManager(ReplayEventManager):
         context.video.analyse_for_features(["pluck"])
         self._set_current_event(context)
         self.pluck = context.video.pluck
-        self.game_board = context.video.game_board
-        self.possibility_board = context.video.game_board_poss
 
     def handle(self, context: ReplayEventContext) -> Iterable[ReplayEvent]:
         if context.mouse is None or context.mouse.is_mouse("mv", "mc", "mr"):
@@ -98,17 +96,17 @@ class GuessEventManager(ReplayEventManager):
         if pluck_delta <= _PLUCK_DELTA_EPSILON:
             return ()
 
+        prior_game_board = context.record.prior_game_board
+        game_board = prior_game_board.game_board
+        possibility_board = prior_game_board.poss
         global_min_probability = _global_min_probability(
-            self.game_board,
-            self.possibility_board,
+            game_board,
+            possibility_board,
         )
         non_frontier_probability = _non_frontier_probability(
-            self.game_board,
-            self.possibility_board,
+            game_board,
+            possibility_board,
         )
-
-        self.game_board = context.video.game_board
-        self.possibility_board = context.video.game_board_poss
 
         return (
             GuessEvent(

@@ -84,7 +84,7 @@ class ReplayEventManager:
 具体归属建议：
 
 - `GuessEventManager`
-  - 维护上一鼠标事件的 pluck 和 `possibility_board`。
+  - 维护上一鼠标事件的 pluck；产生猜雷事件时，从当前记录的 `prior_game_board` 读取点击前局面和 `poss` 概率矩阵。
   - 负责猜雷概率、全局最小概率、非前沿概率计算。
 
 - `FlagEventManager`
