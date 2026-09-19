@@ -150,6 +150,53 @@ plugins/
 - 单个 `.py` 文件中可以定义多个继承 `BasePlugin` 的类，都会被加载
 - 包形式插件中，只有 `__init__.py` 中导出的 `BasePlugin` 子类会被发现
 
+### 3.4 从代码托管平台下载插件
+
+在插件管理器中打开 **选项 → 下载插件...**：
+
+1. 输入公开仓库的 HTTPS 链接，例如 `https://github.com/your-name/my-plugin`。
+   GitHub、GitLab.com、Gitee、Codeberg 默认自动识别；自建站点需在 **托管平台** 中选择 GitLab 或 Gitea / Forgejo。
+2. 点击 **获取标签**，选择一个 tag。
+3. 点击 **下载插件**，等待下载、解压完成。过程中可取消。
+4. 重启插件管理器以加载插件；工具栏的“刷新”仅更新已加载插件的显示。
+
+下载器不需要本机安装 Git。它获取 tag 对应的 commit SHA，再下载该提交的源码 ZIP，
+不下载整个 Git 历史，也不执行安装脚本或自动安装 Python 依赖。目前仅支持公开仓库。
+GitLab 支持多级群组路径，例如 `https://gitlab.com/group/subgroup/my-plugin`。
+自建实例支持 HTTPS 和自定义端口，当前要求服务部署在域名根路径，不支持 `/gitlab/` 等部署前缀。
+Gitee 等平台可能限制匿名 API 请求；出现 403 或限流提示时安装会停止，不绕过站点的访问限制。
+
+**通过下载器安装的仓库必须在根目录提供 `__init__.py`，导出插件类：**
+
+```text
+my-plugin/
+├── __init__.py       # from .plugin import MyPlugin
+├── plugin.py         # class MyPlugin(BasePlugin): ...
+├── README.md
+└── assets/           # 可选资源文件
+```
+
+包内部使用相对导入，例如 `from .widgets import MyWidget`。所需资源应直接包含在源码归档中，
+不依赖 Git 子模块。单文件插件仍可按前文手动安装，也可添加 `__init__.py` 改为上述包结构。
+
+安装目录位于 `user_plugins/`，名称包含平台与仓库路径，转换为小写并将非字母、数字、下划线字符
+替换为下划线。例如 GitHub 的 `your-name/my-plugin` 安装为 `github_your_name_my_plugin`，
+GitLab 的 `group/subgroup/my-plugin` 安装为 `gitlab_group_subgroup_my_plugin`。
+Codeberg 使用 `codeberg_` 前缀，自建实例的名称还包含域名和自定义端口。
+源码运行时 `user_plugins/` 位于仓库根目录，打包运行时位于 `plugin_manager.exe` 同级目录。
+目录内的 `.metasweeper-plugin.json` 记录平台、仓库地址、tag 和 commit。
+
+已有同名目录或模块时安装会停止，不覆盖现有插件。失败或取消会清理本次下载的临时目录。
+压缩包上限为 100 MiB，解压后上限为 500 MiB；拒绝越界路径和符号链接。
+
+接口依据：[GitHub 标签列表](https://docs.github.com/en/rest/repos/repos#list-repository-tags)、
+[GitHub 源码 ZIP](https://docs.github.com/en/rest/repos/contents#download-a-repository-archive-zip)、
+[GitLab Tags API](https://docs.gitlab.com/api/tags/)、
+[GitLab Repositories API](https://docs.gitlab.com/api/repositories/)、
+[Gitee OpenAPI](https://gitee.com/api/v5/swagger)、
+[Codeberg OpenAPI](https://codeberg.org/swagger.v1.json)。
+平台适配细节与验证限制见 [插件管理器开发说明](src/plugin_manager/README.md)。
+
 ---
 
 ## 四、编写第一个插件（Hello World）

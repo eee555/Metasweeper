@@ -3108,6 +3108,10 @@ Wtyczki zostaną wyłączone.</translation>
 <context>
     <name>PluginManagerWindow</name>
     <message>
+        <source>下载插件...</source>
+        <translation>Pobierz wtyczkę...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1861"/>
         <source>插件管理器</source>
         <translation>Menedżer wtyczek</translation>
@@ -3542,6 +3546,113 @@ Wtyczki zostaną wyłączone.</translation>
         <location filename="../mineSweeperVideoPlayer.py" line="218"/>
         <source>录像解析失败：</source>
         <translation>Nie udało się sparsować powtórki: </translation>
+    </message>
+</context>
+<context>
+    <name>PluginDownloadDialog</name>
+    <message>
+        <source>自动识别</source>
+        <translation>Wykryj automatycznie</translation>
+    </message>
+    <message>
+        <source>托管平台</source>
+        <translation>Platforma</translation>
+    </message>
+    <message>
+        <source>无法自动识别此站点，请选择托管平台。</source>
+        <translation>Nie można rozpoznać tej witryny. Wybierz platformę.</translation>
+    </message>
+    <message>
+        <source>不支持此托管平台。</source>
+        <translation>Ta platforma nie jest obsługiwana.</translation>
+    </message>
+    <message>
+        <source>链接与所选托管平台不匹配。</source>
+        <translation>Adres nie pasuje do wybranej platformy.</translation>
+    </message>
+    <message>
+        <source>下载插件</source>
+        <translation>Pobierz wtyczkę</translation>
+    </message>
+    <message>
+        <source>获取标签</source>
+        <translation>Pobierz tagi</translation>
+    </message>
+    <message>
+        <source>仓库链接</source>
+        <translation>Adres repozytorium</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Zamknij</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Anuluj</translation>
+    </message>
+    <message>
+        <source>正在获取标签...</source>
+        <translation>Pobieranie tagów...</translation>
+    </message>
+    <message>
+        <source>正在下载并安装...</source>
+        <translation>Pobieranie i instalowanie...</translation>
+    </message>
+    <message>
+        <source>操作失败：{error}</source>
+        <translation>Operacja nie powiodła się: {error}</translation>
+    </message>
+    <message>
+        <source>已取消。</source>
+        <translation>Anulowano.</translation>
+    </message>
+    <message>
+        <source>此仓库没有可用的标签。</source>
+        <translation>To repozytorium nie ma tagów.</translation>
+    </message>
+    <message>
+        <source>已安装到 {path}。重启插件管理器后生效。</source>
+        <translation>Zainstalowano w {path}. Uruchom ponownie menedżer wtyczek, aby ją wczytać.</translation>
+    </message>
+    <message>
+        <source>正在取消...</source>
+        <translation>Anulowanie...</translation>
+    </message>
+    <message>
+        <source>请输入有效的仓库 HTTPS 链接。</source>
+        <translation>Podaj prawidłowy adres HTTPS repozytorium.</translation>
+    </message>
+    <message>
+        <source>仓库或版本不存在，或仓库不是公开仓库。</source>
+        <translation>Repozytorium lub wersja nie istnieje albo repozytorium nie jest publiczne.</translation>
+    </message>
+    <message>
+        <source>托管平台拒绝请求或请求次数已达上限，请稍后重试。</source>
+        <translation>Platforma odrzuciła żądanie lub osiągnięto limit zapytań. Spróbuj ponownie później.</translation>
+    </message>
+    <message>
+        <source>插件目录已存在，不会覆盖：{path}</source>
+        <translation>Ścieżka wtyczki już istnieje i nie zostanie nadpisana: {path}</translation>
+    </message>
+    <message>
+        <source>仓库根目录缺少 __init__.py 插件入口。</source>
+        <translation>W katalogu głównym repozytorium brakuje pliku wejściowego wtyczki __init__.py.</translation>
+    </message>
+    <message>
+        <source>插件压缩包超过 100 MiB。</source>
+        <translation>Archiwum wtyczki przekracza 100 MiB.</translation>
+    </message>
+    <message>
+        <source>插件解压后超过 500 MiB。</source>
+        <translation>Rozpakowana wtyczka przekracza 500 MiB.</translation>
+    </message>
+    <message>
+        <source>压缩包包含不安全的路径或符号链接。</source>
+        <translation>Archiwum zawiera niebezpieczne ścieżki lub dowiązania symboliczne.</translation>
+    </message>
+    <message>
+        <source>压缩包必须包含一个仓库根目录。</source>
+        <translation>Archiwum musi zawierać dokładnie jeden katalog główny repozytorium.</translation>
     </message>
 </context>
 </TS>

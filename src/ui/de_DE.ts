@@ -3108,6 +3108,10 @@ Plugins werden deaktiviert.</translation>
 <context>
     <name>PluginManagerWindow</name>
     <message>
+        <source>下载插件...</source>
+        <translation>Plugin herunterladen...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1861"/>
         <source>插件管理器</source>
         <translation>Plugin-Manager</translation>
@@ -3542,6 +3546,113 @@ Plugins werden deaktiviert.</translation>
         <location filename="../mineSweeperVideoPlayer.py" line="218"/>
         <source>录像解析失败：</source>
         <translation>Replay konnte nicht geparst werden: </translation>
+    </message>
+</context>
+<context>
+    <name>PluginDownloadDialog</name>
+    <message>
+        <source>自动识别</source>
+        <translation>Automatisch erkennen</translation>
+    </message>
+    <message>
+        <source>托管平台</source>
+        <translation>Hosting-Plattform</translation>
+    </message>
+    <message>
+        <source>无法自动识别此站点，请选择托管平台。</source>
+        <translation>Diese Website wurde nicht erkannt. Bitte die Hosting-Plattform auswählen.</translation>
+    </message>
+    <message>
+        <source>不支持此托管平台。</source>
+        <translation>Diese Hosting-Plattform wird nicht unterstützt.</translation>
+    </message>
+    <message>
+        <source>链接与所选托管平台不匹配。</source>
+        <translation>Die URL passt nicht zur ausgewählten Hosting-Plattform.</translation>
+    </message>
+    <message>
+        <source>下载插件</source>
+        <translation>Plugin herunterladen</translation>
+    </message>
+    <message>
+        <source>获取标签</source>
+        <translation>Tags abrufen</translation>
+    </message>
+    <message>
+        <source>仓库链接</source>
+        <translation>Repository-URL</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>正在获取标签...</source>
+        <translation>Tags werden abgerufen...</translation>
+    </message>
+    <message>
+        <source>正在下载并安装...</source>
+        <translation>Download und Installation laufen...</translation>
+    </message>
+    <message>
+        <source>操作失败：{error}</source>
+        <translation>Vorgang fehlgeschlagen: {error}</translation>
+    </message>
+    <message>
+        <source>已取消。</source>
+        <translation>Abgebrochen.</translation>
+    </message>
+    <message>
+        <source>此仓库没有可用的标签。</source>
+        <translation>Dieses Repository hat keine Tags.</translation>
+    </message>
+    <message>
+        <source>已安装到 {path}。重启插件管理器后生效。</source>
+        <translation>Installiert unter {path}. Zum Laden die Plugin-Verwaltung neu starten.</translation>
+    </message>
+    <message>
+        <source>正在取消...</source>
+        <translation>Wird abgebrochen...</translation>
+    </message>
+    <message>
+        <source>请输入有效的仓库 HTTPS 链接。</source>
+        <translation>Eine gültige HTTPS-URL eines Repositorys eingeben.</translation>
+    </message>
+    <message>
+        <source>仓库或版本不存在，或仓库不是公开仓库。</source>
+        <translation>Das Repository oder die Version existiert nicht, oder das Repository ist nicht öffentlich.</translation>
+    </message>
+    <message>
+        <source>托管平台拒绝请求或请求次数已达上限，请稍后重试。</source>
+        <translation>Die Hosting-Plattform hat die Anfrage abgelehnt oder das Anfragelimit ist erreicht. Später erneut versuchen.</translation>
+    </message>
+    <message>
+        <source>插件目录已存在，不会覆盖：{path}</source>
+        <translation>Der Plugin-Pfad existiert bereits und wird nicht überschrieben: {path}</translation>
+    </message>
+    <message>
+        <source>仓库根目录缺少 __init__.py 插件入口。</source>
+        <translation>Im Stammverzeichnis des Repositorys fehlt der Plugin-Einstiegspunkt __init__.py.</translation>
+    </message>
+    <message>
+        <source>插件压缩包超过 100 MiB。</source>
+        <translation>Das Plugin-Archiv überschreitet 100 MiB.</translation>
+    </message>
+    <message>
+        <source>插件解压后超过 500 MiB。</source>
+        <translation>Das entpackte Plugin überschreitet 500 MiB.</translation>
+    </message>
+    <message>
+        <source>压缩包包含不安全的路径或符号链接。</source>
+        <translation>Das Archiv enthält unsichere Pfade oder symbolische Links.</translation>
+    </message>
+    <message>
+        <source>压缩包必须包含一个仓库根目录。</source>
+        <translation>Das Archiv muss genau ein Repository-Stammverzeichnis enthalten.</translation>
     </message>
 </context>
 </TS>

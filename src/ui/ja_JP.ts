@@ -3108,6 +3108,10 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>PluginManagerWindow</name>
     <message>
+        <source>下载插件...</source>
+        <translation>プラグインをダウンロード...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1861"/>
         <source>插件管理器</source>
         <translation>プラグインマネージャー</translation>
@@ -3542,6 +3546,113 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <location filename="../mineSweeperVideoPlayer.py" line="218"/>
         <source>录像解析失败：</source>
         <translation>リプレイの解析に失敗しました: </translation>
+    </message>
+</context>
+<context>
+    <name>PluginDownloadDialog</name>
+    <message>
+        <source>自动识别</source>
+        <translation>自動判別</translation>
+    </message>
+    <message>
+        <source>托管平台</source>
+        <translation>ホスティングサービス</translation>
+    </message>
+    <message>
+        <source>无法自动识别此站点，请选择托管平台。</source>
+        <translation>このサイトを自動判別できません。ホスティングサービスを選択してください。</translation>
+    </message>
+    <message>
+        <source>不支持此托管平台。</source>
+        <translation>このホスティングサービスには対応していません。</translation>
+    </message>
+    <message>
+        <source>链接与所选托管平台不匹配。</source>
+        <translation>URL が選択したホスティングサービスと一致しません。</translation>
+    </message>
+    <message>
+        <source>下载插件</source>
+        <translation>プラグインをダウンロード</translation>
+    </message>
+    <message>
+        <source>获取标签</source>
+        <translation>タグを取得</translation>
+    </message>
+    <message>
+        <source>仓库链接</source>
+        <translation>リポジトリ URL</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>正在获取标签...</source>
+        <translation>タグを取得中...</translation>
+    </message>
+    <message>
+        <source>正在下载并安装...</source>
+        <translation>ダウンロードしてインストール中...</translation>
+    </message>
+    <message>
+        <source>操作失败：{error}</source>
+        <translation>操作に失敗しました: {error}</translation>
+    </message>
+    <message>
+        <source>已取消。</source>
+        <translation>キャンセルしました。</translation>
+    </message>
+    <message>
+        <source>此仓库没有可用的标签。</source>
+        <translation>このリポジトリにはタグがありません。</translation>
+    </message>
+    <message>
+        <source>已安装到 {path}。重启插件管理器后生效。</source>
+        <translation>{path} にインストールしました。プラグインマネージャーを再起動すると有効になります。</translation>
+    </message>
+    <message>
+        <source>正在取消...</source>
+        <translation>キャンセル中...</translation>
+    </message>
+    <message>
+        <source>请输入有效的仓库 HTTPS 链接。</source>
+        <translation>有効なリポジトリの HTTPS URL を入力してください。</translation>
+    </message>
+    <message>
+        <source>仓库或版本不存在，或仓库不是公开仓库。</source>
+        <translation>リポジトリまたはバージョンが存在しないか、リポジトリが公開されていません。</translation>
+    </message>
+    <message>
+        <source>托管平台拒绝请求或请求次数已达上限，请稍后重试。</source>
+        <translation>ホスティングサービスがリクエストを拒否したか、回数制限に達しました。後でもう一度お試しください。</translation>
+    </message>
+    <message>
+        <source>插件目录已存在，不会覆盖：{path}</source>
+        <translation>プラグインのパスが既に存在するため、上書きしません: {path}</translation>
+    </message>
+    <message>
+        <source>仓库根目录缺少 __init__.py 插件入口。</source>
+        <translation>リポジトリのルートにプラグインのエントリーポイント __init__.py がありません。</translation>
+    </message>
+    <message>
+        <source>插件压缩包超过 100 MiB。</source>
+        <translation>プラグインのアーカイブが 100 MiB を超えています。</translation>
+    </message>
+    <message>
+        <source>插件解压后超过 500 MiB。</source>
+        <translation>展開後のプラグインが 500 MiB を超えています。</translation>
+    </message>
+    <message>
+        <source>压缩包包含不安全的路径或符号链接。</source>
+        <translation>アーカイブに安全でないパスまたはシンボリックリンクが含まれています。</translation>
+    </message>
+    <message>
+        <source>压缩包必须包含一个仓库根目录。</source>
+        <translation>アーカイブにはリポジトリのルートディレクトリが1つ必要です。</translation>
     </message>
 </context>
 </TS>
