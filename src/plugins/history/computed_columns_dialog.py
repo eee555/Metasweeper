@@ -26,7 +26,9 @@ from PyQt5.QtWidgets import (
 )
 
 from shared_types.widgets import ConfirmDialog
-from .computed_column import ComputedColumn, validate_column_name
+from .computed_column import (
+    RESULT_TYPES, ComputedColumn, normalize_result_type, validate_column_name,
+)
 
 _translate = QCoreApplication.translate
 
@@ -36,8 +38,11 @@ class ComputedColumnsDialog(ConfirmDialog):
 
     def __init__(self, columns: list[ComputedColumn], db_path: Path,
                  custom_functions: str = "", parent=None):
-        self._columns = [ComputedColumn(col.name, col.expression, col.result_type)
-                         for col in columns]
+        self._columns = [
+            ComputedColumn(col.name, col.expression,
+                           normalize_result_type(col.result_type))
+            for col in columns
+        ]
         self._db_path = db_path
         self._custom_functions = custom_functions
         super().__init__(parent, title=_translate("Form", "计算列管理"))
@@ -113,11 +118,13 @@ class ComputedColumnsDialog(ConfirmDialog):
         expr_item = QTableWidgetItem(col.expression if col else "")
         self.table.setItem(row, 1, expr_item)
 
-        # 结果类型
+        # 结果类型（float / int / string）
         type_combo = QComboBox()
-        type_combo.addItems(["float", "int"])
-        if col and col.result_type == "int":
-            type_combo.setCurrentIndex(1)
+        type_combo.addItems(list(RESULT_TYPES))
+        if col:
+            idx = type_combo.findText(normalize_result_type(col.result_type))
+            if idx >= 0:
+                type_combo.setCurrentIndex(idx)
         self.table.setCellWidget(row, 2, type_combo)
 
     def _add_row(self):
@@ -203,7 +210,8 @@ class ComputedColumnsDialog(ConfirmDialog):
 
             name = name_item.text().strip() if name_item else ""
             expression = expr_item.text().strip() if expr_item else ""
-            result_type = type_widget.currentText() if type_widget else "float"
+            result_type = normalize_result_type(
+                type_widget.currentText() if type_widget else "float")
 
             if name and expression:
                 columns.append(ComputedColumn(name, expression, result_type))

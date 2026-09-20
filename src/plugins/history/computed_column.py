@@ -10,14 +10,26 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# 可用结果类型：int/float 按数值比较，string 按文本比较
+RESULT_TYPES: tuple[str, ...] = ("float", "int", "string")
+
+# 结果类型 → 类型样本值（查询构建器据此决定数值 CAST 还是文本参数绑定）
+_TYPE_SAMPLES: dict[str, Any] = {"float": 0.0, "int": 0, "string": ""}
 
 # 合法计算列名：中文/字母/下划线开头，仅含中文、字母、数字、下划线
 _COLUMN_NAME_RE = re.compile(r"[A-Za-z_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff]*")
 
 # 保留字：与查询 SQL 内部别名/表名冲突，禁止用户创建该名计算列
 _RESERVED_NAMES = frozenset({"total_count"})
+
+
+def normalize_result_type(value: Any) -> str:
+    """规范化结果类型，未知取值回退为 float（兼容旧配置与手改配置文件）"""
+    return value if value in RESULT_TYPES else "float"
 
 
 def validate_column_name(name: str) -> str | None:
@@ -44,12 +56,23 @@ class ComputedColumn:
     Attributes:
         name: 列名（如 "bbbvs"），需为合法 SQL 别名
         expression: SQL 表达式（如 "bbbv * 1.0 / rtime"）
-        result_type: 结果类型 "int" | "float"，决定显示精度和 delegate
+        result_type: 结果类型 "int" | "float" | "string"
+            （数值类型决定显示精度与过滤时是否 CAST，
+            string 类型过滤/排序按文本处理）
     """
 
     name: str
     expression: str
     result_type: str = "float"
+
+    @property
+    def sample_value(self) -> Any:
+        """类型样本值：0.0 / 0 / ""
+
+        过滤与排序构建器靠「字段值的类型」区分数值与文本，
+        这里统一给出该结果类型对应的样本值，避免各处重复判断。
+        """
+        return _TYPE_SAMPLES.get(self.result_type, 0.0)
 
     def to_dict(self) -> dict:
         return {
@@ -67,7 +90,7 @@ class ComputedColumn:
         return cls(
             name=name,
             expression=data.get("expression", ""),
-            result_type=data.get("result_type", "float"),
+            result_type=normalize_result_type(data.get("result_type", "float")),
         )
 
     @classmethod

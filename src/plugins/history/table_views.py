@@ -202,10 +202,7 @@ class FilterModel(QStandardItemModel):
             return result
         for col in self._computed_columns:
             if col.name == field_name:
-                if col.result_type == "int":
-                    return 0
-                elif col.result_type == "float":
-                    return 0.0
+                return col.sample_value
     def get_field_value_type(self, row: int):
         """获取指定行字段的原始值类型"""
         field_name = str(self.data(self.index(row, self.COL_FIELD)))

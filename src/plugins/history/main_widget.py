@@ -62,12 +62,14 @@ class HistoryMainWidget(QWidget):
         config_path: Path,
         float_decimals: int = 2,
         page_size: str = "50",
+        board_preview: bool = True,
         parent=None,
     ):
         super().__init__(parent)
         self._db_path = db_path
         self._config_path = config_path
         self._float_decimals = float_decimals
+        self._board_preview_enabled = bool(board_preview)
         self._computed_columns: list[ComputedColumn] = []
         self._custom_functions: str = ""
 
@@ -105,6 +107,7 @@ class HistoryMainWidget(QWidget):
         # 表格
         self.table = HistoryTable(
             self._get_show_fields(), db_path, self._computed_columns, self)
+        self.table.set_board_preview_enabled(self._board_preview_enabled)
 
         # 分页
         limit_layout = QHBoxLayout()
@@ -402,7 +405,7 @@ class HistoryMainWidget(QWidget):
             f: HistoryData.get_field_value(f) for f in HistoryData.fields()
         }
         for col in self._computed_columns:
-            types[col.name] = 0 if col.result_type == "int" else 0.0
+            types[col.name] = col.sample_value
         return types
 
     def _get_field_value_type(self, field_name: str):
@@ -410,13 +413,10 @@ class HistoryMainWidget(QWidget):
         result = HistoryData.get_field_value(field_name)
         if result is not None:
             return result
-        # 尝试计算列
+        # 尝试计算列（用类型样本值区分 int / float / string）
         for col in self._computed_columns:
             if col.name == field_name:
-                if col.result_type == "int":
-                    return 0
-                elif col.result_type == "float":
-                    return 0.0
+                return col.sample_value
         return None
 
     def _gen_filter_str(self) -> tuple[str, list] | None:
@@ -483,6 +483,11 @@ class HistoryMainWidget(QWidget):
     def set_float_decimals(self, decimals: int) -> None:
         """动态设置小数位数"""
         self._float_decimals = decimals
+
+    def set_board_preview_enabled(self, enabled: bool) -> None:
+        """动态开关 board 列局面预览（配置变更时调用）"""
+        self._board_preview_enabled = bool(enabled)
+        self.table.set_board_preview_enabled(self._board_preview_enabled)
 
     def restore_show_fields(self, show_fields_json: str) -> None:
         """恢复列显示配置"""

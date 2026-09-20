@@ -10,7 +10,7 @@ from plugins.services.history import HistoryService, GameRecord
 from shared_types.events import GameFinishedEvent, LanguageChangeEvent
 from plugin_sdk import (
     BasePlugin, PluginInfo, make_plugin_icon, WindowMode,
-    OtherInfoBase, IntConfig, TextConfig, ChoiceConfig,
+    OtherInfoBase, IntConfig, TextConfig, ChoiceConfig, BoolConfig,
 )
 
 import sqlite3
@@ -162,6 +162,14 @@ def py_months_since(ts_us):
             ("500", "500"),
             ("1000", "1000"),
         ],
+        description=_translate("Form", "每页显示的历史记录条数"),
+    )
+
+    board_preview = BoolConfig(
+        default=True,
+        label=_translate("Form", "局面预览"),
+        description=_translate(
+            "Form", "鼠标悬浮在表格 board 列上时弹出该局的局面预览浮窗"),
     )
 
 
@@ -203,15 +211,18 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         db_path = self.data_dir / "history.db"
         config_path = self.data_dir / "history_show_fields.json"
 
-        # 获取配置中的小数位数和每页条数
+        # 获取配置中的小数位数、每页条数与局面预览开关
         float_decimals = 2
         page_size = "50"
+        board_preview = True
         if self.other_info:
             float_decimals = self.other_info.float_decimals
             page_size = self.other_info.page_size
+            board_preview = bool(self.other_info.board_preview)
 
         self._widget = HistoryMainWidget(
-            db_path, config_path, float_decimals, page_size)
+            db_path, config_path, float_decimals, page_size,
+            board_preview=board_preview)
 
         # 连接排序和过滤状态变化信号
         self._widget.filter_sort_state_changed.connect(
@@ -632,6 +643,28 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             # widget 可能在配置变更时尚未创建（如启用前修改配置）
             if hasattr(self, '_widget'):
                 self._widget.set_float_decimals(value)
+        elif name == "board_preview":
+            if hasattr(self, '_widget'):
+                self._widget.set_board_preview_enabled(bool(value))
         elif name == "saved_custom_functions":
             from .db import set_custom_script
             set_custom_script(value or "")
+
+    def _apply_runtime_config(self) -> None:
+        """把配置中的界面相关设置同步到已创建的界面
+
+        设置对话框点确定时用 apply_pending(silent=True) 写入 other_info，
+        不会触发 _on_config_changed，所以保存后需要在这里补一次同步，
+        让「局面预览」这类开关立即生效，不必重新加载插件。
+        """
+        widget = getattr(self, '_widget', None)
+        info = getattr(self, '_other_info', None)
+        if widget is None or info is None:
+            return
+        widget.set_board_preview_enabled(bool(info.board_preview))
+        widget.set_float_decimals(info.float_decimals)
+
+    def save_config(self) -> None:
+        """保存配置，并同步到当前界面（见 _apply_runtime_config）"""
+        super().save_config()
+        self._apply_runtime_config()

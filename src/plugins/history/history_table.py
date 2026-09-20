@@ -15,7 +15,7 @@ from pathlib import Path
 from .db import db_connection, delete_record_tx
 
 from PyQt5.QtCore import (
-    Qt, QCoreApplication, pyqtSignal, QTimer,
+    QEvent, QModelIndex, QPoint, Qt, QCoreApplication, pyqtSignal, QTimer,
 )
 from PyQt5.QtGui import QCloseEvent as _QCloseEvent
 from PyQt5.QtWidgets import (
@@ -38,6 +38,7 @@ from shared_types.widgets import ConfirmDialog
 
 from plugin_manager.app_paths import get_executable_dir
 
+from .board_preview import BoardPreviewPopup, parse_board
 from .models import HistoryData
 from .table_model import HistoryTableModel
 from .compression import decompress
@@ -77,6 +78,9 @@ class HistoryTable(QWidget):
     show_fields_changed = pyqtSignal(str)
 
     NF_COLUMN_WIDTH = 50
+
+    # 悬浮到 board 列多久后弹出局面预览（毫秒），0 表示立即弹出
+    PREVIEW_DELAY_MS = 320
 
     # 物理字段（固定）
     PHYSICAL_HEADERS = [
@@ -154,30 +158,138 @@ class HistoryTable(QWidget):
         self.model.modelReset.connect(self._apply_column_widths)
         self._apply_column_widths()
 
+        # ── board 列悬浮预览 ──
+        self._preview: BoardPreviewPopup | None = None
+        self._preview_enabled = True      # 由插件配置「局面预览」控制
+        self._preview_delay_ms = self.PREVIEW_DELAY_MS
+        self._hover_key: tuple[int, int, str] | None = None
+        self._pending_pos: QPoint | None = None
+        self._preview_timer = QTimer(self)
+        self._preview_timer.setSingleShot(True)
+        self._preview_timer.timeout.connect(self._show_preview)
+        self.table.viewport().setMouseTracking(True)
+        self.table.viewport().installEventFilter(self)
+        self.table.verticalScrollBar().valueChanged.connect(self._hide_preview)
+        self.table.horizontalScrollBar().valueChanged.connect(self._hide_preview)
+
     def load(self, data: list[HistoryData]):
+        self._hide_preview()
         self.model.update_data(data)
 
     def set_computed_columns(self, columns: list[ComputedColumn]):
         """更新计算列，重建 headers 和 model"""
+        self._hide_preview()
         self._computed_columns = columns
         self.headers = self.all_headers(columns)
         self.model = HistoryTableModel([], self.headers, self.showFields, self)
         self.table.setModel(self.model)
         self.model.modelReset.connect(self._apply_column_widths)
+        self._apply_column_widths()
 
     def _apply_column_widths(self):
+        """设置特殊列宽（board 定宽、nf 定宽），其余列按内容自适应
+
+        注意：QHeaderView 的列宽与拉伸模式是**按列下标**记录的，列集合或顺序
+        一变（列设置对话框增删/排序、恢复保存的列配置），上一次设置在旧下标上的
+        Fixed 宽度就会残留在别的新列上，表现为某一列莫名特别宽
+        （row / nf / flag / bbbvs 都踩过这个坑）。
+        所以每次都要先把所有列恢复成「按内容自适应」，再设置需要定宽的列。
+        """
+        header = self.table.horizontalHeader()
         visible_headers = getattr(self.model, "_visible_headers", [])
+
+        # 清掉上一次残留的定宽（含拉伸模式），避免宽度粘到别的列上
+        header.setSectionResizeMode(QHeaderView.ResizeToContents)
 
         if "board" in visible_headers:
             col = visible_headers.index("board")
-            self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.Fixed)
+            header.setSectionResizeMode(col, QHeaderView.Fixed)
             width = self.table.fontMetrics().width('中' * 30 + '  ')
             self.table.setColumnWidth(col, width)
 
         if "nf" in visible_headers:
             col = visible_headers.index("nf")
-            self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.Fixed)
+            header.setSectionResizeMode(col, QHeaderView.Fixed)
             self.table.setColumnWidth(col, self.NF_COLUMN_WIDTH)
+
+    # ── board 列悬浮预览 ──────────────────────────────────────
+    def eventFilter(self, obj, event):
+        """监听表格视口：鼠标移到 board 列时弹出局面预览"""
+        if obj is self.table.viewport():
+            etype = event.type()
+            if etype == QEvent.MouseMove:
+                self._handle_hover(
+                    self.table.indexAt(event.pos()), event.globalPos())
+            elif etype in (QEvent.Leave, QEvent.MouseButtonPress,
+                           QEvent.Wheel):
+                self._hide_preview()
+        return super().eventFilter(obj, event)
+
+    def hideEvent(self, event):
+        self._hide_preview()
+        super().hideEvent(event)
+
+    def set_board_preview_enabled(self, enabled: bool) -> None:
+        """开关 board 列悬浮局面预览（对应插件设置里的「局面预览」）"""
+        self._preview_enabled = bool(enabled)
+        if not self._preview_enabled:
+            self._hide_preview()
+
+    def is_board_preview_enabled(self) -> bool:
+        return self._preview_enabled
+
+    def _handle_hover(self, index: QModelIndex, global_pos: QPoint) -> None:
+        """悬浮单元格变化时才重新计时，避免鼠标在单元格内移动时反复解析局面"""
+        key = self._preview_key(index) if self._preview_enabled else None
+        if key == self._hover_key:
+            return
+        self._hide_preview()
+        if key is None:
+            return
+        self._hover_key = key
+        self._pending_pos = global_pos
+        if self._preview_delay_ms <= 0:
+            self._show_preview()
+        else:
+            self._preview_timer.start(self._preview_delay_ms)
+
+    def _preview_key(self, index: QModelIndex) -> tuple[int, int, str] | None:
+        """可预览单元格的标识 (row, col, board 文本)；非 board 列或无效单元格返回 None"""
+        if not index.isValid():
+            return None
+        if self.model.headerData(index.column(), Qt.Horizontal) != "board":
+            return None
+        text = self.model.data(index, Qt.DisplayRole)
+        return (index.row(), index.column(), text if isinstance(text, str) else "")
+
+    def _show_preview(self) -> None:
+        """解析局面并弹出预览（计时结束或延迟为 0 时调用）"""
+        if self._hover_key is None:
+            return
+        board = parse_board(self._hover_key[2])
+        if not board:
+            return
+        if self._preview is None:
+            self._preview = BoardPreviewPopup(self)
+        pos = self._pending_pos
+        if pos is None:
+            pos = self.table.viewport().mapToGlobal(
+                self.table.viewport().rect().center())
+        self._preview.show_board(board, pos)
+
+    def _hide_preview(self) -> None:
+        """隐藏预览并清空悬浮状态（离开表格、滚动、点击、刷新数据时调用）"""
+        self._preview_timer.stop()
+        self._hover_key = None
+        self._pending_pos = None
+        if self._preview is not None and self._preview.isVisible():
+            self._preview.hide()
+
+    def hover_preview_board(self) -> list[list[int]] | None:
+        """当前正在预览的局面；未显示时返回 None"""
+        if self._preview is not None and self._preview.isVisible():
+            return self._preview.board()
+        return None
 
     def refresh(self):
         parent_widget = self.parent()

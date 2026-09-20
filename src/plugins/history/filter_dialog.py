@@ -122,13 +122,10 @@ class FilterDialog(ConfirmDialog):
         result = HistoryData.get_field_value(field_name)
         if result is not None:
             return result
-        # 再尝试计算列
+        # 再尝试计算列（用类型样本值区分 int / float / string）
         for col in self._computed_columns:
             if col.name == field_name:
-                if col.result_type == "int":
-                    return 0
-                elif col.result_type == "float":
-                    return 0.0
+                return col.sample_value
         return None
 
     def _get_default_value(self, field_value) -> str:

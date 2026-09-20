@@ -158,13 +158,10 @@ class FilterValueDelegate(QStyledItemDelegate):
         # 先尝试物理字段
         field_value = HistoryData.get_field_value(field_name)
         if field_value is None:
-            # 再尝试计算列
+            # 再尝试计算列（用类型样本值区分 int / float / string）
             for col in self._computed_columns:
                 if col.name == field_name:
-                    if col.result_type == "int":
-                        field_value = 0
-                    elif col.result_type == "float":
-                        field_value = 0.0
+                    field_value = col.sample_value
                     break
 
         if field_value is None:
