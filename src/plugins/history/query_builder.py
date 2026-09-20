@@ -5,6 +5,8 @@
 - 字段名走白名单校验（物理字段 + 已加载计算列名），非法字段抛 ValueError
 - 值全部使用 ? 占位符绑定，杜绝 SQL 注入
 - 枚举显示名→值、datetime→µs 时间戳等转换逻辑与旧版 _gen_filter_str 保持一致
+- 「包含 / 不包含」是逗号分隔的多值精确匹配（in / not in）；
+  「包含子串 / 不含子串」是文本模糊匹配（like / not like），仅文本字段可用
 """
 
 from __future__ import annotations
@@ -138,11 +140,47 @@ def _build_in_list(field_type: Any, value: str, row: int) -> tuple[list, str]:
     return [], "0 = 1"
 
 
+def _like_pattern(value: str) -> str:
+    """把用户输入的子串转成 LIKE 模式：转义 %、_、\\ 后前后各加一个 %
+
+    用户输入的是「子串」而不是通配符模式，所以 % 与 _ 一律当字面量处理，
+    否则「不含子串 a_b」会意外匹配到 aXb。
+    """
+    escaped = (value
+               .replace("\\", "\\\\")
+               .replace("%", "\\%")
+               .replace("_", "\\_"))
+    return f"%{escaped}%"
+
+
+def _build_like(
+    field_type: Any, value: str, row: int, field: str
+) -> tuple[list, str]:
+    """模糊匹配（like / not like）：按子串匹配文本字段
+
+    只支持文本字段（TEXT 列与 string 计算列）：日期存的是微秒时间戳、枚举存的是
+    整数值，都不是界面上看到的文本，按文本模糊匹配只会得出误导结果，
+    因此直接报错让用户改用「包含 / 等于」。
+
+    SQL 片段带 ``ESCAPE '\\'``，与 _like_pattern 的转义配套。
+    """
+    if not value:
+        raise _row_error(row, "第%1行 模糊匹配的值不能为空")
+    if not isinstance(field_type, str):
+        raise _row_error(row, "第%1行 字段 %2 不是文本，不能用模糊匹配", field)
+    return [_like_pattern(value)], r"? ESCAPE '\'"
+
+
 def _build_value(
-    field_type: Any, compare: CompareSymbol, value: str, row: int
+    field_type: Any, compare: CompareSymbol, value: str, row: int,
+    field: str = "",
 ) -> tuple[list, str]:
     """构建单个条件的值部分，返回 (参数列表, SQL 值片段)"""
     is_in = compare.value in (CompareSymbol.Contains, CompareSymbol.NotContains)
+    is_like = compare.value in (CompareSymbol.Like, CompareSymbol.NotLike)
+
+    if is_like:
+        return _build_like(field_type, value, row, field)
 
     if isinstance(field_type, BaseDiaPlayEnum) and not is_in:
         return _build_enum_single(field_type, value)
@@ -227,7 +265,8 @@ def build_where(
         if right_count > left_count:
             raise _row_error(row, "第%1行 右括号数量大于左括号数量，请检查")
 
-        row_params, value_sql = _build_value(field_type, compare, value, row)
+        row_params, value_sql = _build_value(
+            field_type, compare, value, row, field)
         clauses.append(
             f" {left_bracket} {field} {compare.to_sql} {value_sql} {right_bracket} "
         )

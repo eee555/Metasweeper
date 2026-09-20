@@ -58,6 +58,8 @@ class CompareSymbol:
     LessThanOrEqual = 5
     Contains = 6
     NotContains = 7
+    Like = 8
+    NotLike = 9
 
     _LABELS = {
         0: _translate("Form", "等于"),
@@ -68,6 +70,8 @@ class CompareSymbol:
         5: _translate("Form", "小于等于"),
         6: _translate("Form", "包含"),
         7: _translate("Form", "不包含"),
+        8: _translate("Form", "包含子串"),
+        9: _translate("Form", "不含子串"),
     }
     _SQL = {
         0: "=",
@@ -78,6 +82,8 @@ class CompareSymbol:
         5: "<=",
         6: "in",
         7: "not in",
+        8: "like",
+        9: "not like",
     }
 
     @classmethod

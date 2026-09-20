@@ -179,11 +179,12 @@ class FilterValueDelegate(QStyledItemDelegate):
     def _create_editor_by_type(self, parent, field_value, compare, field_name):
         """根据字段类型创建编辑器"""
         from shared_types.enums import BaseDiaPlayEnum
-        editor = None
-        # 如果是包含/不包含比较符，使用 LineEdit,先注释后面会有大用
-        # if compare.value in (CompareSymbol.Contains, CompareSymbol.NotContains):
-        #     editor = QLineEdit(parent)
+        # 模糊匹配输入的是子串，必须用 LineEdit：数值/枚举/日期控件都输不出子串
+        if compare is not None and compare.value in (
+                CompareSymbol.Like, CompareSymbol.NotLike):
+            return QLineEdit(parent)
 
+        editor = None
         if isinstance(field_value, BaseDiaPlayEnum):
             editor = QComboBox(parent)
             editor.addItems([e.display_name for e in field_value.__class__])
