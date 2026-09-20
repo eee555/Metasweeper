@@ -3108,6 +3108,10 @@ Plugins will be disabled.</translation>
 <context>
     <name>PluginManagerWindow</name>
     <message>
+        <source>下载插件...</source>
+        <translation>Download Plugin...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1861"/>
         <source>插件管理器</source>
         <translation>Plugin Manager</translation>
@@ -3542,6 +3546,113 @@ Plugins will be disabled.</translation>
         <location filename="../mineSweeperVideoPlayer.py" line="218"/>
         <source>录像解析失败：</source>
         <translation>Failed to parse replay: </translation>
+    </message>
+</context>
+<context>
+    <name>PluginDownloadDialog</name>
+    <message>
+        <source>自动识别</source>
+        <translation>Auto-detect</translation>
+    </message>
+    <message>
+        <source>托管平台</source>
+        <translation>Hosting platform</translation>
+    </message>
+    <message>
+        <source>无法自动识别此站点，请选择托管平台。</source>
+        <translation>Cannot detect this site. Select its hosting platform.</translation>
+    </message>
+    <message>
+        <source>不支持此托管平台。</source>
+        <translation>This hosting platform is not supported.</translation>
+    </message>
+    <message>
+        <source>链接与所选托管平台不匹配。</source>
+        <translation>The URL does not match the selected hosting platform.</translation>
+    </message>
+    <message>
+        <source>下载插件</source>
+        <translation>Download Plugin</translation>
+    </message>
+    <message>
+        <source>获取标签</source>
+        <translation>Fetch Tags</translation>
+    </message>
+    <message>
+        <source>仓库链接</source>
+        <translation>Repository URL</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>正在获取标签...</source>
+        <translation>Fetching tags...</translation>
+    </message>
+    <message>
+        <source>正在下载并安装...</source>
+        <translation>Downloading and installing...</translation>
+    </message>
+    <message>
+        <source>操作失败：{error}</source>
+        <translation>Operation failed: {error}</translation>
+    </message>
+    <message>
+        <source>已取消。</source>
+        <translation>Cancelled.</translation>
+    </message>
+    <message>
+        <source>此仓库没有可用的标签。</source>
+        <translation>This repository has no tags.</translation>
+    </message>
+    <message>
+        <source>已安装到 {path}。重启插件管理器后生效。</source>
+        <translation>Installed to {path}. Restart the plugin manager to load it.</translation>
+    </message>
+    <message>
+        <source>正在取消...</source>
+        <translation>Cancelling...</translation>
+    </message>
+    <message>
+        <source>请输入有效的仓库 HTTPS 链接。</source>
+        <translation>Enter a valid HTTPS repository URL.</translation>
+    </message>
+    <message>
+        <source>仓库或版本不存在，或仓库不是公开仓库。</source>
+        <translation>The repository or version does not exist, or the repository is not public.</translation>
+    </message>
+    <message>
+        <source>托管平台拒绝请求或请求次数已达上限，请稍后重试。</source>
+        <translation>The hosting platform denied the request or its rate limit was reached. Try again later.</translation>
+    </message>
+    <message>
+        <source>插件目录已存在，不会覆盖：{path}</source>
+        <translation>The plugin path already exists and will not be overwritten: {path}</translation>
+    </message>
+    <message>
+        <source>仓库根目录缺少 __init__.py 插件入口。</source>
+        <translation>The repository root is missing the __init__.py plugin entry point.</translation>
+    </message>
+    <message>
+        <source>插件压缩包超过 100 MiB。</source>
+        <translation>The plugin archive exceeds 100 MiB.</translation>
+    </message>
+    <message>
+        <source>插件解压后超过 500 MiB。</source>
+        <translation>The extracted plugin exceeds 500 MiB.</translation>
+    </message>
+    <message>
+        <source>压缩包包含不安全的路径或符号链接。</source>
+        <translation>The archive contains unsafe paths or symbolic links.</translation>
+    </message>
+    <message>
+        <source>压缩包必须包含一个仓库根目录。</source>
+        <translation>The archive must contain exactly one repository root directory.</translation>
     </message>
 </context>
 </TS>

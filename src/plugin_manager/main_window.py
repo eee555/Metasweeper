@@ -47,6 +47,7 @@ from PyQt5.QtWidgets import (
 )
 
 from .plugin_info_dialog import PluginInfoDialog
+from .plugin_download_dialog import PluginDownloadDialog
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
@@ -1217,6 +1218,9 @@ class PluginManagerWindow(QMainWindow):
         # 选项菜单
         self._menu_options = menubar.addMenu(self.tr("选项"))
 
+        self._act_download_plugin = self._menu_options.addAction(self.tr("下载插件..."))
+        self._act_download_plugin.triggered.connect(self._open_download_plugin)
+
         # 设置子菜单
         self._menu_settings = self._menu_options.addMenu(self.tr("设置"))
 
@@ -1348,6 +1352,7 @@ class PluginManagerWindow(QMainWindow):
         """语言切换时重新应用所有翻译"""
         self.setWindowTitle(self.tr("插件管理器"))
         self._menu_options.setTitle(self.tr("选项"))
+        self._act_download_plugin.setText(self.tr("下载插件..."))
         self._menu_settings.setTitle(self.tr("设置"))
         self._act_basic_settings.setText(self.tr("基础设置..."))
         self._act_control_auth.setText(self.tr("控制授权..."))
@@ -1377,6 +1382,11 @@ class PluginManagerWindow(QMainWindow):
         if event.type() == QEvent.LanguageChange:
             self.retranslateUi()
         super().changeEvent(event)
+
+    def _open_download_plugin(self) -> None:
+        dialog = PluginDownloadDialog(self)
+        dialog.exec_()
+        dialog.deleteLater()
 
     @staticmethod
     def _create_tray_icon() -> QIcon:
