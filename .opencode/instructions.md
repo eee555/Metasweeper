@@ -1,7 +1,7 @@
 # 元扫雷 Metasweeper v3.3.4
 
 ## 项目概述
-PyQt5 实现的扫雷游戏，支持多种游戏模式、录像回放、插件系统。
+PySide6（Qt 6）实现的扫雷游戏，支持多种游戏模式、录像回放、插件系统。
 
 ## 架构
 
@@ -53,7 +53,7 @@ python src/main.py
 cd uiFiles
 .\ui转py.bat
 
-# 国际化——执行此脚本，不准手动执行pylupdate5
+# 国际化——执行此脚本，不准手动执行 pyside6-lupdate
 cd src/ui
 .\生成ts文件.bat
 
@@ -68,7 +68,7 @@ mypy src
 # 产物为 dist/ 下的 zip 包，包含 metasweeper.exe + plugin_manager.exe
 
 # 翻译文件生成
-pylupdate5 ... -ts en_US.ts
+pyside6-lupdate ... -ts en_US.ts
 ```
 
 ## 代码规范
@@ -78,9 +78,9 @@ pylupdate5 ... -ts en_US.ts
 
 ## UI 修改守则
 
-**所有界面修改必须从修改 `.ui` 文件开始**，位于 `F:\GitHub\Solvable-Minesweeper\uiFiles\`。然后执行 `ui转py.bat`（该目录下），`pyuic5` 会自动将 `.ui` 编译为 `src/ui/` 下的 `.py` 文件。**禁止直接修改 `src/ui/` 下的生成文件**。
+**所有界面修改必须从修改 `.ui` 文件开始**，位于 `F:\GitHub\Solvable-Minesweeper\uiFiles\`。然后执行 `ui转py.bat`（该目录下），`pyside6-uic` 会自动将 `.ui` 编译为 `src/ui/` 下的 `.py` 文件。**禁止直接修改 `src/ui/` 下的生成文件**。
 
-Linux 无法开发本项目（依赖 PyQt5、pywin32、ms_toollib.pyd 等 Windows 原生库）。
+Linux 无法开发本项目（依赖 PySide6、pywin32、ms_toollib.pyd 等库，其中后两者为 Windows 原生依赖）。
 
 ## 插件系统
 - ZMQ 通信，主进程 `GameServerBridge`（单例）
