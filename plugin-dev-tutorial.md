@@ -106,7 +106,7 @@ code D:\my-plugins
 
 ### 2.4 Python 解释器（可选）
 
-如果需要代码补全，在 VS Code 右下角选择一个装了 PyQt5 / msgspec 的 Python 解释器即可。不配也能正常写插件。
+如果需要代码补全，在 VS Code 右下角选择一个装了 PySide6 / msgspec 的 Python 解释器即可。不配也能正常写插件。
 
 ---
 
@@ -213,8 +213,8 @@ Hello World 示例插件
 """
 from __future__ import annotations
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit
-from PyQt5.QtCore import Qt, pyqtSignal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit
+from PySide6.QtCore import Qt, Signal
 
 # 导入插件基类和辅助类型
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
@@ -227,7 +227,7 @@ class HelloWidget(QWidget):
     """简单的 UI 界面"""
 
     # 自定义信号：用于跨线程安全更新 UI
-    _update_signal = pyqtSignal(str)
+    _update_signal = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -396,7 +396,7 @@ class HelloPlugin(BasePlugin):
 | `self.plugin_icon` | `QIcon` | 插件图标 |
 | `self.logger` | `loguru.Logger` | **已绑定插件名称的日志器**（直接用！） |
 | `self.other_info` | `OtherInfoBase \| None` | 插件自定义配置对象 |
-| `self.config_changed` | `pyqtSignal` | 配置变化信号，参数 `(name, value)` |
+| `self.config_changed` | `Signal` | 配置变化信号，参数 `(name, value)` |
 
 ### 5.2 事件订阅 API
 
@@ -526,19 +526,20 @@ class MyPlugin(BasePlugin):
 > **为什么需要跨线程机制？**
 >
 > `BasePlugin` 是 `QObject`（通过 moveToThread 运行在独立线程）。事件处理器运行在**插件工作线程**中，
-> 但 PyQt 的 GUI 操作只能在**主线程**执行。直接跨线程操作 GUI 会导致未定义行为或崩溃。
+> 但 PySide6 的 GUI 操作只能在**主线程**执行。直接跨线程操作 GUI 会导致未定义行为或崩溃。
 >
-> **推荐：使用 `pyqtSignal`（信号槽）**
+> **推荐：使用 `Signal`（信号槽）**
 
 因为插件类本身就是 `QObject`，所以可以直接在 Widget 或 Plugin 类上定义信号：
 Qt 会自动用 **QueuedConnection** 跨线程投递，安全且高效。
 
 ```python
-# ════ 推荐方式：pyqtSignal（声明式、类型清晰） ════
+# ════ 推荐方式：Signal（声明式、类型清晰） ════
+from PySide6.QtCore import Signal
 
 # Step 1: 在 QWidget 子类上定义信号
 class MyWidget(QWidget):
-    new_data = pyqtSignal(dict)       # 自定义参数类型
+    new_data = Signal(dict)       # 自定义参数类型
 
     def __init__(self):
         super().__init__()
@@ -556,14 +557,16 @@ def _on_video_save(self, event):
 **也可以把信号定义在 Plugin 类上**（因为 BasePlugin 本身就是 QObject）：
 
 ```python
+from PySide6.QtCore import Signal, Slot
+
 class MyPlugin(BasePlugin):
-    _sig_update = pyqtSignal(str)
+    _sig_update = Signal(str)
 
     def _create_widget(self):
         self._sig_update.connect(self._do_update)   # 槽可以是 Plugin 的方法
         return SomeWidget()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def _do_update(self, text: str):                # 主线程执行
         if self.widget:
             self.widget.label.setText(text)
@@ -580,7 +583,7 @@ self.run_on_gui(some_function, arg1, arg2, keyword_arg=value)
 
 | 方式 | 适用场景 | 特点 |
 |------|----------|------|
-| **`pyqtSignal` + 槽** | 有固定 UI 需反复更新 | **推荐**。声明式，类型签名清晰，Qt 原生惯用法 |
+| **`Signal` + 槽** | 有固定 UI 需反复更新 | **推荐**。声明式，类型签名清晰，Qt 原生惯用法 |
 | **`self.run_on_gui()`** | 临时/一次性 UI 调用 | 通用封装，无需预先定义信号，灵活但可读性略差 |
 
 两种方式的底层原理相同 —— 都是通过 QueuedConnection 将调用投递到 Qt 主线程的事件循环。
@@ -895,7 +898,7 @@ data/plugin_data/<plugin_name>/config.json
 
 ```python
 from plugin_sdk.config_types import BaseConfig, ConfigWidgetBase, ConfigWidgetWrapper
-from PyQt5.QtWidgets import QDial
+from PySide6.QtWidgets import QDial
 from typing import Any
 
 class DialConfig(BaseConfig[int]):
@@ -965,7 +968,7 @@ class MyConfig(OtherInfoBase):
 |-----------|------|
 | `get_value() -> Any` | 获取当前值 |
 | `set_value(value: Any)` | 设置当前值 |
-| `value_change` | `pyqtSignal(object)` 值变化信号 |
+| `value_change` | `Signal(object)` 值变化信号 |
 
 **使用 ConfigWidgetWrapper：**
 
@@ -981,12 +984,12 @@ return ConfigWidgetWrapper(widget, getter, setter, signal)
 
 ```python
 from plugin_sdk.config_types import ConfigWidgetBase
-from PyQt5.QtCore import pyqtSignal
+from PySide6.QtCore import Signal
 
 class MyCustomWidget(ConfigWidgetBase):
     """自定义配置控件"""
     
-    # 子类会继承 value_change = pyqtSignal(object) 信号
+    # 子类会继承 value_change = Signal(object) 信号
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1020,12 +1023,12 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
     QTableWidgetItem, QGroupBox, QHeaderView, QSplitter
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
-from PyQt5.QtGui import QFont
+from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtGui import QFont
 
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from shared_types.events import VideoSaveEvent, BoardUpdateEvent
@@ -1034,8 +1037,8 @@ from shared_types.events import VideoSaveEvent, BoardUpdateEvent
 class StatsPanel(QWidget):
     """统计面板 UI"""
 
-    _signal_update_stats = pyqtSignal(dict)
-    _signal_add_record = pyqtSignal(dict)
+    _signal_update_stats = Signal(dict)
+    _signal_add_record = Signal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)

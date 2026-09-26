@@ -115,7 +115,6 @@ def discover_commands() -> list[dict[str, Any]]:
     return commands
 
 
-
 def _to_class_name(name: str) -> str:
     """将插件名转换为类名前缀
 
@@ -191,14 +190,14 @@ def generate_package_files(
             '"""',
             'from __future__ import annotations',
             '',
-            'from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel',
-            'from PyQt5.QtCore import pyqtSignal',
+            'from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel',
+            'from PySide6.QtCore import Signal',
             '',
             '',
             f'class {class_prefix}Widget(QWidget):',
             '    """插件 UI"""',
             '    ',
-            '    _update_signal = pyqtSignal(str)',
+            '    _update_signal = Signal(str)',
             '',
             '    def __init__(self, parent=None):',
             '        super().__init__(parent)',
@@ -231,7 +230,7 @@ def generate_package_files(
 
     # 导入
     if needs_gui:
-        plugin_lines.append('from PyQt5.QtWidgets import QWidget')
+        plugin_lines.append('from PySide6.QtWidgets import QWidget')
 
     sdk_imports = ['BasePlugin', 'PluginInfo']
     if needs_gui:
@@ -534,7 +533,8 @@ def main():
     p_create.add_argument("--icon-char", default="", help="图标字符")
     p_create.add_argument("--events", default="", help="订阅的事件，逗号分隔")
     p_create.add_argument("--commands", default="", help="需要的控制权限，逗号分隔")
-    p_create.add_argument("--config", type=lambda x: x.lower() == "true", default=True, help="是否需要配置系统（默认True）")
+    p_create.add_argument("--config", type=lambda x: x.lower()
+                          == "true", default=True, help="是否需要配置系统（默认True）")
     p_create.add_argument("--service", action="store_true", help="需要服务接口")
     p_create.add_argument("--service-name", default="", help="服务接口名称")
     p_create.set_defaults(func=cmd_create)

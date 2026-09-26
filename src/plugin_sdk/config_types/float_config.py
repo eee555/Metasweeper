@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtWidgets import QDoubleSpinBox
+from PySide6.QtWidgets import QDoubleSpinBox
 
 from .base_config import BaseConfig, ConfigWidgetWrapper
 

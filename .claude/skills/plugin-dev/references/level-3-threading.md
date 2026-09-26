@@ -2,19 +2,19 @@
 
 ## 为什么需要跨线程机制？
 
-`BasePlugin` 是 `QObject`（通过 moveToThread 运行在独立线程），事件处理器运行在**插件工作线程**中，但 PyQt 的 GUI 操作只能在**主线程**执行。直接跨线程操作 GUI 会导致未定义行为或崩溃。
+`BasePlugin` 是 `QObject`（通过 moveToThread 运行在独立线程），事件处理器运行在**插件工作线程**中，但 PySide6 的 GUI 操作只能在**主线程**执行。直接跨线程操作 GUI 会导致未定义行为或崩溃。
 
-## 推荐方式：pyqtSignal + 槽函数
+## 推荐方式：Signal + 槽函数
 
 因为插件类本身就是 `QObject`，所以可以直接定义信号：
 
 ```python
-from PyQt5.QtCore import pyqtSignal
+from PySide6.QtCore import Signal
 
 class MyWidget(QWidget):
     # 定义信号
-    _update_signal = pyqtSignal(str)
-    _data_signal = pyqtSignal(dict)
+    _update_signal = Signal(str)
+    _data_signal = Signal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,7 +54,7 @@ def _on_video_save(self, event):
 
 | 方式 | 适用场景 | 特点 |
 |------|----------|------|
-| **pyqtSignal + 槽** | 有固定 UI 需反复更新 | **推荐**。声明式，类型签名清晰 |
+| **Signal + 槽** | 有固定 UI 需反复更新 | **推荐**。声明式，类型签名清晰 |
 | **run_on_gui()** | 临时/一次性 UI 调用 | 灵活但可读性略差 |
 
 ## 错误示例
@@ -74,7 +74,7 @@ def _create_widget(self):
 
 ```python
 class MyWidget(QWidget):
-    _update = pyqtSignal(str)
+    _update = Signal(str)
 
     def __init__(self):
         super().__init__()

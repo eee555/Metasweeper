@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 _translate = QCoreApplication.translate
 
@@ -156,7 +156,6 @@ class GameMode(BaseDiaPlayEnum):
     BlessingMode = 8
     GuessableNoGuess = 9
     LuckyMode = 10
-
 
     @property
     def display_name(self) -> str:

@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt5.QtCore import QCoreApplication
-from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
@@ -129,7 +129,8 @@ class PluginInfoDialog(ConfirmDialog):
         # 2. 权限：声明 + 授权记录 并集，逐项标注授予状态
         declared = self._plugin.info.required_controls or []
         authorized_tags: set[str] = set(self._collect_authorized_tags())
-        self._add_permission_items(self._permission_list, declared, authorized_tags)
+        self._add_permission_items(
+            self._permission_list, declared, authorized_tags)
 
     def _collect_subscribed_events(self) -> list[str]:
         """从 EventDispatcher 的订阅注册表收集该插件订阅的事件 tag（只读快照）"""

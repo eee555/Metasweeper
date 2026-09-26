@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
 
 from shared_types.enums import BaseDiaPlayEnum
 from .models import HistoryData

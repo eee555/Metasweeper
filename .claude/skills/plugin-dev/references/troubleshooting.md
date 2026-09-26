@@ -102,7 +102,7 @@ ModuleNotFoundError: No module named 'xxx'
 
 **方案 A：使用已安装的库**
 只使用 `requirements.txt` 中的依赖：
-- PyQt5, msgspec, loguru, pyzmq 等
+- PySide6, msgspec, loguru, pyzmq 等
 
 **方案 B：重新打包**
 1. 在 `requirements.txt` 中添加依赖

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import requests
-from PyQt5.QtCore import QThread, Qt, pyqtSignal
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import QThread, Qt, Signal
+from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
     QLabel, QLineEdit, QProgressBar, QPushButton, QStyle, QVBoxLayout,
 )
@@ -13,7 +13,7 @@ from .plugin_repositories import PluginRepository, RepositoryTag
 
 
 class _DownloadTask(QThread):
-    progress = pyqtSignal(int, int)
+    progress = Signal(int, int)
 
     def __init__(self, repository: PluginRepository, tag: RepositoryTag | None, parent):
         super().__init__(parent)
@@ -26,7 +26,8 @@ class _DownloadTask(QThread):
     def run(self) -> None:
         try:
             with requests.Session() as session:
-                downloader = PluginDownloader(session, self.isInterruptionRequested, self.progress.emit)
+                downloader = PluginDownloader(
+                    session, self.isInterruptionRequested, self.progress.emit)
                 if self.tag is None:
                     self.result = downloader.list_tags(self.repository)
                 else:
@@ -66,7 +67,8 @@ class PluginDownloadDialog(QDialog):
         url_layout.addWidget(self.fetch)
 
         self.tags = QComboBox()
-        self.tags.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.tags.setSizeAdjustPolicy(
+            QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.tags.setMinimumContentsLength(20)
         self.tags.setEnabled(False)
         form = QFormLayout()
@@ -81,7 +83,8 @@ class PluginDownloadDialog(QDialog):
         self.status.setTextFormat(Qt.PlainText)
         self.status.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        self.install = self.buttons.addButton(self.tr("下载插件"), QDialogButtonBox.ActionRole)
+        self.install = self.buttons.addButton(
+            self.tr("下载插件"), QDialogButtonBox.ActionRole)
         self.install.setIcon(self.style().standardIcon(QStyle.SP_ArrowDown))
         self.install.setEnabled(False)
         self.install.setAutoDefault(False)
@@ -115,7 +118,8 @@ class PluginDownloadDialog(QDialog):
             return
         self._url_changed()
         try:
-            self._repository = PluginRepository.from_url(self.url.text(), self.platform.currentData())
+            self._repository = PluginRepository.from_url(
+                self.url.text(), self.platform.currentData())
         except ValueError as exc:
             self.status.setText(str(exc))
             return
@@ -157,7 +161,8 @@ class PluginDownloadDialog(QDialog):
         self.close_button.setEnabled(True)
         self.close_button.setText(self.tr("关闭"))
         if task.error:
-            self.status.setText(self.tr("操作失败：{error}").format(error=task.error))
+            self.status.setText(
+                self.tr("操作失败：{error}").format(error=task.error))
         elif task.cancelled:
             self.status.setText(self.tr("已取消。"))
         elif task.tag is None:
@@ -166,9 +171,11 @@ class PluginDownloadDialog(QDialog):
             self.status.setText("" if task.result else self.tr("此仓库没有可用的标签。"))
         else:
             self._installed = True
-            self.status.setText(self.tr("已安装到 {path}。重启插件管理器后生效。").format(path=task.result))
+            self.status.setText(
+                self.tr("已安装到 {path}。重启插件管理器后生效。").format(path=task.result))
         self.tags.setEnabled(bool(self.tags.count()) and not self._installed)
-        self.install.setEnabled(bool(self.tags.count()) and not self._installed)
+        self.install.setEnabled(bool(self.tags.count())
+                                and not self._installed)
         task.deleteLater()
         if self._closing:
             super().reject()

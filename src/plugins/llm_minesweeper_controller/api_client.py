@@ -8,7 +8,7 @@ import requests
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 _translate = QCoreApplication.translate
 

@@ -1,5 +1,5 @@
-from PyQt5.QtCore import QCoreApplication
-from PyQt5.QtWidgets import QCheckBox
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QCheckBox
 from ui.ui_advanced import Ui_Form
 from ui.uiComponents import RoundQDialog
 from shared_types.commands import COMMAND_TYPES
@@ -59,7 +59,8 @@ class ui_Form(Ui_Form):
             label = _COMMAND_LABELS.get(tag, tag)
             cb = QCheckBox()
             cb.setChecked(tag in self._allowed_controls)
-            cb.setText(QCoreApplication.translate("Form", "允许{label}").replace("{label}", label))
+            cb.setText(QCoreApplication.translate(
+                "Form", "允许{label}").replace("{label}", label))
 
             cb.stateChanged.connect(
                 lambda checked, t=tag: self._on_allow_toggled(t, bool(checked))
@@ -71,7 +72,8 @@ class ui_Form(Ui_Form):
             label = _COMMAND_LABELS.get(tag, tag)
             cb = QCheckBox()
             cb.setChecked(tag in self._allowed_controls)
-            cb.setText(QCoreApplication.translate("Form", "允许{label}").replace("{label}", label))
+            cb.setText(QCoreApplication.translate(
+                "Form", "允许{label}").replace("{label}", label))
 
             cb.stateChanged.connect(
                 lambda checked, t=tag: self._on_allow_toggled(t, bool(checked))
@@ -99,7 +101,8 @@ class ui_Form(Ui_Form):
         self.alter = True
 
         self.filter_forever = self.checkBox_filter_forever.isChecked()
-        self.game_setting.set_value("DEFAULT/filter_forever", self.filter_forever)
+        self.game_setting.set_value(
+            "DEFAULT/filter_forever", self.filter_forever)
         self._save_allowed_controls()
 
         self.game_setting.sync()

@@ -18,8 +18,8 @@ from plugin_sdk.config_types.other_info import ConfigT
 
 from .service_registry import ServiceNotFoundError
 from lib_zmq_plugins.shared.base import BaseEvent, CommandResponse, get_event_tag
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPen, QColor, QBrush, QFont
-from PyQt5.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot
+from PySide6.QtGui import QIcon, QPixmap, QPainter, QPen, QColor, QBrush, QFont
+from PySide6.QtCore import Qt, QThread, QObject, Signal, Slot, QMetaObject
 
 from concurrent.futures import Future
 import threading
@@ -34,11 +34,11 @@ _T = TypeVar("_T")  # 用于服务获取方法的泛型
 
 if TYPE_CHECKING:
     from plugin_manager.logging_setup import LogConfig
-    from PyQt5.QtGui import QIcon
+    from PySide6.QtGui import QIcon
 
 
 if TYPE_CHECKING:
-    from PyQt5.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
     from lib_zmq_plugins.client.zmq_client import ZMQClient
     from plugin_manager.event_dispatcher import EventDispatcher
 
@@ -193,7 +193,7 @@ class PluginInfo(Generic[ConfigT]):
 class _GuiCallHandler(QObject):
     """留在主线程的 GUI 调用处理器，确保 run_on_gui 真正在 GUI 线程执行"""
 
-    @pyqtSlot(object, object, object)
+    @Slot(object, object, object)
     def execute(self, func, args, kwargs):
         try:
             func(*args, **kwargs)
@@ -227,12 +227,12 @@ class BasePlugin(QObject, Generic[ConfigT]):
     """
 
     # ── GUI 跨线程信号（类级别，所有实例共享连接到各自 slot）──
-    gui_call = pyqtSignal(object, object, object)
-    ready = pyqtSignal(object)  # 插件就绪信号（参数：插件实例）
-    config_changed = pyqtSignal(str, object)  # 配置变化信号（参数：字段名, 新值）
+    gui_call = Signal(object, object, object)
+    ready = Signal(object)  # 插件就绪信号（参数：插件实例）
+    config_changed = Signal(str, object)  # 配置变化信号（参数：字段名, 新值）
 
     # ── 事件投递信号（替代 deque 队列，QueuedConnection 天然串行）──
-    _event_dispatch = pyqtSignal(object, object)  # handler, event
+    _event_dispatch = Signal(object, object)  # handler, event
 
     _other_info: ConfigT
 
@@ -494,7 +494,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
     # 线程入口（Qt 事件循环驱动，子类不应覆写）
     # ═══════════════════════════════════════════════════════════════════
 
-    @pyqtSlot()
+    @Slot()
     def _on_thread_started(self) -> None:
         """
         插件线程启动回调：执行 on_initialized()
@@ -516,7 +516,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
                 exc_info=True,
             )
 
-    @pyqtSlot(object, object)
+    @Slot(object, object)
     def _handle_event(self, handler: Callable[[Any], None], event: Any) -> None:
         """
         在插件线程中串行执行事件处理（Qt 事件循环保证串行）
@@ -593,10 +593,12 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
         # 在插件线程中执行清理回调
         # 使用 QMetaObject.invokeMethod 确保在插件线程执行
-        from PyQt5.QtCore import QMetaObject, Qt, Q_ARG
         try:
-            QMetaObject.invokeMethod(
-                self, "_do_shutdown", Qt.ConnectionType.BlockingQueuedConnection)
+            if self._thread.isRunning() and QThread.currentThread() != self._thread:
+                QMetaObject.invokeMethod(
+                    self, "_do_shutdown", Qt.ConnectionType.BlockingQueuedConnection)
+            else:
+                self._do_shutdown()
         except Exception as e:
             # 如果线程已停止，BlockingQueuedConnection 会失败，直接调用
             self.logger.debug(f"Fallback to direct shutdown: {e}")
@@ -644,7 +646,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
         with self._resource_lock:
             self._lifecycle = PluginLifecycle.STOPPED
 
-    @pyqtSlot()
+    @Slot()
     def _do_shutdown(self) -> None:
         """在插件线程中执行清理回调"""
         try:

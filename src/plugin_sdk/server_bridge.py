@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Callable, TypeVar
 import threading
 from concurrent.futures import Future
 
-from PyQt5.QtCore import QObject, pyqtSignal, Qt
+from PySide6.QtCore import QObject, Signal, Qt
 
 from lib_zmq_plugins.server.zmq_server import ZMQServer
 from lib_zmq_plugins.shared.base import BaseEvent, BaseCommand, CommandResponse
@@ -53,7 +53,7 @@ class GameServerBridge(QObject):
 
     # 内部信号：用于调度到主线程
     # (handler, cmd, future_or_none)
-    _execute_signal = pyqtSignal(object, object, object)
+    _execute_signal = Signal(object, object, object)
 
     _instance: GameServerBridge | None = None
 

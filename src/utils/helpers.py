@@ -1,7 +1,8 @@
 import os
 import sys
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
+
 
 def trans_expression(expression: str):
     expression = expression.lower().strip()[:10000]

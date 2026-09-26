@@ -1,7 +1,7 @@
-from PyQt5 import QtCore
-from PyQt5.QtCore import Qt
+from PySide6 import QtCore
+from PySide6.QtCore import Qt
 
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 import superGUI
 from config.constants import (
     READY, PLAYING, JOKING, SHOW, STUDY, SHOW_DISPLAY,
@@ -15,9 +15,10 @@ from utils.app_logger import logger
 
 # 局面中的鼠标和滚轮事件
 
+
 class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
     def _send_button_event(self, button: ButtonEventType, i: int, j: int,
-                             old_state: MouseState, new_state: MouseState):
+                           old_state: MouseState, new_state: MouseState):
         try:
             event = ButtonClickEvent(
                 col=j // self.pixSize,
@@ -28,7 +29,8 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             )
             GameServerBridge.instance().send_event(event)
         except Exception:
-            logger.warning("Failed to send button event to plugins", exc_info=True)
+            logger.warning(
+                "Failed to send button event to plugins", exc_info=True)
 
     def _step_and_send(self, mouse_event: str, i: int, j: int):
         old = MouseState(self.label.ms_board.mouse_state)
@@ -46,7 +48,8 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
 
         elif self.game_state == SHOW:
             # 看概率时，所有操作都移出局面外
-            self._step_and_send('lc', self.row * self.pixSize, self.column * self.pixSize)
+            self._step_and_send('lc', self.row * self.pixSize,
+                                self.column * self.pixSize)
             self.set_face(FACE_CLICK)
 
     def mineAreaLeftRelease(self, i, j):
@@ -124,7 +127,8 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
 
         elif self.game_state == SHOW:
             # 看概率时，所有操作都移出局面外
-            self._step_and_send('lr', self.row * self.pixSize, self.column * self.pixSize)
+            self._step_and_send('lr', self.row * self.pixSize,
+                                self.column * self.pixSize)
             self.set_face(FACE_SMILE)
 
     def mineAreaRightPressed(self, i, j):
@@ -156,7 +160,8 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(FACE_SMILE)
         elif self.game_state == SHOW:
             # 看概率时，所有操作都移出局面外
-            self._step_and_send('rr', self.row * self.pixSize, self.column * self.pixSize)
+            self._step_and_send('rr', self.row * self.pixSize,
+                                self.column * self.pixSize)
             self.set_face(FACE_SMILE)
 
     def mineAreaLeftAndRightPressed(self, i, j):

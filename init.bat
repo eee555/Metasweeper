@@ -1,14 +1,3 @@
-mkdir .\src\ui
-cd uiFiles
-pyuic5 -o ui_gameSettings.py ui_gs.ui
-pyuic5 -o ui_gameSettingShortcuts.py ui_gs_shortcuts.ui
-pyuic5 -o ui_defined_parameter.py ui_defined_parameter.ui
-pyuic5 -o ui_mine_num_bar.py ui_mine_num_bar.ui
-pyuic5 -o ui_advanced.py ui_advanced.ui
-for %%i in (*.py) do ( move %%i ../src/ui/%%i )
-
-cd ..
-cd assets
-pyrcc5 src_help_pic.qrc -o src_help_pic_rc.py
-cd ..
-move assets\src_help_pic_rc.py src\src_help_pic_rc.py
+@echo off
+call "%~dp0uiFiles\ui转py.bat" --no-pause
+exit /b %errorlevel%

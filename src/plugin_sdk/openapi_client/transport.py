@@ -7,8 +7,8 @@ openapi_client - 传输层抽象
   只依赖该接口
 - ``RequestsTransport``: 基于 requests.Session 的默认实现（行为与改造前
   client.py 内嵌的 session 逻辑完全一致）
-- ``QtNetworkTransport``: 基于 PyQt5 QNetworkAccessManager 的实现，
-  **PyQt5 为惰性导入**（类/工厂函数内部才 import），保证无 Qt 环境
+- ``QtNetworkTransport``: 基于 PySide6 QNetworkAccessManager 的实现，
+    **PySide6 为惰性导入**（类/工厂函数内部才 import），保证无 Qt 环境
   时本模块仍可正常导入
 
 注意：
@@ -133,20 +133,20 @@ class RequestsTransport:
 
 
 # ---------------------------------------------------------------------------
-# QtNetwork 实现（惰性导入 PyQt5）
+# QtNetwork 实现（惰性导入 PySide6）
 # ---------------------------------------------------------------------------
 def _require_qt():
-    """惰性导入 PyQt5 网络相关类（仅在实际使用 Qt 传输时才触发）"""
+    """惰性导入 PySide6 网络相关类（仅在实际使用 Qt 传输时才触发）"""
     try:
-        from PyQt5.QtCore import QEventLoop, QUrl
-        from PyQt5.QtNetwork import (
+        from PySide6.QtCore import QEventLoop, QUrl
+        from PySide6.QtNetwork import (
             QNetworkAccessManager,
             QNetworkReply,
             QNetworkRequest,
         )
     except ImportError as exc:
         raise ImportError(
-            "QtNetworkTransport 需要 PyQt5（含 QtNetwork 模块），"
+            "QtNetworkTransport 需要 PySide6（含 QtNetwork 模块），"
             "当前环境未安装或不可用"
         ) from exc
     return QEventLoop, QUrl, QNetworkAccessManager, QNetworkReply, QNetworkRequest
@@ -169,7 +169,7 @@ class QtNetworkTransport:
     """
 
     def __init__(self, user_agent: str = "Metasweeper-Plugin/1.0") -> None:
-        # 惰性导入：模块顶层不 import PyQt5
+        # 惰性导入：模块顶层不 import PySide6
         _, _, mgr_cls, _, req_cls = _require_qt()
         self._QNetworkRequest = req_cls  # 保存类引用，request() 中复用
         self._manager = mgr_cls()
@@ -196,7 +196,7 @@ class QtNetworkTransport:
         # ---- URL + query ----
         qurl = QUrl(url)
         if params:
-            from PyQt5.QtCore import QUrlQuery
+            from PySide6.QtCore import QUrlQuery
 
             query = QUrlQuery(qurl)
             for key, value in params.items():
@@ -209,7 +209,8 @@ class QtNetworkTransport:
             merged.update(headers)
         request = QNetworkRequest(qurl)
         for name, value in merged.items():
-            request.setRawHeader(name.encode("utf-8"), str(value).encode("utf-8"))
+            request.setRawHeader(name.encode("utf-8"),
+                                 str(value).encode("utf-8"))
 
         # ---- 请求体：str/bytes -> QByteArray；multipart 手工编码 ----
         body: bytes | None = None
@@ -223,10 +224,12 @@ class QtNetworkTransport:
                 b"Content-Type", merged["Content-Type"].encode("utf-8")
             )
         elif data is not None:
-            body = data if isinstance(data, bytes) else str(data).encode("utf-8")
+            body = data if isinstance(
+                data, bytes) else str(data).encode("utf-8")
 
         # ---- 发送 + 同步等待 ----
-        reply = self._manager.sendCustomRequest(request, method.encode("ascii"), body)
+        reply = self._manager.sendCustomRequest(
+            request, method.encode("ascii"), body)
 
         loop = QEventLoop()
         timed_out = False
@@ -241,7 +244,7 @@ class QtNetworkTransport:
             reply.abort()  # 触发 finished，_on_finished 随后退出事件循环
             loop.quit()
 
-        from PyQt5.QtCore import QTimer
+        from PySide6.QtCore import QTimer
 
         timer = QTimer()
         timer.setSingleShot(True)
@@ -250,7 +253,7 @@ class QtNetworkTransport:
         if timeout is not None:
             timer.start(int(timeout * 1000))
 
-        loop.exec_()  # 阻塞直至 finished / 超时
+        loop.exec()  # 阻塞直至 finished / 超时
         timer.stop()
         reply.deleteLater()
 
@@ -262,8 +265,7 @@ class QtNetworkTransport:
         status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
         if status_code is None:
             # 拿不到 HTTP 状态码 => 纯网络层失败（DNS/连接被拒/超时中断等）。
-            # 注：不调用 reply.error()（PyQt5 中 error 既是方法也是信号，
-            # stub 会误报），仅用 errorString() 描述原因即可。
+            # 仅用 errorString() 描述原因，避免不同 Qt 绑定的 API 差异。
             reason = reply.errorString() or "未知网络错误"
             raise TransportError(f"网络请求失败: {reason}")
 
@@ -282,9 +284,11 @@ class QtNetworkTransport:
         boundary = f"----MetasweeperQt{uuid.uuid4().hex}"
         lines: list[bytes] = []
         for name, value in files.items():
-            _filename, text = value if isinstance(value, tuple) else (None, value)
+            _filename, text = value if isinstance(
+                value, tuple) else (None, value)
             lines.append(
-                f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{text}\r\n'.encode("utf-8")
+                f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{text}\r\n'.encode(
+                    "utf-8")
             )
         lines.append(f"--{boundary}--\r\n".encode("utf-8"))
         return b"".join(lines), {"boundary": boundary}

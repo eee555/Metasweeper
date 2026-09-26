@@ -1,8 +1,8 @@
 from typing import List, Tuple
 import tempfile
 import os
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QUrl, QMimeData
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QUrl, QMimeData
 import ms_toollib as ms
 
 
@@ -373,7 +373,8 @@ def _try_parse_raw_real(text: str) -> Tuple[List[List[int]], int, str]:
     width = len(rows[0])
     if any(len(r) != width for r in rows):
         return [], -1, ""
-    game_board = [[10 if cell in (-1, 9) else cell for cell in row] for row in rows]
+    game_board = [
+        [10 if cell in (-1, 9) else cell for cell in row] for row in rows]
     return game_board, mine_count, "raw_real"
 
 
@@ -395,7 +396,8 @@ def parse_board_text(text: str) -> Tuple[List[List[int]], int, str]:
         import json
         data = json.loads(text)
         if isinstance(data, list) and all(isinstance(row, list) for row in data):
-            mine_count = sum(1 for row in data for cell in row if cell in (-1, 9))
+            mine_count = sum(
+                1 for row in data for cell in row if cell in (-1, 9))
             game_board = [
                 [10 if cell in (-1, 9) else int(cell) for cell in row]
                 for row in data

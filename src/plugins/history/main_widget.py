@@ -13,9 +13,9 @@ from typing import cast
 
 from .db import db_connection
 
-from PyQt5.QtCore import QCoreApplication, pyqtSignal
-from PyQt5.QtGui import QCloseEvent as _QCloseEvent
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import QCoreApplication, Signal
+from PySide6.QtGui import QCloseEvent as _QCloseEvent
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -48,13 +48,13 @@ class HistoryMainWidget(QWidget):
     """历史记录插件的主界面（作为插件的 widget 返回）"""
 
     # 信号：排序和过滤状态变化 (filter_json, sort_json)
-    filter_sort_state_changed = pyqtSignal(str, str)
+    filter_sort_state_changed = Signal(str, str)
     # 信号：列显示配置变化 (show_fields_json)
-    show_fields_changed = pyqtSignal(str)
+    show_fields_changed = Signal(str)
     # 信号：计算列变化 (columns_json)
-    computed_columns_changed = pyqtSignal(list)
+    computed_columns_changed = Signal(list)
     # 信号：自定义函数脚本变化 (script)
-    custom_functions_changed = pyqtSignal(str)
+    custom_functions_changed = Signal(str)
 
     def __init__(
         self,
@@ -212,7 +212,7 @@ class HistoryMainWidget(QWidget):
                               row_data.get("right_bracket"))
                 model.setData(model.index(row, FilterModel.COL_LOGIC),
                               row_data.get("logic"))
-        if filter_dialog.exec_():
+        if filter_dialog.exec():
             # 保存过滤条件数据
             model = cast(FilterModel, filter_dialog.table.model())
             self._filter_rows = [model.get_row_data(
@@ -232,7 +232,7 @@ class HistoryMainWidget(QWidget):
                               row_data.get("field"))
                 model.setData(model.index(row, SortModel.COL_ORDER),
                               row_data.get("order"))
-        if sort_dialog.exec_():
+        if sort_dialog.exec():
             # 保存排序条件数据
             model = cast(SortModel, sort_dialog.sort_table.model())
             self._sort_rows = [model.get_row_data(
@@ -244,7 +244,7 @@ class HistoryMainWidget(QWidget):
         all_headers = HistoryTable.all_headers(self._computed_columns)
         columns_dialog = ColumnsDialog(
             all_headers, self.table.showFields, self)
-        if columns_dialog.exec_():
+        if columns_dialog.exec():
             new_fields = columns_dialog.get_show_fields()
             self.table.showFields = new_fields
             self.table.model.update_show_fields(new_fields)
@@ -529,7 +529,7 @@ class HistoryMainWidget(QWidget):
         dialog = ComputedColumnsDialog(
             self._computed_columns, self._db_path,
             self._custom_functions, self)
-        if dialog.exec_():
+        if dialog.exec():
             new_columns = dialog.get_columns()
             new_functions = dialog.get_custom_functions()
             self._custom_functions = new_functions

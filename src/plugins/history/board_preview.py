@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import json
 
-from PyQt5.QtCore import QPoint, QRect, QSize, Qt
-from PyQt5.QtGui import QColor, QFont, QPainter, QPen, QPolygon, QPaintEvent
-from PyQt5.QtWidgets import QApplication, QWidget
+from PySide6.QtCore import QPoint, QRect, QSize, Qt
+from PySide6.QtGui import QColor, QFont, QPainter, QPen, QPolygon, QPaintEvent
+from PySide6.QtWidgets import QApplication, QWidget
 
 # ── 格子编码（与 config/constants.py、BoardUpdateEvent 文档保持一致）──
 CELL_MINE = -1
@@ -113,9 +113,9 @@ class BoardPreviewPopup(QWidget):
     """只读局面预览浮窗（ToolTip 类型，不抢焦点、不接收鼠标操作）"""
 
     def __init__(self, parent=None):
-        super().__init__(parent, Qt.ToolTip | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setFocusPolicy(Qt.NoFocus)
+        super().__init__(parent, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._board: list[list[int]] = []
         self._cell_size = CELL_SIZE
         self._number_font = QFont()
@@ -167,9 +167,11 @@ class BoardPreviewPopup(QWidget):
         y = min(pos.y(), area.bottom() - self.height() + 1)
         # 右下角放不下时往左上让位，仍然尽量避开光标
         if x < area.left() + CURSOR_OFFSET.x():
-            x = max(area.left(), global_pos.x() - self.width() - CURSOR_OFFSET.x())
+            x = max(area.left(), global_pos.x() -
+                    self.width() - CURSOR_OFFSET.x())
         if y < area.top() + CURSOR_OFFSET.y():
-            y = max(area.top(), global_pos.y() - self.height() - CURSOR_OFFSET.y())
+            y = max(area.top(), global_pos.y() -
+                    self.height() - CURSOR_OFFSET.y())
         return QPoint(x, y)
 
     # ── 绘制 ──────────────────────────────────────────────
@@ -181,11 +183,12 @@ class BoardPreviewPopup(QWidget):
         cell = self._cell_size
         for r, row in enumerate(self._board):
             for c, value in enumerate(row):
-                rect = QRect(PADDING + c * cell, PADDING + r * cell, cell, cell)
+                rect = QRect(PADDING + c * cell, PADDING +
+                             r * cell, cell, cell)
                 self._draw_cell(painter, rect, value)
         # drawRect 会用当前画刷填充，这里必须先清掉画刷（否则会把整个画面刷成
         # 上一个格子残留的画刷颜色，例如雷高光的白色）
-        painter.setBrush(Qt.NoBrush)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(COLOR_BORDER))
         painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
         painter.end()
@@ -201,7 +204,7 @@ class BoardPreviewPopup(QWidget):
 
         # 已揭开：底衬 + 细网格线（drawRect 会填充画刷，务必置空）
         painter.fillRect(rect, COLOR_REVEALED)
-        painter.setBrush(Qt.NoBrush)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(COLOR_GRID))
         painter.drawRect(rect.adjusted(0, 0, -1, -1))
 
@@ -226,13 +229,13 @@ class BoardPreviewPopup(QWidget):
     def _draw_number(self, painter: QPainter, rect: QRect, value: int) -> None:
         painter.setFont(self._number_font)
         painter.setPen(QPen(NUMBER_COLORS.get(value, COLOR_MINE)))
-        painter.drawText(rect, Qt.AlignCenter, str(value))
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, str(value))
 
     def _draw_mine(self, painter: QPainter, rect: QRect) -> None:
         cell = rect.width()
         radius = max(1.0, cell * 0.30)
         center = rect.center()
-        painter.setPen(Qt.NoPen)
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(COLOR_MINE)
         painter.drawEllipse(center, int(radius), int(radius))
         # 高光小点，让小尺寸下也能看出是雷
@@ -253,7 +256,7 @@ class BoardPreviewPopup(QWidget):
         painter.drawLine(pole_x, top, pole_x, bottom)
         painter.drawLine(pole_x - int(cell * 0.18), bottom,
                          pole_x + int(cell * 0.18), bottom)
-        painter.setPen(Qt.NoPen)
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(COLOR_FLAG)
         painter.drawPolygon(QPolygon([
             QPoint(pole_x, top),

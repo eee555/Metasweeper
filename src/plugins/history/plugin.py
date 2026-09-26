@@ -20,8 +20,8 @@ from typing import Any
 from .db import db_connection, delete_record_tx, ensure_indexes
 
 import msgspec
-from PyQt5.QtCore import QCoreApplication, QThread, pyqtSignal
-from PyQt5.QtWidgets import QWidget
+from PySide6.QtCore import QCoreApplication, QThread, Signal
+from PySide6.QtWidgets import QWidget
 
 _translate = QCoreApplication.translate
 
@@ -181,7 +181,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     - 界面：提供筛选、分页、播放/导出功能
     - 服务：提供 HistoryService 接口供其他插件查询历史记录
     """
-    video_save_over = pyqtSignal()
+    video_save_over = Signal()
     _widget: HistoryMainWidget
 
     @classmethod
@@ -288,7 +288,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         self._init_db()
         self._cleanup_legacy_view()
         if hasattr(self, '_widget'):
-            self._widget.load_data()
+            self.run_on_gui(self._widget.load_data)
         self.register_service(self, protocol=HistoryService)
         self.logger.info("历史记录插件已初始化，HistoryService 已注册")
         # 后台静默压缩旧数据

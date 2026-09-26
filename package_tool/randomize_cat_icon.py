@@ -1,10 +1,10 @@
 import random
 import sys
 from io import BytesIO
-from PyQt5.QtCore import QByteArray, Qt, QRectF, QBuffer, QIODevice
-from PyQt5.QtGui import QImage, QPainter
-from PyQt5.QtSvg import QSvgRenderer
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtCore import QByteArray, Qt, QRectF, QBuffer, QIODevice
+from PySide6.QtGui import QImage, QPainter
+from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QApplication
 from PIL import Image
 from PyMCUlib import Hct, hex_from_argb
 

@@ -4,6 +4,23 @@ XianNiUpgrade - 修仙升级插件主体
 每局扫雷胜利后获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者，共100级。
 """
 from __future__ import annotations
+from . import distribution as _dist
+from .models import get_image_index
+from .widgets import XianNiUpgradeUI, RulesDialog
+from .config import (
+    XianNiUpgradeConfig,
+    DEFAULT_API_URL,
+    DEFAULT_IDENTIFIER,
+    VALIDATE_TIMEOUT_SEC,
+    api_url_transport_error,
+    resolve_api_url,
+)
+from plugins.services.saolei_website import SaoleiWebsiteService
+from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
+from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
+import ms_toollib as ms
+from Crypto.Random import get_random_bytes
+from Crypto.Cipher import AES
 
 import math
 import json
@@ -20,31 +37,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any
 
-from PyQt5.QtCore import QCoreApplication, QTimer, pyqtSignal
-from PyQt5.QtWidgets import QWidget, QMessageBox
+from PySide6.QtCore import QCoreApplication, QTimer, Signal, Slot
+from PySide6.QtWidgets import QWidget, QMessageBox
 
 _translate = QCoreApplication.translate
 
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-
-import ms_toollib as ms
-
-from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
-from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
-from plugins.services.saolei_website import SaoleiWebsiteService
-
-from .config import (
-    XianNiUpgradeConfig,
-    DEFAULT_API_URL,
-    DEFAULT_IDENTIFIER,
-    VALIDATE_TIMEOUT_SEC,
-    api_url_transport_error,
-    resolve_api_url,
-)
-from .widgets import XianNiUpgradeUI, RulesDialog
-from .models import get_image_index
-from . import distribution as _dist
 
 # 游戏设置默认玩家标识，站点与插件均拒绝以此上传
 _ANONYMOUS_IDENTIFIERS = frozenset({
@@ -60,7 +57,7 @@ _AUTO_UPLOAD_MAX_INTERVAL_SEC = 600
 _DIST_CUM: dict[str, list[int]] = {}
 for _prefix in ('beg', 'int', 'exp'):
     for _field in ('cell1', 'cell2', 'cell3', 'cell4', 'cell5', 'cell6',
-                    'cell7', 'cell8', 'bbbv', 'op', 'isl'):
+                   'cell7', 'cell8', 'bbbv', 'op', 'isl'):
         _key = f'{_prefix}_{_field}'
         _table = getattr(_dist, _key)
         _cum = 0
@@ -109,8 +106,6 @@ def _cum_prob(prefix: str, field: str, value: int) -> float:
 _ENCRYPT_KEY = b"f[{gr!%$%^65sr60"
 
 
-
-
 def _encrypt(data: bytes) -> bytes:
     nonce = get_random_bytes(12)
     cipher = AES.new(_ENCRYPT_KEY, AES.MODE_GCM, nonce=nonce)
@@ -139,7 +134,7 @@ def _total_xp(level: int) -> int:
 class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
     """修仙升级插件"""
 
-    _schedule_pending = pyqtSignal()
+    _schedule_pending = Signal()
 
     @classmethod
     def plugin_info(cls) -> PluginInfo:
@@ -147,7 +142,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             name="雷修境界",
             version="1.0.0",
             author="eee555",
-            description=_translate("Form", "仙逆背景的修炼体系 - 每局扫雷胜利获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者"),
+            description=_translate(
+                "Form", "仙逆背景的修炼体系 - 每局扫雷胜利获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者"),
             icon=make_plugin_icon("#8E24AA", "仙", 64),
             window_mode=WindowMode.TAB,
             other_info=XianNiUpgradeConfig,
@@ -162,7 +158,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self._ui = XianNiUpgradeUI()
         assets_path = Path(__file__).parent
         self._ui.set_image_dir(assets_path)
-        self._ui.set_absorb_callbacks(self.validate_replays, self.absorb_replays)
+        self._ui.set_absorb_callbacks(
+            self.validate_replays, self.absorb_replays)
         self._ui.set_save_callbacks(self.validate_save, self.absorb_save)
         self._ui.set_upload_callback(self.upload_ranking)
         self._ui.set_first_visible_callback(self._maybe_show_rules_dialog)
@@ -180,7 +177,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self._schedule_pending.connect(self._start_pending_timer)
         self._load_data()
         self._migrate_config_flags()
-        self._saolei_service = self.wait_for_service(SaoleiWebsiteService, timeout=10.0)
+        self._saolei_service = self.wait_for_service(
+            SaoleiWebsiteService, timeout=10.0)
         if self._saolei_service is None:
             self.logger.warning("SaoleiWebsiteService 未就绪，排行昵称将回退为游戏标识")
         self._push_ui_update()
@@ -200,7 +198,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             return
         changed = False
         if "rank_upload_guide_seen" in raw and "rules_dialog_seen" not in raw:
-            self.other_info.rules_dialog_seen = bool(raw["rank_upload_guide_seen"])
+            self.other_info.rules_dialog_seen = bool(
+                raw["rank_upload_guide_seen"])
             changed = True
         if "display_name" in raw:
             changed = True
@@ -327,7 +326,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         long_side = max(row, column)
         short_side = min(row, column)
         if mine_num / cells <= 0.8 and mode in (0, 4, 7) or mine_num / cells <= 0.3 and mode in (5, 6):
-            exp_b = k * (1.08 ** (mine_num / cells * 341.0)) * short_side ** 1.2 * long_side ** 1.6 / 17411.0
+            exp_b = k * (1.08 ** (mine_num / cells * 341.0)) * \
+                short_side ** 1.2 * long_side ** 1.6 / 17411.0
         else:
             exp_b = 0
 
@@ -342,7 +342,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             # 稀有局面
             rare_sum = 0.0
             for field, val in (
-                ('bbbv', bbbv), ('op', op), ('isl', isl), ('cell1', cell1), ('cell2', cell2), ('cell3', cell3), ('cell4', cell4), ('cell5', cell5),
+                ('bbbv', bbbv), ('op', op), ('isl', isl), ('cell1', cell1), ('cell2',
+                                                                             cell2), ('cell3', cell3), ('cell4', cell4), ('cell5', cell5),
                 ('cell6', cell6), ('cell7', cell7), ('cell8', cell8),
             ):
                 p = _cum_prob(prefix, field, val)
@@ -382,11 +383,10 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                     else:
                         exp_e = 1 * ioe ** 20
 
-
         total = int(exp_b + exp_r + exp_t + exp_e)
         total = min(total, 99999)  # 上限经验值，防止极端局面
         # self.logger.info(f"经验计算: 基础 {exp_b:.2f} + 稀有 {exp_r:.2f} + 竞速 {exp_t:.2f} = {total}")
-        
+
         return total
 
     # ═══════════════════════════════════════════════════════════
@@ -404,7 +404,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                     self._players = data["players"]
                     self._history = data.get("history", [])
                     self._current_pid = data.get("current_pid", 0)
-                    self._imported = set(tuple(v) for v in data.get("imported_videos", []))
+                    self._imported = set(tuple(v)
+                                         for v in data.get("imported_videos", []))
                     self.logger.info(f"已加载存档，{len(self._identifiers)} 个玩家")
                     return
                 self.logger.info("旧存档格式，忽略")
@@ -647,7 +648,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         for idents, history in zip(old_idents, old_histories):
             for h in history:
                 old_pid = h.get("pid", 0)
-                identifier = idents[old_pid] if 0 <= old_pid < len(idents) else None
+                identifier = idents[old_pid] if 0 <= old_pid < len(
+                    idents) else None
                 if identifier is None:
                     continue
                 try:
@@ -667,7 +669,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
 
         # 第四步：合并已导入录像集
         for data in preview["files"]:
-            self._imported.update(tuple(v) for v in data.get("imported_videos", []))
+            self._imported.update(tuple(v)
+                                  for v in data.get("imported_videos", []))
 
         self._save_data()
         self._push_ui_update()
@@ -747,6 +750,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         interval = _AUTO_UPLOAD_MIN_INTERVAL_SEC * (2 ** min(max(fails, 0), 3))
         return float(min(interval, _AUTO_UPLOAD_MAX_INTERVAL_SEC))
 
+    @Slot()
     def _start_pending_timer(self) -> None:
         if not getattr(self, "_pending_upload", False):
             return
@@ -755,7 +759,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             return
         last = getattr(self, "_last_upload_attempt", 0.0)
         elapsed = time.monotonic() - last if last > 0 else self._auto_upload_interval()
-        remaining_ms = max(0, int((self._auto_upload_interval() - elapsed) * 1000))
+        remaining_ms = max(
+            0, int((self._auto_upload_interval() - elapsed) * 1000))
         timer.start(remaining_ms)
 
     def _on_pending_upload_timeout(self) -> None:
@@ -856,7 +861,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             self.logger.error(f"准备上传排行失败: {e}", exc_info=True)
             if silent:
                 self._upload_in_progress = False
-                self._auto_upload_fail_count = getattr(self, "_auto_upload_fail_count", 0) + 1
+                self._auto_upload_fail_count = getattr(
+                    self, "_auto_upload_fail_count", 0) + 1
                 self._schedule_pending_after_result()
                 return
             self.run_on_gui(
@@ -903,7 +909,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                 self.run_on_gui(
                     self._show_upload_result,
                     False,
-                    _translate("Form", "上传失败（HTTP %1）").replace("%1", str(status)),
+                    _translate("Form", "上传失败（HTTP %1）").replace(
+                        "%1", str(status)),
                     silent,
                 )
         except urllib.error.HTTPError as e:
@@ -923,7 +930,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         except urllib.error.URLError as e:
             reason = e.reason
             timed_out = isinstance(reason, TimeoutError) or (
-                isinstance(reason, OSError) and "timed out" in str(reason).lower()
+                isinstance(reason, OSError) and "timed out" in str(
+                    reason).lower()
             )
             if timed_out:
                 self.logger.warning("排行上传超时")
@@ -956,7 +964,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             try:
                 parsed = json.loads(body)
                 if isinstance(parsed, dict):
-                    err = str(parsed.get("error") or parsed.get("detail") or "")
+                    err = str(parsed.get("error")
+                              or parsed.get("detail") or "")
                     if parsed.get("error_code") == 1010 or parsed.get("error_name") == "browser_signature_banned":
                         return _translate(
                             "Form",
@@ -994,7 +1003,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         if success:
             self._auto_upload_fail_count = 0
         elif silent:
-            self._auto_upload_fail_count = getattr(self, "_auto_upload_fail_count", 0) + 1
+            self._auto_upload_fail_count = getattr(
+                self, "_auto_upload_fail_count", 0) + 1
         self._schedule_pending_after_result()
 
         if silent:
@@ -1110,7 +1120,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self.run_on_gui(self._show_rules_dialog)
 
     def _show_rules_dialog(self) -> None:
-        """在 GUI 主线程执行模态天地法则；勿在 showEvent 调用栈内同步 exec_()。"""
+        """在 GUI 主线程执行模态天地法则；勿在 showEvent 调用栈内同步 exec()。"""
         if not self.other_info or self.other_info.rules_dialog_seen:
             return
         if getattr(self, "_guide_dialog_open", False):
@@ -1120,12 +1130,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             return
         self._guide_dialog_open = True
         try:
-            RulesDialog(parent=ui).exec_()
+            RulesDialog(parent=ui).exec()
             self.other_info.rules_dialog_seen = True
             self.save_config()
         finally:
             self._guide_dialog_open = False
-
-
-
-

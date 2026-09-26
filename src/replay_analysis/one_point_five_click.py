@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, Tuple
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from .core import (
     ReplayEvent,
@@ -90,7 +90,8 @@ class OnePointFiveClickEventManager(ReplayEventManager):
         right_press = self.actions[-2]
         if right_press[2] != "rc":
             return None
-        previous_record_before_right = self.actions[-3][1] if len(self.actions) >= 3 else None
+        previous_record_before_right = self.actions[-3][1] if len(
+            self.actions) >= 3 else None
         if not _counter_increased(previous_record_before_right, right_press[1], "rce"):
             return None
 

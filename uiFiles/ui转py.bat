@@ -1,15 +1,28 @@
 @echo off
-pyuic5 -o ui_gameSettingShortcuts.py ui_gs_shortcuts.ui
-pyuic5 -o ui_gameSettings.py ui_gs.ui
-pyuic5 -o ui_defined_parameter.py ui_defined_parameter.ui
-pyuic5 -o ui_main_board.py main_board.ui
-pyuic5 -o ui_mine_num_bar.py ui_mine_num_bar.ui
-pyuic5 -o ui_video_control.py ui_video_control.ui
-pyuic5 -o ui_score_board.py ui_score_board.ui
-pyuic5 -o ui_advanced.py ui_advanced.ui
-pyuic5 -o ui_about.py ui_about.ui
-pyuic5 -o ui_record_pop.py ui_record_pop.ui
-pyuic5 -o ui_import.py ui_import.ui
+setlocal
+pushd "%~dp0"
+pyside6-uic -o ui_gameSettingShortcuts.py ui_gs_shortcuts.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_gameSettings.py ui_gs.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_defined_parameter.py ui_defined_parameter.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_main_board.py main_board.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_mine_num_bar.py ui_mine_num_bar.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_video_control.py ui_video_control.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_score_board.py ui_score_board.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_advanced.py ui_advanced.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_about.py ui_about.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_record_pop.py ui_record_pop.ui
+if errorlevel 1 goto failed
+pyside6-uic -o ui_import.py ui_import.ui
+if errorlevel 1 goto failed
 
 copy /y ui_advanced.py ..\src\ui\ui_advanced.py
 copy /y ui_score_board.py ..\src\ui\ui_score_board.py
@@ -23,4 +36,10 @@ copy /y ui_about.py ..\src\ui\ui_about.py
 copy /y ui_video_control.py ..\src\ui\ui_video_control.py
 copy /y ui_import.py ..\src\ui\ui_import.py
 
-pause
+popd
+if /i not "%~1"=="--no-pause" pause
+exit /b 0
+
+:failed
+popd
+exit /b 1

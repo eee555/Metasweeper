@@ -12,9 +12,9 @@ import loguru
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt5.QtCore import Qt, QCoreApplication, pyqtSignal, QPoint, QTimer, QEvent
-from PyQt5.QtGui import QColor, QMouseEvent, QIcon, QPixmap
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QTimer, QEvent
+from PySide6.QtGui import QColor, QMouseEvent, QIcon, QPixmap
+from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
@@ -95,7 +95,7 @@ class DetachedPluginWindow(QDialog):
     """
 
     # 信号：窗口被用户关闭，请求将 widget 嵌回标签页
-    embed_requested = pyqtSignal(str)
+    embed_requested = Signal(str)
 
     def __init__(self, plugin_name: str, widget: QWidget, parent=None):
         super().__init__(parent)
@@ -166,7 +166,7 @@ class DetachedPluginWindow(QDialog):
 class _DetachableTabBar(QTabBar):
     """支持拖拽弹出的标签栏"""
 
-    drag_initiated = pyqtSignal(int, str, QPoint)  # index, name, global_pos
+    drag_initiated = Signal(int, str, QPoint)  # index, name, global_pos
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -216,9 +216,9 @@ class DetachableTabWidget(QTabWidget):
     - 关闭独立窗口 → 自动嵌回
     """
 
-    tab_detached = pyqtSignal(str)           # 标签页被弹出 (plugin_name)
-    tab_attach_requested = pyqtSignal(str)    # 请求嵌回 (plugin_name)
-    tab_close_requested = pyqtSignal(str)     # 请求关闭标签页 (plugin_name)
+    tab_detached = Signal(str)           # 标签页被弹出 (plugin_name)
+    tab_attach_requested = Signal(str)    # 请求嵌回 (plugin_name)
+    tab_close_requested = Signal(str)     # 请求关闭标签页 (plugin_name)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -592,7 +592,7 @@ class BasicSettingsDialog(QDialog):
     """
 
     # 设置变更信号
-    settings_changed = pyqtSignal()
+    settings_changed = Signal()
 
     def __init__(self, settings_manager: "SettingsManager", parent=None) -> None:
         super().__init__(parent)
@@ -708,7 +708,7 @@ class LogViewerDialog(QDialog):
     """
 
     # 日志信号: time_str, level, source, message
-    _log_signal = pyqtSignal(str, str, str, str)
+    _log_signal = Signal(str, str, str, str)
 
     # 支持的日志等级
     LOG_LEVELS = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -1135,8 +1135,8 @@ class _PluginReadmeDialog(ConfirmDialog):
         self.resize(720, 520)
 
     def _create_content(self) -> QLayout:
-        from PyQt5.QtWidgets import QTextBrowser
-        from PyQt5.QtGui import QFont, QPalette, QColor
+        from PySide6.QtWidgets import QTextBrowser
+        from PySide6.QtGui import QFont, QPalette, QColor
 
         layout = QVBoxLayout()
         if not self._content:
@@ -1170,14 +1170,15 @@ class _PluginReadmeDialog(ConfirmDialog):
 class PluginManagerWindow(QMainWindow):
     """插件管理器主窗口"""
 
-    connection_changed = pyqtSignal(bool)
-    _show_requested = pyqtSignal()
+    connection_changed = Signal(bool)
+    _show_requested = Signal()
 
     def __init__(self, plugin_manager: PluginManager, parent=None):
         super().__init__(parent)
 
         self._manager = plugin_manager
-        self._show_requested.connect(self.show_and_raise)
+        self._show_requested.connect(
+            self.show_and_raise, Qt.ConnectionType.QueuedConnection)
 
         # 状态持久化
         self._state_mgr = PluginStateManager(
@@ -1199,7 +1200,8 @@ class PluginManagerWindow(QMainWindow):
 
         # 连接所有插件的 ready 信号，就绪后自动刷新列表
         for p in self._manager.plugins.values():
-            p.ready.connect(lambda _p=p: self._on_plugin_ready(_p))
+            p.ready.connect(self._on_plugin_ready,
+                            Qt.ConnectionType.QueuedConnection)
 
         self._refresh_plugin_list()
 
@@ -1218,7 +1220,8 @@ class PluginManagerWindow(QMainWindow):
         # 选项菜单
         self._menu_options = menubar.addMenu(self.tr("选项"))
 
-        self._act_download_plugin = self._menu_options.addAction(self.tr("下载插件..."))
+        self._act_download_plugin = self._menu_options.addAction(
+            self.tr("下载插件..."))
         self._act_download_plugin.triggered.connect(self._open_download_plugin)
 
         # 设置子菜单
@@ -1385,7 +1388,7 @@ class PluginManagerWindow(QMainWindow):
 
     def _open_download_plugin(self) -> None:
         dialog = PluginDownloadDialog(self)
-        dialog.exec_()
+        dialog.exec()
         dialog.deleteLater()
 
     @staticmethod
@@ -1393,7 +1396,7 @@ class PluginManagerWindow(QMainWindow):
         """生成一个简单的托盘图标（蓝色圆形 + 插件符号）"""
         pix = QPixmap(64, 64)
         pix.fill(Qt.transparent)
-        from PyQt5.QtGui import QPainter, QPen, QColor, QBrush, QFont
+        from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QFont
         p = QPainter(pix)
         p.setRenderHint(QPainter.Antialiasing)
         # 蓝色圆形背景
@@ -1410,12 +1413,15 @@ class PluginManagerWindow(QMainWindow):
         p.end()
         return QIcon(pix)
 
+    @Slot()
     def show_and_raise(self) -> None:
         """显示主窗口并置顶"""
-        if not self.isVisible():
+        if self.isMinimized():
+            self.showNormal()
+        elif not self.isVisible():
             self.show()
-        self.activateWindow()
         self.raise_()
+        self.activateWindow()
 
     def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """托盘图标被双击时恢复窗口"""
@@ -1435,8 +1441,8 @@ class PluginManagerWindow(QMainWindow):
 
     def _open_dev_guide(self) -> None:
         """用 Qt 控件打开插件开发指南文档"""
-        from PyQt5.QtWidgets import QTextBrowser
-        from PyQt5.QtGui import QFont, QPalette, QColor
+        from PySide6.QtWidgets import QTextBrowser
+        from PySide6.QtGui import QFont, QPalette, QColor
         from .app_paths import get_executable_dir
 
         # 获取 plugin-dev-tutorial.md 的路径
@@ -1496,7 +1502,7 @@ class PluginManagerWindow(QMainWindow):
         btn_box.rejected.connect(dlg.close)
         layout.addWidget(btn_box)
 
-        dlg.exec_()
+        dlg.exec()
 
     def _connect_signals(self) -> None:
         self._refresh_btn.clicked.connect(self._refresh_plugin_list)
@@ -1512,7 +1518,7 @@ class PluginManagerWindow(QMainWindow):
         """打开基础设置对话框"""
         dialog = BasicSettingsDialog(self._settings_mgr, self)
         dialog.settings_changed.connect(self._on_settings_changed)
-        dialog.exec_()
+        dialog.exec()
 
     def _on_settings_changed(self) -> None:
         """设置变更后的回调"""
@@ -1564,7 +1570,7 @@ class PluginManagerWindow(QMainWindow):
                     plugin_controls[p.name] = required
 
         dialog = ControlAuthorizationDialog(plugin_controls, self)
-        dialog.exec_()
+        dialog.exec()
 
     # ── 连接状态 ────────────────────────────────────────
 
@@ -1622,6 +1628,7 @@ class PluginManagerWindow(QMainWindow):
 
     # ── 插件列表 ────────────────────────────────────────
 
+    @Slot(object)
     def _on_plugin_ready(self, plugin) -> None:
         """插件初始化完成，刷新列表显示"""
         self._refresh_plugin_list()
@@ -1776,7 +1783,7 @@ class PluginManagerWindow(QMainWindow):
         act_settings.triggered.connect(
             lambda: self._open_plugin_settings(name))
 
-        menu.exec_(self._list.viewport().mapToGlobal(pos))
+        menu.exec(self._list.viewport().mapToGlobal(pos))
 
     def _authorize_plugin_controls(self, name: str) -> None:
         """一键授权：将插件声明的所有控制权限授权给它"""
@@ -1893,7 +1900,7 @@ class PluginManagerWindow(QMainWindow):
             return
 
         dlg = _PluginReadmeDialog(name, text, parent=self)
-        dlg.exec_()
+        dlg.exec()
 
     def _open_plugin_info(self, name: str) -> None:
         """打开插件详情对话框（只读展示订阅/权限信息）"""
@@ -1902,7 +1909,7 @@ class PluginManagerWindow(QMainWindow):
             return
 
         dlg = PluginInfoDialog(plugin, parent=self)
-        dlg.exec_()
+        dlg.exec()
 
     def _open_plugin_settings(self, name: str) -> None:
         """打开插件设置对话框"""
@@ -1913,7 +1920,7 @@ class PluginManagerWindow(QMainWindow):
 
         dlg = PluginSettingsDialog(
             name, current, other_info, parent=self, plugin=plugin)
-        if dlg.exec_() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             new_state = dlg.result_state
             self._state_mgr.set(name, new_state)
             self._state_mgr.save()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Iterable, Iterator, Tuple
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from config.constants import CELL_UNOPENED
 

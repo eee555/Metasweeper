@@ -48,7 +48,8 @@ def test_api_url_requires_https_except_loopback():
 def test_health_payload_requires_service_field():
     assert not is_rank_health_payload({"ok": True})
     assert not is_rank_health_payload({"ok": True, "service": "other"})
-    assert not is_rank_health_payload({"ok": "true", "service": HEALTH_SERVICE})
+    assert not is_rank_health_payload(
+        {"ok": "true", "service": HEALTH_SERVICE})
     assert is_rank_health_payload({"ok": True, "service": HEALTH_SERVICE})
 
 
@@ -85,7 +86,7 @@ def test_maybe_show_rules_dialog_skips_when_seen():
         def __init__(self, parent=None):
             called["dialog"] = True
 
-        def exec_(self):
+        def exec(self):
             return 1
 
     plugin.save_config = lambda: called.__setitem__("save", True)
@@ -118,7 +119,7 @@ def test_maybe_show_rules_dialog_shows_once_and_marks_seen():
         def __init__(self, parent=None):
             called["dialog"] += 1
 
-        def exec_(self):
+        def exec(self):
             return 1
 
     plugin.save_config = lambda: called.__setitem__("save", True)

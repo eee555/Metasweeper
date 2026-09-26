@@ -42,7 +42,7 @@ Powered by the `ms_toollib` toolbox, Meta Minesweeper’s core strength comes fr
 
 Designed for strong performance, safety, and tooling friendliness.
 
-* **Python / PyQt5 + Rust hybrid architecture**
+* **Python / PySide6 (Qt 6) + Rust hybrid architecture**
 
   * Python handles UI and ecosystem extensions.
   * Rust provides high-performance, memory-safe core computation.

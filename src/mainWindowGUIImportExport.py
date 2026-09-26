@@ -2,18 +2,19 @@
 from mineSweeperVideoPlayer import MineSweeperVideoPlayer
 from mainWindowGUI import MainWindow
 
-from PyQt5.QtCore import QTimer, QCoreApplication, Qt, QRect, QUrl
+from PySide6.QtCore import QTimer, QCoreApplication, Qt, QRect, QUrl
 import utils
 import ms_toollib as ms
 import hashlib
 import subprocess
-import json, re
+import json
+import re
 from pathlib import Path
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 import csv
 from datetime import datetime
-from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QApplication
 from mainWindowGUI import MainWindow
 from ui.ui_import import Ui_Form as Ui_Import
 from ui.uiComponents import RoundQDialog
@@ -27,20 +28,26 @@ _KNOWN_IMPORT_MD5S = {
 }
 
 # 主进程中导入导出各种格式的逻辑
+
+
 class MainWindowGUIImportExport(MineSweeperVideoPlayer):
     def __init__(self, MainWindow: MainWindow, args):
         super(MainWindowGUIImportExport, self).__init__(MainWindow, args)
 
         self.action_stats_csv.triggered.connect(lambda: self._export_csv())
-        self.action_textstats_csv.triggered.connect(lambda: self._export_csv(True))
+        self.action_textstats_csv.triggered.connect(
+            lambda: self._export_csv(True))
         self.action_meta_dat.triggered.connect(lambda: self._export_meta_dat())
-        self.action_meta_all_dat.triggered.connect(lambda: self._export_meta_dat(True))
+        self.action_meta_all_dat.triggered.connect(
+            lambda: self._export_meta_dat(True))
         self.action_import_3_2_2.triggered.connect(self._import_replays)
         self.action_import_dat.triggered.connect(self._import_stat_dat)
 
         self.action_copy_array.triggered.connect(lambda: self._copy_board(0))
-        self.action_copy_board_file_ascii.triggered.connect(lambda: self._copy_board(2, "ascii"))
-        self.action_copy_board_file_emoji.triggered.connect(lambda: self._copy_board(2, "emoji"))
+        self.action_copy_board_file_ascii.triggered.connect(
+            lambda: self._copy_board(2, "ascii"))
+        self.action_copy_board_file_emoji.triggered.connect(
+            lambda: self._copy_board(2, "emoji"))
         self.action_copy_image_png.triggered.connect(self._copy_board_image)
         self.action_copy_image_svg.triggered.connect(self._copy_board_svg)
 
@@ -78,10 +85,11 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
     def _copy_board_image(self):
         if self.game_state in ("playing", "ready"):
             return
-        import tempfile, os
-        from PyQt5.QtCore import QMimeData, QUrl
-        from PyQt5.QtGui import QPixmap, QPainter
-        from PyQt5.QtWidgets import QApplication
+        import tempfile
+        import os
+        from PySide6.QtCore import QMimeData, QUrl
+        from PySide6.QtGui import QPixmap, QPainter
+        from PySide6.QtWidgets import QApplication
         pixmap = QPixmap(self.centralwidget.size())
         pixmap.fill(self.centralwidget.palette().window().color())
         painter = QPainter(pixmap)
@@ -97,11 +105,12 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
     def _copy_board_svg(self):
         if self.game_state in ("playing", "ready"):
             return
-        import tempfile, os
-        from PyQt5.QtCore import QBuffer, QUrl, QRectF, QMimeData, QPoint
-        from PyQt5.QtSvg import QSvgGenerator, QSvgRenderer
-        from PyQt5.QtGui import QPainter, QPixmap
-        from PyQt5.QtWidgets import QApplication
+        import tempfile
+        import os
+        from PySide6.QtCore import QBuffer, QUrl, QRectF, QMimeData, QPoint
+        from PySide6.QtSvg import QSvgGenerator, QSvgRenderer
+        from PySide6.QtGui import QPainter, QPixmap
+        from PySide6.QtWidgets import QApplication
         label = self.label
         pix_size = label.pixSize
         game_board = label.ms_board.game_board
@@ -127,7 +136,8 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         gen.setSize(self.centralwidget.size())
         gen.setViewBox(self.centralwidget.rect())
         painter = QPainter(gen)
-        painter.fillRect(self.centralwidget.rect(), self.centralwidget.palette().window())
+        painter.fillRect(self.centralwidget.rect(),
+                         self.centralwidget.palette().window())
         self.centralwidget.render(painter)
         for i in range(rows):
             for j in range(cols):
@@ -163,7 +173,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         """导入其他版本录像"""
         dialog = ImportDialog(self.mainWindow)
         dialog.set_import_callback(self._import_workflow)
-        dialog.exec_()
+        dialog.exec()
 
     def _import_workflow(self, exe_path: str, replay_path: str,
                          progress_bar, label) -> bool:
@@ -225,14 +235,17 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                           .replace("{cur}", str(cur)).replace("{total}", str(total)))
             QApplication.processEvents()
 
-        count = self._do_import_replays(preview, progress_callback=on_write_progress)
+        count = self._do_import_replays(
+            preview, progress_callback=on_write_progress)
 
         label.setText(_translate("Form", "完成！"))
         progress_bar.setValue(progress_bar.maximum())
         QApplication.processEvents()
 
-        msg = _translate("MainWindow", "成功导入 {n} 条录像").replace("{n}", str(count))
-        QMessageBox.information(self.mainWindow, _translate("MainWindow", "导入成功"), msg)
+        msg = _translate("MainWindow", "成功导入 {n} 条录像").replace(
+            "{n}", str(count))
+        QMessageBox.information(
+            self.mainWindow, _translate("MainWindow", "导入成功"), msg)
         return True
 
     def _validate_with_exe(self, exe: Path, replay_path: str,
@@ -320,7 +333,6 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         except Exception:
             return None
 
-
     def _do_import_replays(self, preview: dict, progress_callback: callable = None) -> int:
         """将验证通过的录像写入 stats.dat，返回成功条数"""
         entries = preview["entries"]
@@ -349,8 +361,6 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
 
         return count
 
-
-
     # ═══════════════════════════════════════════════════════════
     # 导入 stats.dat（从旧版本导入记录合并到当前 stats.dat）
     # ═══════════════════════════════════════════════════════════
@@ -367,7 +377,8 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
 
         old_path = Path(file_path)
         if old_path == self.setting_path / "stats.dat":
-            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导入失败"), _translate("MainWindow", "不能导入当前正在使用的 stats.dat"))
+            QMessageBox.warning(self.mainWindow, _translate(
+                "MainWindow", "导入失败"), _translate("MainWindow", "不能导入当前正在使用的 stats.dat"))
             return
 
         records = self._read_dat_records(old_path)
@@ -375,7 +386,8 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             return
 
         if not records:
-            QMessageBox.information(self.mainWindow, _translate("MainWindow", "导入"), _translate("MainWindow", "旧版 stats.dat 中没有有效记录"))
+            QMessageBox.information(self.mainWindow, _translate(
+                "MainWindow", "导入"), _translate("MainWindow", "旧版 stats.dat 中没有有效记录"))
             return
 
         existing_md5s = self._read_stats_dat_short_md5s()
@@ -388,10 +400,13 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
 
         count = self._do_import_entries(new_records)
 
-        msg = _translate("MainWindow", "成功导入 {n} 条记录").replace("{n}", str(count))
+        msg = _translate("MainWindow", "成功导入 {n} 条记录").replace(
+            "{n}", str(count))
         if len(records) != len(new_records):
-            msg += _translate("MainWindow", "，跳过 {n} 条重复").replace("{n}", str(len(records) - len(new_records)))
-        QMessageBox.information(self.mainWindow, _translate("MainWindow", "导入成功"), msg)
+            msg += _translate("MainWindow", "，跳过 {n} 条重复").replace(
+                "{n}", str(len(records) - len(new_records)))
+        QMessageBox.information(
+            self.mainWindow, _translate("MainWindow", "导入成功"), msg)
 
     def _read_dat_records(self, path: Path) -> list | None:
         """读取 stats.dat 所有记录，根据版本号派发；返回 None 表示版本不支持"""
@@ -462,28 +477,30 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             count += 1
         return count
 
-
     def _export_csv(self, all=False):
         '''
         # 导出 Arbiter Stats CSV，只导出胜利、标准、正式、公平、非自定义的记录
         '''
         dat_path = self.setting_path / 'stats.dat'
         if not dat_path.exists() or dat_path.stat().st_size == 0:
-            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导出失败"), _translate("MainWindow", "stats.dat 不存在或为空"))
+            QMessageBox.warning(self.mainWindow, _translate(
+                "MainWindow", "导出失败"), _translate("MainWindow", "stats.dat 不存在或为空"))
             return
 
         safe_name = re.sub(r'[\\/:*?"<>|] ', '_', self.player_identifier)
         if all:
             default_name = f"{safe_name}_textstats.csv"
             save_path, _ = QFileDialog.getSaveFileName(
-                self.mainWindow, _translate("MainWindow", "导出 Arbiter Textstats CSV（全部）"),
+                self.mainWindow, _translate(
+                    "MainWindow", "导出 Arbiter Textstats CSV（全部）"),
                 str(self.setting_path / default_name),
                 _translate("MainWindow", "Textstats CSV 文件 (*.csv)")
             )
         else:
             default_name = f"{safe_name}_stats.csv"
             save_path, _ = QFileDialog.getSaveFileName(
-                self.mainWindow, _translate("MainWindow", "导出 Arbiter Stats CSV"),
+                self.mainWindow, _translate(
+                    "MainWindow", "导出 Arbiter Stats CSV"),
                 str(self.setting_path / default_name),
                 _translate("MainWindow", "Stats CSV 文件 (*.csv)")
             )
@@ -507,14 +524,16 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 ciphertext = blob[28:]
 
                 try:
-                    cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
+                    cipher = AES.new(superGUI.STATS_DAT_KEY,
+                                     AES.MODE_GCM, nonce=nonce)
                     plaintext = cipher.decrypt_and_verify(ciphertext, tag)
                     records.append(utils.StatsRecord.decode(plaintext))
                 except Exception:
                     continue
 
         if not records:
-            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导出失败"), _translate("MainWindow", "未找到有效的记录"))
+            QMessageBox.warning(self.mainWindow, _translate(
+                "MainWindow", "导出失败"), _translate("MainWindow", "未找到有效的记录"))
             return
 
         if all:
@@ -529,7 +548,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         with open(save_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(headers)
-            
+
             record_num = 0
             for rec in records:
                 if not rec.is_fair:
@@ -551,27 +570,31 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 if not all and mode == "CUS":
                     continue  # 非标准模式不导出
 
-                dt = datetime.fromtimestamp(rec.start_time / 1_000_000 + rec.rtime_ms / 1000.0)
+                dt = datetime.fromtimestamp(
+                    rec.start_time / 1_000_000 + rec.rtime_ms / 1000.0)
 
                 style = "NF" if rec.rce == 0 else "Flag"
-                list_board = utils.board_bytes_to_board(rec.row, rec.column, rec.board_bytes)
+                list_board = utils.board_bytes_to_board(
+                    rec.row, rec.column, rec.board_bytes)
                 board = ms.Board(list_board)
 
                 if all:
                     # 标准0、win74、经典无猜5、强无猜6、弱无猜7、准无猜8、强可猜9、弱可猜10
-                    game_mode = ["classic", "", "", "", "win7", "classic no guess", "strict no guess", "weak no guess", "blessing no guess", "guessable no guess", "lucky mode"][rec.mode]
+                    game_mode = ["classic", "", "", "", "win7", "classic no guess", "strict no guess",
+                                 "weak no guess", "blessing no guess", "guessable no guess", "lucky mode"][rec.mode]
 
                 if all:
                     writer.writerow([
                         game_mode, "win" if rec.game_state == 6 else "blast", dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second,
-                        mode, rec.column, rec.row, rec.mine_num, rec.rtime_ms / 1000.0, rec.bbbv_solved, rec.bbbv, rec.zini, board.hzini,
+                        mode, rec.column, rec.row, rec.mine_num, rec.rtime_ms /
+                        1000.0, rec.bbbv_solved, rec.bbbv, rec.zini, board.hzini,
                         board.op, board.isl, rec.left, rec.right, rec.double, rec.lce, rec.rce, rec.dce, rec.path, board.cell1, board.cell2, board.cell3, board.cell4, board.cell5, board.cell6, board.cell7, board.cell8
                     ])
                 else:
                     writer.writerow([
                         dt.day, dt.month, dt.year, dt.hour, dt.minute, dt.second,
                         mode, rec.rtime_ms / 1000.0, rec.bbbv, rec.bbbv_solved, style,
-                        board.cell0, board.cell1, board.cell2, board.cell3, board.cell4, 
+                        board.cell0, board.cell1, board.cell2, board.cell3, board.cell4,
                         board.cell5, board.cell6, board.cell7, board.cell8,
                         rec.left, rec.right, rec.double,
                         rec.lce, rec.rce, rec.dce,
@@ -582,10 +605,11 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         QMessageBox.information(self.mainWindow, _translate("MainWindow", "导出成功"),
                                 _translate("MainWindow", "已导出 {n} 条记录到\n{path}").replace("{n}", str(record_num)).replace("{path}", save_path))
 
-    def _export_meta_dat(self, all = False):
+    def _export_meta_dat(self, all=False):
         dat_path = self.setting_path / 'stats.dat'
         if not dat_path.exists() or dat_path.stat().st_size == 0:
-            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导出失败"), _translate("MainWindow", "stats.dat 不存在或为空"))
+            QMessageBox.warning(self.mainWindow, _translate(
+                "MainWindow", "导出失败"), _translate("MainWindow", "stats.dat 不存在或为空"))
             return
 
         safe_name = self.player_identifier.replace(' ', '_')
@@ -623,14 +647,16 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 ciphertext = blob[28:]
 
                 try:
-                    cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
+                    cipher = AES.new(superGUI.STATS_DAT_KEY,
+                                     AES.MODE_GCM, nonce=nonce)
                     plaintext = cipher.decrypt_and_verify(ciphertext, tag)
                     records.append(utils.StatsRecord.decode(plaintext))
                 except Exception:
                     continue
 
         if not records:
-            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导出失败"), _translate("MainWindow", "未找到有效的记录"))
+            QMessageBox.warning(self.mainWindow, _translate(
+                "MainWindow", "导出失败"), _translate("MainWindow", "未找到有效的记录"))
             return
 
         if not all:
@@ -638,25 +664,26 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         else:
             export_records = records
         if not export_records:
-            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导出失败"), _translate("MainWindow", "未找到记录"))
+            QMessageBox.warning(self.mainWindow, _translate(
+                "MainWindow", "导出失败"), _translate("MainWindow", "未找到记录"))
             return
 
         with open(save_path, 'wb') as f:
             for record in export_records:
                 binary_data = record.encode()
                 nonce = get_random_bytes(12)
-                cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
+                cipher = AES.new(superGUI.STATS_DAT_KEY,
+                                 AES.MODE_GCM, nonce=nonce)
                 ciphertext, tag = cipher.encrypt_and_digest(binary_data)
                 blob = nonce + tag + ciphertext
                 blob_length = len(blob)
-                len_bytes = blob_length.to_bytes(2, byteorder="big", signed=False)
+                len_bytes = blob_length.to_bytes(
+                    2, byteorder="big", signed=False)
                 f.write(len_bytes)
                 f.write(blob)
 
         QMessageBox.information(self.mainWindow, _translate("MainWindow", "导出成功"),
                                 _translate("MainWindow", "已导出 {n} 条记录到\n{path}").replace("{n}", str(len(export_records))).replace("{path}", save_path))
-
-
 
 
 class ImportDialog(Ui_Import):
@@ -667,7 +694,8 @@ class ImportDialog(Ui_Import):
         self.setupUi(self.Dialog)
         self.pushButton_browse_exe.clicked.connect(self._browse_exe)
         self.pushButton_browse_file.clicked.connect(self._browse_replay_file)
-        self.pushButton_browse_folder.clicked.connect(self._browse_replay_folder)
+        self.pushButton_browse_folder.clicked.connect(
+            self._browse_replay_folder)
         self.pushButton_ok.clicked.connect(self._on_ok)
         self.pushButton_cancel.clicked.connect(self.Dialog.close)
         self._callback = None
@@ -714,10 +742,11 @@ class ImportDialog(Ui_Import):
         self.pushButton_cancel.setEnabled(False)
         self.progressBar.setVisible(True)
         self.label_progress.setVisible(True)
-        from PyQt5.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
         QApplication.processEvents()
-        self._callback(exe_path, replay_path, self.progressBar, self.label_progress)
+        self._callback(exe_path, replay_path,
+                       self.progressBar, self.label_progress)
         self.Dialog.close()
 
-    def exec_(self):
-        return self.Dialog.exec_()
+    def exec(self):
+        return self.Dialog.exec()

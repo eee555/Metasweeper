@@ -7,8 +7,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import cast
 
-from PyQt5.QtCore import Qt, QCoreApplication, QTimer
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt, QCoreApplication, QTimer
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QMenu,
     QTableView,
@@ -204,7 +204,7 @@ class FilterDialog(ConfirmDialog):
                 self.table.currentIndex().row())
         )
         menu.addAction(_translate("Form", "删除"), self.del_row)
-        menu.exec_(self.table.mapToGlobal(pos))
+        menu.exec(self.table.mapToGlobal(pos))
 
     def add_row(self):
         self.insert_row(self.table.model().rowCount())

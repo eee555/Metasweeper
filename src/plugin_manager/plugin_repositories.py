@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from urllib.parse import quote, unquote, urlsplit
 
 import requests
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 
 def _tr(text: str) -> str:
@@ -46,10 +46,12 @@ class PluginRepository:
         if platform in ("github", "gitee") and (known_platform != platform or port not in (None, 443)):
             raise ValueError(_tr("链接与所选托管平台不匹配。"))
         raw_path = unquote(url.path).strip("/")
-        path = PROVIDERS[platform].repository_path(raw_path).removesuffix(".git")
+        path = PROVIDERS[platform].repository_path(
+            raw_path).removesuffix(".git")
         parts = path.split("/")
         if len(parts) < 2 or any(
-            part in ("", ".", "..") or not re.fullmatch(r"[\w.-]+", part, re.ASCII)
+            part in ("", ".", "..") or not re.fullmatch(
+                r"[\w.-]+", part, re.ASCII)
             for part in parts
         ):
             raise ValueError(_tr("请输入有效的仓库 HTTPS 链接。"))
@@ -108,7 +110,8 @@ class HostingProvider:
 
 
 class GitHubProvider(HostingProvider):
-    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    headers = {"Accept": "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28"}
 
     def api_url(self, repository: PluginRepository) -> str:
         return "https://api.github.com/repos/" + repository.path
@@ -155,7 +158,8 @@ class GiteaProvider(HostingProvider):
         return self.api_url(repository) + "/archive/" + quote(tag.commit, safe="") + ".zip", {}
 
 
-PUBLIC_HOSTS = {"github.com": "github", "gitlab.com": "gitlab", "gitee.com": "gitee", "codeberg.org": "gitea"}
+PUBLIC_HOSTS = {"github.com": "github", "gitlab.com": "gitlab",
+                "gitee.com": "gitee", "codeberg.org": "gitea"}
 PROVIDERS = {
     "github": GitHubProvider(),
     "gitlab": GitLabProvider(),

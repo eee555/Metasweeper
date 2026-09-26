@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Generic, Type, TypeVar, overload
 
-from PyQt5.QtCore import QCoreApplication, pyqtBoundSignal, pyqtSignal, QObject
-from PyQt5.QtWidgets import QWidget
+from PySide6.QtCore import QCoreApplication, Signal, SignalInstance, QObject
+from PySide6.QtWidgets import QWidget
 
 T = TypeVar("T")
 
@@ -26,7 +26,7 @@ class ConfigWidgetBase(QWidget):
     - value_change 信号: 值变化时发射（已提供默认实现）
     """
 
-    value_change = pyqtSignal(object)
+    value_change = Signal(object)
 
     def get_value(self) -> Any:
         """获取当前值"""
@@ -49,7 +49,7 @@ class ConfigWidgetWrapper(ConfigWidgetBase):
         widget: QWidget,
         getter: Callable[[], Any],
         setter: Callable[[Any], None],
-        signal: pyqtBoundSignal,
+        signal: SignalInstance,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -58,7 +58,7 @@ class ConfigWidgetWrapper(ConfigWidgetBase):
         self._setter = setter
 
         # 将控件添加到布局
-        from PyQt5.QtWidgets import QVBoxLayout
+        from PySide6.QtWidgets import QVBoxLayout
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(widget)

@@ -10,7 +10,7 @@ from typing import Callable
 from zipfile import ZipFile
 
 import requests
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from .plugin_repositories import PluginRepository, RepositoryTag
 
@@ -61,11 +61,13 @@ class PluginDownloader:
             self._check_cancelled()
             url, params = repository.provider.tags_request(repository, page)
             with self.session.get(
-                url, params=params, headers=repository.provider.headers, timeout=(5, 30),
+                url, params=params, headers=repository.provider.headers, timeout=(
+                    5, 30),
             ) as response:
                 self._check_response(response)
                 items = response.json()
-                tags.extend(repository.provider.parse_tag(item) for item in items)
+                tags.extend(repository.provider.parse_tag(item)
+                            for item in items)
                 if not repository.provider.has_next_page(response, items):
                     return tags
             page += 1
@@ -80,7 +82,8 @@ class PluginDownloader:
         destination = plugin_dir / repository.module_name
         for directory in [plugin_dir, *search_dirs]:
             if (directory / repository.module_name).exists() or (directory / f"{repository.module_name}.py").exists():
-                raise FileExistsError(_tr("插件目录已存在，不会覆盖：{path}").format(path=directory / repository.module_name))
+                raise FileExistsError(_tr("插件目录已存在，不会覆盖：{path}").format(
+                    path=directory / repository.module_name))
         self._check_cancelled()
         plugin_dir.mkdir(parents=True, exist_ok=True)
         # Hidden from PluginLoader until the complete package is ready.

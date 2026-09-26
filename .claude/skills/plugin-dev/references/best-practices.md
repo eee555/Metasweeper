@@ -49,9 +49,11 @@ def on_initialized(self):
 ## 线程安全
 
 ```python
+from PySide6.QtCore import Signal
+
 class MyWidget(QWidget):
     # ✅ 正确：定义信号
-    _update_signal = pyqtSignal(str)
+    _update_signal = Signal(str)
 
     def __init__(self):
         super().__init__()

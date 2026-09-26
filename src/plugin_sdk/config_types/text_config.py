@@ -7,8 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtCore import QCoreApplication
-from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLineEdit, QPushButton, QWidget
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from .base_config import BaseConfig, ConfigWidgetWrapper
 

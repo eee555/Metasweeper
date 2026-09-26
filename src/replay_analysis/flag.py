@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from .core import (
     ReplayEvent,
@@ -99,7 +99,8 @@ class FlagEventManager(ReplayEventManager):
         emitted: Tuple[ReplayEvent, ...] = ()
         _mouse_name, row, column = mouse_event
         cell = (row, column)
-        flag_delta = _counter_delta(self.previous_mouse_record, context.record, "flag")
+        flag_delta = _counter_delta(
+            self.previous_mouse_record, context.record, "flag")
         if flag_delta > 0:
             flag = self.flags_by_cell.get(cell)
             if flag is None:
@@ -120,9 +121,11 @@ class FlagEventManager(ReplayEventManager):
                 ),
             )
 
-        dce_delta = _counter_delta(self.previous_mouse_record, context.record, "dce")
+        dce_delta = _counter_delta(
+            self.previous_mouse_record, context.record, "dce")
         if dce_delta > 0:
-            bbbv_delta = _counter_delta(self.previous_mouse_record, context.record, "bbbv_solved")
+            bbbv_delta = _counter_delta(
+                self.previous_mouse_record, context.record, "bbbv_solved")
             nearby_flags = [
                 flag
                 for flag_cell, flag in self.flags_by_cell.items()
@@ -134,7 +137,8 @@ class FlagEventManager(ReplayEventManager):
                 for flag in nearby_flags:
                     flag.dce += dce_share
                     flag.bbbv_solved += bbbv_share
-                    flag.dce_cells = _append_unique_cell(flag.dce_cells, (row, column))
+                    flag.dce_cells = _append_unique_cell(
+                        flag.dce_cells, (row, column))
 
         self.previous_mouse_record = context.record
         return emitted

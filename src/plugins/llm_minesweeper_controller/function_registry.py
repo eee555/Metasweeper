@@ -8,7 +8,7 @@ import json
 from typing import Dict, Any, Callable, List, Optional, get_type_hints
 from dataclasses import dataclass, field
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 _translate = QCoreApplication.translate
 
@@ -51,7 +51,7 @@ class FunctionRegistry:
     ):
         """
         装饰器：注册函数供 LLM 调用
-        
+
         Example:
             @registry.register(
                 description="点击格子",
@@ -194,16 +194,16 @@ class FunctionRegistry:
         except Exception as e:
             return {"success": False, "error": _translate("Form", "函数执行失败: %1").replace("%1", str(e))}
 
-    def handle_tool_calls(self, tool_calls: List[Dict[str, Any]], 
+    def handle_tool_calls(self, tool_calls: List[Dict[str, Any]],
                           logger=None, widget=None) -> List[Dict[str, Any]]:
         """
         处理 OpenAI 响应中的 tool_calls，返回工具结果消息列表
-        
+
         Args:
             tool_calls: OpenAI 响应中的 tool_calls 字段
             logger: 可选的日志记录器
             widget: 可选的 UI 组件（用于显示日志）
-        
+
         Returns:
             工具结果消息列表，可直接追加到 messages 中
         """
@@ -215,23 +215,27 @@ class FunctionRegistry:
 
             try:
                 func_args_str = function_data.get("arguments", "{}")
-                func_args = json.loads(func_args_str) if isinstance(func_args_str, str) else func_args_str
+                func_args = json.loads(func_args_str) if isinstance(
+                    func_args_str, str) else func_args_str
             except json.JSONDecodeError:
                 func_args = {}
 
             if logger:
                 logger.info(f"处理 tool call: {func_name}, 参数: {func_args}")
             if widget:
-                widget.log_message(_translate("Form", "LLM 调用: %1(%2)").replace("%1", func_name).replace("%2", str(func_args)))
+                widget.log_message(_translate("Form", "LLM 调用: %1(%2)").replace(
+                    "%1", func_name).replace("%2", str(func_args)))
 
             # 执行函数
             result = self.execute_function(func_name, func_args)
 
             if widget:
                 if result.get("success"):
-                    widget.log_message(_translate("Form", "执行成功: %1").replace("%1", func_name))
+                    widget.log_message(_translate(
+                        "Form", "执行成功: %1").replace("%1", func_name))
                 else:
-                    widget.log_message(_translate("Form", "执行失败: %1 - %2").replace("%1", func_name).replace("%2", result.get('error', _translate("Form", "未知错误"))))
+                    widget.log_message(_translate("Form", "执行失败: %1 - %2").replace(
+                        "%1", func_name).replace("%2", result.get('error', _translate("Form", "未知错误"))))
 
             # 构建工具结果消息
             result_msg = {

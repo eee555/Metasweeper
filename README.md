@@ -48,7 +48,7 @@
 
 项目在性能、安全性、工具链友好度之间取得扎实平衡。
 
-* **Python / PyQt5 + Rust 复合架构**：
+* **Python / PySide6（Qt 6）+ Rust 复合架构**：
 
   * Python 负责 UI、生态扩展；
   * Rust 提供核心算法计算的高性能与内存安全。

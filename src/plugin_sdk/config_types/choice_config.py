@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from PyQt5.QtWidgets import QComboBox
+from PySide6.QtWidgets import QComboBox
 
 from .base_config import BaseConfig, ConfigWidgetWrapper
 

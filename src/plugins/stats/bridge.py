@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, pyqtProperty
+from PySide6.QtCore import QObject, Slot, Signal, Property
 
 from shared_types.enums import GameBoardState, GameLevel, GameMode
 from plugins.services.history import HistoryService
@@ -42,14 +42,14 @@ class StatsBridge(QObject):
     所有方法返回 JSON 字符串，QML 端用 JSON.parse() 解析。
     """
 
-    dataChanged = pyqtSignal()
-    topNChanged = pyqtSignal()
-    bvBeginnerMinChanged = pyqtSignal()
-    bvBeginnerMaxChanged = pyqtSignal()
-    bvIntermediateMinChanged = pyqtSignal()
-    bvIntermediateMaxChanged = pyqtSignal()
-    bvExpertMinChanged = pyqtSignal()
-    bvExpertMaxChanged = pyqtSignal()
+    dataChanged = Signal()
+    topNChanged = Signal()
+    bvBeginnerMinChanged = Signal()
+    bvBeginnerMaxChanged = Signal()
+    bvIntermediateMinChanged = Signal()
+    bvIntermediateMaxChanged = Signal()
+    bvExpertMinChanged = Signal()
+    bvExpertMaxChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -96,28 +96,28 @@ class StatsBridge(QObject):
 
     # ── QML 可调用的槽方法 ────────────────────────────────
 
-    @pyqtSlot(int, int, float, float, result=str)
+    @Slot(int, int, float, float, result=str)
     def getSummary(self, level: int = -1, mode: int = -1,
                    startMs: float = 0, endMs: float = 0) -> str:
         where, params = self._filter(level, mode, startMs, endMs)
         sql = SQL_SUMMARY.format(where=where)
         return self._query_one(sql, SQL_SUMMARY_PARAMS + params)
 
-    @pyqtSlot(int, int, float, float, result=str)
+    @Slot(int, int, float, float, result=str)
     def getLevelSummary(self, level: int = -1, mode: int = -1,
                         startMs: float = 0, endMs: float = 0) -> str:
         where, params = self._filter(level, mode, startMs, endMs)
         sql = SQL_SUMMARY_BY_LEVEL.format(where=where)
         return self._query(sql, SQL_SUMMARY_BY_LEVEL_PARAMS + params)
 
-    @pyqtSlot(int, int, float, float, int, result=str)
+    @Slot(int, int, float, float, int, result=str)
     def getTrend(self, level: int = -1, mode: int = -1,
                  startMs: float = 0, endMs: float = 0, limit: int = 200) -> str:
         where, params = self._filter(level, mode, startMs, endMs)
         sql = SQL_TREND.format(where=where)
         return self._query(sql, params + (limit,))
 
-    @pyqtSlot(int, int, float, float, result=str)
+    @Slot(int, int, float, float, result=str)
     def getTimeDistribution(self, level: int = -1, mode: int = -1,
                             startMs: float = 0, endMs: float = 0) -> str:
         where, params = self._filter(level, mode, startMs, endMs)
@@ -125,29 +125,29 @@ class StatsBridge(QObject):
         sql = SQL_TIME_DISTRIBUTION.format(where_extra=extra)
         return self._query(sql, (GameBoardState.Win.value,) + params)
 
-    @pyqtSlot(int, int, float, float, result=str)
+    @Slot(int, int, float, float, result=str)
     def getLevelDistribution(self, level: int = -1, mode: int = -1,
                              startMs: float = 0, endMs: float = 0) -> str:
         where, params = self._filter(level, mode, startMs, endMs)
         sql = SQL_LEVEL_DISTRIBUTION.format(where=where)
         return self._query(sql, params)
 
-    @pyqtSlot(int, int, float, float, result=str)
+    @Slot(int, int, float, float, result=str)
     def getWinrateMonthly(self, level: int = -1, mode: int = -1,
                           startMs: float = 0, endMs: float = 0) -> str:
         where, params = self._filter(level, mode, startMs, endMs)
         sql = SQL_WINRATE_MONTHLY.format(where=where)
         return self._query(sql, (GameBoardState.Win.value,) + params)
 
-    @pyqtSlot(result=str)
+    @Slot(result=str)
     def getLevelNames(self) -> str:
         return json.dumps(LEVEL_NAMES, ensure_ascii=False)
 
-    @pyqtSlot(result=str)
+    @Slot(result=str)
     def getModeNames(self) -> str:
         return json.dumps(MODE_NAMES, ensure_ascii=False)
 
-    @pyqtSlot(result=str)
+    @Slot(result=str)
     def getEnumValues(self) -> str:
         return json.dumps({
             "gameState": {
@@ -165,7 +165,7 @@ class StatsBridge(QObject):
             "mode": {m.value: m.display_name for m in GameMode},
         }, ensure_ascii=False)
 
-    @pyqtSlot(str, int, int, float, float, result=str)
+    @Slot(str, int, int, float, float, result=str)
     def getProgress(self, metric: str, level: int = -1, mode: int = -1,
                     startMs: float = 0, endMs: float = 0) -> str:
         """获取进步历程数据（仅保留创纪录的局）。"""
@@ -181,7 +181,7 @@ class StatsBridge(QObject):
         all_params = params + (GameBoardState.Win.value,)
         return self._query(sql, all_params)
 
-    @pyqtSlot(result=str)
+    @Slot(result=str)
     def getProgressMetrics(self) -> str:
         """返回可用指标列表及显示名。"""
         return json.dumps(
@@ -189,7 +189,7 @@ class StatsBridge(QObject):
             ensure_ascii=False,
         )
 
-    @pyqtSlot(int)
+    @Slot(int)
     def setTopN(self, n: int) -> None:
         """设置前N名平均的N值，0=全部平均。"""
         n = max(0, n)
@@ -198,12 +198,12 @@ class StatsBridge(QObject):
             self.topNChanged.emit()
             self.dataChanged.emit()
 
-    @pyqtSlot(result=int)
+    @Slot(result=int)
     def getTopN(self) -> int:
         """获取当前前N名平均的N值。"""
         return self._top_n
 
-    @pyqtSlot(str, int, int, float, float, result=str)
+    @Slot(str, int, int, float, float, result=str)
     def getTopNAvg(self, metric: str, level: int = -1, mode: int = -1,
                    startMs: float = 0, endMs: float = 0) -> str:
         """获取指定指标的前N名平均值。top_n=0时返回null。"""
@@ -218,67 +218,67 @@ class StatsBridge(QObject):
         all_params = params + (GameBoardState.Win.value, self._top_n)
         return self._query_one(sql, all_params)
 
-    @pyqtSlot()
+    @Slot()
     def refresh(self) -> None:
         self.dataChanged.emit()
 
     # ── BV 范围配置属性 ──────────────────────────────────
 
-    @pyqtProperty(int, notify=bvBeginnerMinChanged)  # type: ignore
+    @Property(int, notify=bvBeginnerMinChanged)
     def bvBeginnerMin(self) -> int:
         return self._bv_beginner_min
 
-    @pyqtSlot(int)
+    @Slot(int)
     def setBvBeginnerMin(self, v: int) -> None:
         if self._bv_beginner_min != v:
             self._bv_beginner_min = v
             self.bvBeginnerMinChanged.emit()
 
-    @pyqtProperty(int, notify=bvBeginnerMaxChanged)  # type: ignore
+    @Property(int, notify=bvBeginnerMaxChanged)
     def bvBeginnerMax(self) -> int:
         return self._bv_beginner_max
 
-    @pyqtSlot(int)
+    @Slot(int)
     def setBvBeginnerMax(self, v: int) -> None:
         if self._bv_beginner_max != v:
             self._bv_beginner_max = v
             self.bvBeginnerMaxChanged.emit()
 
-    @pyqtProperty(int, notify=bvIntermediateMinChanged)  # type: ignore
+    @Property(int, notify=bvIntermediateMinChanged)
     def bvIntermediateMin(self) -> int:
         return self._bv_intermediate_min
 
-    @pyqtSlot(int)
+    @Slot(int)
     def setBvIntermediateMin(self, v: int) -> None:
         if self._bv_intermediate_min != v:
             self._bv_intermediate_min = v
             self.bvIntermediateMinChanged.emit()
 
-    @pyqtProperty(int, notify=bvIntermediateMaxChanged)  # type: ignore
+    @Property(int, notify=bvIntermediateMaxChanged)
     def bvIntermediateMax(self) -> int:
         return self._bv_intermediate_max
 
-    @pyqtSlot(int)
+    @Slot(int)
     def setBvIntermediateMax(self, v: int) -> None:
         if self._bv_intermediate_max != v:
             self._bv_intermediate_max = v
             self.bvIntermediateMaxChanged.emit()
 
-    @pyqtProperty(int, notify=bvExpertMinChanged)  # type: ignore
+    @Property(int, notify=bvExpertMinChanged)
     def bvExpertMin(self) -> int:
         return self._bv_expert_min
 
-    @pyqtSlot(int)
+    @Slot(int)
     def setBvExpertMin(self, v: int) -> None:
         if self._bv_expert_min != v:
             self._bv_expert_min = v
             self.bvExpertMinChanged.emit()
 
-    @pyqtProperty(int, notify=bvExpertMaxChanged)  # type: ignore
+    @Property(int, notify=bvExpertMaxChanged)
     def bvExpertMax(self) -> int:
         return self._bv_expert_max
 
-    @pyqtSlot(int)
+    @Slot(int)
     def setBvExpertMax(self, v: int) -> None:
         if self._bv_expert_max != v:
             self._bv_expert_max = v
@@ -286,7 +286,7 @@ class StatsBridge(QObject):
 
     # ── BV 分布查询 ──────────────────────────────────────
 
-    @pyqtSlot(int, int, int, int, result=str)
+    @Slot(int, int, int, int, result=str)
     def getBvDistribution(self, level: int, mode: int, winsOnly: int, nfFilter: int) -> str:
         """
         查询 BV 分布数据。

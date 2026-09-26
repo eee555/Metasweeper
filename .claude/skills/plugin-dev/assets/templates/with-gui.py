@@ -5,8 +5,8 @@
 """
 from __future__ import annotations
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit
-from PyQt5.QtCore import pyqtSignal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit
+from PySide6.QtCore import Signal
 
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from shared_types.events import VideoSaveEvent
@@ -14,24 +14,25 @@ from shared_types.events import VideoSaveEvent
 
 class {PluginName}Widget(QWidget):
     """插件 UI"""
-    
-    _update_signal = pyqtSignal(str)
+
+    _update_signal = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        
+
         self._title = QLabel("{PluginName}")
-        self._title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 10px;")
+        self._title.setStyleSheet(
+            "font-size: 18px; font-weight: bold; padding: 10px;")
         layout.addWidget(self._title)
-        
+
         self._info = QLabel("等待游戏数据...")
         layout.addWidget(self._info)
-        
+
         self._log = QTextEdit()
         self._log.setReadOnly(True)
         layout.addWidget(self._log)
-        
+
         self._update_signal.connect(self._on_update)
 
     def _on_update(self, text: str):
@@ -64,4 +65,5 @@ class {PluginName}(BasePlugin):
 
     def _on_video_save(self, event: VideoSaveEvent):
         self.logger.info(f"游戏结束: 用时={event.rtime}s")
-        self._widget._update_signal.emit(f"[{event.rtime:.2f}s] 3BV={event.bbbv}")
+        self._widget._update_signal.emit(
+            f"[{event.rtime:.2f}s] 3BV={event.bbbv}")

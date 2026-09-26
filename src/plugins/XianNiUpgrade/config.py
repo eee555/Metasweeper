@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 from plugin_sdk import OtherInfoBase, BoolConfig, TextConfig
 
 _translate = QCoreApplication.translate
@@ -119,7 +119,8 @@ class XianNiUpgradeConfig(OtherInfoBase):
     api_url = TextConfig(
         default=DEFAULT_API_URL,
         label=_translate("Form", "排行站地址"),
-        description=_translate("Form", "官方排行站地址（固定），上传时会 POST 到 {地址}/api/upload"),
+        description=_translate(
+            "Form", "官方排行站地址（固定），上传时会 POST 到 {地址}/api/upload"),
         placeholder="https://leixiu-rank.pages.dev",
         validator=_validate_api_url,
         readonly=True,

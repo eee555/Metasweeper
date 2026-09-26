@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QCoreApplication
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QMenu,
     QTableView,
@@ -79,7 +79,7 @@ class SortDialog(ConfirmDialog):
         menu.addAction(_translate("Form", "添加"), self._add_sort_row)
         menu.addAction(_translate("Form", "插入"), self._insert_sort_row)
         menu.addAction(_translate("Form", "删除"), self._del_sort_row)
-        menu.exec_(self.sort_table.mapToGlobal(pos))
+        menu.exec(self.sort_table.mapToGlobal(pos))
 
     def _add_sort_row(self):
         """添加排序行"""

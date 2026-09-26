@@ -11,8 +11,8 @@ from pathlib import Path
 
 from .db import db_connection
 
-from PyQt5.QtCore import Qt, QCoreApplication
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
@@ -60,12 +60,14 @@ class ComputedColumnsDialog(ConfirmDialog):
             _translate("Form", "结果类型"),
         ])
         self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+            0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeToContents)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
+            1, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         layout.addWidget(self.table)
 
         # 按钮
@@ -178,7 +180,8 @@ class ComputedColumnsDialog(ConfirmDialog):
                             if func and callable(func):
                                 try:
                                     conn.create_function(
-                                        node.name, len(node.args.args), func)  # type: ignore
+                                        # type: ignore
+                                        node.name, len(node.args.args), func)
                                 except sqlite3.Error:
                                     pass
                 except SyntaxError:

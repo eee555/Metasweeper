@@ -16,7 +16,7 @@ import loguru
 from lib_zmq_plugins.client.zmq_client import ZMQClient
 from lib_zmq_plugins.log import LogHandler
 from lib_zmq_plugins.shared.base import BaseEvent, get_event_tag
-from PyQt5.QtCore import QObject, Qt, pyqtSignal
+from PySide6.QtCore import QObject, Qt, Signal
 
 from shared_types import EVENT_TYPES, COMMAND_TYPES
 from shared_types.events import LanguageChangeEvent
@@ -27,14 +27,14 @@ from .plugin_loader import PluginLoader
 from .app_paths import get_all_plugin_dirs, patch_sys_path_for_frozen
 
 if TYPE_CHECKING:
-    from PyQt5.QtWidgets import QApplication, QWidget
+    from PySide6.QtWidgets import QApplication, QWidget
 
 logger = loguru.logger.bind(name="PluginManager")
 
 
 class _TranslatorInstaller(QObject):
     """线程安全地在主线程安装 QTranslator"""
-    _signal = pyqtSignal(str)
+    _signal = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -45,7 +45,7 @@ class _TranslatorInstaller(QObject):
         self._signal.emit(language)
 
     def _install(self, language: str) -> None:
-        from PyQt5.QtCore import QCoreApplication, QTranslator
+        from PySide6.QtCore import QCoreApplication, QTranslator
         app = QCoreApplication.instance()
         if app is None:
             return
@@ -265,7 +265,7 @@ class PluginManager:
             app: QApplication 实例，如果不提供则创建新的
             show_main_window: 是否显示主窗口（False 时仅在托盘运行）
         """
-        from PyQt5.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
         from .main_window import PluginManagerWindow
 
         # 创建或使用现有的 QApplication
@@ -301,7 +301,7 @@ class PluginManager:
         if self._app is None:
             self.start_with_gui(show_main_window=show_main_window)
 
-        result = self._app.exec_()  # type: ignore
+        result = self._app.exec()
         self.stop()
         return result
 

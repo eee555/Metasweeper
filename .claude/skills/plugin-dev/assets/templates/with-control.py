@@ -5,8 +5,8 @@
 """
 from __future__ import annotations
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
-from PyQt5.QtCore import pyqtSignal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from PySide6.QtCore import Signal
 
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from shared_types.events import VideoSaveEvent
@@ -15,31 +15,31 @@ from shared_types.commands import NewGameCommand
 
 class {PluginName}Widget(QWidget):
     """插件 UI"""
-    
-    _update_signal = pyqtSignal(str)
-    _auth_signal = pyqtSignal(bool)
+
+    _update_signal = Signal(str)
+    _auth_signal = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        
+
         self._status = QLabel("控制权限: 未知")
         layout.addWidget(self._status)
-        
+
         self._btn_new_game = QPushButton("开始新游戏")
         self._btn_new_game.clicked.connect(self._on_new_game_click)
         layout.addWidget(self._btn_new_game)
-        
+
         self._update_signal.connect(self._on_update)
         self._auth_signal.connect(self._on_auth)
 
     def _on_update(self, text: str):
         self._status.setText(text)
-    
+
     def _on_auth(self, granted: bool):
         self._status.setText(f"控制权限: {'已授权' if granted else '未授权'}")
         self._btn_new_game.setEnabled(granted)
-    
+
     def _on_new_game_click(self):
         # 由插件类处理
         pass
@@ -70,7 +70,7 @@ class {PluginName}(BasePlugin):
 
     def on_initialized(self) -> None:
         self.logger.info("{PluginName} 已初始化")
-        
+
         # 检查控制权限
         has_auth = self.has_control_auth(NewGameCommand)
         self._widget._auth_signal.emit(has_auth)

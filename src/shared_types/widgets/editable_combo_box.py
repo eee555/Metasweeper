@@ -4,8 +4,8 @@
 支持补全但不允许新增，焦点移开后验证输入
 """
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QComboBox, QCompleter
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QComboBox, QCompleter
 
 
 class EditableComboBox(QComboBox):

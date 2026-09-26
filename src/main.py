@@ -1,7 +1,7 @@
 import time
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtNetwork import QLocalSocket, QLocalServer
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtWidgets import QApplication
+from PySide6.QtNetwork import QLocalSocket, QLocalServer
 import sys
 import os
 import argparse
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         ui._plugin_process = plugin_process  # 保存引用，防止被 GC
 
         # 等插件连接后同步初始语言
-        from PyQt5.QtCore import QTimer
+        from PySide6.QtCore import QTimer
         from shared_types.events import LanguageChangeEvent
         QTimer.singleShot(2000, lambda: GameServerBridge.instance().send_event(
             LanguageChangeEvent(language=ui.language)))
@@ -273,13 +273,14 @@ if __name__ == "__main__":
 
             logger.info(
                 f"[NewPresetGameCommand] board={cmd.board}, mode={cmd.mode}")
-            
+
             ui.engine.pending_boards.append({
                 "board": cmd.board,
                 "game_mode": cmd.mode,
             })
             ui.gameMode = cmd.mode
-            ui.setBoard_and_start(len(cmd.board), len(cmd.board[0]), sum(row.count(-1) for row in cmd.board))
+            ui.setBoard_and_start(len(cmd.board), len(
+                cmd.board[0]), sum(row.count(-1) for row in cmd.board))
             return CommandResponse(request_id=cmd.request_id, success=True)
 
         def handle_mouse_click(cmd: MouseClickCommand):
@@ -294,7 +295,6 @@ if __name__ == "__main__":
             success = ui.execute_cell_click(cmd.row, cmd.col, cmd.button)
             return CommandResponse(request_id=cmd.request_id, success=success)
 
-        
         def handle_init_open(cmd: InitOpenCommand):
             """处理初始化翻开命令"""
             from lib_zmq_plugins.shared.base import CommandResponse
@@ -305,15 +305,14 @@ if __name__ == "__main__":
                 f"[InitOpenCommand] row={cmd.row}, col={cmd.col}")
             success = ui.execute_cell_click(cmd.row, cmd.col, 0)
             return CommandResponse(request_id=cmd.request_id, success=success)
-        
 
         GameServerBridge.instance().register_handler(NewGameCommand, handle_new_game)
-        GameServerBridge.instance().register_handler(NewPresetGameCommand, handle_new_preset_game)
+        GameServerBridge.instance().register_handler(
+            NewPresetGameCommand, handle_new_preset_game)
         GameServerBridge.instance().register_handler(
             MouseClickCommand, handle_mouse_click)
         GameServerBridge.instance().register_handler(
             InitOpenCommand, handle_init_open)
-        
 
         # _translate = QtCore.QCoreApplication.translate
         hwnd = int(ui.mainWindow.winId())
@@ -332,7 +331,7 @@ if __name__ == "__main__":
                 plugin_process.wait(timeout=5)
 
         app.aboutToQuit.connect(_cleanup)
-        sys.exit(app.exec_())
+        sys.exit(app.exec())
 
 # 最高优先级
 # 计时器快捷键切换

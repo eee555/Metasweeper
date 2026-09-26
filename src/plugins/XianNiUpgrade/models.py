@@ -4,12 +4,13 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 _translate = QCoreApplication.translate
 
 
 class _I18nDict:
     """每次访问都动态翻译的类 dict 对象"""
+
     def __init__(self, data: dict):
         self._data = data
 

@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import QCoreApplication, Qt
-from PyQt5.QtGui import QKeyEvent
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtGui import QKeyEvent
+from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
@@ -36,11 +36,11 @@ class ColumnListWidget(QListWidget):
 
     def keyPressEvent(self, event: QKeyEvent):
         """键盘事件：Ctrl+Shift+↑↓ 移动选中项"""
-        if (event.modifiers() & Qt.ControlModifier) and (event.modifiers() & Qt.ShiftModifier):  # type: ignore
-            if event.key() == Qt.Key_Up and self._move_up_callback:
+        if (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            if event.key() == Qt.Key.Key_Up and self._move_up_callback:
                 self._move_up_callback()
                 return
-            elif event.key() == Qt.Key_Down and self._move_down_callback:
+            elif event.key() == Qt.Key.Key_Down and self._move_down_callback:
                 self._move_down_callback()
                 return
         super().keyPressEvent(event)
@@ -72,8 +72,10 @@ class ColumnsDialog(ConfirmDialog):
 
         # 列表（支持多选）
         self.list_widget = ColumnListWidget()
-        self.list_widget.setSelectionMode(QListWidget.ExtendedSelection)
-        self.list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list_widget.setSelectionMode(
+            QListWidget.SelectionMode.ExtendedSelection)
+        self.list_widget.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(
             self._show_context_menu)
         self.list_widget.set_move_callbacks(self._move_up, self._move_down)
@@ -100,7 +102,7 @@ class ColumnsDialog(ConfirmDialog):
         for field in ordered_fields + remaining_fields:
             item = QListWidgetItem(field)
             item.setCheckState(
-                Qt.Checked if field in self._show_fields else Qt.Unchecked)
+                Qt.CheckState.Checked if field in self._show_fields else Qt.CheckState.Unchecked)
             self.list_widget.addItem(item)
 
     def set_show_fields(self, show_fields: list[str]):
@@ -112,11 +114,11 @@ class ColumnsDialog(ConfirmDialog):
 
     def _select_all(self):
         for i in range(self.list_widget.count()):
-            self.item(i).setCheckState(Qt.Checked)
+            self.item(i).setCheckState(Qt.CheckState.Checked)
 
     def _deselect_all(self):
         for i in range(self.list_widget.count()):
-            self.item(i).setCheckState(Qt.Unchecked)
+            self.item(i).setCheckState(Qt.CheckState.Unchecked)
 
     def _show_context_menu(self, pos):
         """显示右键菜单"""
@@ -124,7 +126,7 @@ class ColumnsDialog(ConfirmDialog):
         menu.addAction(_translate("Form", "上移 (Ctrl+Shift+↑)"), self._move_up)
         menu.addAction(_translate(
             "Form", "下移 (Ctrl+Shift+↓)"), self._move_down)
-        menu.exec_(self.list_widget.mapToGlobal(pos))
+        menu.exec(self.list_widget.mapToGlobal(pos))
 
     def _move_up(self):
         """上移选中的项目"""
@@ -179,7 +181,7 @@ class ColumnsDialog(ConfirmDialog):
         result = []
         for i in range(self.list_widget.count()):
             item = self.item(i)
-            if item.checkState() == Qt.Checked:
+            if item.checkState() == Qt.CheckState.Checked:
                 result.append(item.text())
         return result
 
@@ -188,5 +190,6 @@ class ColumnsDialog(ConfirmDialog):
         for i in range(self.list_widget.count()):
             item = self.item(i)
             if item.text() == field:
-                item.setCheckState(Qt.Checked if checked else Qt.Unchecked)
+                item.setCheckState(
+                    Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
                 break

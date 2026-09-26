@@ -7,8 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import QPushButton, QColorDialog, QHBoxLayout
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QPushButton, QColorDialog, QHBoxLayout
 
 from .base_config import BaseConfig, ConfigWidgetBase
 
@@ -51,14 +51,16 @@ class ColorConfig(BaseConfig[str]):
                 # 颜色预览按钮
                 self._btn = QPushButton()
                 self._btn.setFixedSize(40, 24)
-                self._btn.setStyleSheet(f"background-color: {default}; border: 1px solid #999;")
+                self._btn.setStyleSheet(
+                    f"background-color: {default}; border: 1px solid #999;")
                 if description:
                     self._btn.setToolTip(description)
 
                 # 文本显示
                 self._text_btn = QPushButton(default)
                 self._text_btn.setFixedHeight(24)
-                self._text_btn.setStyleSheet("text-align: left; padding-left: 4px;")
+                self._text_btn.setStyleSheet(
+                    "text-align: left; padding-left: 4px;")
 
                 self._btn.clicked.connect(self._on_click)
                 self._text_btn.clicked.connect(self._on_click)
@@ -77,7 +79,8 @@ class ColorConfig(BaseConfig[str]):
             def set_value(self, value: str) -> None:
                 if value and value.startswith("#"):
                     self._color = value
-                    self._btn.setStyleSheet(f"background-color: {value}; border: 1px solid #999;")
+                    self._btn.setStyleSheet(
+                        f"background-color: {value}; border: 1px solid #999;")
                     self._text_btn.setText(value)
                     self.value_change.emit(value)
 

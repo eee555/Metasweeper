@@ -4,14 +4,16 @@ llm_minesweeper_controller - UI 组件
 
 from __future__ import annotations
 
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton,
     QHBoxLayout, QGroupBox, QSplitter, QDialog, QTextBrowser,
     QDialogButtonBox,
 )
-from PyQt5.QtCore import pyqtSignal, Qt, QCoreApplication
+from PySide6.QtCore import Signal, Slot, Qt, QCoreApplication
+from PySide6.QtGui import QTextCursor
 
 _translate = QCoreApplication.translate
+
 
 class TutorialDialog(QDialog):
     """配置教程弹窗"""
@@ -82,12 +84,12 @@ li { margin: 6px 0; }
 class LlmMinesweeperControllerWidget(QWidget):
     """插件 UI"""
 
-    _log_signal = pyqtSignal(str)
-    _chat_signal = pyqtSignal(str, str)  # role, text
-    _status_signal = pyqtSignal(str)
-    _enable_buttons_signal = pyqtSignal(bool)
-    _summary_signal = pyqtSignal(str)
-    _stop_signal = pyqtSignal()
+    _log_signal = Signal(str)
+    _chat_signal = Signal(str, str)  # role, text
+    _status_signal = Signal(str)
+    _enable_buttons_signal = Signal(bool)
+    _summary_signal = Signal(str)
+    _stop_signal = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -184,7 +186,6 @@ class LlmMinesweeperControllerWidget(QWidget):
         self._status_signal.connect(self._on_status)
         self._enable_buttons_signal.connect(self._on_enable_buttons)
         self._summary_signal.connect(self._on_summary)
-        self._stop_signal.connect(self._on_stop_clicked)
 
         # 按钮事件
         self._clear_log_button.clicked.connect(self._clear_log)
@@ -202,11 +203,13 @@ class LlmMinesweeperControllerWidget(QWidget):
         self._clear_chat_button.setText(_translate("Form", "🗑 清除对话"))
         self._clear_log_button.setText(_translate("Form", "🗑 清除日志"))
 
+    @Slot(str)
     def _on_log(self, text: str) -> None:
         from datetime import datetime
         timestamp = datetime.now().strftime("%H:%M:%S")
         self._log_text.append(f"[{timestamp}] {text}")
 
+    @Slot(str, str)
     def _on_chat(self, role: str, text: str) -> None:
         color_map = {
             "system": "#2196F3",
@@ -225,9 +228,11 @@ class LlmMinesweeperControllerWidget(QWidget):
         if scrollbar:
             scrollbar.setValue(scrollbar.maximum())
 
+    @Slot(str)
     def _on_status(self, text: str) -> None:
         self._status_label.setText(text)
 
+    @Slot(bool)
     def _on_enable_buttons(self, enabled: bool) -> None:
         self._analyze_button.setEnabled(enabled)
         self._test_button.setEnabled(enabled)
@@ -239,7 +244,7 @@ class LlmMinesweeperControllerWidget(QWidget):
 
     def _show_tutorial(self) -> None:
         dialog = TutorialDialog(self)
-        dialog.exec_()
+        dialog.exec()
 
     def _clear_log(self) -> None:
         self._log_text.clear()
@@ -247,17 +252,20 @@ class LlmMinesweeperControllerWidget(QWidget):
     def _clear_chat(self) -> None:
         self._chat_text.clear()
 
+    @Slot(str)
     def _on_summary(self, text: str) -> None:
         """更新上下文摘要显示"""
         self._summary_text.setPlainText(text)
         # 滚动到顶部
-        self._summary_text.moveCursor(self._summary_text.textCursor().Start)
+        self._summary_text.moveCursor(QTextCursor.MoveOperation.Start)
 
     # ── 线程安全的公开方法（由插件调用） ──
 
+    @Slot(str)
     def log_message(self, text: str) -> None:
         self._log_signal.emit(text)
 
+    @Slot(str, str)
     def add_chat_message(self, role: str, text: str) -> None:
         self._chat_signal.emit(role, text)
 
@@ -267,6 +275,7 @@ class LlmMinesweeperControllerWidget(QWidget):
     def set_buttons_enabled(self, enabled: bool) -> None:
         self._enable_buttons_signal.emit(enabled)
 
+    @Slot(str)
     def update_summary(self, text: str) -> None:
         self._summary_signal.emit(text)
 
@@ -278,5 +287,3 @@ class LlmMinesweeperControllerWidget(QWidget):
 
     def set_stop_button_callback(self, callback) -> None:
         self._stop_button.clicked.connect(callback)
-
-

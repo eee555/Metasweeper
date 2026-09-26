@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt5.QtCore import QCoreApplication, Qt, QModelIndex, QTimer
-from PyQt5.QtGui import QStandardItemModel
-from PyQt5.QtWidgets import QTableView
+from PySide6.QtCore import QCoreApplication, Qt, QModelIndex, QTimer, QItemSelectionModel
+from PySide6.QtGui import QStandardItemModel
+from PySide6.QtWidgets import QTableView
 
 from .models import HistoryData
 from .computed_column import ComputedColumn
@@ -76,7 +76,8 @@ class AutoEditTableView(QTableView):
             return
 
         # 如果不是自动编辑列，不进入编辑
-        self.selectionModel().setCurrentIndex(index, self.selectionModel().NoUpdate)
+        self.selectionModel().setCurrentIndex(
+            index, QItemSelectionModel.SelectionFlag.NoUpdate)
 
     def currentChanged(self, current: QModelIndex, previous: QModelIndex):
         """当焦点单元格改变时，自动进入编辑状态（表头选择整行时不触发）"""
@@ -203,6 +204,7 @@ class FilterModel(QStandardItemModel):
         for col in self._computed_columns:
             if col.name == field_name:
                 return col.sample_value
+
     def get_field_value_type(self, row: int):
         """获取指定行字段的原始值类型"""
         field_name = str(self.data(self.index(row, self.COL_FIELD)))

@@ -3,11 +3,11 @@
 """
 from __future__ import annotations
 
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QPushButton, QCheckBox, QMessageBox, QSpinBox,
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QCoreApplication
+from PySide6.QtCore import Qt, Signal, Slot, QCoreApplication
 
 _translate = QCoreApplication.translate
 
@@ -15,7 +15,7 @@ _translate = QCoreApplication.translate
 class ChallengeModeUI(QWidget):
     """无猜闯关主界面"""
 
-    _signal_update = pyqtSignal(object)
+    _signal_update = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -57,14 +57,14 @@ class ChallengeModeUI(QWidget):
         self._level_label.setStyleSheet(
             "font-size: 20px; font-weight: bold; color: #333333; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
-        self._level_label.setAlignment(Qt.AlignCenter)
+        self._level_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self._level_label)
 
         self._info_label = QLabel()
         self._info_label.setStyleSheet(
             "font-size: 13px; color: #666666; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
-        self._info_label.setAlignment(Qt.AlignCenter)
+        self._info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self._info_label)
 
         select_layout = QHBoxLayout()
@@ -77,7 +77,7 @@ class ChallengeModeUI(QWidget):
         self._level_select = QSpinBox()
         self._level_select.setRange(1, 1)
         self._level_select.setFixedWidth(90)
-        self._level_select.setAlignment(Qt.AlignCenter)
+        self._level_select.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._level_select.setStyleSheet(
             "QSpinBox { padding: 3px; font-size: 13px; }"
         )
@@ -123,7 +123,7 @@ class ChallengeModeUI(QWidget):
         self._congrats_label.setStyleSheet(
             "font-size: 22px; font-weight: bold; color: #2E7D32; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
-        self._congrats_label.setAlignment(Qt.AlignCenter)
+        self._congrats_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         congrats_layout.addWidget(self._congrats_label)
         self._congrats_frame.setVisible(False)
         layout.addWidget(self._congrats_frame, 2)
@@ -166,12 +166,13 @@ class ChallengeModeUI(QWidget):
             self,
             _translate("Form", "重置闯关进度"),
             _translate("Form", "确认重置闯关进度？此操作不可撤销。"),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if ret == QMessageBox.Yes and self._reset_cb:
+        if ret == QMessageBox.StandardButton.Yes and self._reset_cb:
             self._reset_cb()
 
+    @Slot(object)
     def _do_update(self, data: dict):
         idx = data["current_level"]
         total = data["total_levels"]

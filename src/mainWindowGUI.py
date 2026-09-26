@@ -1,15 +1,15 @@
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QTimer, QFileInfo
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QDragEnterEvent, QDropEvent
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, QFileInfo
+from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 # 重写QMainWindow
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    keyRelease = QtCore.pyqtSignal(str)
-    closeEvent_ = QtCore.pyqtSignal()
-    dropFileSignal = QtCore.pyqtSignal(str)
+    keyRelease = QtCore.Signal(str)
+    closeEvent_ = QtCore.Signal()
+    dropFileSignal = QtCore.Signal(str)
     flag_drag_border = False
     minimum_counter = 0
 

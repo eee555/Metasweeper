@@ -1,8 +1,8 @@
-from PyQt5 import QtCore
-from PyQt5.QtCore import QTimer, QCoreApplication, Qt, QRect
-from PyQt5.QtGui import QPixmap
+from PySide6 import QtCore
+from PySide6.QtCore import QTimer, QCoreApplication, Qt, QRect
+from PySide6.QtGui import QPixmap
 
-from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog, QWidget
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog, QWidget
 from dialogs import gameDefinedParameter
 from dialogs import videoControl
 import ms_toollib as ms
@@ -22,7 +22,7 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
         self.ui_video_control = videoControl.ui_Form(self.game_setting,
                                                      self.mainWindow)
         self.video_time_step = 0.01  # 录像时间的步长，定时器始终是10毫秒
-        
+
         self.ui_video_control.pushButton_play.clicked.connect(self.video_play)
         self.ui_video_control.pushButton_replay.clicked.connect(
             self.video_replay)
@@ -30,13 +30,18 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
         self.ui_video_control.videoSetTimePeriod.connect(self.video_set_a_time)
         self.ui_video_control.label_speed.wEvent.connect(self.video_set_speed)
         self.ui_video_control.tabWidget.tabBar().tabBarClicked.connect(self.on_tab_clicked)
-        self.ui_video_control.pushButton_path.clicked[bool].connect(self.toggle_path_trace)
-        self.ui_video_control.pushButton_op.clicked[bool].connect(self.toggle_op)
-        self.ui_video_control.videoTabClicked.connect(self.play_video_tab_name_id)
+        self.ui_video_control.pushButton_path.clicked[bool].connect(
+            self.toggle_path_trace)
+        self.ui_video_control.pushButton_op.clicked[bool].connect(
+            self.toggle_op)
+        self.ui_video_control.videoTabClicked.connect(
+            self.play_video_tab_name_id)
         self.ui_video_control.videoTabDoubleClicked.connect(
             lambda a, b: self.play_video_tab_name_id(a, b, True))
-        self.ui_video_control.videoCellsHovered.connect(self.highlight_video_cells)
-        self.ui_video_control.videoCellHoverCleared.connect(self.clear_video_cell_highlight)
+        self.ui_video_control.videoCellsHovered.connect(
+            self.highlight_video_cells)
+        self.ui_video_control.videoCellHoverCleared.connect(
+            self.clear_video_cell_highlight)
         self.show_path_trace = False
         self.mouse_trace_points = []
         self.path_trace_left_clicks = set()
@@ -48,9 +53,9 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
         self._video_loading = False
         self._video_load_file_name = ""
         self._video_load_progress_dialog = None
-    
-    
+
     # 打开录像文件的回调
+
     def action_OpenFile(self, openfile_name=None):
         if self._video_loading:
             if self._video_load_progress_dialog:
@@ -78,31 +83,42 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
         self._video_load_file_name = openfile_name
         self._show_video_load_progress(openfile_name)
         try:
-            self._on_video_load_progress(0, 100, _translate("VideoLoadProgress", "正在创建录像对象..."))
+            self._on_video_load_progress(0, 100, _translate(
+                "VideoLoadProgress", "正在创建录像对象..."))
             video, video_set = self._create_video(openfile_name)
 
             if video_set:
-                self._on_video_load_progress(5, 100, _translate("VideoLoadProgress", "正在解析录像集..."))
+                self._on_video_load_progress(
+                    5, 100, _translate("VideoLoadProgress", "正在解析录像集..."))
                 video_set.parse()
-                self._on_video_load_progress(35, 100, _translate("VideoLoadProgress", "录像集解析完成"))
+                self._on_video_load_progress(
+                    35, 100, _translate("VideoLoadProgress", "录像集解析完成"))
 
-                self._on_video_load_progress(40, 100, _translate("VideoLoadProgress", "正在分析录像集..."))
+                self._on_video_load_progress(
+                    40, 100, _translate("VideoLoadProgress", "正在分析录像集..."))
                 video_set.analyse()
-                self._on_video_load_progress(75, 100, _translate("VideoLoadProgress", "录像集分析完成"))
+                self._on_video_load_progress(
+                    75, 100, _translate("VideoLoadProgress", "录像集分析完成"))
 
-                self._on_video_load_progress(80, 100, _translate("VideoLoadProgress", "正在计算 pluck..."))
+                self._on_video_load_progress(80, 100, _translate(
+                    "VideoLoadProgress", "正在计算 pluck..."))
                 video_set.analyse_for_features(["pluck"])
                 video = video_set[0].evf_video
             else:
-                self._on_video_load_progress(5, 100, _translate("VideoLoadProgress", "正在解析录像..."))
+                self._on_video_load_progress(
+                    5, 100, _translate("VideoLoadProgress", "正在解析录像..."))
                 video.parse()
-                self._on_video_load_progress(35, 100, _translate("VideoLoadProgress", "录像解析完成"))
+                self._on_video_load_progress(
+                    35, 100, _translate("VideoLoadProgress", "录像解析完成"))
 
-                self._on_video_load_progress(40, 100, _translate("VideoLoadProgress", "正在分析录像..."))
+                self._on_video_load_progress(
+                    40, 100, _translate("VideoLoadProgress", "正在分析录像..."))
                 video.analyse()
-                self._on_video_load_progress(75, 100, _translate("VideoLoadProgress", "录像分析完成"))
+                self._on_video_load_progress(
+                    75, 100, _translate("VideoLoadProgress", "录像分析完成"))
 
-                self._on_video_load_progress(80, 100, _translate("VideoLoadProgress", "正在计算 pluck..."))
+                self._on_video_load_progress(80, 100, _translate(
+                    "VideoLoadProgress", "正在计算 pluck..."))
                 video.analyse_for_features(["pluck"])
 
             self._on_video_load_finished(video, video_set)
@@ -141,7 +157,8 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
         dialog.setAutoClose(False)
         dialog.setAutoReset(False)
         dialog.setWindowModality(Qt.WindowModal)
-        dialog.setLabelText(_translate("VideoLoadProgress", "正在打开录像...") + f"\n{openfile_name}")
+        dialog.setLabelText(_translate("VideoLoadProgress",
+                            "正在打开录像...") + f"\n{openfile_name}")
         dialog.show()
         self._video_load_progress_dialog = dialog
 
@@ -162,7 +179,8 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
 
     def _on_video_load_finished(self, video, video_set):
         if video_set:
-            self._on_video_load_progress(95, 100, _translate("VideoLoadProgress", "正在创建录像目录..."))
+            self._on_video_load_progress(95, 100, _translate(
+                "VideoLoadProgress", "正在创建录像目录..."))
             self.ui_video_control.add_new_video_set_tab(video_set)
             # self.tab_data.append(video_set)
         else:
@@ -170,7 +188,8 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
             # self.tab_data.append(video)
         tab_count = self.ui_video_control.tabWidget.count()
         self.ui_video_control.tabWidget.setCurrentIndex(tab_count - 1)
-        self._on_video_load_progress(100, 100, _translate("VideoLoadProgress", "录像加载完成"))
+        self._on_video_load_progress(
+            100, 100, _translate("VideoLoadProgress", "录像加载完成"))
         if self._video_load_progress_dialog:
             self._video_load_progress_dialog.close()
             self._video_load_progress_dialog = None
@@ -185,12 +204,14 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
             created_dialog = True
 
         try:
-            self._on_video_load_progress(85, 100, _translate("VideoLoadProgress", "正在分析本地事件..."))
+            self._on_video_load_progress(85, 100, _translate(
+                "VideoLoadProgress", "正在分析本地事件..."))
             self.ui_video_control.add_new_video_tab(
                 video,
                 progress_callback=self._on_local_event_analysis_progress,
             )
-            self._on_video_load_progress(97, 100, _translate("VideoLoadProgress", "事件列表创建完成"))
+            self._on_video_load_progress(
+                97, 100, _translate("VideoLoadProgress", "事件列表创建完成"))
         finally:
             if created_dialog and self._video_load_progress_dialog:
                 self._video_load_progress_dialog.close()
@@ -208,7 +229,8 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
                 "VideoLoadProgress",
                 "正在分析本地事件... ({current}/{total})",
             )
-            text = text.replace("{current}", str(current)).replace("{total}", str(total))
+            text = text.replace("{current}", str(
+                current)).replace("{total}", str(total))
         self._on_video_load_progress(value, 100, text)
 
     def _on_video_load_failed(self, message):
@@ -221,16 +243,16 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
             _translate("VideoLoadProgress", "录像解析失败：") + message,
         )
 
-
     # 播放新录像，调整局面尺寸等
     # 控制台中，不添加新标签、连接信号。假如关闭就展示
     # 播放AvfVideo、RmvVideo、EvfVideo、MvfVideo或BaseVideo
+
     def play_video(self, video, new_tab=False):
         if self.game_state != DISPLAY:
             self.game_state = DISPLAY
         self.video_playing = False
         self.timer_video.stop()
-        
+
         # 添加新标签并切换过去
         if new_tab:
             tab_count = self.ui_video_control.tabWidget.count()
@@ -243,7 +265,6 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
                 self._add_new_video_tab_with_progress(video)
                 self.ui_video_control.tabWidget.setCurrentIndex(tab_count)
 
-        
         # 检查evf的checksum，其余录像没有鉴定能力
         # if isinstance(video, ms.EvfVideo):
         #     self.score_board_manager.with_namespace({
@@ -275,12 +296,11 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
             self.label_2.reloadFace(self.pixSize)
             self.minimumWindow()
 
-        
         self.ui_video_control.QWidget.show()
-        
+
         t_end = video.video_end_time
         t_start = video.video_start_time
-        
+
         # 重新设置进度条的最大值、最小值，要临时屏蔽信号发送
         self.ui_video_control.horizontalSlider_time.blockSignals(True)
         self.ui_video_control.horizontalSlider_time.setValue(0)
@@ -323,9 +343,9 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
 
         # self.timer_video.start(10)
         self.video_replay()
-        
-        
+
     # 根据标签名和索引播放录像
+
     def play_video_tab_name_id(self, tab_name, idv, new_tab=False):
         tab_count = self.ui_video_control.tabWidget.count()
         for index in range(tab_count):
@@ -333,15 +353,14 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
             if tab_widget.tab_name == tab_name:
                 self.play_video(tab_widget.video_set[idv].evf_video, new_tab)
                 return
-        
-        
+
     # 切换标签时，播放标签中的录像
+
     def on_tab_clicked(self, idt):
         if isinstance(self.ui_video_control.tabWidget.widget(idt), videoControl.VideoTabWidget):
             self.play_video(self.ui_video_control.tabWidget.widget(idt).video)
         elif isinstance(self.ui_video_control.tabWidget.widget(idt), videoControl.VideoSetTabWidget):
             ...
-        
 
     def cache_mouse_trace(self, video):
         self.mouse_trace_points.clear()
@@ -396,7 +415,7 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
             self.timer_video.stop()
             self.video_playing = False
         self.label.update()
-        
+
         # 回放时修改小黄脸，使用了一个变量做工具箱的补丁
         match self.label.ms_board.mouse_state:
             case MouseState.UpUp.value | MouseState.DownUpAfterChording.value:
@@ -409,7 +428,7 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
                 else:
                     self.set_face(FACE_CLICK)
         self.last_mouse_state_video_playing_step = self.label.ms_board.mouse_state
-        
+
         self.score_board_manager.show(self.label.ms_board, index_type=3)
         self.mineUnFlagedNum = self.minenum - self.label.ms_board.flag
         self.showMineNum(self.mineUnFlagedNum)

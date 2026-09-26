@@ -8,7 +8,7 @@ import inspect
 from datetime import datetime
 from typing import Any
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from shared_types.enums import GameBoardState, GameMode, GameLevel, BaseDiaPlayEnum
 

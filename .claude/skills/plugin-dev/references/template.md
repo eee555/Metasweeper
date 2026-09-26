@@ -38,8 +38,8 @@ class MyPlugin(BasePlugin):
 """插件描述"""
 from __future__ import annotations
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt5.QtCore import pyqtSignal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import Signal
 
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 from shared_types.events import VideoSaveEvent
@@ -48,7 +48,7 @@ from shared_types.events import VideoSaveEvent
 class MyPluginWidget(QWidget):
     """插件 UI"""
     
-    _update_signal = pyqtSignal(str)
+    _update_signal = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)

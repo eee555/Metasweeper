@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt5.QtCore import Qt, pyqtSignal, QCoreApplication
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt, Signal, QCoreApplication
+from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
     QScrollArea,
@@ -35,7 +35,7 @@ class OtherInfoWidget(QWidget):
         config_changed: 配置值变化信号，参数为 (字段名, 新值)
     """
 
-    config_changed = pyqtSignal(str, object)  # (field_name, new_value)
+    config_changed = Signal(str, object)  # (field_name, new_value)
 
     def __init__(self, other_info: OtherInfoBase, parent: QWidget | None = None) -> None:
         """
@@ -195,7 +195,7 @@ class OtherInfoScrollArea(QScrollArea):
     用于配置项较多时提供滚动支持。
     """
 
-    config_changed = pyqtSignal(str, object)
+    config_changed = Signal(str, object)
 
     def __init__(self, other_info: OtherInfoBase, parent: QWidget | None = None) -> None:
         super().__init__(parent)

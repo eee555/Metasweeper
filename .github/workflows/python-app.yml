@@ -3,7 +3,7 @@ name: Build metasweeper
 on:
   push:
     tags:
-      - '*'
+      - "*"
   workflow_dispatch:
 
 jobs:
@@ -12,16 +12,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-
-      - name: Generate translation qm files
-        run: |
-          lrelease src/ui/en_US.ts -qm src/en_US.qm
-          lrelease src/ui/de_DE.ts -qm src/de_DE.qm
-          lrelease src/ui/pl_PL.ts -qm src/pl_PL.qm
-          lrelease src/ui/ja_JP.ts -qm src/ja_JP.qm
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -32,8 +22,21 @@ jobs:
         run: |
           python -V
           python -m pip install --upgrade pip
-          pip install flake8 pyinstaller>=6.19.0 cython
+          pip install flake8 "pyinstaller>=6.19.0" cython
           pip install -r requirements.txt
+
+      - name: Generate UI and translation files
+        run: |
+          cmd /c init.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pyside6-lrelease src/ui/en_US.ts -qm src/en_US.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pyside6-lrelease src/ui/de_DE.ts -qm src/de_DE.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pyside6-lrelease src/ui/pl_PL.ts -qm src/pl_PL.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pyside6-lrelease src/ui/ja_JP.ts -qm src/ja_JP.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Generate metasweeper_checksum.pyd
         run: |
@@ -101,10 +104,10 @@ jobs:
             --hidden-import win32event `
             --hidden-import winerror `
             --hidden-import ms_toollib `
-            --hidden-import PyQt5.QtQuickWidgets `
-            --hidden-import PyQt5.QtQuick `
-            --hidden-import PyQt5.QtQml `
-            --hidden-import PyQt5.QtChart `
+            --hidden-import PySide6.QtQuickWidgets `
+            --hidden-import PySide6.QtQuick `
+            --hidden-import PySide6.QtQml `
+            --hidden-import PySide6.QtCharts `
             --exclude PIL --exclude Pillow --exclude Cython `
             --exclude setuptools --exclude pkg_resources `
             --exclude psutil --exclude numpy `
@@ -150,43 +153,49 @@ jobs:
       - name: Strip unnecessary Qt binaries
         shell: powershell
         run: |
-          $qt = "dist\metasweeper\_internal\PyQt5\Qt5"
+          $qt = "dist\metasweeper\_internal\PySide6\Qt"
 
-          # 1) 删除不用的 Qt 模块 DLL (~8.6 MB)
-          # 注意：Qt5Quick/Qt5Qml/Qt5QmlModels 被 stats 插件(QQuickWidget/QML)使用，必须保留
-          $unusedDlls = @(
-            "Qt5DBus.dll"
-          )
+          # Qt Quick/QML/Charts components are required by the stats plugin.
+          $unusedDlls = @("Qt6DBus.dll")
           foreach ($dll in $unusedDlls) {
-            $path = "$qt\bin\$dll"
-            if (Test-Path $path) { Remove-Item $path -Force; Write-Output "Removed $dll" }
+            $path = Join-Path "$qt\bin" $dll
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+              Remove-Item -LiteralPath $path -Force
+              Write-Output "Removed $path"
+            }
           }
 
-          # 2) 删除软件 OpenGL 回退 (~20 MB)
           $swgl = "$qt\bin\opengl32sw.dll"
-          if (Test-Path $swgl) { Remove-Item $swgl -Force; Write-Output "Removed opengl32sw.dll" }
-
-          # 3) 删除不必要的 Qt 平台插件 (~1.5 MB)
-          $unusedPlugins = @("qminimal.dll", "qoffscreen.dll", "qwebgl.dll")
-          $pluginDir = "$qt\plugins\platforms"
-          foreach ($dll in $unusedPlugins) {
-            $path = "$pluginDir\$dll"
-            if (Test-Path $path) { Remove-Item $path -Force; Write-Output "Removed $dll" }
+          if (Test-Path -LiteralPath $swgl -PathType Leaf) {
+            Remove-Item -LiteralPath $swgl -Force
+            Write-Output "Removed $swgl"
           }
 
-          # 4) 保留 qtbase_*.qm（Qt 内建对话框翻译），删除其他模块的无用翻译 (~4 MB)
+          $pluginDir = "$qt\plugins\platforms"
+          $unusedPlugins = @("qminimal.dll", "qoffscreen.dll", "qwebgl.dll")
+          foreach ($dll in $unusedPlugins) {
+            $path = Join-Path $pluginDir $dll
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+              Remove-Item -LiteralPath $path -Force
+              Write-Output "Removed $path"
+            }
+          }
+
           $transDir = "$qt\translations"
-          if (Test-Path $transDir) {
-            Get-ChildItem "$transDir\*.qm" | Where-Object {
-              -not $_.BaseName.StartsWith("qtbase_")
-            } | Remove-Item -Force
-            $remaining = (Get-ChildItem "$transDir\*.qm" | Measure-Object).Count
+          if (Test-Path -LiteralPath $transDir -PathType Container) {
+            Get-ChildItem -LiteralPath $transDir -Filter "*.qm" -File |
+              Where-Object { -not $_.BaseName.StartsWith("qtbase_") } |
+              ForEach-Object {
+                Remove-Item -LiteralPath $_.FullName -Force
+                Write-Output "Removed $($_.FullName)"
+              }
+            $remaining = (Get-ChildItem -LiteralPath $transDir -Filter "qtbase_*.qm" -File | Measure-Object).Count
             Write-Output "Trimmed Qt translations (kept $remaining qtbase_*.qm files)"
           }
 
-
-
-          # 报告最终大小
+      - name: Report distribution size
+        shell: powershell
+        run: |
           $total = (Get-ChildItem -Recurse "dist\metasweeper" -File | Measure-Object -Property Length -Sum).Sum
           Write-Output "Final metasweeper dist size: $('{0:N2}' -f ($total/1MB)) MB"
 

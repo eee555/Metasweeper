@@ -1,16 +1,17 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt, QSize, QTimer
-from PyQt5.QtCore import QTranslator
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtCore import QTranslator
 
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 import configparser
-from PyQt5.QtGui import QPalette, QPixmap, QIcon
+from PySide6.QtGui import QPalette, QPixmap, QIcon
 from ui.ui_main_board import Ui_MainWindow
 from pathlib import Path
 from utils.path_utils import resource_path
 from dialogs.gameScoreBoard import gameScoreBoardManager
 from country_name import country_name
-import os, sys
+import os
+import sys
 from typing import List, Tuple
 
 from shared_types.events import LanguageChangeEvent
@@ -24,9 +25,8 @@ from plugin_sdk import GameServerBridge
 
 version = "元3.3.4"
 # AES-GCM 加密。请勿开发恶意篡改历史记录的工具，可以开发有益的应用。
-STATS_DAT_KEY = bytes([173,239,218,129,84,35,95,237,23,47,166,30,121,187,124,187])  # 16字节 AES-128 key
-
-
+STATS_DAT_KEY = bytes([173, 239, 218, 129, 84, 35, 95, 237,
+                      23, 47, 166, 30, 121, 187, 124, 187])  # 16字节 AES-128 key
 
 
 class IniConfig:
@@ -94,13 +94,14 @@ class IniConfig:
         :return: 获取到的值或默认值
         """
         section, key = self._parse_key(key)
-        value = self.value(key=f"{section}/{key}", default=default, value_type=value_type)
+        value = self.value(key=f"{section}/{key}",
+                           default=default, value_type=value_type)
         if value == default:
             self.set_value(key=f"{section}/{key}", value=default)
         return value
-    
-    def get_or_set_section(self, section, default: List[Tuple[str,str]], 
-                           force_add=False) -> List[Tuple[str,str]]:
+
+    def get_or_set_section(self, section, default: List[Tuple[str, str]],
+                           force_add=False) -> List[Tuple[str, str]]:
         """
         获取或设置 section 的内容。如果 section 为空，则重新设置为默认内容。
         :param section: 要获取或设置的 section 名称
@@ -132,9 +133,8 @@ class IniConfig:
         if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, key, str(value))
-        
-    
-    def set_section(self, section, section_value: List[Tuple[str,str]]):
+
+    def set_section(self, section, section_value: List[Tuple[str, str]]):
         """
         设置 section 的内容。全量替换。假如有重复的键，例如key，改为key, key(2), key(3)...
         key假如为空字符串，替换为行号的id
@@ -142,7 +142,8 @@ class IniConfig:
         :param section_value: section 内容
         """
         # key假如为空字符串，替换为行号的id
-        section_value = [(idv, v[1]) if v[0] == "" else v for (idv, v) in enumerate(section_value)]
+        section_value = [(idv, v[1]) if v[0] == "" else v for (
+            idv, v) in enumerate(section_value)]
         # 假如有重复的键，例如key，改为key, key(2), key(3)...
         key_set = set()
         for (idv, v) in enumerate(section_value):
@@ -155,17 +156,17 @@ class IniConfig:
                     idx += 1
                 key_set.add(new_key)
                 section_value[idv] = (new_key, v[1])
-                    
+
         if not self.config.has_section(section):
             self.config.add_section(section)
-            
+
         # 遍历并删除每个 option
         for option in list(self.config[section].keys()):
             self.config.remove_option(section, option)
-        
+
         for (key, value) in section_value:
             self.set_value(f"{section}/{key}", str(value))
-    
+
     def sync(self):
         """
         将内存中的配置写入文件
@@ -173,14 +174,15 @@ class IniConfig:
         with open(self.file_path, 'w', encoding="utf-8") as f:
             self.config.write(f)
 
+
 class Ui_MainWindow(Ui_MainWindow):
-    minimum_counter = 0 # 最小化展示窗口有关
+    minimum_counter = 0  # 最小化展示窗口有关
     # windowSizeState = 'loose'  # loose or tight
+
     def __init__(self, MainWindow, args):
         self.mainWindow = MainWindow
         self.setupUi(self.mainWindow)
-                
-        
+
         # 设置全局路径，需要读写权限
         # WindowsPath('f:/path/solvable-minesweeper/src/main.py')
         r_path = Path(args[0])
@@ -189,11 +191,12 @@ class Ui_MainWindow(Ui_MainWindow):
             self.setting_path = r_path.parent
         else:
             # 没权限，改用 %APPDATA%\你的程序名\
-            self.setting_path = Path(os.environ['APPDATA']) / ('Metasweeper' + version[1:])
+            self.setting_path = Path(
+                os.environ['APPDATA']) / ('Metasweeper' + version[1:])
             self.setting_path.mkdir(parents=True, exist_ok=True)
         # r_path是打包后_internal外面那一层，和exe同一级
         self.r_path = r_path
-            
+
         # 录像保存位置
         replay_path_dir = self.setting_path / 'replay'
         self.replay_path = str(replay_path_dir)
@@ -205,13 +208,13 @@ class Ui_MainWindow(Ui_MainWindow):
         record_path = str(self.setting_path / 'record.ini')
         self.record_setting = IniConfig(record_path)
 
-
         self.ico_path = str(resource_path('media') / 'cat.ico')
         self.smileface_path = str(resource_path('media') / 'smileface.svg')
         self.clickface_path = str(resource_path('media') / 'clickface.svg')
         self.lostface_path = str(resource_path('media') / 'lostface.svg')
         self.winface_path = str(resource_path('media') / 'winface.svg')
-        self.smilefacedown_path = str(resource_path('media') / 'smilefacedown.svg')
+        self.smilefacedown_path = str(
+            resource_path('media') / 'smilefacedown.svg')
         self.LED0_path = str(resource_path('media') / 'LED0.png')
         self.LED1_path = str(resource_path('media') / 'LED1.png')
         self.LED2_path = str(resource_path('media') / 'LED2.png')
@@ -222,7 +225,6 @@ class Ui_MainWindow(Ui_MainWindow):
         self.LED7_path = str(resource_path('media') / 'LED7.png')
         self.LED8_path = str(resource_path('media') / 'LED8.png')
         self.LED9_path = str(resource_path('media') / 'LED9.png')
-
 
         self.mainWindow.setWindowIcon(QIcon(self.ico_path))
 
@@ -235,14 +237,12 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label.setPath()
         self.label_2.setPath()
 
-
         self.readPredefinedBoardPara()
         self.read_or_create_game_setting()
         self.initMineArea()
         self.retranslateUi(MainWindow)
 
         self.trans = QTranslator()
-
 
         # 记录了计数器的配置，显示哪些指标等等
         score_board_path = str(self.setting_path / 'scoreBoardSetting.ini')
@@ -251,7 +251,6 @@ class Ui_MainWindow(Ui_MainWindow):
                                                          self.game_setting,
                                                          self.pixSize, MainWindow)
         # self.score_board_manager.ui.QWidget.move(_scoreBoardTop, _scoreBoardLeft)
-
 
         self.label_2.leftRelease.connect(self.gameRestart)
         self.MinenumTimeWigdet.mouseReleaseEvent = self.gameRestart
@@ -264,25 +263,35 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label_info.setText(self.player_identifier)
         self.set_country_flag()
 
-        self.frameShortcut1 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_1), MainWindow)
-        self.frameShortcut2 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_2), MainWindow)
-        self.frameShortcut3 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_3), MainWindow)
-        self.frameShortcut5 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_4), MainWindow)
-        self.frameShortcut6 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_5), MainWindow)
-        self.frameShortcut7 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_6), MainWindow)
-        self.frameShortcut4 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_F2), MainWindow)
-        self.frameShortcutF3 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_F3), MainWindow)
-        self.frameShortcut8 = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), MainWindow)
+        self.frameShortcut1 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_1), MainWindow)
+        self.frameShortcut2 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_2), MainWindow)
+        self.frameShortcut3 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_3), MainWindow)
+        self.frameShortcut5 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_4), MainWindow)
+        self.frameShortcut6 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_5), MainWindow)
+        self.frameShortcut7 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_6), MainWindow)
+        self.frameShortcut4 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_F2), MainWindow)
+        self.frameShortcutF3 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_F3), MainWindow)
+        self.frameShortcut8 = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_Space), MainWindow)
         self.frameShortcut8.setAutoRepeat(False)
-        self.frameShortcut9 = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+Space"), MainWindow)
-        self.shortcut_hidden_score_board = QtWidgets.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_Slash), MainWindow) # /键隐藏计数器
+        self.frameShortcut9 = QtGui.QShortcut(
+            QtGui.QKeySequence("Ctrl+Space"), MainWindow)
+        self.shortcut_hidden_score_board = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_Slash), MainWindow)  # /键隐藏计数器
 
-        self.shortcut_copy_board = QtWidgets.QShortcut(
+        self.shortcut_copy_board = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+C"), MainWindow)
         self.shortcut_copy_board.activated.connect(lambda: self.copy_board())
 
-        self.shortcut_paste_board = QtWidgets.QShortcut(
+        self.shortcut_paste_board = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+V"), MainWindow)
         self.shortcut_paste_board.activated.connect(lambda: self.paste_board())
 
@@ -293,15 +302,18 @@ class Ui_MainWindow(Ui_MainWindow):
     def initMineArea(self):
 
         # self.label.set_rcp(self.row, self.column, self.pixSize)
-        self.label.setMinimumSize(QSize(self.pixSize*self.column + 8, self.pixSize*self.row + 8))
+        self.label.setMinimumSize(
+            QSize(self.pixSize*self.column + 8, self.pixSize*self.row + 8))
         self.label.leftPressed.connect(self.mineAreaLeftPressed)
         self.label.leftRelease.connect(self.mineAreaLeftRelease)
-        self.label.leftAndRightPressed.connect(self.mineAreaLeftAndRightPressed)
+        self.label.leftAndRightPressed.connect(
+            self.mineAreaLeftAndRightPressed)
         # self.label.leftAndRightRelease.connect(self.mineAreaLeftAndRightRelease)
         self.label.rightPressed.connect(self.mineAreaRightPressed)
         self.label.rightRelease.connect(self.mineAreaRightRelease)
         self.label.mouseMove.connect(self.mineMouseMove)
-        self.label.mousewheelEvent.connect(lambda x, y, z: self.resizeWheel(x, y, z))
+        self.label.mousewheelEvent.connect(
+            lambda x, y, z: self.resizeWheel(x, y, z))
         self.label_11.mousewheelEvent.connect(self.mineNumWheel)
         self.label_12.mousewheelEvent.connect(self.mineNumWheel)
         self.label_13.mousewheelEvent.connect(self.mineNumWheel)
@@ -310,8 +322,6 @@ class Ui_MainWindow(Ui_MainWindow):
 
         self.label.setObjectName("label")
 
-
-
     def importLEDPic(self, pixSize):
         # 从磁盘导入资源，并缩放到希望的尺寸、比例
         pixmap14 = QPixmap(self.smileface_path)
@@ -319,13 +329,15 @@ class Ui_MainWindow(Ui_MainWindow):
         pixmap16 = QPixmap(self.lostface_path)
         pixmap17 = QPixmap(self.winface_path)
         pixmap18 = QPixmap(self.smilefacedown_path)
-        self.pixmapNumPix = {FACE_SMILE: pixmap14, FACE_CLICK: pixmap15, FACE_LOST: pixmap16, FACE_WIN: pixmap17, FACE_SMILE_DOWN: pixmap18}
+        self.pixmapNumPix = {FACE_SMILE: pixmap14, FACE_CLICK: pixmap15,
+                             FACE_LOST: pixmap16, FACE_WIN: pixmap17, FACE_SMILE_DOWN: pixmap18}
         pixmap14_ = pixmap14.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
         pixmap15_ = pixmap15.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
         pixmap16_ = pixmap16.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
         pixmap17_ = pixmap17.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
         pixmap18_ = pixmap18.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        self.pixmapNum = {FACE_SMILE: pixmap14_, FACE_CLICK: pixmap15_, FACE_LOST: pixmap16_, FACE_WIN: pixmap17_, FACE_SMILE_DOWN: pixmap18_}
+        self.pixmapNum = {FACE_SMILE: pixmap14_, FACE_CLICK: pixmap15_,
+                          FACE_LOST: pixmap16_, FACE_WIN: pixmap17_, FACE_SMILE_DOWN: pixmap18_}
         # 以上是读取数字的图片，局面中的数字；以下是上方LED数字的图片
         pixLEDmap0 = QPixmap(self.LED0_path)
         pixLEDmap1 = QPixmap(self.LED1_path)
@@ -338,32 +350,41 @@ class Ui_MainWindow(Ui_MainWindow):
         pixLEDmap8 = QPixmap(self.LED8_path)
         pixLEDmap9 = QPixmap(self.LED9_path)
         self.pixmapLEDNumPix = {0: pixLEDmap0, 1: pixLEDmap1, 2: pixLEDmap2, 3: pixLEDmap3,
-                        4: pixLEDmap4, 5: pixLEDmap5, 6: pixLEDmap6, 7: pixLEDmap7,
-                        8: pixLEDmap8, 9: pixLEDmap9}
-        pixLEDmap0_ = pixLEDmap0.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap1_ = pixLEDmap1.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap2_ = pixLEDmap2.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap3_ = pixLEDmap3.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap4_ = pixLEDmap4.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap5_ = pixLEDmap5.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap6_ = pixLEDmap6.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap7_ = pixLEDmap7.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap8_ = pixLEDmap8.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap9_ = pixLEDmap9.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+                                4: pixLEDmap4, 5: pixLEDmap5, 6: pixLEDmap6, 7: pixLEDmap7,
+                                8: pixLEDmap8, 9: pixLEDmap9}
+        pixLEDmap0_ = pixLEDmap0.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap1_ = pixLEDmap1.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap2_ = pixLEDmap2.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap3_ = pixLEDmap3.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap4_ = pixLEDmap4.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap5_ = pixLEDmap5.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap6_ = pixLEDmap6.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap7_ = pixLEDmap7.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap8_ = pixLEDmap8.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+        pixLEDmap9_ = pixLEDmap9.copy().scaled(
+            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
         self.pixmapLEDNum = {0: pixLEDmap0_, 1: pixLEDmap1_, 2: pixLEDmap2_, 3: pixLEDmap3_,
-                        4: pixLEDmap4_, 5: pixLEDmap5_, 6: pixLEDmap6_, 7: pixLEDmap7_,
-                        8: pixLEDmap8_, 9: pixLEDmap9_}
+                             4: pixLEDmap4_, 5: pixLEDmap5_, 6: pixLEDmap6_, 7: pixLEDmap7_,
+                             8: pixLEDmap8_, 9: pixLEDmap9_}
 
     def reimportLEDPic(self, pixSize):
         # 重新将资源的尺寸缩放到希望的尺寸、比例
         if hasattr(self, "pixmapNumPix"):
-            self.pixmapNum = {key:value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5)) 
-                              for key,value in self.pixmapNumPix.items()}
-            self.pixmapLEDNum = {key:value.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5)) 
-                                 for key,value in self.pixmapLEDNumPix.items()}
+            self.pixmapNum = {key: value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5))
+                              for key, value in self.pixmapNumPix.items()}
+            self.pixmapLEDNum = {key: value.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+                                 for key, value in self.pixmapLEDNumPix.items()}
         else:
             self.importLEDPic(pixSize)
-
 
     def readPredefinedBoardPara(self):
         # 从配置中更新出快捷键1, 2, 3, 4、5、6的定义(0是自定义)
@@ -375,9 +396,10 @@ class Ui_MainWindow(Ui_MainWindow):
             ("mine_num", 10),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
-            ]
+        ]
         s = self.game_setting.get_or_set_section("CUSTOM", s, True)
-        self.predefinedBoardPara[0] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[0] = {k: int(v) if isinstance(
+            v, str) and v.isdigit() else v for (k, v) in s}
         s = [
             ("gamemode", 0),
             ("row", 8),
@@ -386,9 +408,10 @@ class Ui_MainWindow(Ui_MainWindow):
             ("mine_num", 10),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
-            ]
+        ]
         s = self.game_setting.get_or_set_section("BEGINNER", s, True)
-        self.predefinedBoardPara[1] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[1] = {k: int(v) if isinstance(
+            v, str) and v.isdigit() else v for (k, v) in s}
         s = [
             ("gamemode", 0),
             ("row", 16),
@@ -397,9 +420,10 @@ class Ui_MainWindow(Ui_MainWindow):
             ("mine_num", 40),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
-            ]
+        ]
         s = self.game_setting.get_or_set_section("INTERMEDIATE", s, True)
-        self.predefinedBoardPara[2] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[2] = {k: int(v) if isinstance(
+            v, str) and v.isdigit() else v for (k, v) in s}
         s = [
             ("gamemode", 0),
             ("row", 16),
@@ -408,9 +432,10 @@ class Ui_MainWindow(Ui_MainWindow):
             ("mine_num", 99),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
-            ]
+        ]
         s = self.game_setting.get_or_set_section("EXPERT", s, True)
-        self.predefinedBoardPara[3] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[3] = {k: int(v) if isinstance(
+            v, str) and v.isdigit() else v for (k, v) in s}
         s = [
             ("gamemode", 5),
             ("row", 16),
@@ -419,9 +444,10 @@ class Ui_MainWindow(Ui_MainWindow):
             ("mine_num", 72),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
-            ]
+        ]
         s = self.game_setting.get_or_set_section("CUSTOM_PRESET_4", s, True)
-        self.predefinedBoardPara[4] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[4] = {k: int(v) if isinstance(
+            v, str) and v.isdigit() else v for (k, v) in s}
         s = [
             ("gamemode", 5),
             ("row", 16),
@@ -430,9 +456,10 @@ class Ui_MainWindow(Ui_MainWindow):
             ("mine_num", 120),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
-            ]
+        ]
         s = self.game_setting.get_or_set_section("CUSTOM_PRESET_5", s, True)
-        self.predefinedBoardPara[5] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
+        self.predefinedBoardPara[5] = {k: int(v) if isinstance(
+            v, str) and v.isdigit() else v for (k, v) in s}
         s = [
             ("gamemode", 5),
             ("row", 24),
@@ -441,10 +468,10 @@ class Ui_MainWindow(Ui_MainWindow):
             ("mine_num", 200),
             ("board_constraint", ""),
             ("attempt_times_limit", 100000),
-            ]
+        ]
         s = self.game_setting.get_or_set_section("CUSTOM_PRESET_6", s, True)
-        self.predefinedBoardPara[6] = { k: int(v) if isinstance(v, str) and v.isdigit() else v for (k, v) in s }
-
+        self.predefinedBoardPara[6] = {k: int(v) if isinstance(
+            v, str) and v.isdigit() else v for (k, v) in s}
 
     def minimumWindow(self):
         # 最小化展示窗口，并固定尺寸
@@ -461,10 +488,8 @@ class Ui_MainWindow(Ui_MainWindow):
         if self.minimum_counter >= 100:
             self.minimum_counter = 0
             self.timer_.stop()
-            
 
-
-    def trans_language(self, language = ""):
+    def trans_language(self, language=""):
         if not language:
             language = self.language
         app = QApplication.instance()
@@ -472,12 +497,14 @@ class Ui_MainWindow(Ui_MainWindow):
             self.trans.load(str(resource_path(language + '.qm')))
             app.installTranslator(self.trans)
             self.retranslateUi(self.mainWindow)
-            self.score_board_manager.retranslateUi(self.score_board_manager.ui.QWidget)
+            self.score_board_manager.retranslateUi(
+                self.score_board_manager.ui.QWidget)
             self._retranslate_video_control()
         else:
             app.removeTranslator(self.trans)
             self.retranslateUi(self.mainWindow)
-            self.score_board_manager.retranslateUi(self.score_board_manager.ui.QWidget)
+            self.score_board_manager.retranslateUi(
+                self.score_board_manager.ui.QWidget)
             self._retranslate_video_control()
         self.game_setting.set_value("DEFAULT/language", language)
         self.game_setting.sync()
@@ -495,16 +522,18 @@ class Ui_MainWindow(Ui_MainWindow):
         except (AttributeError, RuntimeError):
             return
 
-
     def read_or_create_game_setting(self):
         '''
         读取或创建游戏设置。
         '''
-        transparency = self.game_setting.get_or_set_value('DEFAULT/transparency', 100, int)
+        transparency = self.game_setting.get_or_set_value(
+            'DEFAULT/transparency', 100, int)
         self.mainWindow.setWindowOpacity(transparency / 100)
-        mainWinTop = self.game_setting.get_or_set_value("DEFAULT/mainwintop", 100, int)
-        mainWinLeft = self.game_setting.get_or_set_value("DEFAULT/mainwinleft", 200, int)
-        
+        mainWinTop = self.game_setting.get_or_set_value(
+            "DEFAULT/mainwintop", 100, int)
+        mainWinLeft = self.game_setting.get_or_set_value(
+            "DEFAULT/mainwinleft", 200, int)
+
         window_width = self.mainWindow.width()
         window_height = self.mainWindow.height()
         screen = QtGui.QGuiApplication.primaryScreen()
@@ -522,28 +551,43 @@ class Ui_MainWindow(Ui_MainWindow):
         # 考虑设置导致窗口移出屏幕外（例如使用拓展屏）。然而执行此初始化方法时，屏幕尚未
         # 画局面，因此尺寸较完全初始化后偏小，仍有可能有半个窗口在屏幕外，当然这不影响使用。
         self.mainWindow.move(mainWinLeft, mainWinTop)
-        
-        self._row: int = self.game_setting.get_or_set_value("DEFAULT/row", 16, int)
-        self._column: int = self.game_setting.get_or_set_value("DEFAULT/column", 30, int)
-        self._minenum: int = self.game_setting.get_or_set_value("DEFAULT/minenum", 99, int)
+
+        self._row: int = self.game_setting.get_or_set_value(
+            "DEFAULT/row", 16, int)
+        self._column: int = self.game_setting.get_or_set_value(
+            "DEFAULT/column", 30, int)
+        self._minenum: int = self.game_setting.get_or_set_value(
+            "DEFAULT/minenum", 99, int)
         self.mineUnFlagedNum = self.minenum
         # “自动重开比例”，大于等于该比例时，不自动重开。负号表示禁用，负数表示禁用的值。0相当于禁用，但可以编辑。
-        self.auto_replay = self.game_setting.get_or_set_value("DEFAULT/auto_replay", -30, int)
+        self.auto_replay = self.game_setting.get_or_set_value(
+            "DEFAULT/auto_replay", -30, int)
         # self.allow_auto_replay = self.game_setting.get_or_set_value("DEFAULT/allow_auto_replay", True, bool)
         # 是否自动弹窗
-        self.auto_notification = self.game_setting.get_or_set_value("DEFAULT/auto_notification", True, bool)
-        self.player_identifier = self.game_setting.get_or_set_value("DEFAULT/player_identifier", "匿名玩家(anonymous player)", str)
-        self.race_identifier = self.game_setting.get_or_set_value("DEFAULT/race_identifier", "", str)
-        self.unique_identifier = self.game_setting.get_or_set_value("DEFAULT/unique_identifier", "", str)
-        self.country = self.game_setting.get_or_set_value("DEFAULT/country", "", str)
+        self.auto_notification = self.game_setting.get_or_set_value(
+            "DEFAULT/auto_notification", True, bool)
+        self.player_identifier = self.game_setting.get_or_set_value(
+            "DEFAULT/player_identifier", "匿名玩家(anonymous player)", str)
+        self.race_identifier = self.game_setting.get_or_set_value(
+            "DEFAULT/race_identifier", "", str)
+        self.unique_identifier = self.game_setting.get_or_set_value(
+            "DEFAULT/unique_identifier", "", str)
+        self.country = self.game_setting.get_or_set_value(
+            "DEFAULT/country", "", str)
         # 是否自动保存录像。开启时，自动保存所有扫完的、正式的录像。假如要其他保存策略，应使用插件来完成。
-        self.autosave_video = self.game_setting.get_or_set_value("DEFAULT/autosave_video", True, bool)
-        self.autosave_video_set = self.game_setting.get_or_set_value("DEFAULT/autosave_video_set", False, bool)
+        self.autosave_video = self.game_setting.get_or_set_value(
+            "DEFAULT/autosave_video", True, bool)
+        self.autosave_video_set = self.game_setting.get_or_set_value(
+            "DEFAULT/autosave_video_set", False, bool)
         # 是否永远使用筛选法取得无猜局面
-        self.filter_forever = self.game_setting.get_or_set_value("DEFAULT/filter_forever", False, bool)
-        self.language = self.game_setting.get_or_set_value("DEFAULT/language", "en_US", str)
-        self.end_then_flag = self.game_setting.get_or_set_value("DEFAULT/end_then_flag", True, bool)
-        self.cursor_limit = self.game_setting.get_or_set_value("DEFAULT/cursor_limit", False, bool)
+        self.filter_forever = self.game_setting.get_or_set_value(
+            "DEFAULT/filter_forever", False, bool)
+        self.language = self.game_setting.get_or_set_value(
+            "DEFAULT/language", "en_US", str)
+        self.end_then_flag = self.game_setting.get_or_set_value(
+            "DEFAULT/end_then_flag", True, bool)
+        self.cursor_limit = self.game_setting.get_or_set_value(
+            "DEFAULT/cursor_limit", False, bool)
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:
@@ -552,11 +596,15 @@ class Ui_MainWindow(Ui_MainWindow):
             level = LEVEL_NAME_EXPERT
         else:
             level = LEVEL_NAME_CUSTOM
-        self.pixSize = self.game_setting.get_or_set_value(f"{level}/pixsize", 20, int)
+        self.pixSize = self.game_setting.get_or_set_value(
+            f"{level}/pixsize", 20, int)
         self.label.set_rcp(self.row, self.column, self.pixSize)
-        self.gameMode = self.game_setting.get_or_set_value(f"{level}/gamemode", 0, int)
-        self.board_constraint = self.game_setting.get_or_set_value(f"{level}/board_constraint", "", str)
-        self.attempt_times_limit = self.game_setting.get_or_set_value(f"{level}/attempt_times_limit", 100000, int)
+        self.gameMode = self.game_setting.get_or_set_value(
+            f"{level}/gamemode", 0, int)
+        self.board_constraint = self.game_setting.get_or_set_value(
+            f"{level}/board_constraint", "", str)
+        self.attempt_times_limit = self.game_setting.get_or_set_value(
+            f"{level}/attempt_times_limit", 100000, int)
         self.game_setting.sync()
 
     def read_or_create_record(self):
@@ -564,7 +612,8 @@ class Ui_MainWindow(Ui_MainWindow):
                                 "BWG", "IFLAG", "INF", "IWIN7", "ISS", "IWS", "ICS", "ITBS",
                                 "ISG", "IWG", "EFLAG", "ENF", "EWIN7", "ESS", "EWS", "ECS",
                                 "ETBS", "ESG", "EWG"]
-        self.record_key_name_list = record_key_name_list + ["BEGINNER", "INTERMEDIATE", "EXPERT"]
+        self.record_key_name_list = record_key_name_list + \
+            ["BEGINNER", "INTERMEDIATE", "EXPERT"]
         # self.record = {}
         record_norm = [
             ('rtime', 999.999),
@@ -573,21 +622,24 @@ class Ui_MainWindow(Ui_MainWindow):
             ('ioe', 0.000),
             ('path', 999999.999),
             ('rqp', 999999.999),
-            ]
+        ]
         for k in record_key_name_list:
             self.record_setting.get_or_set_section(k, record_norm, True)
-        self.record_setting.get_or_set_section("BEGINNER", 
-                                               [(i, 999.999) for i in range(1, 55)],
+        self.record_setting.get_or_set_section("BEGINNER",
+                                               [(i, 999.999)
+                                                for i in range(1, 55)],
                                                True)
         self.record_setting.get_or_set_section("INTERMEDIATE",
-                                               [(i, 999.999) for i in range(1, 217)], 
+                                               [(i, 999.999)
+                                                for i in range(1, 217)],
                                                True)
-        self.record_setting.get_or_set_section("EXPERT", 
-                                               [(i, 999.999) for i in range(1, 382)], 
+        self.record_setting.get_or_set_section("EXPERT",
+                                               [(i, 999.999)
+                                                for i in range(1, 382)],
                                                True)
         self.record_setting.sync()
 
-    def set_country_flag(self, country = None):
+    def set_country_flag(self, country=None):
         '''
         设置右下角国旗图案。尽一切可能解析录像中的国旗。
         例如，在vsweep中，国家是用户手动输入的，可能出现”中国“、”China“、”china“、”CN“、
@@ -611,7 +663,8 @@ class Ui_MainWindow(Ui_MainWindow):
                 self.label_flag.update()
                 return
         else:
-            flag_name = resource_path('media') / (country_name[country] + ".svg")
+            flag_name = resource_path(
+                'media') / (country_name[country] + ".svg")
         pixmap = QPixmap(str(flag_name)).scaled(51, 31)
         self.label_flag.setPixmap(pixmap)
         self.label_flag.update()
@@ -631,9 +684,3 @@ class Ui_MainWindow(Ui_MainWindow):
         except Exception as e:
             logger.exception("Failed to write to path: %s", path)
             return False
-
-
-
-
-
-

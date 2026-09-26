@@ -14,11 +14,11 @@ from pathlib import Path
 
 from .db import db_connection, delete_record_tx
 
-from PyQt5.QtCore import (
-    QEvent, QModelIndex, QPoint, Qt, QCoreApplication, pyqtSignal, QTimer,
+from PySide6.QtCore import (
+    QEvent, QModelIndex, QPoint, Qt, QCoreApplication, Signal, QTimer,
 )
-from PyQt5.QtGui import QCloseEvent as _QCloseEvent
-from PyQt5.QtWidgets import (
+from PySide6.QtGui import QCloseEvent as _QCloseEvent
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QMenu,
@@ -67,7 +67,7 @@ class _DeleteConfirmDialog(ConfirmDialog):
         return layout
 
     def _on_accepted(self):
-        # 确认逻辑由调用方在 exec_() 返回后处理
+        # 确认逻辑由调用方在 exec() 返回后处理
         pass
 
 
@@ -75,7 +75,7 @@ class HistoryTable(QWidget):
     """历史记录表格"""
 
     # 信号：列显示配置变化 (show_fields_json)
-    show_fields_changed = pyqtSignal(str)
+    show_fields_changed = Signal(str)
 
     NF_COLUMN_WIDTH = 50
 
@@ -204,7 +204,7 @@ class HistoryTable(QWidget):
         if "board" in visible_headers:
             col = visible_headers.index("board")
             header.setSectionResizeMode(col, QHeaderView.Fixed)
-            width = self.table.fontMetrics().width('中' * 30 + '  ')
+            width = self.table.fontMetrics().horizontalAdvance('中' * 30 + '  ')
             self.table.setColumnWidth(col, width)
 
         if "nf" in visible_headers:
@@ -219,7 +219,7 @@ class HistoryTable(QWidget):
             etype = event.type()
             if etype == QEvent.MouseMove:
                 self._handle_hover(
-                    self.table.indexAt(event.pos()), event.globalPos())
+                    self.table.indexAt(event.position().toPoint()), event.globalPosition().toPoint())
             elif etype in (QEvent.Leave, QEvent.MouseButtonPress,
                            QEvent.Wheel):
                 self._hide_preview()
@@ -303,7 +303,7 @@ class HistoryTable(QWidget):
         menu.addAction(_translate("Form", "复制JSON"), self.export_row_json)
         menu.addAction(_translate("Form", "删除"), self.delete_row)
         menu.addAction(_translate("Form", "刷新"), self.refresh)
-        menu.exec_(self.table.mapToGlobal(pos))
+        menu.exec(self.table.mapToGlobal(pos))
 
     def delete_row(self):
         """删除当前选中的记录（确认后执行，删除后刷新）"""
@@ -311,7 +311,7 @@ class HistoryTable(QWidget):
         if replay_id is None:
             return
         dialog = _DeleteConfirmDialog(self)
-        if dialog.exec_() != QDialog.Accepted:
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:
             with db_connection(self._db_path) as conn:
@@ -390,7 +390,7 @@ class HistoryTable(QWidget):
             return False
         with open(evf_path, "wb") as f:
             f.write(raw_data)
-        
+
         return True
 
     def play_row(self):
@@ -424,6 +424,7 @@ class HistoryTable(QWidget):
         else:
             subprocess.Popen([str(exe), str(temp_filename)])
         # 回放进程启动后延迟清理临时文件（留足进程读取文件的时间）
+
         def _cleanup():
             try:
                 temp_filename.unlink(missing_ok=True)

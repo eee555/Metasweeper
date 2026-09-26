@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtWidgets import QTextEdit
+from PySide6.QtWidgets import QTextEdit
 
 from .base_config import BaseConfig, ConfigWidgetWrapper
 

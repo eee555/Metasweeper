@@ -13,23 +13,6 @@
 用户明确认证部分日后再处理，故本脚本仅做 skip/TODO 占位，不测登录写操作。
 """
 from __future__ import annotations
-
-import os
-import sys
-import time
-import traceback
-from collections.abc import Callable
-from pathlib import Path
-
-# ---------------------------------------------------------------------------
-# sys.path 处理：保证 plugin_sdk 可导入（无论从哪个目录运行）
-# plugin_sdk 位于 <项目根>/src/plugin_sdk，因此把 src 目录加入 sys.path
-# ---------------------------------------------------------------------------
-_SRC_DIR = Path(__file__).resolve().parents[2]  # src/plugin_sdk/openapi_client/test.py -> src/
-if str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
-
-from plugin_sdk.openapi_client.errors import ApiClientError, SpecError
 from plugin_sdk.openapi_client.openms import (
     AccountLinkCompleteOut,
     CustomPluckRecordOut,
@@ -45,6 +28,24 @@ from plugin_sdk.openapi_client.openms import (
     VideoSummaryOut,
     create_client,
 )
+from plugin_sdk.openapi_client.errors import ApiClientError, SpecError
+
+import os
+import sys
+import time
+import traceback
+from collections.abc import Callable
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# sys.path 处理：保证 plugin_sdk 可导入（无论从哪个目录运行）
+# plugin_sdk 位于 <项目根>/src/plugin_sdk，因此把 src 目录加入 sys.path
+# ---------------------------------------------------------------------------
+# src/plugin_sdk/openapi_client/test.py -> src/
+_SRC_DIR = Path(__file__).resolve().parents[2]
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
 
 # 默认站点地址（与库内 DEFAULT_BASE_URL 一致）
 BASE_URL = "https://openms.top"
@@ -62,7 +63,8 @@ def test_userprofile_get_user_info() -> str:
     """用例 2: 匿名获取 user_id=1 的 UserProfile，且 id == 1"""
     api = OpenmsApi(create_client())
     profile = api.userprofile_get_user_info(user_id=1)
-    assert isinstance(profile, UserProfile), f"期望 UserProfile，实际 {type(profile).__name__}"
+    assert isinstance(
+        profile, UserProfile), f"期望 UserProfile，实际 {type(profile).__name__}"
     assert profile.id == 1, f"期望 id == 1，实际 {profile.id!r}"
     return f"UserProfile(id={profile.id}, username={profile.username!r})"
 
@@ -73,7 +75,8 @@ def test_msuser_get_records() -> str:
     ms = api.msuser_get_records(user_id=1)
     assert isinstance(ms, UserMS), f"期望 UserMS，实际 {type(ms).__name__}"
     val = ms.b_timems_std
-    assert isinstance(val, (int, float)), f"b_timems_std 期望 int/float，实际 {type(val).__name__}"
+    assert isinstance(
+        val, (int, float)), f"b_timems_std 期望 int/float，实际 {type(val).__name__}"
     return f"UserMS(b_timems_std={val}) 数值字段校验通过"
 
 
@@ -95,7 +98,8 @@ def test_create_client_custom_params() -> str:
     client = create_client(base_url=BASE_URL, timeout=15.0)
     api = OpenmsApi(client)
     profile = api.userprofile_get_user_info(user_id=1)
-    assert isinstance(profile, UserProfile), f"期望 UserProfile，实际 {type(profile).__name__}"
+    assert isinstance(
+        profile, UserProfile), f"期望 UserProfile，实际 {type(profile).__name__}"
     return "自定义参数构造成功且请求返回 UserProfile"
 
 
@@ -209,7 +213,8 @@ def test_msuser_get_records_abstract() -> str:
     ms = api.msuser_get_records_abstract(user_id=1)
     assert isinstance(ms, UserMS2), f"期望 UserMS2，实际 {type(ms).__name__}"
     val = ms.b_timems_std
-    assert isinstance(val, (int, float)), f"b_timems_std 期望 int/float，实际 {type(val).__name__}"
+    assert isinstance(
+        val, (int, float)), f"b_timems_std 期望 int/float，实际 {type(val).__name__}"
     return f"UserMS2(b_timems_std={val}) 数值字段校验通过"
 
 
@@ -245,8 +250,10 @@ def test_tournament_get_tournament_user_ranking() -> str:
     assert isinstance(ranking, TournamentUserRankingOut), (
         f"期望 TournamentUserRankingOut，实际 {type(ranking).__name__}"
     )
-    assert isinstance(ranking.total, int), f"total 期望 int，实际 {type(ranking.total).__name__}"
-    assert isinstance(ranking.data, list), f"data 期望 list，实际 {type(ranking.data).__name__}"
+    assert isinstance(
+        ranking.total, int), f"total 期望 int，实际 {type(ranking.total).__name__}"
+    assert isinstance(
+        ranking.data, list), f"data 期望 list，实际 {type(ranking.data).__name__}"
     return f"user-ranking 返回 total={ranking.total}，data {len(ranking.data)} 条"
 
 
@@ -269,7 +276,8 @@ def test_accountlink_get_account_links() -> str:
     assert isinstance(links, AccountLinkCompleteOut), (
         f"期望 AccountLinkCompleteOut，实际 {type(links).__name__}"
     )
-    assert isinstance(links.summary, list), f"summary 期望 list，实际 {type(links.summary).__name__}"
+    assert isinstance(
+        links.summary, list), f"summary 期望 list，实际 {type(links.summary).__name__}"
     return f"accountlink/{{user_id}} 返回 summary {len(links.summary)} 条绑定记录"
 
 
@@ -303,16 +311,16 @@ def test_query_param_binding() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Qt 传输层用例（PyQt5 惰性导入；缺失时返回 SKIP 占位）
+# Qt 传输层用例（PySide6 惰性导入；缺失时返回 SKIP 占位）
 # ---------------------------------------------------------------------------
 def _ensure_qt_app():
-    """惰性导入 PyQt5 并确保存在 QApplication（offscreen 平台，无需显示器）
+    """惰性导入 PySide6 并确保存在 QApplication（offscreen 平台，无需显示器）
 
     Returns:
-        QApplication 实例；PyQt5 缺失/不可用时返回 None（调用方转 SKIP）
+        QApplication 实例；PySide6 缺失/不可用时返回 None（调用方转 SKIP）
     """
     try:
-        from PyQt5.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
     except ImportError:
         return None
     # 无显示环境（CI/远程）也可运行：默认 offscreen 平台
@@ -327,7 +335,7 @@ def test_qt_transport_user_info() -> str:
     """用例 21: QtNetworkTransport 传输——经 Qt 网络栈获取 user_id=1 的 UserProfile"""
     app = _ensure_qt_app()
     if app is None:
-        return "SKIP: PyQt5 不可用（未安装或 QtNetwork 模块缺失），Qt 传输用例跳过"
+        return "SKIP: PySide6 不可用（未安装或 QtNetwork 模块缺失），Qt 传输用例跳过"
     from plugin_sdk.openapi_client.transport import QtNetworkTransport
 
     api = OpenmsApi(create_client(transport=QtNetworkTransport()))
@@ -347,7 +355,7 @@ def test_qt_transport_error_path() -> str:
     """
     app = _ensure_qt_app()
     if app is None:
-        return "SKIP: PyQt5 不可用（未安装或 QtNetwork 模块缺失），Qt 传输用例跳过"
+        return "SKIP: PySide6 不可用（未安装或 QtNetwork 模块缺失），Qt 传输用例跳过"
     from plugin_sdk.openapi_client.transport import QtNetworkTransport
 
     api = OpenmsApi(create_client(transport=QtNetworkTransport()))
@@ -386,28 +394,41 @@ def _looks_like_network_failure(exc: BaseException) -> bool:
 
 TESTS: list[tuple[str, Callable[[], str], str]] = [
     ("create_client() 默认参数构造", test_create_client_default, "no"),
-    ("userprofile_get_user_info(user_id=1)", test_userprofile_get_user_info, "net"),
+    ("userprofile_get_user_info(user_id=1)",
+     test_userprofile_get_user_info, "net"),
     ("msuser_get_records(user_id=1)", test_msuser_get_records, "net"),
     ("tournament_get_tournament_list(category='all')", test_tournament_list, "net"),
     ("create_client() 自定义参数 + 请求", test_create_client_custom_params, "net"),
     ("错误路径: 未知 operationId -> SpecError", test_spec_error_unknown_operation, "no"),
     ("错误路径: 500 站点 -> ApiClientError", test_api_error_status_code, "net"),
     ("认证测试占位 (TODO)", test_auth_todo_skip, "no"),
-    ("userprofile_get_user_info_bulk(ids='1')", test_userprofile_get_user_info_bulk, "net"),
-    ("userprofile_get_user_identifier(user_id=1)", test_userprofile_get_user_identifier, "net"),
-    ("userprofile_get_user_info_updated(since=0)", test_userprofile_get_user_info_updated, "net"),
-    ("userprofile_get_user_videos(user_id=1)", test_userprofile_get_user_videos, "net"),
-    ("userprofile_get_user_avatar(user_id=1)", test_userprofile_get_user_avatar, "net"),
-    ("msuser_get_records_abstract(user_id=1)", test_msuser_get_records_abstract, "net"),
-    ("customranking_player_pluck_records(player_id=1)", test_customranking_player_pluck_records, "net"),
+    ("userprofile_get_user_info_bulk(ids='1')",
+     test_userprofile_get_user_info_bulk, "net"),
+    ("userprofile_get_user_identifier(user_id=1)",
+     test_userprofile_get_user_identifier, "net"),
+    ("userprofile_get_user_info_updated(since=0)",
+     test_userprofile_get_user_info_updated, "net"),
+    ("userprofile_get_user_videos(user_id=1)",
+     test_userprofile_get_user_videos, "net"),
+    ("userprofile_get_user_avatar(user_id=1)",
+     test_userprofile_get_user_avatar, "net"),
+    ("msuser_get_records_abstract(user_id=1)",
+     test_msuser_get_records_abstract, "net"),
+    ("customranking_player_pluck_records(player_id=1)",
+     test_customranking_player_pluck_records, "net"),
     ("tournament_get_tournament_news()", test_tournament_get_tournament_news, "net"),
-    ("tournament_get_tournament_user_ranking()", test_tournament_get_tournament_user_ranking, "net"),
-    ("tournament_get_participant_list(tournament_id=1)", test_tournament_get_participant_list, "net"),
-    ("accountlink_get_account_links(user_id=1)", test_accountlink_get_account_links, "net"),
+    ("tournament_get_tournament_user_ranking()",
+     test_tournament_get_tournament_user_ranking, "net"),
+    ("tournament_get_participant_list(tournament_id=1)",
+     test_tournament_get_participant_list, "net"),
+    ("accountlink_get_account_links(user_id=1)",
+     test_accountlink_get_account_links, "net"),
     ("common_video_summary()", test_common_video_summary, "net"),
     ("客户端行为: query 参数绑定 (infobulk ids='1,2')", test_query_param_binding, "net"),
-    ("QtNetworkTransport: userprofile_get_user_info(user_id=1)", test_qt_transport_user_info, "net"),
-    ("QtNetworkTransport: 错误路径 (video_info_bulk)", test_qt_transport_error_path, "net"),
+    ("QtNetworkTransport: userprofile_get_user_info(user_id=1)",
+     test_qt_transport_user_info, "net"),
+    ("QtNetworkTransport: 错误路径 (video_info_bulk)",
+     test_qt_transport_error_path, "net"),
 ]
 
 
@@ -443,7 +464,8 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001
             if kind == "net" and _looks_like_network_failure(exc):
                 net_failed.append((name, f"{type(exc).__name__}: {exc}"))
-                print(f"  NETWORK-FAIL（网络环境问题，非代码 bug）: {type(exc).__name__}: {exc}")
+                print(
+                    f"  NETWORK-FAIL（网络环境问题，非代码 bug）: {type(exc).__name__}: {exc}")
             else:
                 failed.append((name, f"{type(exc).__name__}: {exc}"))
                 print(f"  FAIL: {type(exc).__name__}: {exc}")

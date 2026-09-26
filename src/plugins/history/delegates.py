@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt5.QtCore import Qt, QModelIndex
-from PyQt5.QtGui import QPalette
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt, QModelIndex, QPersistentModelIndex
+from PySide6.QtGui import QPalette
+from PySide6.QtWidgets import (
     QComboBox,
     QLineEdit,
     QSpinBox,
@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QDateTimeEdit,
     QStyledItemDelegate,
     QStyle,
+    QStyleOptionViewItem,
     QApplication,
 )
 
@@ -31,21 +32,33 @@ class ComboBoxDelegate(QStyledItemDelegate):
     def __init__(self, items: list[str], parent=None):
         super().__init__(parent)
         self._items = items
+        self._editor_indexes = []  # 缓存创建的编辑器索引
 
     def createEditor(self, parent, option, index):
         editor = QComboBox(parent)
         editor.addItems(self._items)
+        self._editor_indexes.append(index)
         return editor
 
+    def destroyEditor(self, editor, index):
+        if index in self._editor_indexes:
+            self._editor_indexes.remove(index)
+        return super().destroyEditor(editor, index)
+
+    def paint(self, painter, option, index):
+        if index in self._editor_indexes:
+            return
+        return super().paint(painter, option, index)
+
     def setEditorData(self, editor: QComboBox, index):
-        value = index.model().data(index, Qt.EditRole)
+        value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value:
             idx = editor.findText(value)
             if idx >= 0:
                 editor.setCurrentIndex(idx)
 
     def setModelData(self, editor: QComboBox, model, index):
-        model.setData(index, editor.currentText(), Qt.EditRole)
+        model.setData(index, editor.currentText(), Qt.ItemDataRole.EditRole)
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -57,18 +70,29 @@ class EditableComboBoxDelegate(QStyledItemDelegate):
     def __init__(self, items: list[str], parent=None):
         super().__init__(parent)
         self._items = items
+        self._editor_indexes = []  # 缓存创建的编辑器索引
 
     def createEditor(self, parent, option, index):
         editor = EditableComboBox(self._items, parent)
+        self._editor_indexes.append(index)
         return editor
 
     def setEditorData(self, editor: EditableComboBox, index):
-        value = index.model().data(index, Qt.EditRole)
+        value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value:
             editor.setCurrentText(value)
 
+    def paint(self, painter, option, index):
+        if index in self._editor_indexes:
+            return
+        return super().paint(painter, option, index)
+
+    def destroyEditor(self, editor, index):
+        self._editor_indexes.remove(index)
+        return super().destroyEditor(editor, index)
+
     def setModelData(self, editor: EditableComboBox, model, index):
-        model.setData(index, editor.currentText(), Qt.EditRole)
+        model.setData(index, editor.currentText(), Qt.ItemDataRole.EditRole)
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
@@ -85,22 +109,26 @@ class FilterValueDelegate(QStyledItemDelegate):
         self._float_decimals = float_decimals
         self._computed_columns = computed_columns or []
         self._editor_widgets = []  # 缓存创建的编辑器widget
+        self._editor_indexes = []  # 缓存创建的编辑器索引
 
     def paint(self, painter, option, index):
         """根据字段类型绘制单元格"""
+        if index in self._editor_indexes:
+            return
+
         # 检查选中状态
-        is_selected = option.state & QStyle.State_Selected
+        is_selected = option.state & QStyle.StateFlag.State_Selected
 
         if is_selected:  # type: ignore
             # 选中时绘制背景
             painter.fillRect(option.rect, option.palette.highlight())
             # 使用高亮文本颜色
-            text_role = QPalette.HighlightedText
+            text_role = QPalette.ColorRole.HighlightedText
         else:
-            text_role = QPalette.WindowText
+            text_role = QPalette.ColorRole.WindowText
 
         field_value, _, _ = self._get_field_info(index)
-        raw_value = index.data(Qt.EditRole)
+        raw_value = index.data(Qt.ItemDataRole.EditRole)
 
         if field_value is None or raw_value is None:
             super().paint(painter, option, index)
@@ -132,7 +160,7 @@ class FilterValueDelegate(QStyledItemDelegate):
         style.drawItemText(
             painter,
             option.rect,
-            Qt.AlignCenter | Qt.AlignVCenter,  # type: ignore
+            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
             option.palette,
             True,
             display_text,
@@ -146,11 +174,11 @@ class FilterValueDelegate(QStyledItemDelegate):
 
         # 获取字段名
         field_index = model.index(row, self.COL_FIELD)
-        field_name = model.data(field_index, Qt.EditRole)
+        field_name = model.data(field_index, Qt.ItemDataRole.EditRole)
 
         # 获取比较符
         compare_index = model.index(row, self.COL_COMPARE)
-        compare_text = model.data(compare_index, Qt.EditRole)
+        compare_text = model.data(compare_index, Qt.ItemDataRole.EditRole)
 
         if not field_name:
             return None, None, None
@@ -206,15 +234,25 @@ class FilterValueDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         field_value, compare, field_name = self._get_field_info(index)
         if field_value is None:
-            return QLineEdit(parent)
-        return self._create_editor_by_type(parent, field_value, compare, field_name)
+            editor = QLineEdit(parent)
+        else:
+            editor = self._create_editor_by_type(
+                parent, field_value, compare, field_name)
+        editor.setAutoFillBackground(True)
+        self._editor_indexes.append(index)
+        return editor
+
+    def destroyEditor(self, editor, index):
+        if index in self._editor_indexes:
+            self._editor_indexes.remove(index)
+        return super().destroyEditor(editor, index)
 
     def setEditorData(self, editor, index):
         field_value, compare, field_name = self._get_field_info(index)
         if field_value is None:
             return
 
-        raw_value = index.model().data(index, Qt.EditRole)
+        raw_value = index.model().data(index, Qt.ItemDataRole.EditRole)
 
         from shared_types.enums import BaseDiaPlayEnum
         if isinstance(field_value, BaseDiaPlayEnum) and isinstance(editor, QComboBox):
@@ -270,20 +308,21 @@ class FilterValueDelegate(QStyledItemDelegate):
         field_value, compare, field_name = self._get_field_info(index)
         if field_value is None:
             if isinstance(editor, QLineEdit):
-                model.setData(index, editor.text(), Qt.EditRole)
+                model.setData(index, editor.text(), Qt.ItemDataRole.EditRole)
             return
 
         from shared_types.enums import BaseDiaPlayEnum
         if isinstance(field_value, BaseDiaPlayEnum) and isinstance(editor, QComboBox):
-            model.setData(index, editor.currentText(), Qt.EditRole)
+            model.setData(index, editor.currentText(),
+                          Qt.ItemDataRole.EditRole)
         elif isinstance(field_value, (int, float)) and isinstance(editor, (QSpinBox, QDoubleSpinBox)):
-            model.setData(index, str(editor.value()), Qt.EditRole)
+            model.setData(index, str(editor.value()), Qt.ItemDataRole.EditRole)
         elif isinstance(field_value, datetime) and isinstance(editor, QDateTimeEdit):
-            ts = int(editor.dateTime().toPyDateTime().timestamp() * 1_000_000)
-            model.setData(index, str(ts), Qt.EditRole)
+            ts = int(editor.dateTime().toPython().timestamp() * 1_000_000)
+            model.setData(index, str(ts), Qt.ItemDataRole.EditRole)
         else:
             if isinstance(editor, QLineEdit):
-                model.setData(index, editor.text(), Qt.EditRole)
+                model.setData(index, editor.text(), Qt.ItemDataRole.EditRole)
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)

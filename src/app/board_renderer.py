@@ -1,6 +1,6 @@
 import ctypes
-from PyQt5.QtCore import QRect
-from PyQt5.QtGui import QPixmap
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QPixmap
 import win32con
 import win32gui
 

@@ -7,16 +7,16 @@ iOS/Android 风格的滑动开关，支持平滑动画和拖拽交互。
 
 from __future__ import annotations
 
-from PyQt5.QtCore import (
+from PySide6.QtCore import (
     QPropertyAnimation,
     QEasingCurve,
     Qt,
-    pyqtProperty,
-    pyqtSignal,
+    Property,
+    Signal,
     QSize,
 )
-from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
-from PyQt5.QtWidgets import QWidget
+from PySide6.QtGui import QPainter, QColor, QPen, QBrush
+from PySide6.QtWidgets import QWidget
 
 
 class ToggleSwitch(QWidget):
@@ -36,7 +36,7 @@ class ToggleSwitch(QWidget):
         switch.setChecked(True)
     """
 
-    toggled = pyqtSignal(bool)
+    toggled = Signal(bool)
 
     def __init__(
         self,
@@ -80,11 +80,11 @@ class ToggleSwitch(QWidget):
 
     # ── 属性动画 ──────────────────────────────────────────
 
-    @pyqtProperty(float) # pyright: ignore[reportArgumentType]
-    def handle_position(self) -> float: # pyright: ignore[reportRedeclaration]
+    @Property(float)  # pyright: ignore[reportArgumentType]
+    def handle_position(self) -> float:  # pyright: ignore[reportRedeclaration]
         return self._handle_position
 
-    @handle_position.setter # pyright: ignore[reportArgumentType]
+    @handle_position.setter  # pyright: ignore[reportArgumentType]
     def handle_position(self, pos: float):
         self._handle_position = max(0.0, min(1.0, pos))
         self.update()

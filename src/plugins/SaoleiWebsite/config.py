@@ -3,7 +3,7 @@ SaoleiWebsite - 配置定义
 """
 from __future__ import annotations
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from plugin_sdk import OtherInfoBase, IntConfig, TextConfig
 

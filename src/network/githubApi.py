@@ -4,12 +4,12 @@ import re
 import tempfile
 import uuid
 
-from PyQt5.QtCore import QUrl, QObject, pyqtSignal, QEventLoop, QCoreApplication, QThread, QElapsedTimer
-from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+from PySide6.QtCore import QUrl, QObject, Signal, QEventLoop, QCoreApplication, QThread, QElapsedTimer
+from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
 
 class PingThread(QThread):
-    pingSignal = pyqtSignal(str, float)
+    pingSignal = Signal(str, float)
 
     def __init__(self, name: str, url: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -33,7 +33,7 @@ class PingThread(QThread):
             reply = nam.get(request)
             loop = QEventLoop()
             reply.finished.connect(loop.quit)
-            loop.exec_()
+            loop.exec()
         except Exception:
             return float('inf')
         time = timer.elapsed()
@@ -45,7 +45,7 @@ class PingThread(QThread):
 
 
 class SourceManager(QObject):
-    quickSource = pyqtSignal(str, float)
+    quickSource = Signal(str, float)
 
     def __init__(self, sources: dict, current: str = None, parent=None):
         super().__init__(parent)
@@ -152,13 +152,13 @@ class ReleaseInfo:
 
 
 class GitHub(QObject):
-    isNeedUpdateAsyncSignal = pyqtSignal(bool)
-    latestReleaseAsyncSignal = pyqtSignal(ReleaseInfo)
-    releasesAsyncSignal = pyqtSignal(list)
-    downloadReleaseAsyncStartSignal = pyqtSignal(ReleaseInfo)
-    downloadReleaseAsyncProgressSignal = pyqtSignal(int, int)
-    downloadReleaseAsyncFinishSignal = pyqtSignal(str)
-    errorSignal = pyqtSignal(str)
+    isNeedUpdateAsyncSignal = Signal(bool)
+    latestReleaseAsyncSignal = Signal(ReleaseInfo)
+    releasesAsyncSignal = Signal(list)
+    downloadReleaseAsyncStartSignal = Signal(ReleaseInfo)
+    downloadReleaseAsyncProgressSignal = Signal(int, int)
+    downloadReleaseAsyncFinishSignal = Signal(str)
+    errorSignal = Signal(str)
 
     def __init__(self, sourceManager: SourceManager, version: str, versionReStr: str,
                  parent=None):
@@ -370,7 +370,8 @@ class GitHub(QObject):
         nam = QNetworkAccessManager(self)
         request = QNetworkRequest(QUrl(url))
         request.setAttribute(
-            QNetworkRequest.Attribute.FollowRedirectsAttribute, True)
+            QNetworkRequest.Attribute.RedirectPolicyAttribute,
+            QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
         return nam, request
 
     def __downloadProgress(self, bytesReceived: int, bytesTotal: int):
@@ -480,4 +481,4 @@ if __name__ == '__main__':
     # manager = SourceManager(data)
     # manager.quickSource.connect(lambda x,y:print(x,y))
     # manager.checkSourceSpeed()
-    app.exec_()
+    app.exec()

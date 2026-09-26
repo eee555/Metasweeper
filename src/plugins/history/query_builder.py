@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from shared_types.enums import BaseDiaPlayEnum
 
@@ -176,7 +176,8 @@ def _build_value(
     field: str = "",
 ) -> tuple[list, str]:
     """构建单个条件的值部分，返回 (参数列表, SQL 值片段)"""
-    is_in = compare.value in (CompareSymbol.Contains, CompareSymbol.NotContains)
+    is_in = compare.value in (CompareSymbol.Contains,
+                              CompareSymbol.NotContains)
     is_like = compare.value in (CompareSymbol.Like, CompareSymbol.NotLike)
 
     if is_like:

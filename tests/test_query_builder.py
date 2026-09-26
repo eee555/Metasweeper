@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
-from PyQt5.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from plugins.history.models import (
     CompareSymbol, LogicSymbol, HistoryData,
@@ -23,7 +23,7 @@ EQUAL = CompareSymbol.display_names()[0]        # 等于
 GREATER = CompareSymbol.display_names()[2]      # 大于
 LESS = CompareSymbol.display_names()[3]         # 小于
 CONTAINS = CompareSymbol.display_names()[6]     # 包含（in）
-NOT_CONTAINS = CompareSymbol.display_names()[7] # 不包含（not in）
+NOT_CONTAINS = CompareSymbol.display_names()[7]  # 不包含（not in）
 AND = LogicSymbol.display_names()[0]            # 与
 OR = LogicSymbol.display_names()[1]             # 或
 ASC = _translate("Form", "升序")
@@ -67,7 +67,8 @@ class TestBuildWhere:
 
     def test_simple_equality(self):
         rows = [row("level", EQUAL, "5")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "level = ?" in sql
         assert params == ["5"]
 
@@ -76,14 +77,16 @@ class TestBuildWhere:
         from shared_types.enums import GameMode
         display = GameMode.Standard.display_name
         rows = [row("mode", EQUAL, display)]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "mode = ?" in sql
         assert params == [str(GameMode.Standard.value)]
 
     def test_enum_unmatched_value_passthrough(self):
         """枚举未匹配显示名时原值透传（与旧版行为一致）"""
         rows = [row("mode", EQUAL, "unknown_mode")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "mode = ?" in sql
         assert params == ["unknown_mode"]
 
@@ -92,7 +95,8 @@ class TestBuildWhere:
         from datetime import datetime
         value = "2024-01-15 10:30:00.123456"
         rows = [row("start_time", GREATER, value)]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         expected = int(datetime.strptime(
             value, "%Y-%m-%d %H:%M:%S.%f").timestamp() * 1_000_000)
         assert "start_time > CAST(? AS INTEGER)" in sql
@@ -103,7 +107,8 @@ class TestBuildWhere:
         from datetime import datetime
         value = "2024-01-15 10:30:00"
         rows = [row("end_time", LESS, value)]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         expected = int(datetime.strptime(
             value, "%Y-%m-%d %H:%M:%S").timestamp() * 1_000_000)
         assert params == [expected]
@@ -112,7 +117,8 @@ class TestBuildWhere:
         """纯数字 → 直接作为 µs 时间戳"""
         ts = 1705305000123456
         rows = [row("start_time", EQUAL, str(ts))]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert params == [ts]
 
     def test_datetime_invalid_raises(self):
@@ -123,7 +129,8 @@ class TestBuildWhere:
     def test_in_list_numeric(self):
         """in 列表：数值展开为 CAST 占位符（保证按数值比较）"""
         rows = [row("mine_num", CONTAINS, "3,5")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "mine_num in (CAST(? AS INTEGER),CAST(? AS INTEGER))" in sql
         assert params == ["3", "5"]
 
@@ -132,34 +139,39 @@ class TestBuildWhere:
         from shared_types.enums import GameMode
         d1 = GameMode.Standard.display_name
         rows = [row("mode", NOT_CONTAINS, f"{d1}")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "mode not in (?)" in sql
         assert params == [str(GameMode.Standard.value)]
 
     def test_in_list_string(self):
         rows = [row("software", CONTAINS, "a,b")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "software in (?,?)" in sql
         assert params == ["a", "b"]
 
     def test_in_list_empty_string_field(self):
         """空 in 列表（字符串字段）：恒假条件 0 = 1"""
         rows = [row("software", CONTAINS, "")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "0 = 1" in sql
         assert params == []
 
     def test_in_list_empty_enum_field(self):
         """空 in 列表（枚举字段）：恒假条件 0 = 1"""
         rows = [row("mode", CONTAINS, "")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "0 = 1" in sql
         assert params == []
 
     def test_in_list_empty_datetime_field(self):
         """空 in 列表（datetime 字段）：恒假条件 0 = 1"""
         rows = [row("start_time", CONTAINS, "")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "0 = 1" in sql
         assert params == []
 
@@ -176,8 +188,10 @@ class TestBuildWhere:
 
     def test_quote_value_parameterized(self):
         """含单引号的值必须参数化，不得进入 SQL 文本"""
-        rows = [row("player_identifier", EQUAL, "robert'); DROP TABLE history;--")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        rows = [row("player_identifier", EQUAL,
+                    "robert'); DROP TABLE history;--")]
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         # 恶意 payload 不得出现在 SQL 文本中
         assert "DROP TABLE" not in sql
         assert "player_identifier = ?" in sql
@@ -186,7 +200,8 @@ class TestBuildWhere:
     def test_surrounding_quotes_stripped(self):
         """兼容旧版手输引号定界：成对包裹的单引号被剥离"""
         rows = [row("software", EQUAL, "'ms'")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert params == ["ms"]
 
     def test_unknown_field_raises_with_row(self):
@@ -223,7 +238,8 @@ class TestBuildWhere:
             row("level", EQUAL, "1", logic=OR, left_bracket="("),
             row("mode", EQUAL, "1", logic=OR, right_bracket=")"),
         ]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "(" in sql and ")" in sql
         assert " or " in sql
         assert len(params) == 2
@@ -235,7 +251,8 @@ class TestBuildWhere:
             row("mode", EQUAL, "1", logic=OR),
             row("rtime", GREATER, "0", logic=OR, right_bracket="))"),
         ]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "(( level = ?" in sql
         assert ")) " in sql
 
@@ -248,7 +265,8 @@ class TestBuildWhere:
     def test_numeric_int_field_cast(self):
         """数值(int)字段等值/比较：占位符为 CAST(? AS INTEGER)"""
         rows = [row("mine_num", GREATER, "3")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "mine_num > CAST(? AS INTEGER)" in sql
         assert params == ["3"]
 
@@ -266,7 +284,8 @@ class TestBuildWhere:
     def test_datetime_field_cast(self):
         """datetime 字段比较：占位符为 CAST(? AS INTEGER)（µs 时间戳）"""
         rows = [row("start_time", LESS, "2024-01-15 10:30:00")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "start_time < CAST(? AS INTEGER)" in sql
         assert params == [int(
             __import__("datetime").datetime.strptime(
@@ -278,14 +297,16 @@ class TestBuildWhere:
         rows = [row(
             "start_time", CONTAINS,
             "2024-01-15 10:30:00,2024-01-16 10:30:00")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert sql.count("CAST(? AS INTEGER)") == 2
         assert len(params) == 2
 
     def test_enum_field_no_cast(self):
         """枚举字段（字符串值）保持裸 ? 占位符，不包 CAST"""
         rows = [row("level", GREATER, "3")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         assert "level > ?" in sql
         assert "CAST" not in sql
         assert params == ["3"]
@@ -347,7 +368,8 @@ class TestSqlParameterRoundTrip:
             [(1, 3, 10.0), (2, 5, 20.0), (3, 5, 5.0)],
         )
         rows = [row("level", EQUAL, "5")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         order = build_order_by(
             [{"field": "rtime", "order": ASC}], make_known_fields())
         cursor = conn.execute(
@@ -368,7 +390,8 @@ class TestSqlParameterRoundTrip:
         rows = [row(
             "player_identifier", EQUAL,
             "x' OR '1'='1') UNION SELECT replay_id FROM history--")]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         cursor = conn.execute(
             f"SELECT replay_id FROM history WHERE {sql}", params)
         # 无匹配行（payload 被当作字面字符串值比较）
@@ -423,7 +446,8 @@ class TestSqlParameterRoundTrip:
             [(1, ts), (2, ts + 1_000_000)],
         )
         rows = [row("start_time", GREATER, str(ts))]
-        sql, params = build_where(rows, make_known_fields(), make_field_types())
+        sql, params = build_where(
+            rows, make_known_fields(), make_field_types())
         cursor = conn.execute(
             f"SELECT replay_id FROM history WHERE {sql}", params)
         assert cursor.fetchall() == [(2,)]

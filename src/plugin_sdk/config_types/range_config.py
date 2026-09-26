@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtWidgets import QHBoxLayout, QSpinBox, QLabel
+from PySide6.QtWidgets import QHBoxLayout, QSpinBox, QLabel
 
 from .base_config import BaseConfig, ConfigWidgetBase
 

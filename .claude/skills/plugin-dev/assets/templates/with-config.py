@@ -5,8 +5,8 @@
 """
 from __future__ import annotations
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt5.QtCore import pyqtSignal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import Signal
 
 from plugin_sdk import (
     BasePlugin, PluginInfo, make_plugin_icon, WindowMode,
@@ -17,13 +17,13 @@ from shared_types.events import VideoSaveEvent
 
 class {PluginName}Config(OtherInfoBase):
     """插件配置"""
-    
+
     enable_logging = BoolConfig(
         default=True,
         label="启用日志",
         description="是否记录游戏数据到日志",
     )
-    
+
     max_records = IntConfig(
         default=100,
         label="最大记录数",
@@ -34,16 +34,16 @@ class {PluginName}Config(OtherInfoBase):
 
 class {PluginName}Widget(QWidget):
     """插件 UI"""
-    
-    _update_signal = pyqtSignal(str)
+
+    _update_signal = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        
+
         self._label = QLabel("等待游戏数据...")
         layout.addWidget(self._label)
-        
+
         self._update_signal.connect(self._on_update)
 
     def _on_update(self, text: str):
@@ -73,14 +73,15 @@ class {PluginName}(BasePlugin):
 
     def on_initialized(self) -> None:
         self.logger.info("{PluginName} 已初始化")
-        
+
         # 连接配置变化信号
         self.config_changed.connect(self._on_config_changed)
-        
+
         # 读取配置
         if self.other_info:
-            self.logger.info(f"配置: enable_logging={self.other_info.enable_logging}")
-    
+            self.logger.info(
+                f"配置: enable_logging={self.other_info.enable_logging}")
+
     def _on_config_changed(self, name: str, value):
         self.logger.info(f"配置变化: {name} = {value}")
 

@@ -7,10 +7,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PyQt5.QtCore import QCoreApplication, QUrl, QLibraryInfo, QTimer
-from PyQt5.QtGui import QColor
-from PyQt5.QtQuickWidgets import QQuickWidget
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtCore import QCoreApplication, QUrl, QLibraryInfo, QTimer
+from PySide6.QtGui import QColor
+from PySide6.QtQuickWidgets import QQuickWidget
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode, IntConfig
 from plugin_sdk.config_types import OtherInfoBase
@@ -123,7 +123,8 @@ class StatsPlugin(BasePlugin[StatsConfig]):
 
         # 设置 QML 引擎导入路径
         engine = self._quick_widget.engine()
-        qml_import_path = QLibraryInfo.location(QLibraryInfo.Qml2ImportsPath)
+        qml_import_path = QLibraryInfo.path(
+            QLibraryInfo.LibraryPath.QmlImportsPath)
         engine.addImportPath(qml_import_path)
 
         # 注入数据桥到 QML 上下文

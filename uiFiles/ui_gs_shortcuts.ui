@@ -141,7 +141,7 @@
       <number>4</number>
      </property>
      <property name="sizeAdjustPolicy">
-      <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+      <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
      </property>
      <item>
       <property name="text">
@@ -566,7 +566,7 @@
       <number>4</number>
      </property>
      <property name="sizeAdjustPolicy">
-      <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+      <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
      </property>
      <item>
       <property name="text">
@@ -1040,7 +1040,7 @@
       <number>4</number>
      </property>
      <property name="sizeAdjustPolicy">
-      <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+      <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
      </property>
      <item>
       <property name="text">

@@ -7,8 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QSpinBox, QSlider
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QSpinBox, QSlider
 
 from .base_config import BaseConfig, ConfigWidgetWrapper
 
@@ -47,7 +47,7 @@ class IntConfig(BaseConfig[int]):
     def create_widget(self) -> ConfigWidgetWrapper:
         """创建 QSpinBox 或 QSlider 控件"""
         if self.use_slider:
-            widget = QSlider(Qt.Horizontal)
+            widget = QSlider(Qt.Orientation.Horizontal)
             widget.setRange(self.min_value, self.max_value)
             widget.setValue(self.default)
             widget.setSingleStep(self.step)

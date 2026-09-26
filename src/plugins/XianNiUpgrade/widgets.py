@@ -3,6 +3,16 @@
 """
 
 from __future__ import annotations
+from .models import LEVEL_NAMES, LEVEL_LABELS, MODE_LABELS
+from .config import DEFAULT_API_URL
+from PySide6.QtGui import QPixmap, QResizeEvent, QPainter, QShowEvent
+from PySide6.QtCore import Qt, Signal, Slot, QCoreApplication, QTimer
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
+    QTableWidgetItem, QGroupBox, QHeaderView, QProgressBar,
+    QFrame, QAbstractItemView, QPushButton, QFileDialog,
+    QMessageBox, QDialog, QLineEdit, QTextBrowser, QDialogButtonBox
+)
 
 import struct
 from datetime import datetime
@@ -10,19 +20,8 @@ from pathlib import Path
 
 _XOR_KEY = b"XianNiAssetKey2026!"
 
-from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
-    QTableWidgetItem, QGroupBox, QHeaderView, QProgressBar,
-    QFrame, QAbstractItemView, QPushButton, QFileDialog,
-    QMessageBox, QDialog, QLineEdit, QTextBrowser, QDialogButtonBox
-)
-from PyQt5.QtCore import Qt, pyqtSignal, QCoreApplication, QTimer
 
 _translate = QCoreApplication.translate
-from PyQt5.QtGui import QPixmap, QResizeEvent, QPainter, QShowEvent
-
-from .config import DEFAULT_API_URL
-from .models import LEVEL_NAMES, LEVEL_LABELS, MODE_LABELS
 
 
 class AspectLabel(QLabel):
@@ -59,7 +58,8 @@ class AspectLabel(QLabel):
             ph = int(self.height() * dpr)
             if pw <= 0 or ph <= 0:
                 return
-            scaled = src.scaled(pw, ph, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled = src.scaled(pw, ph, Qt.KeepAspectRatio,
+                                Qt.SmoothTransformation)
             canvas = QPixmap(pw, ph)
             canvas.fill(Qt.transparent)
             p = QPainter(canvas)
@@ -86,7 +86,8 @@ class AbsorbDialog(QDialog):
         layout = QVBoxLayout(self)
 
         sep_old = QLabel(_translate("Form", "━━━ 元扫雷 3.2.2 ━━━"))
-        sep_old.setStyleSheet("color: #9E9E9E; font-size: 11px; font-weight: bold;")
+        sep_old.setStyleSheet(
+            "color: #9E9E9E; font-size: 11px; font-weight: bold;")
         layout.addWidget(sep_old)
 
         exe_row = QHBoxLayout()
@@ -110,7 +111,8 @@ class AbsorbDialog(QDialog):
         layout.addLayout(replay_row)
 
         sep_new = QLabel(_translate("Form", "━━━ 元扫雷 3.3.1+ ━━━"))
-        sep_new.setStyleSheet("color: #9E9E9E; font-size: 11px; font-weight: bold;")
+        sep_new.setStyleSheet(
+            "color: #9E9E9E; font-size: 11px; font-weight: bold;")
         layout.addWidget(sep_new)
 
         save_row = QHBoxLayout()
@@ -123,7 +125,8 @@ class AbsorbDialog(QDialog):
         save_row.addWidget(browse_save)
         layout.addLayout(save_row)
 
-        hint = QLabel(_translate("Form", "提示：请选择旧版安装目录下 data/plugin_data/XianNiUpgrade/ 文件夹"))
+        hint = QLabel(_translate(
+            "Form", "提示：请选择旧版安装目录下 data/plugin_data/XianNiUpgrade/ 文件夹"))
         hint.setStyleSheet("color: #9E9E9E; font-size: 10px;")
         layout.addWidget(hint)
 
@@ -140,17 +143,20 @@ class AbsorbDialog(QDialog):
         layout.addLayout(btn_row)
 
     def _browse_exe(self):
-        path, _ = QFileDialog.getOpenFileName(self, _translate("Form", "选择验证法器"), "", _translate("Form", "法器 (*.exe);;所有文件 (*)"))
+        path, _ = QFileDialog.getOpenFileName(self, _translate(
+            "Form", "选择验证法器"), "", _translate("Form", "法器 (*.exe);;所有文件 (*)"))
         if path:
             self._exe_edit.setText(path)
 
     def _browse_replay(self):
-        path = QFileDialog.getExistingDirectory(self, _translate("Form", "选择灵箓目录"))
+        path = QFileDialog.getExistingDirectory(
+            self, _translate("Form", "选择灵箓目录"))
         if path:
             self._replay_edit.setText(path)
 
     def _browse_save_dir(self):
-        path = QFileDialog.getExistingDirectory(self, _translate("Form", "选择道藏目录"))
+        path = QFileDialog.getExistingDirectory(
+            self, _translate("Form", "选择道藏目录"))
         if path:
             self._save_edit.setText(path)
 
@@ -325,9 +331,9 @@ th { background: #F3E5F5; color: #6A1B9A; }
 class LevelDisplay(QWidget):
     """等级和仙躯形象展示区"""
 
-    absorb_clicked = pyqtSignal()
-    law_clicked = pyqtSignal()
-    upload_clicked = pyqtSignal()
+    absorb_clicked = Signal()
+    law_clicked = Signal()
+    upload_clicked = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -342,23 +348,27 @@ class LevelDisplay(QWidget):
         info_layout.setSpacing(4)
 
         self._player_label = QLabel("")
-        self._player_label.setStyleSheet("color: #01579B; font-size: 15px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
+        self._player_label.setStyleSheet(
+            "color: #01579B; font-size: 15px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
         self._player_label.setAlignment(Qt.AlignCenter)
         info_layout.addWidget(self._player_label)
 
         self._rank_label = QLabel(_translate("Form", "凡人"))
-        self._rank_label.setStyleSheet("color: #01579B; font-size: 28px; font-weight: bold; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
+        self._rank_label.setStyleSheet(
+            "color: #01579B; font-size: 28px; font-weight: bold; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
         self._rank_label.setAlignment(Qt.AlignCenter)
         self._rank_label.setWordWrap(True)
         info_layout.addWidget(self._rank_label)
 
         self._level_label = QLabel("Lv.0")
-        self._level_label.setStyleSheet("color: #0277BD; font-size: 16px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
+        self._level_label.setStyleSheet(
+            "color: #0277BD; font-size: 16px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
         self._level_label.setAlignment(Qt.AlignCenter)
         info_layout.addWidget(self._level_label)
 
         self._total_xp_label = QLabel(_translate("Form", "修为: 0"))
-        self._total_xp_label.setStyleSheet("color: #0288D1; font-size: 14px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
+        self._total_xp_label.setStyleSheet(
+            "color: #0288D1; font-size: 14px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
         self._total_xp_label.setAlignment(Qt.AlignCenter)
         info_layout.addWidget(self._total_xp_label)
 
@@ -443,11 +453,13 @@ class LevelDisplay(QWidget):
         self._player_label.setText(player_name)
         self._rank_label.setText(rank)
         self._level_label.setText(f"Lv.{level}")
-        self._total_xp_label.setText(_translate("Form", "修为: %1").replace("%1", str(total_xp)))
+        self._total_xp_label.setText(_translate(
+            "Form", "修为: %1").replace("%1", str(total_xp)))
         if xp_need > 0:
             pct = min(xp_curr * 100 // xp_need, 100)
             self._progress.setValue(pct)
-            self._progress.setFormat(_translate("Form", "%1% | 还需 %2 道行").replace("%1", str(pct)).replace("%2", str(xp_need - xp_curr)))
+            self._progress.setFormat(_translate("Form", "%1% | 还需 %2 道行").replace(
+                "%1", str(pct)).replace("%2", str(xp_need - xp_curr)))
         else:
             self._progress.setValue(100)
             self._progress.setFormat(_translate("Form", "已圆满"))
@@ -456,7 +468,7 @@ class LevelDisplay(QWidget):
 class XianNiUpgradeUI(QWidget):
     """修仙升级主界面"""
 
-    _signal_update = pyqtSignal(object)
+    _signal_update = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -494,7 +506,7 @@ class XianNiUpgradeUI(QWidget):
             and self.isVisible()
         ):
             self._first_visible_scheduled = True
-            # 勿在 showEvent 栈内同步 exec_()；延迟到布局/绘制完成后再弹
+            # 勿在 showEvent 栈内同步 exec()；延迟到布局/绘制完成后再弹
             QTimer.singleShot(150, self._invoke_first_visible_cb)
 
     def _invoke_first_visible_cb(self) -> None:
@@ -517,15 +529,18 @@ class XianNiUpgradeUI(QWidget):
         layout.addWidget(self._level_display, 3)
 
         self._log_group = QGroupBox(_translate("Form", "修行日志"))
-        self._log_group.setStyleSheet("QGroupBox { font-size: 14px; font-weight: bold; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }")
+        self._log_group.setStyleSheet(
+            "QGroupBox { font-size: 14px; font-weight: bold; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }")
         group_layout = QVBoxLayout(self._log_group)
 
         self._table = QTableWidget()
         self._table.setColumnCount(6)
         self._table.setMinimumHeight(130)
-        self._table.setStyleSheet("QTableWidget { font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; } QTableWidget::item { border-bottom: 1px solid #E0E0E0; } QHeaderView::section { font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; border: none; }")
+        self._table.setStyleSheet(
+            "QTableWidget { font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; } QTableWidget::item { border-bottom: 1px solid #E0E0E0; } QHeaderView::section { font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; border: none; }")
         self._table.setShowGrid(False)
-        self._table.setHorizontalHeaderLabels([_translate("Form", "时刻"), _translate("Form", "境阶"), _translate("Form", "法式"), _translate("Form", "耗时"), _translate("Form", "衍数"), _translate("Form", "道行")])
+        self._table.setHorizontalHeaderLabels([_translate("Form", "时刻"), _translate("Form", "境阶"), _translate(
+            "Form", "法式"), _translate("Form", "耗时"), _translate("Form", "衍数"), _translate("Form", "道行")])
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         self._table.setColumnWidth(0, 150)
         for c in range(1, 6):
@@ -572,21 +587,23 @@ class XianNiUpgradeUI(QWidget):
 
     def _on_upload_clicked(self):
         if not self._upload_cb:
-            QMessageBox.warning(self, _translate("Form", "提示"), _translate("Form", "插件未就绪"))
+            QMessageBox.warning(self, _translate(
+                "Form", "提示"), _translate("Form", "插件未就绪"))
             return
         self.set_upload_enabled(False)
         self._upload_cb()
 
     def _on_law_clicked(self):
         dialog = RulesDialog(self)
-        dialog.exec_()
+        dialog.exec()
 
     def _on_absorb_clicked(self):
         if not self._validate_cb or not self._absorb_cb:
-            QMessageBox.warning(self, _translate("Form", "提示"), _translate("Form", "插件未就绪"))
+            QMessageBox.warning(self, _translate(
+                "Form", "提示"), _translate("Form", "插件未就绪"))
             return
         dialog = AbsorbDialog(self)
-        if dialog.exec_() != QDialog.Accepted:
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
         msgs = []
@@ -603,7 +620,8 @@ class XianNiUpgradeUI(QWidget):
             else:
                 gained = self._absorb_cb(preview)
                 total_gained += gained
-                msgs.append(_translate("Form", "3.2.2 新增 %1 道灵箓，获 %2 道行").replace("%1", str(len(preview['new_files']))).replace("%2", str(gained)))
+                msgs.append(_translate("Form", "3.2.2 新增 %1 道灵箓，获 %2 道行").replace(
+                    "%1", str(len(preview['new_files']))).replace("%2", str(gained)))
 
         # ── 方式二：3.3.1+ 存档导入 ──
         save_dir = dialog.get_save_dir()
@@ -615,19 +633,24 @@ class XianNiUpgradeUI(QWidget):
                 p = preview["preview"]
                 ret = QMessageBox.question(
                     self, _translate("Form", "导入道藏"),
-                    _translate("Form", "发现 %1 位道友，共 %2 道行，确认导入？").replace("%1", str(p["total_players"])).replace("%2", str(p["total_xp"])),
+                    _translate("Form", "发现 %1 位道友，共 %2 道行，确认导入？").replace(
+                        "%1", str(p["total_players"])).replace("%2", str(p["total_xp"])),
                     QMessageBox.Yes | QMessageBox.No
                 )
                 if ret == QMessageBox.Yes:
                     gained = self._absorb_save_cb(preview)
                     total_gained += gained
-                    msgs.append(_translate("Form", "3.3.1+ 导入 %1 位道友，获 %2 道行").replace("%1", str(p["total_players"])).replace("%2", str(gained)))
+                    msgs.append(_translate("Form", "3.3.1+ 导入 %1 位道友，获 %2 道行").replace(
+                        "%1", str(p["total_players"])).replace("%2", str(gained)))
 
         if not msgs:
-            QMessageBox.information(self, _translate("Form", "提示"), _translate("Form", "请填写至少一种吸收方式"))
+            QMessageBox.information(self, _translate(
+                "Form", "提示"), _translate("Form", "请填写至少一种吸收方式"))
         else:
-            QMessageBox.information(self, _translate("Form", "吸收灵气完成"), "\n".join(msgs))
+            QMessageBox.information(self, _translate(
+                "Form", "吸收灵气完成"), "\n".join(msgs))
 
+    @Slot(object)
     def _do_update(self, data: dict):
         rank = LEVEL_NAMES.get(data["level"], "")
         self._level_display.update_info(
@@ -642,7 +665,8 @@ class XianNiUpgradeUI(QWidget):
         for i, h in enumerate(history):
             time_value = h["time"]
             if isinstance(time_value, (int, float)):
-                time_value = datetime.fromtimestamp(int(time_value)).strftime("%Y-%m-%d %H:%M:%S")
+                time_value = datetime.fromtimestamp(
+                    int(time_value)).strftime("%Y-%m-%d %H:%M:%S")
             level_str = LEVEL_LABELS.get(h["level"], str(h["level"]))
             mode_str = MODE_LABELS.get(h["mode"], str(h["mode"]))
             for col, val in [(0, str(time_value)), (1, level_str), (2, mode_str),

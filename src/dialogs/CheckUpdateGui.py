@@ -1,7 +1,7 @@
-from PyQt5.QtCore import QObject, pyqtSlot, Qt, pyqtSignal, QUrl, QPropertyAnimation, \
+from PySide6.QtCore import QObject, Slot, Qt, Signal, QUrl, QPropertyAnimation, \
     QSize, QVariantAnimation, QDateTime, QEvent, QEasingCurve
-from PyQt5.QtGui import QDesktopServices, QFont, QMouseEvent, QPainter, QPixmap, QEnterEvent
-from PyQt5.QtWidgets import QWidget, QDialog, QScrollArea, QLabel, QVBoxLayout, QHBoxLayout, QSpacerItem, \
+from PySide6.QtGui import QDesktopServices, QFont, QMouseEvent, QPainter, QPixmap, QEnterEvent
+from PySide6.QtWidgets import QWidget, QDialog, QScrollArea, QLabel, QVBoxLayout, QHBoxLayout, QSpacerItem, \
     QSizePolicy, QPushButton, QFrame, QMessageBox, QFormLayout, QProgressDialog, QTextEdit, QComboBox
 
 from network.githubApi import GitHub, ReleaseInfo, PingThread
@@ -60,7 +60,7 @@ class AnimationButton(QPushButton):
 
 
 class ReleaseFrame(QFrame):
-    downLoadFile = pyqtSignal(ReleaseInfo)
+    downLoadFile = Signal(ReleaseInfo)
 
     def __init__(self, release: ReleaseInfo, mode=">", parent=None):
         super().__init__(parent)
@@ -68,11 +68,12 @@ class ReleaseFrame(QFrame):
         self.showButton = AnimationButton()
         self.showButton.setToolTip(self.tr("unfold"))
         self.showButton.setCheckable(True)
-        self.showButton.pixmap = QPixmap(str(resource_path('media').joinpath('unfold.png')).replace("\\", "/"))
+        self.showButton.pixmap = QPixmap(
+            str(resource_path('media').joinpath('unfold.png')).replace("\\", "/"))
         self.dateTimeLabel = QLabel()
         self.titleWidget = QWidget()
         self.formWidget = QWidget()
-        self.downloadButton = QPushButton(QObject.tr(self, "Download"))
+        self.downloadButton = QPushButton(self.tr("Download"))
         self.bodyEdit = QTextEdit()
         self.mode = mode
         self.initUi()
@@ -105,30 +106,29 @@ class ReleaseFrame(QFrame):
         if self.release.html_url != "":
             urlLabel = QLabel()
             urlLabel.setText("<a href='" + self.release.html_url +
-                             "'>" + QObject.tr(self, "open external links") + "</a>")
+                             "'>" + self.tr("open external links") + "</a>")
             urlLabel.setOpenExternalLinks(True)
-            formLayout.addRow(QObject.tr(self, "html_url"), urlLabel)
-        formLayout.addRow(QObject.tr(self, "name"),
+            formLayout.addRow(self.tr("html_url"), urlLabel)
+        formLayout.addRow(self.tr("name"),
                           QLabel(self.release.assets_name))
         if self.release.assets_content_type != "":
-            formLayout.addRow(QObject.tr(self, "content_type"),
+            formLayout.addRow(self.tr("content_type"),
                               QLabel(self.release.assets_content_type))
         if self.release.assets_size > 0:
-            formLayout.addRow(QObject.tr(self, "size"), QLabel(
+            formLayout.addRow(self.tr("size"), QLabel(
                 str(f"{self.release.assets_size / 1000000:.2f} MB")))
         if self.release.assets_download_count != "":
-            formLayout.addRow(QObject.tr(self, "download_count"),
+            formLayout.addRow(self.tr("download_count"),
                               QLabel(str(self.release.assets_download_count)))
         if self.release.assets_created_at != "":
-            formLayout.addRow(QObject.tr(self, "created_at"),
+            formLayout.addRow(self.tr("created_at"),
                               QLabel(QDateTime.fromString(self.release.assets_created_at, "yyyy-MM-ddThh:mm:ssZ").toString(
                                   "yyyy-MM-dd hh:mm:ss")))
         downloadUrlLabel = QLabel()
         downloadUrlLabel.setText("<a href='" + self.release.assets_browser_download_url +
-                                 "'>" + QObject.tr(self, "open download links") + "</a>")
+                                 "'>" + self.tr("open download links") + "</a>")
         downloadUrlLabel.setOpenExternalLinks(True)
-        formLayout.addRow(QObject.tr(
-            self, "browser_download_url"), downloadUrlLabel)
+        formLayout.addRow(self.tr("browser_download_url"), downloadUrlLabel)
         dataLayout.addLayout(formLayout)
         self.bodyEdit.setMarkdown(self.release.body)
         self.bodyEdit.setReadOnly(True)
@@ -170,13 +170,13 @@ class ReleaseFrame(QFrame):
         animation.setDuration(300)
         animation2.setDuration(300)
         if checked:
-            self.showButton.setToolTip(QObject.tr(self, "fold"))
+            self.showButton.setToolTip(self.tr("fold"))
             start = QSize(self.width(), 0)
             start1 = QSize(self.width(), self.titleWidget.height())
             end = QSize(self.width(), self.formWidget.sizeHint().height())
             end1 = QSize(self.width(), self.sizeHint().height())
         else:
-            self.showButton.setToolTip(QObject.tr(self, "unfold"))
+            self.showButton.setToolTip(self.tr("unfold"))
             start = QSize(self.width(), self.formWidget.sizeHint().height())
             start1 = QSize(self.width(), self.sizeHint().height())
             end = QSize(self.width(), 0)
@@ -240,14 +240,14 @@ class ReleaseFrame(QFrame):
 class CheckUpdateGui(QDialog):
     def __init__(self, github: GitHub, parent=None):
         super().__init__(parent.mainWindow)
-        self.setWindowTitle(QObject.tr(self, "CheckUpdate"))
+        self.setWindowTitle(self.tr("CheckUpdate"))
         # 去掉问号
         self.setWindowFlags(self.windowFlags() & ~
                             Qt.WindowContextHelpButtonHint)
         self.github: GitHub = github
         self.github.setParent(self)
         self.checkUpdateButton = QPushButton(
-            QObject.tr(self, "CheckUpdate"), self)
+            self.tr("CheckUpdate"), self)
         self.releaseArea = QScrollArea()
         self.releaseArea.setWidgetResizable(True)
         # 禁用横向滚动条
@@ -322,7 +322,7 @@ class CheckUpdateGui(QDialog):
         self.github.sourceManager.currentSource = source
         self.checkUpdateButton.click()
 
-    @pyqtSlot(list)
+    @Slot(list)
     def checkUpdate(self, releases: list[ReleaseInfo]):
         widget = self.releaseArea.widget()
         if widget is not None:
@@ -351,7 +351,7 @@ class CheckUpdateGui(QDialog):
         widget = self.releaseArea.widget()
         if widget is not None:
             widget.deleteLater()
-        QMessageBox.critical(self, QObject.tr(self, "Error"), msg)
+        QMessageBox.critical(self, self.tr("Error"), msg)
 
     def showDownloadDialog(self, release: ReleaseInfo):
         if self.processDialog is not None:
@@ -361,8 +361,8 @@ class CheckUpdateGui(QDialog):
         self.processDialog.canceled.connect(
             self.downloadCancel
         )
-        self.processDialog.setWindowTitle(QObject.tr(
-            self, f"{release.tag_name} Downloading..."))
+        self.processDialog.setWindowTitle(
+            self.tr(f"{release.tag_name} Downloading..."))
 
     def updateDownloadDialog(self, a: int, b: int):
         if self.processDialog is not None:

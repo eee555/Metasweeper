@@ -4,25 +4,22 @@ challenge_mode - 无猜闯关插件
 顺序闯关，共1000关（难度1#0 ~ 难度100#9），已解锁关卡可选。
 """
 from __future__ import annotations
+from .widgets import ChallengeModeUI
+from shared_types.commands import NewPresetGameCommand, InitOpenCommand
+from shared_types.enums import GameMode
+from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
+from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
+from Crypto.Random import get_random_bytes
+from Crypto.Cipher import AES
 
 import json
 import base64
 from pathlib import Path
 
-from PyQt5.QtCore import QCoreApplication
-from PyQt5.QtWidgets import QWidget
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QWidget
 
 _translate = QCoreApplication.translate
-
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-
-from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
-from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
-from shared_types.enums import GameMode
-from shared_types.commands import NewPresetGameCommand, InitOpenCommand
-
-from .widgets import ChallengeModeUI
 
 
 _LEVELS_KEY = b"Ch4ll3ng3M0deK3y!2026SecureKey!!"

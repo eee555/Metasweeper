@@ -7,8 +7,8 @@
 from __future__ import annotations
 import typing
 
-from PyQt5.QtCore import QCoreApplication, Qt
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtWidgets import (
     QDialog,
     QPushButton,
     QVBoxLayout,

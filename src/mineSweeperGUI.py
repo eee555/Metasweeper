@@ -1,7 +1,7 @@
 import base64
-from PyQt5 import QtCore
-from PyQt5.QtCore import QTimer, QCoreApplication, Qt, QRect, QUrl
-from PyQt5.QtGui import QPixmap, QDesktopServices
+from PySide6 import QtCore
+from PySide6.QtCore import QTimer, QCoreApplication, Qt, QRect, QUrl
+from PySide6.QtGui import QPixmap, QDesktopServices
 import msgspec
 from textdistance import length
 from dialogs import gameDefinedParameter
@@ -30,7 +30,7 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 import csv
 from datetime import datetime
-from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox, QDialog
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QDialog
 from country_name import country_name
 import metasweeper_checksum
 from mainWindowGUI import MainWindow
@@ -55,8 +55,6 @@ from config.constants import (
 _translate = QCoreApplication.translate
 
 
-
-
 class MineSweeperGUI(MainWindowGUIImportExport):
 
     def __init__(self, MainWindow: MainWindow, args):
@@ -64,13 +62,13 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.checksum_guard = metasweeper_checksum.ChecksumGuard()
         super(MineSweeperGUI, self).__init__(MainWindow, args)
 
-        self.engine = GameEngine(ms_board=getattr(self.label, 'ms_board', None))
+        self.engine = GameEngine(
+            ms_board=getattr(self.label, 'ms_board', None))
         self.renderer = BoardRenderer()
 
-
-
         raw = self.game_setting.value('DEFAULT/allowed_controls', '', str)
-        self._allowed_controls: set[str] = set(raw.split(',')) if raw else set()
+        self._allowed_controls: set[str] = set(
+            raw.split(',')) if raw else set()
         self.engine._allowed_controls = self._allowed_controls
 
         self.time_10ms: int = 0  # 已毫秒为单位的游戏时间，全局统一的
@@ -278,9 +276,11 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                     self.label.path_trace_points = []
                     if hasattr(self, 'show_path_trace'):
                         self.show_path_trace = False
-                        self.ui_video_control.pushButton_path.blockSignals(True)
+                        self.ui_video_control.pushButton_path.blockSignals(
+                            True)
                         self.ui_video_control.pushButton_path.setChecked(False)
-                        self.ui_video_control.pushButton_path.blockSignals(False)
+                        self.ui_video_control.pushButton_path.blockSignals(
+                            False)
                     self.label.show_opening = False
                     if hasattr(self, 'ui_video_control'):
                         self.ui_video_control.pushButton_op.blockSignals(True)
@@ -312,7 +312,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         )
         GameServerBridge.instance().send_event(event)
         self._send_board_update_event()
-
 
     @property
     def row(self):
@@ -347,9 +346,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         })
         self._minenum = minenum
 
-
     # 生命周期函数，正式的游戏结束时调用。由游戏状态的变更触发，当且仅当由playing变为其他状态
     # 处理数据相关。不处理前端显示
+
     def onGameFinished(self, new_game_state):
         # 不论如何都必然生成数据
         if self.label.ms_board.game_board_state == 2:
@@ -358,41 +357,41 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # 发信号给插件，游戏结束了
         board = self.label.ms_board.board
         event = GameFinishedEvent(
-            game_state = GAME_STATE_ORDER.index(new_game_state),
-            nf = self.label.ms_board.rce == 0,
-            row = self.label.ms_board.row,
-            column = self.label.ms_board.column,
-            mine_num = self.label.ms_board.mine_num,
-            rtime = self.label.ms_board.rtime,
-            left = self.label.ms_board.left,
-            right = self.label.ms_board.right,
-            double = self.label.ms_board.double,
+            game_state=GAME_STATE_ORDER.index(new_game_state),
+            nf=self.label.ms_board.rce == 0,
+            row=self.label.ms_board.row,
+            column=self.label.ms_board.column,
+            mine_num=self.label.ms_board.mine_num,
+            rtime=self.label.ms_board.rtime,
+            left=self.label.ms_board.left,
+            right=self.label.ms_board.right,
+            double=self.label.ms_board.double,
             # 游戏难度（级别）。3是初级；4是中级；5是高级；6是自定义。
-            level = self.label.ms_board.level,
-            cl = self.label.ms_board.cl,
-            ce = self.label.ms_board.ce,
-            rce = self.label.ms_board.rce,
-            lce = self.label.ms_board.lce,
-            dce = self.label.ms_board.dce,
-            bbbv = self.label.ms_board.bbbv,
-            bbbv_solved = self.label.ms_board.bbbv_solved,
-            zini = self.label.ms_board.zini,
-            flag = self.label.ms_board.flag,
-            path = self.label.ms_board.path,
-            start_time = self.label.ms_board.start_time,
-            end_time = self.label.ms_board.end_time,
-            mode = self.label.ms_board.mode,
-            software = self.label.ms_board.software,
-            player_identifier = self.label.ms_board.player_identifier,
-            race_identifier = self.label.ms_board.race_identifier,
-            unique_identifier = self.label.ms_board.unique_identifier,
-            is_official = self.label.ms_board.is_official,
-            is_fair = self.label.ms_board.is_fair,
-            op = self.label.ms_board.op,
-            isl = self.label.ms_board.isl,
-            pluck = self.label.ms_board.pluck,
-            board = board if isinstance(board, list) else board.into_vec_vec(),
-            raw_data = self.label.ms_board.raw_data
+            level=self.label.ms_board.level,
+            cl=self.label.ms_board.cl,
+            ce=self.label.ms_board.ce,
+            rce=self.label.ms_board.rce,
+            lce=self.label.ms_board.lce,
+            dce=self.label.ms_board.dce,
+            bbbv=self.label.ms_board.bbbv,
+            bbbv_solved=self.label.ms_board.bbbv_solved,
+            zini=self.label.ms_board.zini,
+            flag=self.label.ms_board.flag,
+            path=self.label.ms_board.path,
+            start_time=self.label.ms_board.start_time,
+            end_time=self.label.ms_board.end_time,
+            mode=self.label.ms_board.mode,
+            software=self.label.ms_board.software,
+            player_identifier=self.label.ms_board.player_identifier,
+            race_identifier=self.label.ms_board.race_identifier,
+            unique_identifier=self.label.ms_board.unique_identifier,
+            is_official=self.label.ms_board.is_official,
+            is_fair=self.label.ms_board.is_fair,
+            op=self.label.ms_board.op,
+            isl=self.label.ms_board.isl,
+            pluck=self.label.ms_board.pluck,
+            board=board if isinstance(board, list) else board.into_vec_vec(),
+            raw_data=self.label.ms_board.raw_data
         )
 
         # 强制保存stats.dat文件
@@ -421,7 +420,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             isl=event.isl,
             pluck=event.pluck,
             board_bytes=utils.board_list_to_bytes(event.board),
-            short_md5 = hashlib.md5(self.label.ms_board.raw_data).digest()[:8]
+            short_md5=hashlib.md5(self.label.ms_board.raw_data).digest()[:8]
         )
         GameServerBridge.instance().send_event(event)
 
@@ -447,10 +446,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
         # 根据策略保存录像文件到磁盘
         if self.autosave_video and self.checksum_module_ok() and\
-              new_game_state in "win":
+                new_game_state in "win":
             self.save_evf_file()
         self.try_append_evfs(new_game_state)
-
 
     def _sync_engine(self):
         self.engine._row = self.row
@@ -460,7 +458,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.engine._pixSize = self.pixSize
         self.engine.board_constraint = self.board_constraint
         self.engine.attempt_times_limit = self.attempt_times_limit
-        self.engine.ms_board = getattr(self.label, 'ms_board', self.engine.ms_board)
+        self.engine.ms_board = getattr(
+            self.label, 'ms_board', self.engine.ms_board)
 
     def layMine(self, i, j):
         self._sync_engine()
@@ -641,7 +640,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
     def replay_current_board(self):
         if self.game_state not in (WIN, FAIL, DISPLAY, SHOW_DISPLAY, JOWIN, JOFAIL):
             return
-        board = self.label.ms_board.board.into_vec_vec() if hasattr(self.label.ms_board.board, 'into_vec_vec') else self.label.ms_board.board
+        board = self.label.ms_board.board.into_vec_vec() if hasattr(
+            self.label.ms_board.board, 'into_vec_vec') else self.label.ms_board.board
         # self.label.ms_board有可能为upk，此时延用此前的gameMode，否则，改为ms_board的gameMode
         temp_gm = getattr(self.label.ms_board, 'mode', self.gameMode)
         if temp_gm != GameMode.UPK.value:
@@ -683,17 +683,17 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # status = utils.GameBoardState(ms_board.game_board_state)
         # if status == utils.GameBoardState.Win:
         #     self.dump_evf_file_data()
-            # event = VideoSaveEvent()
-            # data = msgspec.structs.asdict(event)
-            # for key in data:
-            #     if hasattr(ms_board, key):
-            #         if key == "raw_data":
-            #             data[key] = base64.b64encode(
-            #                 ms_board.raw_data).decode("utf-8")
-            #             continue
-            #         data[key] = getattr(ms_board, key)
-            # event = VideoSaveEvent(**data)
-            # GameServerBridge.instance().send_event(event)
+        # event = VideoSaveEvent()
+        # data = msgspec.structs.asdict(event)
+        # for key in data:
+        #     if hasattr(ms_board, key):
+        #         if key == "raw_data":
+        #             data[key] = base64.b64encode(
+        #                 ms_board.raw_data).decode("utf-8")
+        #             continue
+        #         data[key] = getattr(ms_board, key)
+        # event = VideoSaveEvent(**data)
+        # GameServerBridge.instance().send_event(event)
 
         # 发送棋盘更新事件，让插件知道最终状态
         # self._send_board_update_event()
@@ -793,11 +793,12 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         file_name = self.cal_evf_filename()
         # 加上后缀和重复标识数字
         real_file_name = self.label.ms_board.save_to_evf_file(file_name)
-        absolute_path = os.path.abspath(os.path.join(self.replay_path, real_file_name))
+        absolute_path = os.path.abspath(
+            os.path.join(self.replay_path, real_file_name))
         return absolute_path
 
-
     # 拼接evf录像的文件名，无后缀
+
     def cal_evf_filename(self, absolute=True) -> str:
         return self.engine.cal_evf_filename(
             self.label.ms_board, self.game_state,
@@ -1001,12 +1002,13 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             ui.label_16.setText(mode_text)
             ui.Dialog.show()
             self._popup_dialog = ui
-            ui.Dialog.finished.connect(lambda _: setattr(self, '_popup_dialog', None))
-
+            ui.Dialog.finished.connect(
+                lambda _: setattr(self, '_popup_dialog', None))
 
     # 根据条件是否满足，尝试追加evfs文件
     # 当且仅当game_state发生变化，且旧状态为"playing"时调用（即使点一下就获胜也会经过"playing"）
     # 加入evfs是空的，且当前游戏状态不是"win"，则不追加
+
     def try_append_evfs(self, new_game_state):
         # 只有开启了自动保存evfs，才会保存。也要防止通过关闭这个选项，逃避自动记录重开
         if not self.autosave_video_set:
@@ -1136,7 +1138,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                                           self.minenum, self.mainWindow)
         ui.Dialog.setModal(True)
         ui.Dialog.show()
-        ui.Dialog.exec_()
+        ui.Dialog.exec()
         if ui.alter:
             self.game_state = 'ready'
             self.setBoard_and_start(ui.row, ui.column, ui.minenum)
@@ -1183,7 +1185,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         ui = gameSettings.ui_Form(self)
         ui.Dialog.setModal(True)
         ui.Dialog.show()
-        ui.Dialog.exec_()
+        ui.Dialog.exec()
         if ui.alter:
             self.gameRestart()
             self.pixSize = ui.pixSize
@@ -1227,7 +1229,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         ui = gameAdvancedSettings.ui_Form(self)
         ui.Dialog.setModal(True)
         ui.Dialog.show()
-        ui.Dialog.exec_()
+        ui.Dialog.exec()
         if ui.alter:
             self.gameRestart()
             self.filter_forever = ui.filter_forever
@@ -1240,7 +1242,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                                                          self.mainWindow)
         ui.Dialog.setModal(True)
         ui.Dialog.show()
-        ui.Dialog.exec_()
+        ui.Dialog.exec()
         if ui.alter:
             self.readPredefinedBoardPara()
 
@@ -1250,14 +1252,15 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             os.system("start rundll32.exe shell32.dll,Control_RunDLL main.cpl,,2")
         except Exception:
             import logging
-            logging.getLogger(__name__).warning("Failed to open mouse settings")
+            logging.getLogger(__name__).warning(
+                "Failed to open mouse settings")
 
     def action_AEvent(self):
         # 关于
         ui = gameAbout.ui_Form(self.mainWindow)
         ui.Dialog.setModal(True)
         ui.Dialog.show()
-        ui.Dialog.exec_()
+        ui.Dialog.exec()
 
     def auto_Update(self):
         data = {
@@ -1274,7 +1277,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             data, "Github"), superGUI.version, r"(\d+\.\d+\.\d+)"), parent=self)
         update_dialog.setModal(True)
         update_dialog.show()
-        update_dialog.exec_()
+        update_dialog.exec()
 
     def screenShot(self):
         # ‘ctrl’ + ‘space’ 事件，启动截图
@@ -1290,7 +1293,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
         ui = captureScreen.CaptureScreen()
         ui.show()
-        ui.exec_()
+        ui.exec()
 
         if not ui.success_flag or len(ui.board) < 6 or len(ui.board[0]) < 6:
             return
@@ -1554,14 +1557,16 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                     if url.isLocalFile() and url.toLocalFile().endswith(".board"):
                         try:
                             with open(url.toLocalFile(), "r", encoding="utf-8") as f:
-                                game_board, mines, source = parse_board_text(f.read())
+                                game_board, mines, source = parse_board_text(
+                                    f.read())
                             if game_board:
                                 break
                         except OSError:
                             continue
 
         if not game_board:
-            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "粘贴失败"), _translate("MainWindow", "剪贴板内容无法识别为扫雷局面"))
+            QMessageBox.warning(self.mainWindow, _translate(
+                "MainWindow", "粘贴失败"), _translate("MainWindow", "剪贴板内容无法识别为扫雷局面"))
             return
 
         rows, cols = len(game_board), len(game_board[0])
@@ -1597,7 +1602,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.game_state = "study"
         self.set_face(14)
 
-        game_board = [[cell if 0 <= cell <= 8 else 10 for cell in row] for row in game_board]
+        game_board = [[cell if 0 <= cell <= 8 else 10 for cell in row]
+                      for row in game_board]
         self.label.ms_board.game_board = game_board
         self.label.ms_board.mouse_state = 1
         self.label.ms_board.game_board_state = 1
@@ -1626,7 +1632,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                     tag = blob[12:28]
                     ct = blob[28:]
                     try:
-                        cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
+                        cipher = AES.new(superGUI.STATS_DAT_KEY,
+                                         AES.MODE_GCM, nonce=nonce)
                         pt = cipher.decrypt_and_verify(ct, tag)
                         md5s.add(utils.StatsRecord.decode(pt).short_md5)
                     except Exception:
@@ -1635,11 +1642,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             pass
         return md5s
 
-
     def action_OpenPluginDialog(self):
         try:
             bridge = GameServerBridge.instance()
             bridge.send_event(ShowPluginManagerEvent())
         except Exception:
             pass
-

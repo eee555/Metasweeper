@@ -7,8 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt5.QtCore import QCoreApplication
-from PyQt5.QtWidgets import QHBoxLayout, QLineEdit, QPushButton, QFileDialog
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QPushButton, QFileDialog
 
 from .base_config import BaseConfig, ConfigWidgetBase
 
@@ -64,16 +64,19 @@ class FileConfig(BaseConfig[str]):
                 layout.addWidget(self._line_edit, 1)
                 layout.addWidget(btn)
 
-                self._line_edit.textChanged.connect(lambda: self.value_change.emit(self.get_value()))
+                self._line_edit.textChanged.connect(
+                    lambda: self.value_change.emit(self.get_value()))
 
             def _on_browse(self):
                 if self._save_mode:
                     path, _ = QFileDialog.getSaveFileName(
-                        self, QCoreApplication.translate("Form", "选择文件"), self._line_edit.text(), self._filter
+                        self, QCoreApplication.translate(
+                            "Form", "选择文件"), self._line_edit.text(), self._filter
                     )
                 else:
                     path, _ = QFileDialog.getOpenFileName(
-                        self, QCoreApplication.translate("Form", "选择文件"), self._line_edit.text(), self._filter
+                        self, QCoreApplication.translate(
+                            "Form", "选择文件"), self._line_edit.text(), self._filter
                     )
                 if path:
                     self._line_edit.setText(path)

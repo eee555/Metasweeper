@@ -1,4 +1,4 @@
-pyQt5==5.15.11
+PySide6>=6.8.0
 ms-toollib>=1.5.17
 setuptools==83.0.0
 msgspec>=0.20.0
@@ -6,12 +6,10 @@ zmq>=0.0.0
 pywin32>=311
 loguru>=0.7.3
 debugpy>=1.8.20
-PyQt5-stubs>=5.15.6.0
 requests>=2.33.1
 textdistance
 pycryptodome>=3.20.0
 PyMCUlib>=1.0.3
-pyqtchart
 
 # 开发/测试/打包依赖
 pytest>=7.4.0

@@ -1,9 +1,10 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QDialog
-from PyQt5.QtCore import Qt, qAbs, QRect
-from PyQt5.QtGui import QPen, QPainter, QColor, QGuiApplication
+from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtCore import Qt, qAbs, QRect
+from PySide6.QtGui import QPen, QPainter, QColor, QGuiApplication
 from struct import Struct
 import ms_toollib
+
 
 class CaptureScreen(QDialog):
     # 初始化变量
@@ -28,7 +29,7 @@ class CaptureScreen(QDialog):
         self.setWindowState(Qt.WindowFullScreen)    # 窗口全屏
 
     def captureFullScreen(self):
-        self.fullScreenImage = QGuiApplication.primaryScreen().grabWindow(QApplication.desktop().winId())
+        self.fullScreenImage = QGuiApplication.primaryScreen().grabWindow(0)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -50,7 +51,7 @@ class CaptureScreen(QDialog):
 
     def mouseReleaseEvent(self, event):
         self.endPosition = event.pos()
-        
+
         self.isMousePressLeft = False
         if self.captureImage is not None:
             self.getBoard()
@@ -59,17 +60,22 @@ class CaptureScreen(QDialog):
     def paintBackgroundImage(self):
         shadowColor = QColor(0, 0, 0, 100)  # 黑色半透明
         self.painter.drawPixmap(0, 0, self.fullScreenImage)
-        self.painter.fillRect(self.fullScreenImage.rect(), shadowColor)     # 填充矩形阴影
+        self.painter.fillRect(self.fullScreenImage.rect(),
+                              shadowColor)     # 填充矩形阴影
 
     def paintEvent(self, event):
         self.painter.begin(self)    # 开始重绘
         self.paintBackgroundImage()
         penColor = QColor(30, 144, 245)     # 画笔颜色
-        self.painter.setPen(QPen(penColor, 1, Qt.SolidLine, Qt.RoundCap))    # 设置画笔,蓝色,1px大小,实线,圆形笔帽
+        # 设置画笔,蓝色,1px大小,实线,圆形笔帽
+        self.painter.setPen(QPen(penColor, 1, Qt.SolidLine, Qt.RoundCap))
         if self.isMousePressLeft is True:
-            pickRect = self.getRectangle(self.beginPosition, self.endPosition)   # 获得要截图的矩形框
-            self.captureImage = self.fullScreenImage.copy(pickRect)         # 捕获截图矩形框内的图片
-            self.painter.drawPixmap(pickRect.topLeft(), self.captureImage)  # 填充截图的图片
+            pickRect = self.getRectangle(
+                self.beginPosition, self.endPosition)   # 获得要截图的矩形框
+            self.captureImage = self.fullScreenImage.copy(
+                pickRect)         # 捕获截图矩形框内的图片
+            self.painter.drawPixmap(
+                pickRect.topLeft(), self.captureImage)  # 填充截图的图片
             self.painter.drawRect(pickRect)     # 画矩形边框
         self.painter.end()  # 结束重绘
 
@@ -78,7 +84,8 @@ class CaptureScreen(QDialog):
         pickRectHeight = int(qAbs(beginPoint.y() - endPoint.y()))
         pickRectTop = beginPoint.x() if beginPoint.x() < endPoint.x() else endPoint.x()
         pickRectLeft = beginPoint.y() if beginPoint.y() < endPoint.y() else endPoint.y()
-        pickRect = QRect(pickRectTop, pickRectLeft, pickRectWidth, pickRectHeight)
+        pickRect = QRect(pickRectTop, pickRectLeft,
+                         pickRectWidth, pickRectHeight)
         # 避免高度宽度为0时候报错
         if pickRectWidth == 0:
             pickRect.setWidth(2)
@@ -99,12 +106,12 @@ class CaptureScreen(QDialog):
         self.data = s.unpack(bits[0:])
         self.success_flag = True
         try:
-            self.board = ms_toollib.obr_board(self.data, self.height, self.width)
+            self.board = ms_toollib.obr_board(
+                self.data, self.height, self.width)
         except Exception:
             self.success_flag = False
-            
-        # print(self.board)
 
+        # print(self.board)
 
 
 if __name__ == "__main__":
@@ -112,4 +119,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     windows = CaptureScreen()
     windows.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

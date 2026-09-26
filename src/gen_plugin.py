@@ -42,8 +42,8 @@ from pathlib import Path
 import msgspec
 import zmq
 
-from PyQt5.QtCore import QCoreApplication
-from PyQt5.QtWidgets import QWidget
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QWidget
 
 from plugin_sdk import (
     BasePlugin, PluginInfo, make_plugin_icon, WindowMode,

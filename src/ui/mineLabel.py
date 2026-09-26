@@ -1,7 +1,7 @@
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtGui import QPolygonF, QPainter, QPixmap, QPainterPath, QColor, QPen, QFont
+from PySide6 import QtWidgets, QtCore
+from PySide6.QtGui import QPolygonF, QPainter, QPixmap, QPainterPath, QColor, QPen, QFont
 import ms_toollib as ms
-from PyQt5.QtCore import QPoint, Qt, QRect
+from PySide6.QtCore import QPoint, Qt, QRect
 from config.constants import BOARD_READY, BOARD_PLAYING, CELL_UNOPENED
 from shared_types.enums import MouseState
 import utils
@@ -10,20 +10,20 @@ from utils.path_utils import resource_path
 
 class mineLabel(QtWidgets.QLabel):
     # 一整个局面的控件，而不是一个格子
-    leftRelease = QtCore.pyqtSignal (int, int)  # 定义信号
-    rightRelease = QtCore.pyqtSignal (int, int)
-    leftPressed = QtCore.pyqtSignal (int, int)
-    rightPressed = QtCore.pyqtSignal (int, int)
-    leftAndRightPressed = QtCore.pyqtSignal (int, int)
-    leftAndRightRelease = QtCore.pyqtSignal (int, int)
-    mouseMove = QtCore.pyqtSignal (int, int)
-    mousewheelEvent = QtCore.pyqtSignal (int, int, int)
+    leftRelease = QtCore.Signal(int, int)  # 定义信号
+    rightRelease = QtCore.Signal(int, int)
+    leftPressed = QtCore.Signal(int, int)
+    rightPressed = QtCore.Signal(int, int)
+    leftAndRightPressed = QtCore.Signal(int, int)
+    leftAndRightRelease = QtCore.Signal(int, int)
+    mouseMove = QtCore.Signal(int, int)
+    mousewheelEvent = QtCore.Signal(int, int, int)
     row = 0
     column = 0
     pixSize = 0
 
     def __init__(self, parent):
-        super (mineLabel, self).__init__ (parent)
+        super(mineLabel, self).__init__(parent)
         points = []
         mouse_ = QPolygonF(points)
         self.mouse = QPainterPath()
@@ -76,18 +76,21 @@ class mineLabel(QtWidgets.QLabel):
         self.hover_highlight_cells = ()
         if self.paintProbability:
             # self.ms_board = utils.abstract_game_board()
-            self.ms_board = utils.CoreBaseVideo([[0] * column for _ in range(row)], pixSize)
+            self.ms_board = utils.CoreBaseVideo(
+                [[0] * column for _ in range(row)], pixSize)
         else:
             if hasattr(self, "ms_board"):
                 if isinstance(self.ms_board, utils.CoreBaseVideo) or\
-                    not isinstance(self.ms_board, ms.BaseVideo):
-                    self.ms_board = ms.BaseVideo([[0] * column for _ in range(row)], pixSize)
+                        not isinstance(self.ms_board, ms.BaseVideo):
+                    self.ms_board = ms.BaseVideo(
+                        [[0] * column for _ in range(row)], pixSize)
                 else:
                     self.ms_board.reset(row, column, pixSize)
             else:
-                self.ms_board = ms.BaseVideo([[0] * column for _ in range(row)], pixSize)
+                self.ms_board = ms.BaseVideo(
+                    [[0] * column for _ in range(row)], pixSize)
             self.boardProbability = [[0.0] * column for _ in range(row)]
-        
+
         if self.pixSize != pixSize:
             self.pixSize = pixSize
             self.importCellPic(pixSize)
@@ -98,14 +101,14 @@ class mineLabel(QtWidgets.QLabel):
                 pixSize * column, pixSize * row))
             # self.current_x = self.row # 鼠标坐标，和高亮的展示有关
             # self.current_y = self.column
-    
-            points = [ QPoint(0, 0),   # 你猜这个多边形是什么，它就是鼠标
+
+            points = [QPoint(0, 0),   # 你猜这个多边形是什么，它就是鼠标
                       QPoint(0, pixSize),
-                    QPoint(int(0.227 * pixSize), int(0.773 * pixSize)),
-                    QPoint(int(0.359 * pixSize), int(1.125 * pixSize)),
-                    QPoint(int(0.493 * pixSize), int(1.066 * pixSize)),
-                    QPoint(int(0.357 * pixSize), int(0.72 * pixSize)),
-                    QPoint(int(0.666 * pixSize), int(0.72 * pixSize)) ]
+                      QPoint(int(0.227 * pixSize), int(0.773 * pixSize)),
+                      QPoint(int(0.359 * pixSize), int(1.125 * pixSize)),
+                      QPoint(int(0.493 * pixSize), int(1.066 * pixSize)),
+                      QPoint(int(0.357 * pixSize), int(0.72 * pixSize)),
+                      QPoint(int(0.666 * pixSize), int(0.72 * pixSize))]
             mouse_ = QPolygonF(points)
             self.mouse = QPainterPath()
             self.mouse.addPolygon(mouse_)
@@ -116,40 +119,40 @@ class mineLabel(QtWidgets.QLabel):
         yy = int(e.localPos().y())
         # print("press: ", xx, yy)
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
-            xx >= self.column * self.pixSize:
+                xx >= self.column * self.pixSize:
             self.current_x = self.row * self.pixSize
             self.current_y = self.column * self.pixSize
         else:
             self.current_x = yy
             self.current_y = xx
-            
+
         # xx和yy是反的，列、行
         if e.buttons() == QtCore.Qt.LeftButton | QtCore.Qt.RightButton:
             self.leftAndRightPressed.emit(self.current_x, self.current_y)
         else:
-            if e.buttons () == QtCore.Qt.LeftButton:
+            if e.buttons() == QtCore.Qt.LeftButton:
                 self.leftPressed.emit(self.current_x, self.current_y)
-            elif e.buttons () == QtCore.Qt.RightButton:
+            elif e.buttons() == QtCore.Qt.RightButton:
                 self.rightPressed.emit(self.current_x, self.current_y)
 
     def mouseReleaseEvent(self, e):
-        #每个标签的鼠标事件发射给槽的都是自身的坐标
-        #所以获取释放点相对本标签的偏移量，矫正发射的信号
+        # 每个标签的鼠标事件发射给槽的都是自身的坐标
+        # 所以获取释放点相对本标签的偏移量，矫正发射的信号
         xx = int(e.localPos().x())
         yy = int(e.localPos().y())
         # print("release: ", xx, yy)
-        
+
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
-            xx >= self.column * self.pixSize:
+                xx >= self.column * self.pixSize:
             self.current_x = self.row * self.pixSize
             self.current_y = self.column * self.pixSize
         else:
             self.current_x = yy
             self.current_y = xx
-            
+
         if e.button() == QtCore.Qt.LeftButton:
             self.leftRelease.emit(self.current_x, self.current_y)
-        elif e.button () == QtCore.Qt.RightButton:
+        elif e.button() == QtCore.Qt.RightButton:
             self.rightRelease.emit(self.current_x, self.current_y)
 
     def mouseMoveEvent(self, e):
@@ -157,7 +160,7 @@ class mineLabel(QtWidgets.QLabel):
         yy = int(e.localPos().y())
         # print('移动位置{}, {}'.format(xx, yy))
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
-            xx >= self.column * self.pixSize:
+                xx >= self.column * self.pixSize:
             self.current_x = self.row * self.pixSize
             self.current_y = self.column * self.pixSize
         else:
@@ -169,14 +172,14 @@ class mineLabel(QtWidgets.QLabel):
         # 滚轮事件
         angle = event.angleDelta()
         angle_y = angle.y()
-        xx = int(event.x()) # 距离左侧
-        yy = int(event.y()) # 距离上方
+        xx = int(event.position().x())  # 距离左侧
+        yy = int(event.position().y())  # 距离上方
         if yy < 0 or xx < 0 or yy >= self.row * self.pixSize or\
-            xx >= self.column * self.pixSize:
+                xx >= self.column * self.pixSize:
             self.mousewheelEvent.emit(angle_y, self.row, self.column)
         else:
-            self.mousewheelEvent.emit(angle_y, yy // self.pixSize, xx // self.pixSize)
-
+            self.mousewheelEvent.emit(
+                angle_y, yy // self.pixSize, xx // self.pixSize)
 
     def compute_openings(self):
         gb = self.ms_board.game_board
@@ -272,20 +275,22 @@ class mineLabel(QtWidgets.QLabel):
                     if (is_zero_same(i, j, i, j - 1) or
                         is_zero_same(i, j, i, j + 1) or
                         is_zero_same(i, j, i + 1, j - 1) or
-                        is_zero_same(i, j, i + 1, j + 1)):
+                            is_zero_same(i, j, i + 1, j + 1)):
                         cx = int((j + 0.5) * pix_size)
                         cy1 = 0 if i == 0 else int((i + 0.5) * pix_size)
-                        cy2 = int((i + 2.0) * pix_size) if i == row - 2 else int((i + 1.5) * pix_size)
+                        cy2 = int((i + 2.0) * pix_size) if i == row - \
+                            2 else int((i + 1.5) * pix_size)
                         painter.drawLine(cx, cy1, cx, cy2)
 
                 if nonzero_right:
                     if (is_zero_same(i, j, i - 1, j) or
                         is_zero_same(i, j, i + 1, j) or
                         is_zero_same(i, j, i - 1, j + 1) or
-                        is_zero_same(i, j, i + 1, j + 1)):
+                            is_zero_same(i, j, i + 1, j + 1)):
                         cy = int((i + 0.5) * pix_size)
                         cx1 = 0 if j == 0 else int((j + 0.5) * pix_size)
-                        cx2 = int((j + 2.0) * pix_size) if j == col - 2 else int((j + 1.5) * pix_size)
+                        cx2 = int((j + 2.0) * pix_size) if j == col - \
+                            2 else int((j + 1.5) * pix_size)
                         painter.drawLine(cx1, cy, cx2, cy)
 
         # 画黄色编号
@@ -349,13 +354,13 @@ class mineLabel(QtWidgets.QLabel):
         painter = QPainter()
         game_board = self.ms_board.game_board
         mouse_state = self.ms_board.mouse_state
-        if self.paint_cursor: # 播放录像
+        if self.paint_cursor:  # 播放录像
             game_board_state = BOARD_READY
             (x, y) = self.ms_board.x_y
             current_x = y // self.pixSize
             current_y = x // self.pixSize
             # poss = self.ms_board.game_board_poss
-        else: # 游戏
+        else:  # 游戏
             game_board_state = self.ms_board.game_board_state
             current_x = self.current_x // self.pixSize
             current_y = self.current_y // self.pixSize
@@ -367,17 +372,20 @@ class mineLabel(QtWidgets.QLabel):
         for i in range(row):
             for j in range(column):
                 if game_board[i][j] == CELL_UNOPENED:
-                    painter.drawPixmap(j * pix_size, i * pix_size, QPixmap(self.pixmapNum[10]))
-                    if self.paintProbability: # 画概率
+                    painter.drawPixmap(j * pix_size, i *
+                                       pix_size, QPixmap(self.pixmapNum[10]))
+                    if self.paintProbability:  # 画概率
                         if self.paint_cursor:
-                            painter.setOpacity(self.ms_board.game_board_poss[i][j])
+                            painter.setOpacity(
+                                self.ms_board.game_board_poss[i][j])
                         else:
                             painter.setOpacity(self.boardProbability[i][j])
-                        painter.drawPixmap(j * pix_size, i * pix_size, QPixmap(self.pixmapNum[100]))
+                        painter.drawPixmap(
+                            j * pix_size, i * pix_size, QPixmap(self.pixmapNum[100]))
                         painter.setOpacity(1.0)
                 else:
-                    painter.drawPixmap(j * pix_size, i * pix_size, QPixmap(self.pixmapNum[game_board[i][j]]))
-
+                    painter.drawPixmap(
+                        j * pix_size, i * pix_size, QPixmap(self.pixmapNum[game_board[i][j]]))
 
         # 画 openings 黄色边框和编号
         if self.show_opening:
@@ -386,14 +394,16 @@ class mineLabel(QtWidgets.QLabel):
 
         # 画高亮
         if (game_board_state == BOARD_PLAYING or game_board_state == BOARD_READY or game_board_state == 5) and\
-            current_x < row and current_y < column:
+                current_x < row and current_y < column:
             if mouse_state == MouseState.Chording.value or mouse_state == MouseState.ChordingNotFlag.value:
                 for r in range(max(current_x - 1, 0), min(current_x + 2, row)):
                     for c in range(max(current_y - 1, 0), min(current_y + 2, column)):
                         if game_board[r][c] == CELL_UNOPENED:
-                            painter.drawPixmap(c * pix_size, r * pix_size, QPixmap(self.pixmapNum[0]))
+                            painter.drawPixmap(
+                                c * pix_size, r * pix_size, QPixmap(self.pixmapNum[0]))
             elif mouse_state == MouseState.DownUp.value and game_board[current_x][current_y] == CELL_UNOPENED:
-                painter.drawPixmap(current_y * pix_size, current_x * pix_size, QPixmap(self.pixmapNum[0]))
+                painter.drawPixmap(
+                    current_y * pix_size, current_x * pix_size, QPixmap(self.pixmapNum[0]))
         # 画鼠标路径轨迹
         if self.path_trace_enabled and self.path_trace_points:
             n = min(self.current_trace_event_id, len(self.path_trace_points))
@@ -427,7 +437,7 @@ class mineLabel(QtWidgets.QLabel):
         if self.paint_cursor:
             painter.translate(x, y)
             painter.drawPath(self.mouse)
-            painter.fillPath(self.mouse,Qt.white)
+            painter.fillPath(self.mouse, Qt.white)
         painter.end()
 
     def importCellPic(self, pixSize):
@@ -442,15 +452,15 @@ class mineLabel(QtWidgets.QLabel):
         cell7 = QPixmap(self.cell7_path)
         cell8 = QPixmap(self.cell8_path)
         cellup = QPixmap(self.cellup_path)
-        cellmine = QPixmap(self.cellmine_path) # 白雷
-        cellflag = QPixmap(self.cellflag_path) # 标雷
-        blast = QPixmap(self.blast_path) # 红雷
-        falsemine = QPixmap(self.falsemine_path) # 叉雷
-        mine = QPixmap(self.mine_path) # 透明雷
+        cellmine = QPixmap(self.cellmine_path)  # 白雷
+        cellflag = QPixmap(self.cellflag_path)  # 标雷
+        blast = QPixmap(self.blast_path)  # 红雷
+        falsemine = QPixmap(self.falsemine_path)  # 叉雷
+        mine = QPixmap(self.mine_path)  # 透明雷
         self.pixmapNumBack = {0: celldown, 1: cell1, 2: cell2, 3: cell3, 4: cell4,
-                     5: cell5, 6: cell6, 7: cell7, 8: cell8,
-                     10: cellup, 11: cellflag, 14: falsemine,
-                     15: blast, 16: cellmine, 100: mine}
+                              5: cell5, 6: cell6, 7: cell7, 8: cell8,
+                              10: cellup, 11: cellflag, 14: falsemine,
+                              15: blast, 16: cellmine, 100: mine}
         celldown_ = celldown.copy().scaled(pixSize, pixSize)
         cell1_ = cell1.copy().scaled(pixSize, pixSize)
         cell2_ = cell2.copy().scaled(pixSize, pixSize)
@@ -467,13 +477,11 @@ class mineLabel(QtWidgets.QLabel):
         falsemine_ = falsemine.copy().scaled(pixSize, pixSize)
         mine_ = mine.copy().scaled(pixSize, pixSize)
         self.pixmapNum = {0: celldown_, 1: cell1_, 2: cell2_, 3: cell3_, 4: cell4_,
-                     5: cell5_, 6: cell6_, 7: cell7_, 8: cell8_,
-                     10: cellup_, 11: cellflag_, 14: falsemine_,
-                     15: blast_, 16: cellmine_, 100: mine_}
+                          5: cell5_, 6: cell6_, 7: cell7_, 8: cell8_,
+                          10: cellup_, 11: cellflag_, 14: falsemine_,
+                          15: blast_, 16: cellmine_, 100: mine_}
 
     def reloadCellPic(self, pixSize):
         # 从内存导入资源，并缩放到希望的尺寸、比例。
-        self.pixmapNum = {key:value.copy().scaled(pixSize, pixSize) for key,value in self.pixmapNumBack.items()}
-
-
-
+        self.pixmapNum = {key: value.copy().scaled(pixSize, pixSize)
+                          for key, value in self.pixmapNumBack.items()}

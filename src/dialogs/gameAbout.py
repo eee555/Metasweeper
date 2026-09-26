@@ -1,10 +1,10 @@
-from PyQt5 import QtGui
+from PySide6 import QtGui
 from ui.ui_about import Ui_Form
 from ui.uiComponents import RoundQDialog
-from PyQt5.QtWidgets import QShortcut
-from PyQt5.QtGui import QKeySequence
-from PyQt5.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import Qt
 from utils.path_utils import resource_path
+
 
 class ui_Form(Ui_Form):
     def __init__(self, parent):
@@ -18,9 +18,10 @@ class ui_Form(Ui_Form):
             self.label_12.styleSheet().replace("url(media/", f"url({m}/"))
         icon_path = str(resource_path('media') / 'cat.ico')
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(icon_path), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(icon_path),
+                       QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.Dialog.setWindowIcon(icon)
 
         # 空格键快捷键关闭这个窗口。回车不需要设置，在ui文件中已经设置。
-        QShortcut(QKeySequence("Space"), self.Dialog, activated=self.pushButton.click)
-
+        QShortcut(QKeySequence("Space"), self.Dialog,
+                  activated=self.pushButton.click)
