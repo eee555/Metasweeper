@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import secrets
 import socket
@@ -34,6 +35,15 @@ class PendingCall:
     started: bool = False
     cancelled: bool = False
     result: dict | None = None
+    progress: dict | None = None
+
+    def __post_init__(self) -> None:
+        if self.name == "click_cell" and "clicks" in self.arguments and self.progress is None:
+            clicks = self.arguments["clicks"]
+            requested = len(clicks) if isinstance(clicks, list) else 0
+            self.progress = {"success": False, "outcome": "not_executed",
+                             "requested": requested, "completed": 0, "results": [],
+                             "stopped_index": 0, "unattempted": requested}
 
 
 class RequestBridge:
@@ -100,8 +110,15 @@ class RequestBridge:
             if call.future.done():
                 return
             call.cancelled = True
-            call.result = failure(
-                message, "unknown" if call.started else "not_executed")
+            if call.progress is not None:
+                call.result = copy.deepcopy(call.progress)
+                if not call.result["success"]:
+                    call.result["error"] = message
+                    if call.result["results"] and not call.result["results"][-1]["success"]:
+                        call.result["results"][-1]["error"] = message
+            else:
+                call.result = failure(
+                    message, "unknown" if call.started else "not_executed")
             call.future.set_result(call.result)
 
     def cancel(self, key: tuple) -> None:
@@ -131,15 +148,17 @@ class RequestBridge:
             if call.cancelled or call.future.done():
                 return
             if time.monotonic() >= call.deadline:
-                call.result = failure("Request expired before execution")
+                call.result = {**copy.deepcopy(call.progress or {}),
+                               **failure("Request expired before execution")}
                 call.future.set_result(call.result)
                 return
             call.started = True
         try:
             result = executor(call.name, call.arguments)
         except Exception:
-            result = failure(
-                "Execution failed; result unknown; do not retry automatically", "unknown")
+            RequestBridge._cancel(
+                call, "Execution failed; result unknown; do not retry automatically")
+            return
         with call.lock:
             if not call.future.done():
                 call.result = result

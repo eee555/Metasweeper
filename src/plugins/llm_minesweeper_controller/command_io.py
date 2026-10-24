@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import queue
 import threading
 import time
@@ -20,6 +21,10 @@ from .mcp_server import MAX_CONNECTIONS, PendingCall, RequestBridge
 
 # 255×255 自定义棋盘的 JSON 快照约 260 KB，原 64 KiB 上限会让 libzmq 直接断开
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+
+
+class CommandNotSentError(TimeoutError):
+    send_state = "not_sent"
 
 
 class CommandIO:
@@ -93,6 +98,15 @@ class CommandIO:
             self._socket.close(linger=0)
             self._socket = None
 
+    def report_progress(self, result: dict) -> None:
+        call = self.active
+        if call is None or threading.current_thread() is not self.thread:
+            raise RuntimeError("Progress must be reported by the active I/O owner")
+        with call.lock:
+            if call.future.done() or self.stopped.is_set() or time.monotonic() >= call.deadline:
+                raise TimeoutError("Batch cancelled or expired")
+            call.progress = copy.deepcopy(result)
+
     def _run(self) -> None:
         try:
             self._context = zmq.Context()
@@ -144,10 +158,23 @@ class CommandIO:
                     blocked = pre_send() if pre_send is not None else None
                     if blocked is not None:
                         return b"__blocked__"
-                    self._socket.send(payload, flags=zmq.NOBLOCK)
+                    try:
+                        self._socket.send(payload, flags=zmq.NOBLOCK)
+                    except zmq.Again as error:
+                        raise CommandNotSentError("Transport backpressure; command not sent") from error
+                    if pre_send is not None and call.progress is not None:
+                        progress = call.progress
+                        index = progress["completed"]
+                        click = call.arguments["clicks"][index]
+                        error = "Click sent without confirmation; do not retry automatically"
+                        progress["results"].append({
+                            "index": index, **click, "button": click.get("button", "left"),
+                            "success": False, "outcome": "unknown", "error": error})
+                        progress.update(success=False, outcome="unknown", error=error,
+                                        stopped_index=index, unattempted=progress["requested"] - index - 1)
                 break
         else:
-            raise TimeoutError("Transport unavailable")
+            raise CommandNotSentError("Transport unavailable")
         while time.monotonic() < deadline:
             if self.stopped.is_set() or call.future.done():
                 raise TimeoutError("Request cancelled")
@@ -159,17 +186,36 @@ class CommandIO:
             raw = message[-1]
             try:
                 if self._serializer.is_query_result_tag(peek_struct_tag(raw)):
-                    response_id = self._serializer.decode_query_result(
-                        raw).request_id
+                    response = self._serializer.decode_query_result(raw)
                 else:
-                    response_id = self._serializer.decode_response(
-                        raw).request_id
+                    response = self._serializer.decode_response(raw)
+                response_id = response.request_id
             except Exception:
                 continue
-            if (response_id == request_id
-                    and time.monotonic() < deadline and not call.future.done()
-                    and not self.stopped.is_set()):
-                return raw
+            with call.lock:
+                if (response_id == request_id
+                        and time.monotonic() < deadline and not call.future.done()
+                        and not self.stopped.is_set()):
+                    if (pre_send is not None and call.progress is not None
+                            and isinstance(response, CommandResponse)):
+                        progress = call.progress
+                        entry = progress["results"][-1]
+                        entry.update(success=response.success,
+                                     outcome="confirmed" if response.success else "not_executed",
+                                     request_id=response.request_id)
+                        if response.success:
+                            entry.pop("error", None)
+                            progress.pop("error", None)
+                            progress["completed"] += 1
+                            complete = progress["completed"] == progress["requested"]
+                            progress.update(success=complete,
+                                            outcome="confirmed" if complete else "partial",
+                                            stopped_index=None if complete else len(progress["results"]))
+                        else:
+                            error = response.error or "Main process rejected command"
+                            entry["error"] = progress["error"] = error
+                            progress["outcome"] = "partial" if progress["completed"] else "not_executed"
+                    return raw
         raise TimeoutError("Response timed out")
 
     def request(self, command: BaseCommand, timeout: float = 3.0) -> CommandResponse:

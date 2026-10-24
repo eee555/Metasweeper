@@ -8,7 +8,7 @@ from typing import Callable
 import msgspec
 
 from config.constants import GAME_EVENT_STATE_MAP
-from lib_zmq_plugins.shared.base import BaseQuery, BaseQueryResult, CommandResponse
+from lib_zmq_plugins.shared.base import BaseCommand, BaseQuery, BaseQueryResult, CommandResponse
 from shared_types.commands import MouseClickCommand, NewGameCommand
 from shared_types.events import BoardUpdateEvent, GameStatusChangeEvent
 from shared_types.queries import (
@@ -32,6 +32,13 @@ READ_ONLY_QUERIES: dict[str, type[BaseQuery]] = {
 # 会产生实际游戏动作的工具
 CONTROL_TOOLS = frozenset({"click_cell", "start_new_game"})
 
+MAX_BATCH_CLICKS = 128
+CLICK_PROPERTIES = {
+    "row": {"type": "integer", "minimum": 0},
+    "col": {"type": "integer", "minimum": 0},
+    "button": {"type": "string", "enum": ["left", "right", "middle"], "default": "left"},
+}
+
 TOOLS = [
     {"name": "get_board_state", "description": "Actively request the current visible board snapshot. Falls back to the last official event with source=cache when the live request fails.",
      "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -42,11 +49,16 @@ TOOLS = [
     {"name": "get_game_context", "description": "Actively request the game context: status, board parameters, 3BV progress, official/fair flags and currently enabled control permissions.",
      "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
      "annotations": {"readOnlyHint": True, "openWorldHint": False}},
-    {"name": "click_cell", "description": "Click a visible-board cell with explicit user-granted SDK permission.",
+    {"name": "click_cell", "description": "Click one cell (row, col, button) or submit clicks for an ordered batch. Validate all inputs before any click; refresh the visible board and check SDK permission for each action. Stop on the first failure, unknown confirmation or unavailable/finished/changed board. Never retry automatically; inspect completed, results and stopped_index before continuing.",
      "inputSchema": {"type": "object", "properties": {
-         "row": {"type": "integer", "minimum": 0}, "col": {"type": "integer", "minimum": 0},
-         "button": {"type": "string", "enum": ["left", "right", "middle"], "default": "left"}},
-         "required": ["row", "col"], "additionalProperties": False},
+         **CLICK_PROPERTIES,
+         "clicks": {"type": "array", "minItems": 1, "maxItems": MAX_BATCH_CLICKS,
+                    "items": {"type": "object", "properties": CLICK_PROPERTIES,
+                              "required": ["row", "col"], "additionalProperties": False}}},
+         "oneOf": [{"required": ["row", "col"], "not": {"required": ["clicks"]}},
+                   {"required": ["clicks"], "not": {"anyOf": [
+                       {"required": [field]} for field in CLICK_PROPERTIES]}}],
+         "additionalProperties": False},
      "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False,
                      "openWorldHint": False}},
     {"name": "start_new_game", "description": "Start a game only when no game is in progress; default difficulty medium.",
@@ -64,16 +76,19 @@ class MinesweeperTools:
         self.has_auth = has_auth
         self.request = request
         self.query = query
+        self.report_progress: Callable[[dict], None] | None = None
         self.lock = threading.RLock()
         self.board: dict | None = None
         self.status: int | None = None
         self.revision = 0
+        self.board_epoch = 0
 
     def reset(self) -> None:
         with self.lock:
             self.board = None
             self.status = None
             self.revision += 1
+            self.board_epoch += 1
 
     def update_board(self, event: BoardUpdateEvent) -> None:
         with self.lock:
@@ -83,12 +98,15 @@ class MinesweeperTools:
             if (type(rows) is not int or type(cols) is not int or rows <= 0 or cols <= 0
                     or rows * cols > 65536 or not isinstance(event.game_board, list)
                     or len(event.game_board) != rows):
+                self.board_epoch += 1
                 return
             cells = self._normalize_cells(event.game_board, rows, cols)
             if cells is None:
+                self.board_epoch += 1
                 return
             if (type(event.mines_remaining) is not int
                     or type(event.game_time) not in (int, float) or not math.isfinite(event.game_time)):
+                self.board_epoch += 1
                 return
             self.board = {"rows": rows, "cols": cols, "cells": cells,
                           "mines_remaining": event.mines_remaining, "game_time": event.game_time}
@@ -116,6 +134,7 @@ class MinesweeperTools:
                 event.current_status) is int else None
             if self.status not in (1, 2, 3, 4) or (self.status == 1 and previous not in (None, 1)):
                 self.board = None
+                self.board_epoch += 1
 
     def _prepare(self, name: str, arguments: dict) -> BaseQuery | BaseCommand | dict:
         if not isinstance(arguments, dict):
@@ -163,7 +182,12 @@ class MinesweeperTools:
             if cells is None:
                 return None
             if (type(result.mines_remaining) is not int
-                    or type(result.game_time) not in (int, float)):
+                    or type(result.game_time) not in (int, float)
+                    or not math.isfinite(result.game_time)
+                    or not isinstance(result.game_status, str)
+                    or result.game_status not in GAME_EVENT_STATE_MAP
+                    or type(result.game_status_code) is not int
+                    or GAME_EVENT_STATE_MAP[result.game_status] != result.game_status_code):
                 return None
             result.cells = cells
         elif not isinstance(result, (GameStatusResult, GameContextResult)):
@@ -236,7 +260,86 @@ class MinesweeperTools:
         snapshot = self._run_query("get_board_state", GetBoardStateQuery())
         return bool(snapshot.get("success")) and snapshot.get("source") == "live"
 
+    @staticmethod
+    def _batch_result(clicks: list[dict], results: list[dict]) -> dict:
+        completed = sum(result["success"] for result in results)
+        success = bool(clicks) and completed == len(clicks)
+        failed = bool(results) and not results[-1]["success"]
+        result = {"success": success, "outcome": "confirmed" if success else (
+            "unknown" if failed and results[-1]["outcome"] == "unknown" else
+            "partial" if completed else "not_executed"),
+            "requested": len(clicks), "completed": completed,
+            "results": copy.deepcopy(results),
+            "stopped_index": None if success else len(results) - int(failed),
+            "unattempted": len(clicks) - len(results)}
+        if not success:
+            result["error"] = results[-1]["error"] if failed else "Batch stopped before the next click"
+        return result
+
+    def _publish_batch_progress(self, clicks: list[dict], results: list[dict]) -> None:
+        if self.report_progress is not None:
+            self.report_progress(self._batch_result(clicks, results))
+
+    def _execute_click_batch(self, arguments: dict) -> dict:
+        clicks = arguments["clicks"]
+        if (set(arguments) != {"clicks"} or not isinstance(clicks, list)
+                or not 1 <= len(clicks) <= MAX_BATCH_CLICKS):
+            return {**self._batch_result(clicks if isinstance(clicks, list) else [], []),
+                **failure(f"Expected clicks only: an array of 1..{MAX_BATCH_CLICKS} cell objects")}
+        clicks = copy.deepcopy(clicks)
+        for index, click in enumerate(clicks):
+            if (not isinstance(click, dict) or set(click) - {"row", "col", "button"}
+                    or not {"row", "col"} <= click.keys()
+                    or type(click["row"]) is not int or type(click["col"]) is not int
+                    or click["row"] < 0 or click["col"] < 0
+                    or not isinstance(click.get("button", "left"), str)
+                    or click.get("button", "left") not in ("left", "right", "middle")):
+                return {**self._batch_result(clicks, []),
+                        **failure(f"Invalid click at index {index}; no clicks executed"),
+                        "invalid_index": index}
+        results = []
+        self._publish_batch_progress(clicks, results)
+        if not self.refresh_state():
+            return {**self._batch_result(clicks, results),
+                    "error": "Batch requires a fresh live visible board; no clicks executed"}
+        with self.lock:
+            if self.board is None:
+                return {**self._batch_result(clicks, results),
+                        "error": "No actionable visible board; no clicks executed"}
+            for index, click in enumerate(clicks):
+                prepared = self._prepare("click_cell", click)
+                if isinstance(prepared, dict):
+                    return {**self._batch_result(clicks, results), **prepared,
+                            "invalid_index": index}
+            shape = (self.board["rows"], self.board["cols"])
+            epoch, game_time = self.board_epoch, self.board["game_time"]
+            left_ready = self.status != 1
+        for index, click in enumerate(clicks):
+            blocked = None
+            if index:
+                fresh = self.refresh_state()
+                with self.lock:
+                    if not fresh:
+                        blocked = failure("Fresh live board unavailable; batch stopped")
+                    elif (self.board is None or self.board_epoch != epoch
+                          or shape != (self.board["rows"], self.board["cols"])
+                          or self.board["game_time"] < game_time):
+                        blocked = failure("Board changed or invalidated; batch stopped")
+                    elif self.status == 1 and left_ready:
+                        blocked = failure("Game returned to ready state; batch stopped")
+                    if blocked is None and self.board is not None:
+                        game_time = self.board["game_time"]
+                        left_ready = left_ready or self.status != 1
+            result = blocked if blocked is not None else self.execute_function("click_cell", click)
+            results.append({"index": index, **click, "button": click.get("button", "left"), **result})
+            self._publish_batch_progress(clicks, results)
+            if not result["success"]:
+                break
+        return self._batch_result(clicks, results)
+
     def execute_function(self, name: str, arguments: dict) -> dict:
+        if name == "click_cell" and isinstance(arguments, dict) and "clicks" in arguments:
+            return self._execute_click_batch(arguments)
         if name in CONTROL_TOOLS:
             with self.lock:
                 stale = self.status is None or self.board is None
@@ -261,8 +364,9 @@ class MinesweeperTools:
             return self._run_query(name, command)
         try:
             response = self.request(command, timeout=3.0)
-        except Exception:
-            response = None
+        except Exception as error:
+            response = (CommandResponse(request_id=command.request_id, success=False, error=str(error))
+                        if getattr(error, "send_state", None) == "not_sent" else None)
         if not isinstance(response, CommandResponse) or type(response.success) is not bool:
             with self.lock:
                 if self.revision == revision:

@@ -78,6 +78,8 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
                 "若客户端不支持 Streamable HTTP，明确报告不支持，不能改用 stdio。"
                 "不启动子进程或新游戏，不自动玩游戏。连接后等待用户明确指令。"
                 "只读取可见棋盘，控制需用户重新授权并开启主进程相应开关。"
+                "click_cell 支持 clicks 数组批量点击（最多128项），也兼容 row/col/button 单点。"
+                "批量按顺序逐项确认，首个失败即停止；先检查 completed/results/stopped_index。"
                 "动作超时意味着结果未知，不得自动重试。"
             )
         self.service_state_changed.emit({
@@ -112,6 +114,7 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
                 client.endpoint,
                 lambda command: self._tools.has_auth(type(command)),
                 self._tools.execute_function)
+            self._tools.report_progress = owner.report_progress
             bridge = RequestBridge(owner.submit)
             server = McpServer(port, TOOLS, bridge)
             self._io = owner

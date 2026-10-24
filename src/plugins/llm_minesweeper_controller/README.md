@@ -60,8 +60,46 @@ if isinstance(result, BoardStateResult) and result.success:
 | `get_board_state` | 无 | 主动请求主进程的可见棋盘快照；失败时回退到最近一次官方事件并标注 `source="cache"` |
 | `get_game_status` | 无 | 主动请求状态、计时、剩余雷数与局面参数；失败时回退到缓存 |
 | `get_game_context` | 无 | 主动请求状态、参数、3BV 进度、官方/公平标志与当前已开启的控制权限 |
-| `click_cell` | `row`, `col`, `button="left"` | 行列从零开始；按钮限 `left`、`middle`、`right` |
+| `click_cell` | `clicks` 数组，或原有 `row`, `col`, `button="left"` | 单次最多 128 项；行列从零开始；按钮限 `left`、`middle`、`right` |
 | `start_new_game` | `difficulty="medium"` | 难度限 `easy`、`medium`、`hard` |
+
+### 批量点击
+
+保留工具名 `click_cell`，以下为 `tools/call` 的参数：
+
+```json
+{
+  "name": "click_cell",
+  "arguments": {
+    "clicks": [
+      {"row": 0, "col": 1},
+      {"row": 2, "col": 3, "button": "right"},
+      {"row": 4, "col": 5, "button": "middle"}
+    ]
+  }
+}
+```
+
+旧参数 `{"row": 0, "col": 1, "button": "left"}` 仍可用，但不能与 `clicks` 混用。
+数组必须有 1..128 项；所有项的字段、类型、按钮及初始棋盘边界均在首次点击前完整预检。
+批量必须获得实时可见棋盘，不能用缓存代替。每项按顺序重新检查状态和授权，发送原有
+`MouseClickCommand` 并等待匹配的 `CommandResponse`；下一项前再次刷新棋盘。
+
+结果中的 `requested` 为请求项数，`completed` 只统计主进程明确确认成功的项；`results`
+按顺序保留逐项结果，`stopped_index` 是首个未确认成功项的零基下标，全部成功时为 `null`。
+`unattempted` 表示尚未进入逐项结果的后续项数；明确拒绝或本地阻止的项可能已包含在
+`results` 内，但不会计入 `completed`。预检失败和排队取消时完成数为零、结果为空。
+
+首个失败、确认未知、取消、会话关闭、服务停止、授权撤回、实时棋盘不可用、对局结束，
+或观察到棋盘失效、尺寸变化、计时回退、回到准备状态时停止。部分完成为 `outcome="partial"`，
+发送后无有效确认则为 `unknown`，全部成功为 `confirmed`，没有执行为 `not_executed`。
+取消与响应确认通过同一把锁协调；停止时保留已接受的确认，不能将“已发送”计为完成。
+
+**不是原子事务**：已经确认的点击不回滚，已经发送的点击无法撤回，不自动重试或续跑。
+批次仍受工具总期限八秒约束，不会按项延长期限；大批次也可能只完成一部分。
+继续前必须检查 `completed`、`results`、`stopped_index` 并重新读取局面。
+协议没有跨进程棋盘标识或期望版本，无法保证识别未观察到的同尺寸换局，也无法消除
+最后一次检查与主进程执行之间的竞态；不能把插件侧检查视为跨进程原子保护。
 
 三个只读工具通过查询协议（`GetBoardStateQuery`、`GetGameStatusQuery`、`GetGameContextQuery`）主动向主进程
 取值，结果是与请求一一对应的强类型结果类（`BoardStateResult` 等），使用与事件推送相同的可见数据，
@@ -80,7 +118,7 @@ if isinstance(result, BoardStateResult) and result.success:
 没有收到有效棋盘或状态事件时返回“不可用”，不会构造虚假空棋盘。状态名称直接取自
 `GAME_EVENT_STATE_MAP`，包括映射到同一事件值的游戏状态。格子 `-1` 表示未揭开，`0..8` 为数字，
 `F` 为可见旗帜，`X` 为可见错旗，`M`、`m` 只来自事件中已显示的地雷；未知格子值按未揭开处理。
-不会请求隐藏棋盘、真实地雷分布或概率。快照不是实时查询，关闭事件推送也不会使旧快照自动更新。
+不会请求隐藏棋盘、真实地雷分布或概率。缓存不是实时结果，关闭事件推送也不会使旧缓存自动更新。
 
 成功动作后使缓存失效，等待新棋盘事件再操作。SDK 等待超时或没有确认时返回 `outcome="unknown"`，
 不得自动重试；排队中超时、停止或取消则为 `not_executed`。已经开始的主进程命令无法撤回，
@@ -147,18 +185,20 @@ set_service_state(dict)
 
 ## 通信审查与验证边界
 
-HTTP 线程只解析协议、等待结果和发送 Qt 信号，不直接访问 GUI、棋盘或共享 ZMQ。
-工具通过插件线程的 queued 槽串行执行，复用 `BasePlugin.request()` 与权限检查。
+HTTP 线程只解析协议和等待结果，不直接访问 GUI、棋盘或共享 ZMQ。
+`RequestBridge` 将工具排队到插件私有 `CommandIO` 线程串行执行；其 ZMQ socket 的创建、
+发送、接收、关闭均由该线程负责。控制仍使用官方命令、响应序列化和授权管理器，
+每次发送前重查授权，不使用其他插件共享的 socket。进度是内部取消快照，不是 MCP 进度推送。
 
-**尚未解决的通信风险：** 当前所有插件共享的 `ZMQClient` 将 DEALER socket 的发送、后台接收和
-重连分布在不同线程。插件内串行化不能解决跨插件及轮询线程的 socket 线程所有权问题；
-需要通信专家审查并将 socket I/O 集中到所属线程。本次不修改 SDK、ZMQ 库或共享类型，
-也未启动真实控制来规避该审查。
+**通信审查边界：** 私有 I/O 线程不修复项目其他插件共享 `ZMQClient` 的线程所有权风险。
+真实主进程与 agent 客户端互操作、断连及停止时序仍需通信专家实机审查。
+本次批量功能不修改 SDK、ZMQ 库、共享类型或主进程协议，也未启动真实游戏控制。
 
 **跨进程竞态：** “不覆盖进行中游戏”检查基于最新收到的官方状态事件。现有 `NewGameCommand`
 不支持主进程原子检查期望状态或棋盘版本，故事件延迟或用户同时开始游戏时仍存在竞态；
 不能把插件侧检查描述为跨进程原子保证。修复需要通信与主进程接口审查，不在本次修改范围内。
 
-聚焦测试位于 `tests/test_mcp_controller.py`，只使用假 SDK、标准库 HTTP 临时端口和假控件信号，
-不创建真实 GUI 或连接真实游戏。涵盖协议、安全、界限、确认结果、未知结果、排队取消及端口释放。
+聚焦测试位于 `tests/test_mcp_controller.py`，使用假 SDK、标准库 HTTP 临时端口、模拟 ZMQ
+主进程和 Qt 测试控件，不连接真实游戏。涵盖协议、安全、界限、批量预检与顺序、权限撤回、
+棋盘失效、确认与取消竞态、未知结果、排队取消及端口释放。
 GUI 实际线程联调、真实 agent 客户端互操作和共享 ZMQ 实机安全性仍需另行验证。

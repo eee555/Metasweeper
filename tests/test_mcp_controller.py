@@ -25,7 +25,7 @@ from plugins.llm_minesweeper_controller.command_io import CommandIO
 from plugins.llm_minesweeper_controller.config import (
     CONFIG_IDENTITIES, LlmMinesweeperControllerConfig, sanitize_legacy_configs, valid_port,
 )
-from plugins.llm_minesweeper_controller.tools import MinesweeperTools, STATUS_NAMES, TOOLS
+from plugins.llm_minesweeper_controller.tools import MAX_BATCH_CLICKS, MinesweeperTools, STATUS_NAMES, TOOLS
 from plugins.llm_minesweeper_controller import mcp_server
 from plugins.llm_minesweeper_controller.mcp_server import McpServer, PendingCall, RequestBridge
 from shared_types.commands import MouseClickCommand, NewGameCommand
@@ -274,6 +274,60 @@ def test_plugin_read_only_tools_reach_main_process_without_control_auth(
     finally:
         owner.stop_mcp()
     assert owner._state != "running"
+
+
+@pytest.mark.parametrize("mode", ["confirmed", "rejected", "timeout", "cancel", "session", "stop", "revoked"])
+def test_plugin_batch_http_zmq_progress_and_stop(plugin_owner, official_auth, zmq_main, monkeypatch, mode):
+    monkeypatch.setattr(mcp_server, "CALL_TIMEOUT", 1.0)
+    owner = plugin_owner
+    zmq_main.query_results[GetBoardStateQuery] = BoardStateResult(
+        cells=[[10, 10, 10]], rows=1, cols=3,
+        game_status="joking", game_status_code=2)
+    owner.on_initialized()
+    official_auth.authorize(MouseClickCommand, owner.name)
+    owner.start_mcp(free_port())
+    server = owner._server
+    session = initialize(server)
+    original_request = owner._io.request
+
+    def request(command, timeout):
+        response = original_request(command, timeout)
+        if command.col == 0:
+            if mode in ("rejected", "timeout"):
+                zmq_main.mode = "missing" if mode == "timeout" else "rejected"
+            elif mode == "cancel":
+                assert http_request(server, {"jsonrpc": "2.0", "method": "notifications/cancelled",
+                                             "params": {"requestId": "batch"}}, extra=session)[0] == 202
+            elif mode == "session":
+                assert http_request(server, method="DELETE", extra=session)[0] == 200
+            elif mode == "stop":
+                server.bridge.stop()
+            elif mode == "revoked":
+                official_auth.revoke(MouseClickCommand)
+        return response
+
+    owner._io.request = request
+    message = {"jsonrpc": "2.0", "id": "batch", "method": "tools/call",
+               "params": {"name": "click_cell", "arguments": {
+                   "clicks": [{"row": 0, "col": index, "button": button}
+                              for index, button in enumerate(("left", "right", "middle"))]}}}
+    result = rpc_body(http_request(server, message, extra=session))["result"]
+    payload = result["structuredContent"]
+    assert payload["completed"] == (3 if mode == "confirmed" else 1)
+    assert payload["requested"] == 3 and result["isError"] == (mode != "confirmed")
+    assert payload["outcome"] == ("confirmed" if mode == "confirmed" else
+                                   "unknown" if mode == "timeout" else "partial")
+    assert payload["stopped_index"] == (None if mode == "confirmed" else 1)
+    assert len(zmq_main.commands) == (3 if mode == "confirmed" else
+                                     2 if mode in ("rejected", "timeout") else 1)
+    assert [command.col for command in zmq_main.commands] == list(range(len(zmq_main.commands)))
+    if mode == "confirmed":
+        assert [command.button for command in zmq_main.commands] == [0, 2, 1]
+    if mode in ("rejected", "timeout"):
+        assert payload["unattempted"] == 1 and len(payload["results"]) == 2
+    else:
+        assert payload["unattempted"] == (0 if mode == "confirmed" else
+                                          1 if mode == "revoked" else 2)
 
 
 def test_plugin_busy_port_rolls_back_and_shutdown_releases(plugin_owner):
@@ -706,6 +760,335 @@ def test_click_requires_confirmation_and_fresh_board(sdk, button, value):
     assert not sdk.registry.execute_function(
         "click_cell", {"row": 0, "col": 0})["success"]
     assert len(sdk.calls) == 1
+
+
+def test_batch_clicks_are_validated_before_any_command(sdk):
+    sdk.registry.query = lambda *args: BoardStateResult(
+        cells=[[10, 10]], rows=1, cols=2, game_status="playing", game_status_code=2)
+    for invalid in ({"row": 0, "col": 2}, {"row": True, "col": 0},
+                    {"row": 0, "col": 0, "button": "bad"}, None):
+        result = sdk.registry.execute_function("click_cell", {
+            "clicks": [{"row": 0, "col": 0}, invalid]})
+        assert not result["success"] and result["invalid_index"] == 1
+        assert result["outcome"] == "not_executed" and not sdk.calls
+        assert result["completed"] == 0 and result["results"] == []
+        assert result["requested"] == result["unattempted"] == 2
+
+
+@pytest.mark.parametrize("arguments", [
+    {"clicks": []}, {"clicks": None}, {"clicks": {}}, {"clicks": "bad"},
+    {"clicks": [{"row": 0, "col": 0}] * (MAX_BATCH_CLICKS + 1)},
+    {"clicks": [{"row": 0, "col": 0}], "row": 0, "col": 0},
+    {"clicks": [{"row": 0, "col": 0}], "button": "left"},
+    {"clicks": [{"row": 0}]}, {"clicks": [{"row": 0, "col": -1}]},
+    {"clicks": [{"row": 0.0, "col": 0}]},
+    {"clicks": [{"row": 0, "col": 0, "extra": True}]},
+])
+def test_batch_rejects_invalid_envelopes_without_io(sdk, arguments):
+    result = sdk.registry.execute_function("click_cell", arguments)
+    assert not result["success"] and result["outcome"] == "not_executed"
+    assert result["completed"] == 0 and result["results"] == []
+    assert result["stopped_index"] == 0
+    assert result["unattempted"] == result["requested"]
+    assert not sdk.calls and not sdk.queries
+
+
+def test_batch_accepts_limit_and_publishes_independent_progress(sdk):
+    sdk.registry.query = lambda *args: BoardStateResult(
+        cells=[[10]], rows=1, cols=1, game_status="playing", game_status_code=2)
+    retained = []
+    sdk.registry.report_progress = retained.append
+    result = sdk.registry.execute_function("click_cell", {
+        "clicks": [{"row": 0, "col": 0}] * MAX_BATCH_CLICKS})
+    assert result["success"] and result["completed"] == MAX_BATCH_CLICKS
+    assert len(sdk.calls) == MAX_BATCH_CLICKS
+    assert len(retained) == MAX_BATCH_CLICKS + 1
+    assert retained[0]["results"] == [] and retained[1]["completed"] == 1
+    result["results"][0]["success"] = False
+    assert retained[-1]["results"][0]["success"] is True
+
+
+@pytest.mark.parametrize("reason", [
+    "revoked", "unavailable", "finished", "ready", "dimensions", "time_reset",
+    "reset", "status_event", "invalid_board_event",
+])
+def test_batch_stops_after_permission_or_board_changes(sdk, reason):
+    def query(value, timeout):
+        snapshot = BoardStateResult(cells=[[10, 10]], rows=1, cols=2, game_time=5.0,
+                                    game_status="playing", game_status_code=2)
+        if sdk.calls:
+            if reason == "unavailable":
+                return None
+            if reason == "finished":
+                snapshot.game_status, snapshot.game_status_code = "win", 3
+            elif reason == "ready":
+                snapshot.game_status, snapshot.game_status_code = "ready", 1
+            elif reason == "dimensions":
+                snapshot.cells, snapshot.cols = [[10]], 1
+            elif reason == "time_reset":
+                snapshot.game_time = 0.0
+        return snapshot
+
+    def request(command, timeout):
+        sdk.calls.append(command)
+        if reason == "revoked":
+            sdk.authorized = False
+        elif reason == "reset":
+            sdk.registry.reset()
+        elif reason == "status_event":
+            sdk.registry.update_status(GameStatusChangeEvent(current_status=1))
+            sdk.registry.update_status(GameStatusChangeEvent(current_status=2))
+        elif reason == "invalid_board_event":
+            sdk.registry.update_board(BoardUpdateEvent(rows=1, cols=2, game_board=[]))
+        return CommandResponse(request_id="first", success=True)
+
+    sdk.registry.query, sdk.registry.request = query, request
+    result = sdk.registry.execute_function("click_cell", {
+        "clicks": [{"row": 0, "col": 0}, {"row": 0, "col": 1}]})
+    assert not result["success"] and result["outcome"] == "partial"
+    assert result["completed"] == 1 and result["stopped_index"] == 1
+    assert len(sdk.calls) == 1
+
+
+def test_batch_ready_right_clicks_restore_visible_board(sdk):
+    def query(value, timeout):
+        flagged = len(sdk.calls) % 2
+        return BoardStateResult(cells=[[11 if flagged else 10]], rows=1, cols=1,
+                                mines_remaining=1 - flagged,
+                                game_status="ready", game_status_code=1)
+
+    sdk.registry.query = query
+    before = sdk.registry.execute_function("get_board_state", {})
+    result = sdk.registry.execute_function("click_cell", {
+        "clicks": [{"row": 0, "col": 0, "button": "right"}] * 2})
+    after = sdk.registry.execute_function("get_board_state", {})
+    assert result["success"] and result["outcome"] == "confirmed"
+    assert result["requested"] == result["completed"] == 2
+    assert result["stopped_index"] is None and result["unattempted"] == 0
+    assert [entry["outcome"] for entry in result["results"]] == ["confirmed"] * 2
+    assert len(sdk.calls) == 2 and all(command.button == 2 for command in sdk.calls)
+    assert before["cells"] == after["cells"] == [[-1]]
+    assert before["mines_remaining"] == after["mines_remaining"] == 1
+
+
+@pytest.mark.parametrize("statuses", [
+    ("playing", "ready"), ("joking", "ready"),
+    ("ready", "playing", "ready"), ("ready", "joking", "ready"),
+])
+def test_batch_stops_when_observed_active_game_returns_to_ready(sdk, statuses):
+    def query(value, timeout):
+        status = statuses[len(sdk.calls)]
+        return BoardStateResult(cells=[[10]], rows=1, cols=1,
+                                game_status=status, game_status_code=1 if status == "ready" else 2)
+
+    sdk.registry.query = query
+    result = sdk.registry.execute_function("click_cell", {
+        "clicks": [{"row": 0, "col": 0, "button": "right"}] * len(statuses)})
+    assert not result["success"] and result["outcome"] == "partial"
+    assert result["completed"] == result["stopped_index"] == len(statuses) - 1
+    assert len(sdk.calls) == len(statuses) - 1
+    assert result["results"][-1]["outcome"] == "not_executed"
+    assert result["error"] == "Game returned to ready state; batch stopped"
+
+
+def test_batch_clicks_confirm_in_order_and_refresh_each_step(sdk):
+    operations = []
+
+    def query(value, timeout):
+        operations.append("query")
+        return BoardStateResult(cells=[[10, 10, 10]], rows=1, cols=3,
+                                game_status="playing", game_status_code=2)
+
+    def request(command, timeout):
+        operations.append(command.col)
+        return CommandResponse(request_id=str(command.col), success=True)
+
+    sdk.registry.query, sdk.registry.request = query, request
+    arguments = {"clicks": [{"row": 0, "col": 0},
+                            {"row": 0, "col": 1, "button": "right"},
+                            {"row": 0, "col": 2, "button": "middle"}]}
+    original = copy.deepcopy(arguments)
+    result = sdk.registry.execute_function("click_cell", arguments)
+    assert result["success"] and result["outcome"] == "confirmed"
+    assert result["requested"] == result["completed"] == 3
+    assert result["stopped_index"] is None and result["unattempted"] == 0
+    assert [entry["request_id"] for entry in result["results"]] == ["0", "1", "2"]
+    assert operations == ["query", 0, "query", 1, "query", 2]
+    assert arguments == original
+
+
+@pytest.mark.parametrize("invalid", [
+    {"game_status_code": 99}, {"game_status_code": True},
+    {"game_status": "jowin"}, {"game_time": float("nan")},
+])
+def test_batch_stops_on_invalid_live_snapshot(sdk, invalid):
+    snapshots = [0]
+
+    def query(value, timeout):
+        snapshots[0] += 1
+        snapshot = BoardStateResult(cells=[[10, 10]], rows=1, cols=2,
+                                    game_status="playing", game_status_code=2)
+        if snapshots[0] > 1:
+            for field, value in invalid.items():
+                setattr(snapshot, field, value)
+        return snapshot
+
+    sdk.registry.query = query
+    result = sdk.registry.execute_function("click_cell", {
+        "clicks": [{"row": 0, "col": 0}, {"row": 0, "col": 1}]})
+    assert not result["success"] and result["completed"] == 1
+    assert result["stopped_index"] == 1 and len(sdk.calls) == 1
+
+
+@pytest.mark.parametrize("outcome", ["rejected", "timeout"])
+def test_batch_clicks_stop_after_first_unconfirmed_action(sdk, outcome):
+    sdk.registry.query = lambda *args: BoardStateResult(
+        cells=[[10, 10, 10]], rows=1, cols=3, game_status="playing", game_status_code=2)
+
+    def request(command, timeout):
+        sdk.calls.append(command)
+        if len(sdk.calls) == 2 and outcome == "timeout":
+            raise TimeoutError
+        return CommandResponse(request_id=str(command.col), success=len(sdk.calls) == 1,
+                               error="Rejected" if len(sdk.calls) == 2 else None)
+
+    sdk.registry.request = request
+    result = sdk.registry.execute_function("click_cell", {
+        "clicks": [{"row": 0, "col": index} for index in range(3)]})
+    assert not result["success"] and result["completed"] == 1
+    assert result["outcome"] == ("unknown" if outcome == "timeout" else "partial")
+    assert result["stopped_index"] == 1 and result["unattempted"] == 1
+    assert len(sdk.calls) == 2 and len(result["results"]) == 2
+
+
+@pytest.mark.parametrize("stage", ["before_click", "after_confirmation", "in_flight"])
+def test_batch_cancellation_preserves_confirmed_progress(sdk, stage):
+    call = PendingCall("click_cell", {"clicks": [{"row": 0, "col": 0},
+                                                {"row": 0, "col": 1}]},
+                       ("session", 1), time.monotonic() + 5)
+    owner = CommandIO("tcp://127.0.0.1:50000", lambda command: True,
+                      sdk.registry.execute_function)
+    owner.thread, owner.active = threading.current_thread(), call
+    sdk.registry.report_progress = owner.report_progress
+    sdk.registry.query = lambda *args: BoardStateResult(
+        cells=[[10, 10]], rows=1, cols=2, game_status="playing", game_status_code=2)
+
+    def send(payload, flags):
+        sdk.calls.append(payload)
+
+    def request(command, timeout):
+        if command.col == 0:
+            return CommandResponse(request_id="first", success=True)
+        if stage == "in_flight":
+            owner._socket = SimpleNamespace(
+                poll=lambda *args: True, send=send,
+                recv_multipart=lambda **kwargs: RequestBridge._cancel(call, "cancelled"))
+            return owner.request(command, timeout)
+        raise AssertionError("Second click must not be sent")
+
+    def report(result):
+        owner.report_progress(result)
+        if (stage == "before_click" and result["completed"] == 0
+                or stage == "after_confirmation" and result["completed"] == 1):
+            RequestBridge._cancel(call, "cancelled")
+            raise TimeoutError
+
+    sdk.registry.request, sdk.registry.report_progress = request, report
+    RequestBridge.execute(call, sdk.registry.execute_function)
+    result = call.future.result()
+    assert not result["success"]
+    assert result["completed"] == (0 if stage == "before_click" else 1)
+    assert result["outcome"] == {"before_click": "not_executed",
+                                 "after_confirmation": "partial", "in_flight": "unknown"}[stage]
+    assert result["stopped_index"] == (0 if stage == "before_click" else 1)
+    assert len(sdk.calls) == (1 if stage == "in_flight" else 0)
+    assert result["unattempted"] == {"before_click": 2, "after_confirmation": 1,
+                                     "in_flight": 0}[stage]
+
+
+@pytest.mark.parametrize("confirmed", [True, False])
+def test_batch_cancellation_after_response_keeps_confirmation(sdk, confirmed):
+    call = PendingCall("click_cell", {"clicks": [{"row": 0, "col": 0},
+                                                {"row": 0, "col": 1}]},
+                       ("session", 1), time.monotonic() + 5)
+    owner = CommandIO("tcp://127.0.0.1:50000", lambda command: True,
+                      sdk.registry.execute_function)
+    owner.thread, owner.active = threading.current_thread(), call
+    sdk.registry.report_progress = owner.report_progress
+    sdk.registry.query = lambda *args: BoardStateResult(
+        cells=[[10, 10]], rows=1, cols=2, game_status="playing", game_status_code=2)
+    sent = []
+    owner._serializer.register_command_types(MouseClickCommand)
+
+    def send(payload, flags):
+        sent.append(owner._serializer.decode_command(payload))
+
+    def receive(flags):
+        return [owner._serializer.encode_response(CommandResponse(
+            request_id=sent[-1].request_id, success=confirmed, error=None if confirmed else "Rejected"))]
+
+    owner._socket = cast(zmq.Socket, SimpleNamespace(poll=lambda *args: True, send=send,
+                                                    recv_multipart=receive))
+
+    def request(command, timeout):
+        response = owner.request(command, timeout)
+        RequestBridge._cancel(call, "cancelled after response")
+        return response
+
+    sdk.registry.request = request
+    RequestBridge.execute(call, sdk.registry.execute_function)
+    result = call.future.result()
+    assert len(sent) == 1 and not result["success"]
+    assert result["completed"] == int(confirmed)
+    assert result["outcome"] == ("partial" if confirmed else "not_executed")
+    assert result["results"][0]["success"] is confirmed
+    assert result["stopped_index"] == int(confirmed) and result["unattempted"] == 1
+
+
+@pytest.mark.parametrize("confirmed", [0, 1])
+@pytest.mark.parametrize("stage", ["timeout", "backpressure"])
+def test_batch_unsent_command_is_not_unknown(sdk, monkeypatch, confirmed, stage):
+    call = PendingCall("click_cell", {"clicks": [{"row": 0, "col": index}
+                                                for index in range(3)]},
+                       ("session", 1), time.monotonic() + 30)
+    owner = CommandIO("tcp://127.0.0.1:50000", lambda command: True,
+                      sdk.registry.execute_function)
+    owner.thread, owner.active = threading.current_thread(), call
+    sdk.registry.report_progress = owner.report_progress
+    sdk.registry.query = lambda *args: BoardStateResult(
+        cells=[[10, 10, 10]], rows=1, cols=3, game_status="playing", game_status_code=2)
+    clock = [time.monotonic()]
+    monkeypatch.setattr(command_io, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    attempts = []
+
+    def poll(*args):
+        if stage == "timeout":
+            clock[0] += 4
+            return False
+        return True
+
+    def send(payload, flags):
+        attempts.append(payload)
+        raise zmq.Again()
+
+    owner._socket = cast(zmq.Socket, SimpleNamespace(
+        poll=poll, send=send, close=lambda **kwargs: None))
+
+    def request(command, timeout):
+        if command.col < confirmed:
+            sdk.calls.append(command)
+            return CommandResponse(request_id=str(command.col), success=True)
+        return owner.request(command, timeout)
+
+    sdk.registry.request = request
+    RequestBridge.execute(call, sdk.registry.execute_function)
+    result = call.future.result()
+    assert not result["success"] and result["completed"] == confirmed
+    assert result["outcome"] == ("partial" if confirmed else "not_executed")
+    assert result["results"][-1]["outcome"] == "not_executed"
+    assert result["stopped_index"] == confirmed and result["unattempted"] == 2 - confirmed
+    assert len(result["results"]) == confirmed + 1
+    assert len(sdk.calls) == confirmed and len(attempts) == int(stage == "backpressure")
 
 
 @pytest.mark.parametrize("difficulty,level", [("easy", 3), ("medium", 4), ("hard", 5)])
@@ -1225,6 +1608,30 @@ def test_pending_request_never_executes_after_cancellation(mode):
     RequestBridge.execute(
         queued[0], lambda *args: executed.append(args) or {"success": True})
     assert not executed and result["outcome"] == "not_executed"
+
+
+@pytest.mark.parametrize("mode", ["deadline", "cancel", "stop", "session"])
+def test_queued_batch_end_preserves_zero_progress(mode):
+    call = PendingCall("click_cell", {"clicks": [{"row": 0, "col": 0},
+                                                {"row": 0, "col": 1}]},
+                       ("session", 1), time.monotonic() + 5)
+    bridge = RequestBridge(lambda pending: None)
+    bridge.pending[call.key] = call
+    executed = []
+    if mode == "deadline":
+        call.deadline = time.monotonic() - 1
+    elif mode == "cancel":
+        bridge.cancel(call.key)
+    elif mode == "stop":
+        bridge.stop()
+    else:
+        bridge.cancel_session("session")
+    RequestBridge.execute(call, lambda *args: executed.append(args) or {"success": True})
+    result = call.future.result(timeout=1)
+    assert not result["success"] and result["outcome"] == "not_executed"
+    assert result["requested"] == result["unattempted"] == 2
+    assert result["completed"] == 0 and result["results"] == []
+    assert result["stopped_index"] == 0 and not executed
 
 
 def test_inflight_timeout_is_unknown_not_retried():
