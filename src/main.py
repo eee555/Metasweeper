@@ -37,6 +37,10 @@ from config.constants import (
 
 os.environ["QT_FONT_DPI"] = "96"
 
+# 打包模式下，把工作目录切到资源目录，保证相对路径（media/ 等）可用
+if getattr(sys, "frozen", False):
+    os.chdir(str(Path(__file__).resolve().parent))
+
 
 def on_new_connection(localServer: QLocalServer):
     """当新连接进来时，接受连接并将文件路径传递给主窗口"""
@@ -137,8 +141,12 @@ def cli_check_file(file_path: str) -> int:
                     if isinstance(item, tuple) and len(item) == 2
                 ]
 
-    output_file = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), "out.json")
+    if sys.platform == "win32" or not getattr(sys, "frozen", False):
+        output_file = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "out.json")
+    else:
+        # macOS 打包模式下程序目录在 .app 包内（只读封印），写到当前目录
+        output_file = os.path.join(os.getcwd(), "out.json")
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
@@ -165,7 +173,7 @@ if __name__ == "__main__":
         sys.exit(exit_code)
 
     app = QtWidgets.QApplication(sys.argv)
-    app.setStyle("windowsvista")
+    app.setStyle("windowsvista" if sys.platform == "win32" else "Fusion")
     serverName = "MineSweeperServer"
     socket = QLocalSocket()
     socket.connectToServer(serverName)
@@ -194,17 +202,18 @@ if __name__ == "__main__":
 
         # 检查插件管理器是否已在运行（上一次崩溃后残存的互斥体）
         _plugin_manager_running = False
-        try:
-            import win32api
-            import win32event
-            import winerror
-            hMutex = win32event.OpenMutex(
-                0x001F0001, False, "Metasweeper-PluginManager")
-            if hMutex:
-                win32api.CloseHandle(hMutex)
-                _plugin_manager_running = True
-        except win32api.error:
-            pass  # 互斥体不存在，正常启动
+        if sys.platform == "win32":
+            try:
+                import win32api
+                import win32event
+                import winerror
+                hMutex = win32event.OpenMutex(
+                    0x001F0001, False, "Metasweeper-PluginManager")
+                if hMutex:
+                    win32api.CloseHandle(hMutex)
+                    _plugin_manager_running = True
+            except win32api.error:
+                pass  # 互斥体不存在，正常启动
 
         plugin_process = None
 
@@ -212,7 +221,13 @@ if __name__ == "__main__":
             # 打包后直接调用 plugin_manager.exe，开发模式用 python -m
             if get_runtime_mode() != "source":
                 base_dir = str(get_executable_dir())
-                plugin_exe = os.path.join(base_dir, "plugin_manager.exe")
+                if sys.platform == "darwin":
+                    # macOS：插件管理器以内嵌 .app 形式随主程序分发
+                    plugin_exe = os.path.join(
+                        base_dir, "..", "Resources", "plugin_manager.app",
+                        "Contents", "MacOS", "plugin_manager")
+                else:
+                    plugin_exe = os.path.join(base_dir, "plugin_manager.exe")
                 if not os.path.exists(plugin_exe):
                     QtWidgets.QMessageBox.warning(
                         mainWindow, _translate("MainWindow", "插件管理器"),
@@ -495,20 +510,35 @@ if __name__ == "__main__":
             GetGameContextQuery, handle_game_context_query)
 
         # _translate = QtCore.QCoreApplication.translate
-        hwnd = int(ui.mainWindow.winId())
+        if sys.platform == "win32":
+            hwnd = int(ui.mainWindow.winId())
 
-        SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
-        ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
-            hwnd, 0x00000011) else 1/0
-        ui.enable_screenshot = lambda: (
-            ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1 / 0
-        )
+            SetWindowDisplayAffinity = ctypes.windll.user32.SetWindowDisplayAffinity
+            ui.disable_screenshot = lambda: ... if SetWindowDisplayAffinity(
+                hwnd, 0x00000011) else 1/0
+            ui.enable_screenshot = lambda: (
+                ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1 / 0
+            )
+        else:
+            # 非 Windows 平台没有等价的防截屏 API，保持空实现
+            ui.disable_screenshot = lambda: None
+            ui.enable_screenshot = lambda: None
 
         def _cleanup():
             GameServerBridge.instance().stop()
             if plugin_process is not None and plugin_process.poll() is None:
                 plugin_process.terminate()
-                plugin_process.wait(timeout=5)
+                try:
+                    plugin_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    # macOS 下插件管理器的 SIGTERM 优雅关闭依赖其 Qt 事件循环，
+                    # 可能永远不执行；超时后强制结束，避免退出阶段报错
+                    logger.warning("plugin_manager 未在 5 秒内退出，强制结束")
+                    plugin_process.kill()
+                    try:
+                        plugin_process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        logger.error("plugin_manager 强制结束失败")
 
         app.aboutToQuit.connect(_cleanup)
         sys.exit(app.exec())

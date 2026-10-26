@@ -66,6 +66,11 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             ms_board=getattr(self.label, 'ms_board', None))
         self.renderer = BoardRenderer()
 
+        # 防截屏开关：main.py 在 Windows 上注入真实实现；
+        # 默认空实现，保证任何构造路径（CLI/插件）都不会缺属性
+        self.disable_screenshot = lambda: None
+        self.enable_screenshot = lambda: None
+
         raw = self.game_setting.value('DEFAULT/allowed_controls', '', str)
         self._allowed_controls: set[str] = set(
             raw.split(',')) if raw else set()
