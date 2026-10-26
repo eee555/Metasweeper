@@ -46,14 +46,20 @@ def test_find_video_id(text, expected):
 
 
 @pytest.mark.parametrize(("text", "expected"), [
-    ("https://new.saolei.wang/video/download/345964", "345964"),
-    ("分享：https://new.saolei.wang/video/download/345964。", "345964"),
-    ("http://new.saolei.wang/video/download/000345964/?download=1", "345964"),
+    ("https://www.saolei.wang/video/download/345964", "345964"),
+    ("分享：https://www.saolei.wang/video/download/345964。", "345964"),
+    ("https://www.saolei.wang/video/347628", "347628"),
+    ("https://www.saolei.wang/video/000347628/?from=share", "347628"),
+    ("https://www.saolei.wang/video/download/347628", "347628"),
+    ("http://www.saolei.wang/video/download/000345964/?download=1", "345964"),
+    ("https://new.saolei.wang/video/download/345964", None),
     ("https://new.saolei.wang.evil.test/video/download/345964", None),
     ("https://new.saolei.wang@evil.test/video/download/345964", None),
     ("https://new.saolei.wang/video/download/345964evil", None),
     ("https://openms.top/api/video/download/345964", None),
-    ("https://new.saolei.wang/video/download/0", None),
+    ("https://www.saolei.wang/video/download/0", None),
+    ("https://www.saolei.wang/video/0", None),
+    ("https://www.saolei.wang/video/347628/extra", None),
 ])
 def test_find_saolei_video_id(text, expected):
     assert find_saolei_video_id(text) == expected
@@ -275,11 +281,11 @@ def test_saolei_clipboard_download_uses_temporary_file(monitor):
     openms, saolei = plugin._handlers[:2]
     events = []
     plugin._output.connect(events.append)
-    clipboard.set_text("https://new.saolei.wang/video/download/345964")
+    clipboard.set_text("https://www.saolei.wang/video/345964")
     application.processEvents()
     assert not openms._network.requests
     assert saolei._network.requests[0].url().toString() == (
-        "https://new.saolei.wang/video/download/345964")
+        "https://www.saolei.wang/video/download/345964")
     reply = saolei._network.replies[0]
     reply.headers["Content-Disposition"] = b'attachment; filename="Exp%2071.66s%20replay.avf"'
     reply.finished.emit()
@@ -298,7 +304,7 @@ def test_saolei_switch_cancels_only_saolei(monitor):
     plugin, _, launch, _ = monitor
     openms, saolei = plugin._handlers[:2]
     plugin._on_text_changed("https://openms.top/api/video/download/1")
-    plugin._on_text_changed("https://new.saolei.wang/video/download/345964")
+    plugin._on_text_changed("https://www.saolei.wang/video/345964")
     openms_reply = openms._network.replies[0]
     saolei_reply = saolei._network.replies[0]
     plugin.other_info.enable_handler_saolei = False
