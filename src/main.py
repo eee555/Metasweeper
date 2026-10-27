@@ -191,7 +191,19 @@ if __name__ == "__main__":
         localServer.newConnection.connect(
             lambda: on_new_connection(localServer=localServer)
         )
-        GameServerBridge.instance().start()
+        # 插件通信端口被占用时（如崩溃残留的进程），降级为禁用插件而不是崩溃
+        plugins_disabled = False
+        try:
+            GameServerBridge.instance().start()
+        except Exception as e:
+            GameServerBridge.instance().stop()  # 清理半初始化状态
+            plugins_disabled = True
+            logger.error(f"GameServerBridge 启动失败: {e}")
+            QtWidgets.QMessageBox.warning(
+                None, "元扫雷",
+                "插件通信端口被占用（可能存在残留的元扫雷进程），"
+                "本次启动插件功能将被禁用。\n"
+                "关闭所有元扫雷相关进程后重新打开即可恢复。")
         mainWindow = mainWindowGUI.MainWindow()
         ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
         ui.mainWindow.show()
@@ -218,7 +230,7 @@ if __name__ == "__main__":
 
         plugin_process = None
 
-        if not _plugin_manager_running:
+        if not _plugin_manager_running and not plugins_disabled:
             # 打包后直接调用 plugin_manager.exe，开发模式用 python -m
             if get_runtime_mode() != "source":
                 base_dir = str(get_executable_dir())
@@ -268,8 +280,9 @@ if __name__ == "__main__":
         # 等插件连接后同步初始语言
         from PySide6.QtCore import QTimer
         from shared_types.events import LanguageChangeEvent
-        QTimer.singleShot(2000, lambda: GameServerBridge.instance().send_event(
-            LanguageChangeEvent(language=ui.language)))
+        if not plugins_disabled:
+            QTimer.singleShot(2000, lambda: GameServerBridge.instance().send_event(
+                LanguageChangeEvent(language=ui.language)))
 
         # 注册控制命令处理器（自动在主线程执行）
         def handle_new_game(cmd: NewGameCommand):
