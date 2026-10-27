@@ -50,22 +50,35 @@ bash package_tool/macos/build_mac.sh
    （原先只在 `main.py` 主分支注入，CLI/插件构造路径会缺属性）
 4. `src/superGUI.py` —— 无写权限时的回退目录：`%APPDATA%` → `~/Library/Application Support`
 5. `src/plugin_manager/app_paths.py` —— 指针文件目录按平台选择
-6. `src/main.py` `_cleanup` —— 插件管理器对 SIGTERM 的优雅关闭依赖其 Qt 事件循环
-   （`plugin_manager/plugin_manager.py` 注册的信号处理器在 macOS 上不会被执行），
-   主程序退出时 `wait(5)` 超时后升级 `kill()`，异常不再外泄（Windows 不受影响）
-7. `src/media/cat.ico` —— 由 `cat.svg` 生成（发布版资源，源码仓库缺失；已存在则不覆盖）
+6. `src/plugin_manager/plugin_manager.py` —— SIGTERM 优雅关闭在 macOS 上
+   因主线程阻塞于 Qt(Cocoa) 事件循环而永不执行（Python 层信号处理器
+   得不到运行机会），导致主程序关闭时 `wait(5)` 每次都超时（表现为退出
+   卡顿 5 秒）。通过 `signal.set_wakeup_fd`（C 层写入、不受阻塞影响）
+   + 看门狗线程代为执行优雅关闭，SIGTERM 现在 ~0.1 秒内退出；
+   主程序 `_cleanup` 仍保留超时升级 `kill()` 的兜底
+7. `src/main.py` —— 插件通信端口被占用（如残留进程）时降级为禁用插件
+   并弹提示，不再崩溃
+8. `src/plugin_sdk/server_bridge.py`、`src/plugin_manager/__main__.py`、
+   `src/plugin_manager/_run.py` —— ZMQ 端点支持 `METASWEEPER_ZMQ_ENDPOINT`
+   环境变量覆盖（测试多实例隔离用，默认行为不变）
+9. `src/utils/capture_guard.py` —— macOS 防截屏实现（`setSharingType`）
+   对无效 winId（offscreen 等哑指针）降级为空实现，避免段错误
+10. `src/media/cat.ico` —— 由 `cat.svg` 生成（发布版资源，源码仓库缺失；已存在则不覆盖）
 
 ## 验证
 
 ```sh
 QT_QPA_PLATFORM=offscreen .venv/bin/python package_tool/macos/gameplay_smoke_test.py
 QT_QPA_PLATFORM=offscreen .venv/bin/python package_tool/macos/quit_cleanup_test.py
+QT_QPA_PLATFORM=offscreen .venv/bin/python package_tool/macos/quit_full_chain_test.py
 ```
 
 - `gameplay_smoke_test.py`：离屏模拟完整对局（标旗/踩雷失败/胜利/重开/高级盘/关窗）
-- `quit_cleanup_test.py`：对真实插件管理器子进程复现 SIGTERM 超时并验证 kill 升级
+- `quit_cleanup_test.py`：对真实插件管理器子进程验证 SIGTERM 直接优雅退出
+- `quit_full_chain_test.py`：启动完整主程序，5 秒后经 Cmd+Q 同路径触发
+  quit，实测 `_cleanup` 耗时（修复前 5 秒、修复后 0.08 秒）并检查进程残留
 
-改动源码后建议先跑这两个测试再打包。
+改动源码后建议先跑这三个测试再打包。
 
 ## 注意事项
 
