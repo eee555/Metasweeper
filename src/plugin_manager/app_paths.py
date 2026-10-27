@@ -65,8 +65,12 @@ _POINTER_FILENAME = ".metasweeper"
 
 
 def _get_pointer_path() -> Path:
-    """%APPDATA%/.metasweeper 指针文件路径"""
-    return Path(os.environ["APPDATA"]) / _POINTER_FILENAME
+    """应用数据目录下的 .metasweeper 指针文件路径"""
+    if sys.platform == "win32":
+        base = Path(os.environ["APPDATA"])
+    else:
+        base = Path.home() / "Library" / "Application Support" / "Metasweeper"
+    return base / _POINTER_FILENAME
 
 
 def _write_pointer_file(data_dir: str) -> None:
