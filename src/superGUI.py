@@ -4,6 +4,7 @@ from PySide6.QtCore import QTranslator
 
 from PySide6.QtWidgets import QApplication
 import configparser
+import shutil
 from PySide6.QtGui import QPalette, QPixmap, QIcon
 from ui.ui_main_board import Ui_MainWindow
 from pathlib import Path
@@ -186,13 +187,28 @@ class Ui_MainWindow(Ui_MainWindow):
         # 设置全局路径，需要读写权限
         # WindowsPath('f:/path/solvable-minesweeper/src/main.py')
         r_path = Path(args[0])
-        # 检查是否有写入权限
-        if self._can_write_to(r_path.with_name('gameSetting.ini')):
+        if sys.platform == 'darwin':
+            # macOS：可写数据统一放 ~/Library/Application Support，
+            # 避免写入 .app 包内破坏代码签名封印
+            appdata_dir = Path.home() / 'Library' / 'Application Support'
+            self.setting_path = appdata_dir / ('Metasweeper' + version[1:])
+            self.setting_path.mkdir(parents=True, exist_ok=True)
+            # 一次性迁移旧版本写在 .app 包内的设置与录像
+            for _name in ('gameSetting.ini', 'record.ini', 'scoreBoardSetting.ini'):
+                _src, _dst = r_path.with_name(_name), self.setting_path / _name
+                if _src.is_file() and not _dst.exists():
+                    shutil.copy2(_src, _dst)
+            _old_replay = r_path.with_name('replay')
+            _new_replay = self.setting_path / 'replay'
+            _new_replay.mkdir(parents=True, exist_ok=True)
+            if _old_replay.is_dir() and not any(_new_replay.iterdir()):
+                shutil.copytree(_old_replay, _new_replay, dirs_exist_ok=True)
+        elif self._can_write_to(r_path.with_name('gameSetting.ini')):
             self.setting_path = r_path.parent
         else:
-            # 没权限，改用 %APPDATA%\你的程序名\
-            self.setting_path = Path(
-                os.environ['APPDATA']) / ('Metasweeper' + version[1:])
+            # 没权限，改用系统应用数据目录（Windows: %APPDATA%）
+            appdata_dir = Path(os.environ['APPDATA'])
+            self.setting_path = appdata_dir / ('Metasweeper' + version[1:])
             self.setting_path.mkdir(parents=True, exist_ok=True)
         # r_path是打包后_internal外面那一层，和exe同一级
         self.r_path = r_path
