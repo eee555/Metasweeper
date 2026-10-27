@@ -36,19 +36,22 @@ def main() -> int:
         return 1
     print("[ok] 插件管理器已启动并稳定运行")
 
-    # ── 复现 main.py _cleanup：terminate + wait(5) ──
+    # ── 验证 SIGTERM 直接优雅退出（关闭不卡顿的关键） ──
+    start = time.monotonic()
     proc.terminate()
     escalated = False
     try:
         proc.wait(timeout=5)
-        print("[ok] SIGTERM 直接退出（无需升级）")
+        elapsed = time.monotonic() - start
+        print(f"[ok] SIGTERM 直接退出（{elapsed:.2f} 秒，无需升级）")
     except subprocess.TimeoutExpired:
         escalated = True
-        print("[ok] 复现超时：SIGTERM 5 秒未退出（与用户报告一致）")
+        elapsed = time.monotonic() - start
+        print(f"[FAIL] SIGTERM 5 秒未退出（{elapsed:.2f} 秒），需升级 kill ——"
+              "主程序关闭将卡顿 5 秒")
         proc.kill()
         try:
             proc.wait(timeout=5)
-            print("[ok] SIGKILL 升级成功，进程已退出")
         except subprocess.TimeoutExpired:
             print("[FAIL] SIGKILL 后仍未退出")
             return 1
@@ -56,7 +59,9 @@ def main() -> int:
     if manager_alive(proc):
         print("[FAIL] 进程仍存活")
         return 1
-    print(f"\n退出兜底逻辑验证通过 ✅（escalated={escalated}，最终退出码 {proc.returncode}）")
+    if escalated:
+        return 1
+    print(f"\n退出验证通过 ✅（优雅退出耗时 {elapsed:.2f} 秒，退出码 {proc.returncode}）")
     return 0
 
 
