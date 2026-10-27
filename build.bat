@@ -32,6 +32,7 @@ if errorlevel 1 exit /b 1
 
 pyinstaller --noconfirm --clean --name metaminsweeper --windowed --distpath "%OUT%" ^
     %EXCLUDES% ^
+    --exclude-module certifi --exclude-module charset_normalizer ^
     --icon src/media/cat.ico ^
     --paths src ^
     --runtime-hook package_tool\hook-debugpy-pyinstaller.py ^
@@ -54,9 +55,11 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --add-data "src/pl_PL.qm;." ^
     --add-data "src/ja_JP.qm;." ^
     --hidden-import sqlite3 --hidden-import code ^
-    --hidden-import xmlrpc.server --hidden-import xmlrpc.client ^
+    --hidden-import xmlrpc --hidden-import xmlrpc.server --hidden-import xmlrpc.client ^
     --hidden-import http.server --hidden-import socketserver ^
+    --hidden-import email --hidden-import email.utils ^
     --hidden-import requests --hidden-import Crypto.Cipher.AES --hidden-import Crypto.Random ^
+    --hidden-import win32api --hidden-import win32event --hidden-import winerror ^
     --hidden-import ms_toollib --hidden-import PySide6.QtQuickWidgets ^
     --hidden-import PySide6.QtQuick --hidden-import PySide6.QtQml ^
     --hidden-import PySide6.QtCharts ^
