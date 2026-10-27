@@ -26,12 +26,14 @@ def replay_suffix(content_disposition: str, content_type: str) -> str:
 
 def playback_command(replay_path: Path, executable_dir: Path) -> list[str]:
     main_py = executable_dir / "src" / "main.py"
-    executable = executable_dir / "metasweeper.exe"
     if main_py.is_file():
         return [sys.executable, str(main_py), str(replay_path)]
-    if executable.is_file():
-        return [str(executable), str(replay_path)]
-    raise FileNotFoundError("Cannot find src/main.py or metasweeper.exe")
+    for name in ("metasweeper.exe", "metaminsweeper.exe"):
+        executable = executable_dir / name
+        if executable.is_file():
+            return [str(executable), str(replay_path)]
+    raise FileNotFoundError(
+        "Cannot find src/main.py, metasweeper.exe or metaminsweeper.exe")
 
 
 def play_replay(replay_path: Path, executable_dir: Path) -> None:
