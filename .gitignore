@@ -176,28 +176,6 @@ src/ms_toollib.pyi
 prompt.md
 /uiFiles/media
 .codebuddy/
-codex-nuitka-analysis/injector.cpp
-codex-nuitka-analysis/nuitka_acg_diag.cpp
-codex-nuitka-analysis/nuitka_acg_diag.dll
-codex-nuitka-analysis/nuitka_acg_diag.obj
-codex-nuitka-analysis/nuitka_auto_win_acgfix.dll
-codex-nuitka-analysis/nuitka_auto_win_final.dll
-codex-nuitka-analysis/nuitka_auto_win_trace.dll
-codex-nuitka-analysis/nuitka_auto_win_trace2.dll
-codex-nuitka-analysis/nuitka_auto_win.dll
-codex-nuitka-analysis/nuitka_engine_api_names.cpp
-codex-nuitka-analysis/nuitka_engine_api_names.dll
-codex-nuitka-analysis/nuitka_reveal_all_test.cpp
-codex-nuitka-analysis/nuitka_reveal_all_test.dll
-codex-nuitka-analysis/nuitka_reveal_all_test.obj
-codex-nuitka-analysis/nuitka_reveal_all.dll
-codex-nuitka-analysis/nuitka_scan_revealed.cpp
-codex-nuitka-analysis/nuitka_scan_revealed.dll
-codex-nuitka-analysis/nuitka_single_cell_test.cpp
-codex-nuitka-analysis/nuitka_single_cell_test.dll
-codex-nuitka-analysis/pyside6_widget_probe.cpp
-codex-nuitka-analysis/pyside6_widget_probe.dll
-codex-nuitka-analysis/run_auto_win.ps1
 
 # macOS
 .DS_Store
