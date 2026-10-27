@@ -198,3 +198,6 @@ codex-nuitka-analysis/nuitka_single_cell_test.dll
 codex-nuitka-analysis/pyside6_widget_probe.cpp
 codex-nuitka-analysis/pyside6_widget_probe.dll
 codex-nuitka-analysis/run_auto_win.ps1
+
+# macOS
+.DS_Store
