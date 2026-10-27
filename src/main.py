@@ -18,6 +18,7 @@ import ctypes
 from pathlib import Path
 from utils.app_logger import logger
 from utils.path_utils import get_executable_dir, get_runtime_mode
+from utils.capture_guard import macos_capture_guard
 
 # 插件系统（新）
 from plugin_sdk import GameServerBridge
@@ -519,8 +520,18 @@ if __name__ == "__main__":
             ui.enable_screenshot = lambda: (
                 ... if SetWindowDisplayAffinity(hwnd, 0x00000000) else 1 / 0
             )
+        elif sys.platform == "darwin":
+            # 防截屏属锦上添花，任何失败都降级为空实现，不影响启动
+            try:
+                hwnd = int(ui.mainWindow.winId())
+                ui.disable_screenshot, ui.enable_screenshot = \
+                    macos_capture_guard(hwnd)
+            except Exception as e:
+                logger.warning(f"capture guard 初始化失败，防截屏禁用: {e}")
+                ui.disable_screenshot = lambda: None
+                ui.enable_screenshot = lambda: None
         else:
-            # 非 Windows 平台没有等价的防截屏 API，保持空实现
+            # 其他平台没有等价的防截屏 API，保持空实现
             ui.disable_screenshot = lambda: None
             ui.enable_screenshot = lambda: None
 
