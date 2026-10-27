@@ -32,7 +32,6 @@ if errorlevel 1 exit /b 1
 
 pyinstaller --noconfirm --clean --name metaminsweeper --windowed --distpath "%OUT%" ^
     %EXCLUDES% ^
-    --exclude-module certifi --exclude-module charset_normalizer ^
     --icon src/media/cat.ico ^
     --paths src ^
     --runtime-hook package_tool\hook-debugpy-pyinstaller.py ^

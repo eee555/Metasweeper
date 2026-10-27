@@ -70,7 +70,6 @@ jobs:
             --add-data "src/ja_JP.qm;." `
             --exclude PIL --exclude Pillow --exclude Cython `
             --exclude setuptools --exclude pkg_resources `
-            --exclude certifi --exclude charset_normalizer `
             --exclude psutil --exclude numpy `
             --exclude pytest --exclude _pytest `
             --runtime-hook package_tool/hook-debugpy-pyinstaller.py `
@@ -133,11 +132,13 @@ jobs:
       - name: Copy extra dependencies for plugin subprocess
         run: |
           python -c "
-          import shutil, site, os
-          sp = site.getsitepackages()[0]
+          import importlib.util, shutil, os
           dest = 'dist/metasweeper/_internal'
           for pkg in ['debugpy', 'msgspec']:
-              src = os.path.join(sp, pkg)
+              spec = importlib.util.find_spec(pkg)
+              if spec is None or not spec.submodule_search_locations:
+                  raise ModuleNotFoundError(f'Required package not found: {pkg}')
+              src = next(iter(spec.submodule_search_locations))
               dst = os.path.join(dest, pkg)
               if os.path.exists(src):
                   shutil.copytree(src, dst, dirs_exist_ok=True)
@@ -151,7 +152,7 @@ jobs:
                       else:
                           print(f'  {sub}/ absent (OK for debugpy >=1.8)')
               else:
-                  print(f'WARNING: {pkg} not found in site-packages!')
+                  raise FileNotFoundError(f'Required package directory not found: {src}')
           "
 
       - name: Strip unnecessary Qt binaries
