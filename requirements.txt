@@ -1,6 +1,6 @@
 PySide6>=6.12.0
 ms-toollib>=1.5.17
-setuptools==83.0.0
+setuptools==84.1.0
 msgspec>=0.20.0
 zmq>=0.0.0
 pywin32>=311
