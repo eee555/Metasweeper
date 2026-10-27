@@ -53,9 +53,11 @@ bash package_tool/macos/build_mac.sh
 6. `src/plugin_manager/plugin_manager.py` —— SIGTERM 优雅关闭在 macOS 上
    因主线程阻塞于 Qt(Cocoa) 事件循环而永不执行（Python 层信号处理器
    得不到运行机会），导致主程序关闭时 `wait(5)` 每次都超时（表现为退出
-   卡顿 5 秒）。通过 `signal.set_wakeup_fd`（C 层写入、不受阻塞影响）
-   + 看门狗线程代为执行优雅关闭，SIGTERM 现在 ~0.1 秒内退出；
-   主程序 `_cleanup` 仍保留超时升级 `kill()` 的兜底
+   卡顿 5 秒）。双路径修复：`signal.set_wakeup_fd`（C 层写入、不受
+   阻塞影响）+ 看门狗线程兜底；信号处理器在主线程得到执行机会时，
+   优雅关闭完成后直接 `os._exit(0)`，不再返回事件循环空转。
+   SIGTERM 现在 ~0.02 秒内退出；主程序 `_cleanup` 仍保留超时升级
+   `kill()` 的兜底
 7. `src/main.py` —— 插件通信端口被占用（如残留进程）时降级为禁用插件
    并弹提示，不再崩溃
 8. `src/plugin_sdk/server_bridge.py`、`src/plugin_manager/__main__.py`、
