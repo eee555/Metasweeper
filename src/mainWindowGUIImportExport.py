@@ -121,7 +121,8 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             6: label.cell6_path, 7: label.cell7_path, 8: label.cell8_path,
             10: label.cellup_path, 11: label.cellflag_path,
             14: label.falsemine_path, 15: label.blast_path,
-            16: label.cellmine_path, 100: label.mine_path,
+            16: label.cellmine_path, 17: label.cellquestion_path,
+            100: label.mine_path,
         }
         renderers = {}
         for val, path in cell_paths.items():

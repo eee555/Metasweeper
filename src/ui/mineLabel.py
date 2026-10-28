@@ -62,6 +62,7 @@ class mineLabel(QtWidgets.QLabel):
         self.cellup_path = str(m.joinpath('cellup.svg'))
         self.cellmine_path = str(m.joinpath('cellmine.svg'))
         self.cellflag_path = str(m.joinpath('cellflag.svg'))
+        self.cellquestion_path = str(m.joinpath('cellquestion.svg'))
         self.blast_path = str(m.joinpath('blast.svg'))
         self.falsemine_path = str(m.joinpath('falsemine.svg'))
         self.mine_path = str(m.joinpath('mine.svg'))
@@ -454,13 +455,14 @@ class mineLabel(QtWidgets.QLabel):
         cellup = QPixmap(self.cellup_path)
         cellmine = QPixmap(self.cellmine_path)  # 白雷
         cellflag = QPixmap(self.cellflag_path)  # 标雷
+        cellquestion = QPixmap(self.cellquestion_path)  # 问号
         blast = QPixmap(self.blast_path)  # 红雷
         falsemine = QPixmap(self.falsemine_path)  # 叉雷
         mine = QPixmap(self.mine_path)  # 透明雷
         self.pixmapNumBack = {0: celldown, 1: cell1, 2: cell2, 3: cell3, 4: cell4,
                               5: cell5, 6: cell6, 7: cell7, 8: cell8,
                               10: cellup, 11: cellflag, 14: falsemine,
-                              15: blast, 16: cellmine, 100: mine}
+                              15: blast, 16: cellmine, 17: cellquestion, 100: mine}
         celldown_ = celldown.copy().scaled(pixSize, pixSize)
         cell1_ = cell1.copy().scaled(pixSize, pixSize)
         cell2_ = cell2.copy().scaled(pixSize, pixSize)
@@ -473,13 +475,14 @@ class mineLabel(QtWidgets.QLabel):
         cellup_ = cellup.copy().scaled(pixSize, pixSize)
         cellmine_ = cellmine.copy().scaled(pixSize, pixSize)
         cellflag_ = cellflag.copy().scaled(pixSize, pixSize)
+        cellquestion_ = cellquestion.copy().scaled(pixSize, pixSize)
         blast_ = blast.copy().scaled(pixSize, pixSize)
         falsemine_ = falsemine.copy().scaled(pixSize, pixSize)
         mine_ = mine.copy().scaled(pixSize, pixSize)
         self.pixmapNum = {0: celldown_, 1: cell1_, 2: cell2_, 3: cell3_, 4: cell4_,
                           5: cell5_, 6: cell6_, 7: cell7_, 8: cell8_,
                           10: cellup_, 11: cellflag_, 14: falsemine_,
-                          15: blast_, 16: cellmine_, 100: mine_}
+                          15: blast_, 16: cellmine_, 17: cellquestion_, 100: mine_}
 
     def reloadCellPic(self, pixSize):
         # 从内存导入资源，并缩放到希望的尺寸、比例。
