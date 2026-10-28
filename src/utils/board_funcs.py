@@ -164,13 +164,16 @@ def _weighted_choice(items: List[int], weights: List[int]) -> int:
 
 def enumerate_change_board(board: ms.EvfVideo | List[List[int]],
                            game_board: List[List[int]],
-                           poses: List[Tuple[int, int]]) -> Tuple[List[List[int]], bool, int, int]:
-    """重排雷局，使指定格子(poses)都变成安全格。
+                           poses: List[Tuple[int, int]],
+                           must_mine: List[Tuple[int, int]] | None = None) -> Tuple[List[List[int]], bool, int, int]:
+    """重排雷局，使指定格子(poses)都变成安全格、must_mine 中的格子都变成雷。
 
-    该实现基于约束块枚举和无约束区补偿，保证从所有满足的雷局中均等概率随机选择。
+    该实现基于约束块枚举和无约束区补偿，保证从所有满足的雷局中均等概率随机选择，
+    并保持全局总雷数不变（取自输入 board）。
     """
     if not isinstance(board, list):
         board = board.into_vec_vec()
+    must_mine = list(must_mine or [])
 
     # 记录原始雷数，用于保持全局总雷数不变
     total_mine_count = sum(1 for row in board for cell in row if cell == CELL_MINE)
@@ -189,10 +192,22 @@ def enumerate_change_board(board: ms.EvfVideo | List[List[int]],
     if any(game_board_copy[x][y] == CELL_FLAGGED for x, y in poses):
         return board, False, 0, 0
 
+    # must_mine 的格子：已被推断为雷的天然满足；已打开或推断为非雷的无法满足
+    forced_mine_positions: List[tuple[int, int]] = []
+    for x, y in must_mine:
+        value = game_board_copy[x][y]
+        if value == CELL_FLAGGED:
+            continue
+        if value != CELL_UNOPENED:
+            return board, False, 0, 0
+        forced_mine_positions.append((x, y))
+
     # 只保留还未打开的 pose，已打开或已知安全的 pose 已经满足要求
     poses = [pos for pos in poses if game_board_copy[pos[0]][pos[1]] == CELL_UNOPENED]
-    if not poses:
+    if not poses and not forced_mine_positions:
         return board, True, max_block_len, max_solutions
+    pose_set = set(poses)
+    forced_mine_set = set(forced_mine_positions)
 
     matrix_ases, matrix_xses, matrix_bses = ms.refresh_matrixses(game_board_copy)
 
@@ -232,11 +247,13 @@ def enumerate_change_board(board: ms.EvfVideo | List[List[int]],
             if not isinstance(solutions, list):
                 solutions = list(solutions)
 
-            pose_indices = [idx for idx, coord in enumerate(block_vars) if coord in poses]
-            if pose_indices:
+            pose_indices = [idx for idx, coord in enumerate(block_vars) if coord in pose_set]
+            mine_indices = [idx for idx, coord in enumerate(block_vars) if coord in forced_mine_set]
+            if pose_indices or mine_indices:
                 filtered = []
                 for sol in solutions:
-                    if all(sol[idx] == 0 for idx in pose_indices):
+                    if all(sol[idx] == 0 for idx in pose_indices) and \
+                            all(sol[idx] == 1 for idx in mine_indices):
                         filtered.append(sol)
                 solutions = filtered
 
@@ -247,13 +264,16 @@ def enumerate_change_board(board: ms.EvfVideo | List[List[int]],
             block_solution_groups.append((block_vars, block_groups))
 
     free_positions: List[tuple[int, int]] = []
-    pose_set = set(poses)
     for i in range(len(game_board_copy)):
         for j in range(len(game_board_copy[0])):
-            if game_board_copy[i][j] == CELL_UNOPENED and (i, j) not in all_block_vars and (i, j) not in pose_set:
+            if game_board_copy[i][j] == CELL_UNOPENED and (i, j) not in all_block_vars \
+                    and (i, j) not in pose_set and (i, j) not in forced_mine_set:
                 free_positions.append((i, j))
 
-    total_mine_remaining = total_mine_count - len(fixed_mine_positions)
+    # 不在任何约束块里的 must_mine 格子直接固定为雷
+    free_forced_mines = [pos for pos in forced_mine_positions if pos not in all_block_vars]
+
+    total_mine_remaining = total_mine_count - len(fixed_mine_positions) - len(free_forced_mines)
     if total_mine_remaining < 0:
         return board, False, max_block_len, max_solutions
 
@@ -339,6 +359,9 @@ def enumerate_change_board(board: ms.EvfVideo | List[List[int]],
                 result_board[coord[0]][coord[1]] = CELL_MINE
 
     for coord in free_mine_positions:
+        result_board[coord[0]][coord[1]] = CELL_MINE
+
+    for coord in free_forced_mines:
         result_board[coord[0]][coord[1]] = CELL_MINE
 
     result_board = ms.cal_board_numbers(result_board)

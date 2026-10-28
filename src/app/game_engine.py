@@ -4,7 +4,6 @@ import logging
 import ms_toollib as ms
 import utils
 import metasweeper_checksum
-from shared_types.enums import MouseState
 from config.constants import (
     READY, PLAYING, WIN, FAIL, JOWIN, JOFAIL, DISPLAY, SHOW_DISPLAY, STUDY,
     MODE_STANDARD, MODE_WIN7, MODE_CLASSIC_NO_GUESS, MODE_STRONG_NO_GUESS,
@@ -14,7 +13,7 @@ from config.constants import (
     FILENAME_LEVEL_BEGINNER, FILENAME_LEVEL_INTERMEDIATE,
     FILENAME_LEVEL_EXPERT, FILENAME_LEVEL_CUSTOM,
     NO_RECORD,
-    CELL_UNOPENED, CELL_FLAGGED, CELL_MINE,
+    CELL_MINE,
     BOARD_WIN, BOARD_PLAYING, BOARD_PreFlaging, BOARD_Display
 )
 from typing import List, Tuple
@@ -144,124 +143,17 @@ class GameEngine:
         gm = self.gameMode
         if gm in (MODE_STANDARD, MODE_WIN7, MODE_CLASSIC_NO_GUESS):
             return
+        # 游戏进行中的模式推衍（重排雷局、判负）由局面状态机（ms_toollib）自行完成，
+        # 前提是埋雷时已把游戏模式告诉局面状态机。这里只处理 upk 恢复局面的第一击：
+        # 首击豁免模式判定，若落在原雷局上，需要重排成安全格。
+        if self.ms_board.game_board_state == BOARD_PLAYING:
+            return
         board = self.ms_board.board
         game_board = self.ms_board.game_board
-        if gm == MODE_STRONG_NO_GUESS and self.ms_board.game_board_state == BOARD_PLAYING:
-            if board[i][j] >= 0 and \
-                    not ms.is_able_to_solve(game_board, (i, j)):
-                b = board.into_vec_vec()
-                b[i][j] = CELL_MINE
-                for x, y in self.pos_round_cell(i, j):
-                    b[x][y] = b[x][y] + 1 if b[x][y] >= 0 else b[x][y]
-                self.ms_board.board = b
-            return
-        elif gm == MODE_WEAK_NO_GUESS:
-            code = ms.is_guess_while_needless(game_board, (i, j))
-            if code == 3:
-                b = board.into_vec_vec()
-                b[i][j] = CELL_MINE
-                for x, y in self.pos_round_cell(i, j):
-                    b[x][y] = b[x][y] + 1 if b[x][y] >= 0 else b[x][y]
-                self.ms_board.board = b
-            elif code == 2:
-                b, _, self._max_block_len, self._max_solutions = utils.enumerate_change_board(board, game_board, [(i, j)])
-                self.ms_board.board = b
-            return
-        elif gm == MODE_QUASI_NO_GUESS:
-            code = ms.is_guess_while_needless(game_board, (i, j))
-            if code == 2:
-                b, _, self._max_block_len, self._max_solutions = utils.enumerate_change_board(board, game_board, [(i, j)])
-                self.ms_board.board = b
-            return
-        elif gm in (MODE_STRONG_GUESSABLE, MODE_WEAK_GUESSABLE):
-            if board[i][j] == CELL_MINE:
-                b, _, self._max_block_len, self._max_solutions = utils.enumerate_change_board(board, game_board, [(i, j)])
-                self.ms_board.board = b
-            return
-
-    def chording_ai(self, i: int, j: int) -> None:
-        # print(f"chording_ai called with i={i}, j={j}")
-        if not self.ms_board:
-            return
-        if not self.cell_is_in_board(i, j):
-            return
-        mouse_state = self.ms_board.mouse_state
-        if mouse_state not in (MouseState.Chording.value, MouseState.ChordingNotFlag.value):
-            return
-        game_board = self.ms_board.game_board
-        if game_board[i][j] >= CELL_UNOPENED or game_board[i][j] == 0:
-            return
-        gm = self.gameMode
-        if gm in (MODE_STANDARD, MODE_WIN7, MODE_CLASSIC_NO_GUESS):
-            return
-
-        not_mine_round = []
-        is_mine_round = []
-        flag_not_mine_round = []
-        flag_is_mine_round = []
-        for ii in range(max(0, i - 1), min(self.row, i + 2)):
-            for jj in range(max(0, j - 1), min(self.column, j + 2)):
-                if (ii, jj) == (i, j):
-                    continue
-                if game_board[ii][jj] == CELL_UNOPENED:
-                    if self.ms_board.board[ii][jj] == CELL_MINE:
-                        is_mine_round.append((ii, jj))
-                    else:
-                        not_mine_round.append((ii, jj))
-                elif game_board[ii][jj] == CELL_FLAGGED:
-                    if self.ms_board.board[ii][jj] == CELL_MINE:
-                        flag_is_mine_round.append((ii, jj))
-                    else:
-                        flag_not_mine_round.append((ii, jj))
-        if len(flag_is_mine_round) + len(flag_not_mine_round) != \
-                self.ms_board.board[i][j]:
-            return
-
-        board = self.ms_board.board.into_vec_vec()
-        if gm == MODE_STRONG_NO_GUESS:
-            for (x, y) in is_mine_round + not_mine_round:
-                if not ms.is_able_to_solve(self.ms_board.game_board, (x, y)):
-                    board[x][y] = CELL_MINE
-                    for xx, yy in self.pos_round_cell(x, y):
-                        board[xx][yy] = board[xx][yy] + 1 if board[xx][yy] >= 0 else board[xx][yy]
-            self.ms_board.board = board
-            return
-        elif gm == MODE_WEAK_NO_GUESS:
-            must_guess = True
-            for (x, y) in is_mine_round + not_mine_round:
-                code = ms.is_guess_while_needless(
-                    self.ms_board.game_board, (x, y))
-                if code == 3:
-                    must_guess = False
-                    break
-            if must_guess:
-                b, _, self._max_block_len, self._max_solutions = utils.enumerate_change_board(
-                    board, self.ms_board.game_board,
-                    not_mine_round + is_mine_round)
-                self.ms_board.board = b
-            else:
-                for (x, y) in is_mine_round + not_mine_round:
-                    board[x][y] = CELL_MINE
-                    for xx, yy in self.pos_round_cell(x, y):
-                        board[xx][yy] = board[xx][yy] + 1 if board[xx][yy] >= 0 else board[xx][yy]
-                self.ms_board.board = board
-        elif gm == MODE_QUASI_NO_GUESS:
-            must_guess = True
-            for (x, y) in is_mine_round + not_mine_round:
-                code = ms.is_guess_while_needless(
-                    self.ms_board.game_board, (x, y))
-                if code == 3:
-                    must_guess = False
-                    break
-            if must_guess:
-                b, _, self._max_block_len, self._max_solutions = utils.enumerate_change_board(
-                    board, self.ms_board.game_board,
-                    not_mine_round + is_mine_round)
-                self.ms_board.board = b
-        elif gm in (MODE_STRONG_GUESSABLE, MODE_WEAK_GUESSABLE):
+        if gm in (MODE_WEAK_NO_GUESS, MODE_QUASI_NO_GUESS) or \
+                board[i][j] == CELL_MINE:
             b, _, self._max_block_len, self._max_solutions = utils.enumerate_change_board(
-                board, self.ms_board.game_board,
-                not_mine_round + is_mine_round)
+                board, game_board, [(i, j)])
             self.ms_board.board = b
 
     def mineNumWheel(self, delta: int) -> None:

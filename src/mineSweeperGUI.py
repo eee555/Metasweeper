@@ -480,6 +480,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             })
             self.score_board_manager.show(
                 self.label.ms_board, index_type=1)
+        # 把游戏模式告诉局面状态机，由它自行推衍无猜/可猜等模式
+        self.label.ms_board.mode = self.gameMode
 
     def timeCount(self):
         # 10ms时间步进的回调，改计数器、改右上角时间
@@ -514,10 +516,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.score_board_manager.with_namespace({
             "max_block_len": self.engine._max_block_len,
         })
-
-    def chording_ai(self, i, j):
-        self._sync_engine()
-        self.engine.chording_ai(i, j)
 
     def mineNumWheel(self, i):
         if self.game_state == 'ready':

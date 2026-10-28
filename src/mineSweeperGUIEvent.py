@@ -105,12 +105,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                     self._send_board_update_event()
             self.set_face(FACE_SMILE)
         elif self.game_state == PLAYING or self.game_state == JOKING:
-            # 如果是游戏中，且是左键抬起（不是双击），且是在10上，且在局面内，则用ai劫持、处理下
-            if self.pos_is_in_board(i, j):
-                if self.label.ms_board.game_board[i // self.pixSize][j // self.pixSize] == CELL_UNOPENED \
-                        and self.label.ms_board.mouse_state == MouseState.DownUp.value:
-                    self.ai(i // self.pixSize, j // self.pixSize)
-                self.chording_ai(i // self.pixSize, j // self.pixSize)
+            # 游戏进行中的左键/双击：无猜、可猜等模式的重排与判负由局面状态机自行处理
             self._step_and_send('lr', i, j)
 
             if self.label.ms_board.game_board_state == BOARD_WIN:
@@ -153,7 +148,6 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
     def mineAreaRightRelease(self, i, j):
         # print("rr", i, j)
         if self.game_state == READY or self.game_state == PLAYING or self.game_state == JOKING:
-            self.chording_ai(i // self.pixSize, j // self.pixSize)
             self._step_and_send('rr', i, j)
             self.label.update()
             self._send_board_update_event()
