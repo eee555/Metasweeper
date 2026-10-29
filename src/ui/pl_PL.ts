@@ -175,6 +175,30 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Słabe do odgadnięcia</translation>
     </message>
     <message>
+        <source>双击递归</source>
+        <translation>Rekurencja chordów</translation>
+    </message>
+    <message>
+        <source>标雷递归</source>
+        <translation>Rekurencja flag</translation>
+    </message>
+    <message>
+        <source>双击标雷递归</source>
+        <translation>Rekurencja chordów i flag</translation>
+    </message>
+    <message>
+        <source>无猜双击递归</source>
+        <translation>Rekurencja chordów bez zgadywania</translation>
+    </message>
+    <message>
+        <source>无猜标雷递归</source>
+        <translation>Rekurencja flag bez zgadywania</translation>
+    </message>
+    <message>
+        <source>无猜双击标雷递归</source>
+        <translation>Rekurencja chordów i flag bez zgadywania</translation>
+    </message>
+    <message>
         <location filename="ui_gameSettingShortcuts.py" line="551"/>
         <source>尝试次数：</source>
         <translation>Liczba prób:</translation>

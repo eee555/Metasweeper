@@ -159,6 +159,36 @@
           <string>弱可猜</string>
          </property>
         </item>
+        <item>
+         <property name="text">
+          <string>双击递归</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>标雷递归</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>双击标雷递归</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>无猜双击递归</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>无猜标雷递归</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>无猜双击标雷递归</string>
+         </property>
+        </item>
        </widget>
       </item>
       <item>

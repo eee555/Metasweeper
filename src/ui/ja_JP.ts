@@ -140,6 +140,30 @@
         <translation>弱推測可</translation>
     </message>
     <message>
+        <source>双击递归</source>
+        <translation>ダブルクリック再帰</translation>
+    </message>
+    <message>
+        <source>标雷递归</source>
+        <translation>旗立て再帰</translation>
+    </message>
+    <message>
+        <source>双击标雷递归</source>
+        <translation>ダブルクリック旗立て再帰</translation>
+    </message>
+    <message>
+        <source>无猜双击递归</source>
+        <translation>ノーゲス・ダブルクリック再帰</translation>
+    </message>
+    <message>
+        <source>无猜标雷递归</source>
+        <translation>ノーゲス旗立て再帰</translation>
+    </message>
+    <message>
+        <source>无猜双击标雷递归</source>
+        <translation>ノーゲス・ダブルクリック旗立て再帰</translation>
+    </message>
+    <message>
         <location filename="ui_gameSettings.py" line="453"/>
         <source>方格边长：</source>
         <translation>セルサイズ：</translation>

@@ -175,6 +175,30 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
         <translation>Schwach erratbar</translation>
     </message>
     <message>
+        <source>双击递归</source>
+        <translation>Chord-Rekursion</translation>
+    </message>
+    <message>
+        <source>标雷递归</source>
+        <translation>Flaggen-Rekursion</translation>
+    </message>
+    <message>
+        <source>双击标雷递归</source>
+        <translation>Chord-Flaggen-Rekursion</translation>
+    </message>
+    <message>
+        <source>无猜双击递归</source>
+        <translation>Chord-Rekursion ohne Raten</translation>
+    </message>
+    <message>
+        <source>无猜标雷递归</source>
+        <translation>Flaggen-Rekursion ohne Raten</translation>
+    </message>
+    <message>
+        <source>无猜双击标雷递归</source>
+        <translation>Chord-Flaggen-Rekursion ohne Raten</translation>
+    </message>
+    <message>
         <location filename="ui_gameSettingShortcuts.py" line="551"/>
         <source>尝试次数：</source>
         <translation>Anzahl der Versuche:</translation>

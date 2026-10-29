@@ -627,7 +627,12 @@ class Ui_MainWindow(Ui_MainWindow):
         record_key_name_list = ["BFLAG", "BNF", "BWIN7", "BSS", "BWS", "BCS", "BTBS", "BSG",
                                 "BWG", "IFLAG", "INF", "IWIN7", "ISS", "IWS", "ICS", "ITBS",
                                 "ISG", "IWG", "EFLAG", "ENF", "EWIN7", "ESS", "EWS", "ECS",
-                                "ETBS", "ESG", "EWG"]
+                                "ETBS", "ESG", "EWG",
+                                # 递归模式（evf 11-16）：双击递归、标雷递归、双击标雷递归、
+                                # 无猜双击递归、无猜标雷递归、无猜双击标雷递归
+                                "BCR", "BFR", "BCFR", "BNCR", "BNFR", "BNCFR",
+                                "ICR", "IFR", "ICFR", "INCR", "INFR", "INCFR",
+                                "ECR", "EFR", "ECFR", "ENCR", "ENFR", "ENCFR"]
         self.record_key_name_list = record_key_name_list + \
             ["BEGINNER", "INTERMEDIATE", "EXPERT"]
         # self.record = {}

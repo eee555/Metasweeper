@@ -900,6 +900,24 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         elif self.gameMode == GameMode.LuckyMode.value:
             record_key += "WG"
             mode_text = _translate("Form", "弱可猜")
+        elif self.gameMode == GameMode.ChordRecursive.value:
+            record_key += "CR"
+            mode_text = _translate("Form", "双击递归")
+        elif self.gameMode == GameMode.FlagRecursive.value:
+            record_key += "FR"
+            mode_text = _translate("Form", "标雷递归")
+        elif self.gameMode == GameMode.ChordFlagRecursive.value:
+            record_key += "CFR"
+            mode_text = _translate("Form", "双击标雷递归")
+        elif self.gameMode == GameMode.NoGuessChordRecursive.value:
+            record_key += "NCR"
+            mode_text = _translate("Form", "无猜双击递归")
+        elif self.gameMode == GameMode.NoGuessFlagRecursive.value:
+            record_key += "NFR"
+            mode_text = _translate("Form", "无猜标雷递归")
+        elif self.gameMode == GameMode.NoGuessChordFlagRecursive.value:
+            record_key += "NCFR"
+            mode_text = _translate("Form", "无猜双击标雷递归")
         else:
             raise RuntimeError()
 

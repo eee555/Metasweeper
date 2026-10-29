@@ -156,6 +156,12 @@ class GameMode(BaseDiaPlayEnum):
     BlessingMode = 8
     GuessableNoGuess = 9
     LuckyMode = 10
+    ChordRecursive = 11
+    FlagRecursive = 12
+    ChordFlagRecursive = 13
+    NoGuessChordRecursive = 14
+    NoGuessFlagRecursive = 15
+    NoGuessChordFlagRecursive = 16
 
     @property
     def display_name(self) -> str:
@@ -178,6 +184,18 @@ class GameMode(BaseDiaPlayEnum):
                 return _translate("Form", "强可猜")
             case GameMode.LuckyMode:
                 return _translate("Form", "弱可猜")
+            case GameMode.ChordRecursive:
+                return _translate("Form", "双击递归")
+            case GameMode.FlagRecursive:
+                return _translate("Form", "标雷递归")
+            case GameMode.ChordFlagRecursive:
+                return _translate("Form", "双击标雷递归")
+            case GameMode.NoGuessChordRecursive:
+                return _translate("Form", "无猜双击递归")
+            case GameMode.NoGuessFlagRecursive:
+                return _translate("Form", "无猜标雷递归")
+            case GameMode.NoGuessChordFlagRecursive:
+                return _translate("Form", "无猜双击标雷递归")
             case _:
                 return str(self.value)
 

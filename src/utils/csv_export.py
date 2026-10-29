@@ -105,9 +105,13 @@ def _build_csv_batch(prepared, hzini_values):
 
         style = "NF" if rec.rce == 0 else "Flag"
         if all:
-            # 标准0、win74、经典无猜5、强无猜6、弱无猜7、准无猜8、强可猜9、弱可猜10
+            # 标准0、win74、经典无猜5、强无猜6、弱无猜7、准无猜8、强可猜9、弱可猜10、
+            # 双击递归11、标雷递归12、双击标雷递归13、无猜双击递归14、无猜标雷递归15、无猜双击标雷递归16
             game_mode = ["classic", "", "", "", "win7", "classic no guess", "strict no guess",
-                         "weak no guess", "blessing no guess", "guessable no guess", "lucky mode"][rec.mode]
+                         "weak no guess", "blessing no guess", "guessable no guess", "lucky mode",
+                         "chord recursive", "flag recursive", "chord flag recursive",
+                         "no guess chord recursive", "no guess flag recursive",
+                         "no guess chord flag recursive"][rec.mode]
 
         # op、isl 使用记录中的值；数字格属性保持原先访问顺序。
         with measure("其他棋盘属性读取合计（含分项计时开销）"):
