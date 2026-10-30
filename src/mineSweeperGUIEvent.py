@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 import superGUI
 from config.constants import (
-    READY, PLAYING, JOKING, SHOW, STUDY, SHOW_DISPLAY,
+    READY, PLAYING, JOKING, WIN, FAIL, JOWIN, JOFAIL, SHOW, STUDY, SHOW_DISPLAY,
     FACE_SMILE, FACE_CLICK, BOARD_READY, BOARD_WIN, BOARD_LOSS,
     CELL_UNOPENED, CELL_FLAGGED,
 )
@@ -125,6 +125,14 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self._step_and_send('lr', self.row * self.pixSize,
                                 self.column * self.pixSize)
             self.set_face(FACE_SMILE)
+
+    def mineAreaLeftDoubleRelease(self, i, j):
+        if self.double_click_restart and self.game_state in (WIN, FAIL, JOWIN, JOFAIL) \
+                and self.pos_is_in_board(i, j):
+            # 在第二次抬起时重开，避免此次抬起继续操作新棋盘。
+            self.gameRestart()
+        else:
+            self.mineAreaLeftRelease(i, j)
 
     def mineAreaRightPressed(self, i, j):
         # print("rc", i, j)

@@ -42,6 +42,8 @@ class ui_Form(Ui_Form):
             'DEFAULT/end_then_flag', None, bool)
         self.cursor_limit = self.game_setting.value(
             'DEFAULT/cursor_limit', None, bool)
+        self.double_click_restart = self.game_setting.value(
+            'DEFAULT/double_click_restart', False, bool)
         self.board_constraint = mainWindow.board_constraint
         self.attempt_times_limit = mainWindow.attempt_times_limit
 
@@ -126,6 +128,7 @@ class ui_Form(Ui_Form):
         self.comboBox_country.setCurrentText(self.country)
         self.checkBox_end_then_flag.setChecked(self.end_then_flag)
         self.checkBox_cursor_limit.setChecked(self.cursor_limit)
+        self.checkBox_double_click_restart.setChecked(self.double_click_restart)
 
         if not self.checkBox_auto_replay.isChecked():
             self.spinBox_auto_replay.setEnabled(False)
@@ -154,6 +157,7 @@ class ui_Form(Ui_Form):
         self.attempt_times_limit = self.spinBox_attempt_times_limit.value()
         self.end_then_flag = self.checkBox_end_then_flag.isChecked()  # 游戏结束后自动标雷
         self.cursor_limit = self.checkBox_cursor_limit.isChecked()
+        self.double_click_restart = self.checkBox_double_click_restart.isChecked()
         self.gameMode = [0, 4, 6, 7, 5, 8, 9,
                          10, 11, 12, 13, 14, 15, 16][self.comboBox_gamemode.currentIndex()]
         # gameMode = 0，4, 5, 6, 7, 8, 9, 10, 11–16代表：
@@ -164,6 +168,8 @@ class ui_Form(Ui_Form):
         self.game_setting.set_value(
             "DEFAULT/end_then_flag", self.end_then_flag)
         self.game_setting.set_value("DEFAULT/cursor_limit", self.cursor_limit)
+        self.game_setting.set_value(
+            'DEFAULT/double_click_restart', self.double_click_restart)
         self.game_setting.set_value(
             "DEFAULT/auto_notification", self.auto_notification)
         self.game_setting.set_value(

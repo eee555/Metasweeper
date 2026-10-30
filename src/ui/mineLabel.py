@@ -11,6 +11,7 @@ from utils.path_utils import resource_path
 class mineLabel(QtWidgets.QLabel):
     # 一整个局面的控件，而不是一个格子
     leftRelease = QtCore.Signal(int, int)  # 定义信号
+    leftDoubleRelease = QtCore.Signal(int, int)
     rightRelease = QtCore.Signal(int, int)
     leftPressed = QtCore.Signal(int, int)
     rightPressed = QtCore.Signal(int, int)
@@ -47,6 +48,7 @@ class mineLabel(QtWidgets.QLabel):
         self.opening_ops2 = []
         self.opening_count = 0
         self.hover_highlight_cells = ()
+        self._left_double_click = False
 
     def setPath(self):
         m = resource_path('media')
@@ -116,6 +118,7 @@ class mineLabel(QtWidgets.QLabel):
 
     def mousePressEvent(self, e):
         # 重载一下鼠标点击事件
+        self._left_double_click = False
         xx = int(e.localPos().x())
         yy = int(e.localPos().y())
         # print("press: ", xx, yy)
@@ -136,6 +139,12 @@ class mineLabel(QtWidgets.QLabel):
             elif e.buttons() == QtCore.Qt.RightButton:
                 self.rightPressed.emit(self.current_x, self.current_y)
 
+    def mouseDoubleClickEvent(self, e):
+        # 保留第二次按下的正常行为，由控制器在抬起时决定是否重开。
+        self.mousePressEvent(e)
+        self._left_double_click = (e.button() == QtCore.Qt.LeftButton
+                                   and e.buttons() == QtCore.Qt.LeftButton)
+
     def mouseReleaseEvent(self, e):
         # 每个标签的鼠标事件发射给槽的都是自身的坐标
         # 所以获取释放点相对本标签的偏移量，矫正发射的信号
@@ -151,8 +160,13 @@ class mineLabel(QtWidgets.QLabel):
             self.current_x = yy
             self.current_y = xx
 
+        left_double_click = self._left_double_click
+        self._left_double_click = False
         if e.button() == QtCore.Qt.LeftButton:
-            self.leftRelease.emit(self.current_x, self.current_y)
+            if left_double_click and e.buttons() == QtCore.Qt.NoButton:
+                self.leftDoubleRelease.emit(self.current_x, self.current_y)
+            else:
+                self.leftRelease.emit(self.current_x, self.current_y)
         elif e.button() == QtCore.Qt.RightButton:
             self.rightRelease.emit(self.current_x, self.current_y)
 
