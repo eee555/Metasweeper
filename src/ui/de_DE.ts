@@ -95,6 +95,16 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
 <context>
     <name>Form</name>
     <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="789"/>
+        <source>左键双击重开（游戏结束后）</source>
+        <translation>Neustart per Doppelklick mit links (nach Spielende)</translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="786"/>
+        <source>胜利或失败后，在棋盘上双击鼠标左键重开新局</source>
+        <translation>Nach einem Sieg oder einer Niederlage mit der linken Maustaste auf das Spielfeld doppelklicken, um ein neues Spiel zu starten.</translation>
+    </message>
+    <message>
         <location filename="../dialogs/gameScores.py" line="121"/>
         <source>确定</source>
         <translation>OK</translation>

@@ -27,7 +27,7 @@ class Ui_Form(object):
         if not Form.objectName():
             Form.setObjectName(u"Form")
         Form.setWindowModality(Qt.NonModal)
-        Form.resize(554, 644)
+        Form.resize(554, 682)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -320,6 +320,12 @@ class Ui_Form(object):
 
         self.verticalLayout_5.addWidget(self.checkBox_end_then_flag)
 
+        self.checkBox_double_click_restart = QCheckBox(self.frame_4)
+        self.checkBox_double_click_restart.setObjectName(u"checkBox_double_click_restart")
+        self.checkBox_double_click_restart.setMinimumSize(QSize(0, 32))
+
+        self.verticalLayout_5.addWidget(self.checkBox_double_click_restart)
+
         self.checkBox_cursor_limit = QCheckBox(self.frame_4)
         self.checkBox_cursor_limit.setObjectName(u"checkBox_cursor_limit")
         self.checkBox_cursor_limit.setMinimumSize(QSize(0, 32))
@@ -565,6 +571,10 @@ class Ui_Form(object):
         self.checkBox_end_then_flag.setToolTip("")
 #endif // QT_CONFIG(tooltip)
         self.checkBox_end_then_flag.setText(QCoreApplication.translate("Form", u"\u7ed3\u675f\u540e\u6807\u96f7", None))
+#if QT_CONFIG(tooltip)
+        self.checkBox_double_click_restart.setToolTip(QCoreApplication.translate("Form", u"\u80dc\u5229\u6216\u5931\u8d25\u540e\uff0c\u5728\u68cb\u76d8\u4e0a\u53cc\u51fb\u9f20\u6807\u5de6\u952e\u91cd\u5f00\u65b0\u5c40", None))
+#endif // QT_CONFIG(tooltip)
+        self.checkBox_double_click_restart.setText(QCoreApplication.translate("Form", u"\u5de6\u952e\u53cc\u51fb\u91cd\u5f00\uff08\u6e38\u620f\u7ed3\u675f\u540e\uff09", None))
 #if QT_CONFIG(tooltip)
         self.checkBox_cursor_limit.setToolTip("")
 #endif // QT_CONFIG(tooltip)

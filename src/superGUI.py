@@ -322,6 +322,7 @@ class Ui_MainWindow(Ui_MainWindow):
             QSize(self.pixSize*self.column + 8, self.pixSize*self.row + 8))
         self.label.leftPressed.connect(self.mineAreaLeftPressed)
         self.label.leftRelease.connect(self.mineAreaLeftRelease)
+        self.label.leftDoubleRelease.connect(self.mineAreaLeftDoubleRelease)
         self.label.leftAndRightPressed.connect(
             self.mineAreaLeftAndRightPressed)
         # self.label.leftAndRightRelease.connect(self.mineAreaLeftAndRightRelease)
@@ -604,6 +605,8 @@ class Ui_MainWindow(Ui_MainWindow):
             "DEFAULT/end_then_flag", True, bool)
         self.cursor_limit = self.game_setting.get_or_set_value(
             "DEFAULT/cursor_limit", False, bool)
+        self.double_click_restart = self.game_setting.get_or_set_value(
+            'DEFAULT/double_click_restart', False, bool)
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:
