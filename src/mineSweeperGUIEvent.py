@@ -142,6 +142,16 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                     self.mineUnFlagedNum -= 1
                     self.showMineNum(self.mineUnFlagedNum)
             self._step_and_send('rc', i, j)
+            # 标雷递归模式（12/13/15/16）下，一次标雷可能经级联直接获胜或踩雷，
+            # 必须像 lr 一样检查结局，否则计时器继续走，会被防变速齿轮守卫误判重开
+            if self.label.ms_board.game_board_state == BOARD_WIN:
+                self.gameWin()
+                self.label.update()
+                return
+            elif self.label.ms_board.game_board_state == BOARD_LOSS:
+                self.gameFailed()
+                self.label.update()
+                return
             self.label.update()
             self.set_face(FACE_CLICK)
 
