@@ -1,7 +1,7 @@
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtGui import QPolygonF, QPainter, QPixmap, QPainterPath, QColor, QPen, QFont
 import ms_toollib as ms
-from PySide6.QtCore import QPoint, Qt, QRect
+from PySide6.QtCore import QPoint, QPointF, Qt, QRect, QPropertyAnimation, QEasingCurve
 from config.constants import BOARD_READY, BOARD_PLAYING, CELL_UNOPENED
 from shared_types.enums import MouseState
 import utils
@@ -47,6 +47,86 @@ class mineLabel(QtWidgets.QLabel):
         self.opening_ops2 = []
         self.opening_count = 0
         self.hover_highlight_cells = ()
+        # 开格打击感：抖动偏移（绘制时整体平移）与单个动画对象（打断重启）
+        self._shake_offset = QPointF(0.0, 0.0)
+        self._shake_anim = None
+        self.shake_enabled = True
+
+    def _get_shake_offset(self):
+        return self._shake_offset
+
+    def _set_shake_offset(self, offset):
+        self._shake_offset = offset
+        self.update()
+
+    shakeOffset = QtCore.Property(
+        QPointF, _get_shake_offset, _set_shake_offset)
+
+    @staticmethod
+    def _reduced_motion():
+        # Windows“显示动画”偏好（SPI_GETCLIENTAREAANIMATION）；取不到则视为未减少
+        try:
+            import ctypes
+            val = ctypes.c_int(1)
+            ok = ctypes.windll.user32.SystemParametersInfoW(
+                0x1042, 0, ctypes.byref(val), 0)
+            return bool(ok) and val.value == 0
+        except Exception:
+            return False
+
+    # ── 抖动参数（表现层审美常量，集中调参）──
+    SHAKE_AMP_RATIO = 0.2           # 弱档振幅相对格子边长的比例
+    SHAKE_AMP_MAX_PX = 4.0          # 弱档振幅的物理像素上限（按 devicePixelRatio 换算）
+    SHAKE_DURATION_MS = 130         # 弱档时长（ms）
+    SHAKE_STRONG_SCALE = 2.0        # 踩雷强档振幅 = 弱档 × 该倍率
+    SHAKE_STRONG_DURATION_MS = 280  # 踩雷强档时长（ms）
+
+    def start_shake(self, *, strong=False):
+        # 是否触发由调用方判断（开格数增加才调用弱档）。
+        # 弱档：固定振幅 min(格边长×SHAKE_AMP_RATIO, SHAKE_AMP_MAX_PX/dpr)，
+        # 与本次开格数无关；SHAKE_DURATION_MS、OutQuad、末帧归零。
+        # strong=True：踩雷强档（振幅 ×SHAKE_STRONG_SCALE、
+        # SHAKE_STRONG_DURATION_MS、独立节奏）
+        if not self.shake_enabled or self.pixSize <= 0:
+            return
+        if self._reduced_motion():
+            return
+        dpr = self.devicePixelRatioF() or 1.0
+        amp = min(self.pixSize * self.SHAKE_AMP_RATIO,
+                  self.SHAKE_AMP_MAX_PX / dpr)
+        if self._shake_anim is None:
+            self._shake_anim = QPropertyAnimation(self, b"shakeOffset", self)
+            self._shake_anim.finished.connect(self._on_shake_finished)
+        anim = self._shake_anim
+        anim.stop()
+        if strong:
+            amp *= self.SHAKE_STRONG_SCALE
+            anim.setDuration(self.SHAKE_STRONG_DURATION_MS)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            anim.setKeyValues([
+                (0.0, QPointF(0.0, 0.0)),
+                (0.2, QPointF(amp, -0.5 * amp)),
+                (0.45, QPointF(-0.7 * amp, 0.4 * amp)),
+                (0.7, QPointF(0.5 * amp, -0.25 * amp)),
+                (1.0, QPointF(0.0, 0.0)),
+            ])
+        else:
+            anim.setDuration(self.SHAKE_DURATION_MS)
+            anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+            anim.setKeyValues([
+                (0.0, QPointF(0.0, 0.0)),
+                (0.25, QPointF(amp, -0.6 * amp)),
+                (0.55, QPointF(-0.7 * amp, 0.5 * amp)),
+                (0.8, QPointF(0.4 * amp, -0.3 * amp)),
+                (1.0, QPointF(0.0, 0.0)),
+            ])
+        # 打断重启时先归零，避免上一段动画的残移成为新起点
+        self._set_shake_offset(QPointF(0.0, 0.0))
+        anim.start()
+
+    def _on_shake_finished(self):
+        # 结束精确归位
+        self._set_shake_offset(QPointF(0.0, 0.0))
 
     def setPath(self):
         m = resource_path('media')
@@ -367,6 +447,8 @@ class mineLabel(QtWidgets.QLabel):
             current_y = self.current_y // self.pixSize
             # poss = self.boardProbability
         painter.begin(self)
+        if not self._shake_offset.isNull():
+            painter.translate(self._shake_offset)
         # 画游戏局面
         row = len(game_board)
         column = len(game_board[0])
