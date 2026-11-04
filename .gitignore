@@ -201,3 +201,4 @@ codex-nuitka-analysis/run_auto_win.ps1
 
 # macOS
 .DS_Store
+package_tool/macos/.orig/

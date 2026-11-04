@@ -604,6 +604,9 @@ class Ui_MainWindow(Ui_MainWindow):
             "DEFAULT/end_then_flag", True, bool)
         self.cursor_limit = self.game_setting.get_or_set_value(
             "DEFAULT/cursor_limit", False, bool)
+        # 是否允许鼠标滚轮直接缩放界面（默认关闭）
+        self.wheel_zoom = self.game_setting.get_or_set_value(
+            "DEFAULT/wheel_zoom", False, bool)
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:

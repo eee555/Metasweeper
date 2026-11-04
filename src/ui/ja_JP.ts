@@ -200,6 +200,16 @@
         <translation>カーソル枠外禁止</translation>
     </message>
     <message>
+        <location filename="ui_gameSettings.py" line="607"/>
+        <source>开启后，在游戏界面上滚动鼠标滚轮即可缩放界面：上滚缩小，下滚增大</source>
+        <translation>有効にすると、ゲーム画面上でマウスホイールを操作して拡大縮小できます：上に回すと縮小、下に回すと拡大</translation>
+    </message>
+    <message>
+        <location filename="ui_gameSettings.py" line="610"/>
+        <source>鼠标滚轮缩放</source>
+        <translation>マウスホイールで拡大縮小</translation>
+    </message>
+    <message>
         <location filename="ui_gameSettings.py" line="465"/>
         <source>自动重开：</source>
         <translation>自動再開：</translation>

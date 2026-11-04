@@ -197,9 +197,20 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
 
     def resizeWheel(self, i, x, y):
         # 按住ctrl滚轮，调整局面大小
+        # 开启「鼠标滚轮缩放」后，不按ctrl直接滚轮缩放界面
         # study状态下，滚轮修改局面
         # 函数名要改了
-        if QApplication.keyboardModifiers() == Qt.ControlModifier and\
+        if self.wheel_zoom and\
+                self.game_state == READY and self.label.ms_board.game_board_state == BOARD_READY:
+            # 调整局面大小需要满足：ui端是ready且状态机是ready
+            # 事件delta的符号受系统「自然滚动」设置影响而反转，
+            # 此处映射以滚动手感为准：上滚缩小，下滚增大
+            if i > 0:
+                self.pixSize += 1
+            elif i < 0:
+                self.pixSize -= 1
+
+        elif QApplication.keyboardModifiers() == Qt.ControlModifier and\
                 self.game_state == READY and self.label.ms_board.game_board_state == BOARD_READY:
             # 调整局面大小需要满足：ui端是ready且状态机是ready
             if i > 0:
