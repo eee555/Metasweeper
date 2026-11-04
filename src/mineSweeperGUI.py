@@ -241,11 +241,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.set_face(FACE_SMILE)
         self.showMineNum(self.mineUnFlagedNum)
         self.showTime(0)
-        if hasattr(self, "_pixSize") and pixSize < self._pixSize:
-            self._pixSize = pixSize
-            self.minimumWindow()
-            return
+        # 放大和缩小都要让窗口贴合界面，否则放大后格子会被窗口裁剪
         self._pixSize = pixSize
+        self.minimumWindow()
 
     @property
     def gameMode(self):

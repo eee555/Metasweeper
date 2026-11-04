@@ -11,6 +11,7 @@ textdistance
 pycryptodome>=3.20.0
 cryptography>=50.0.2
 PyMCUlib>=1.0.3
+pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
 
 # 开发/测试/打包依赖
 pytest>=7.4.0

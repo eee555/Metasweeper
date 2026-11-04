@@ -512,6 +512,8 @@ class Ui_MainWindow(Ui_MainWindow):
             delta_h = (self.pixSize - MIN_PIX_SIZE) * self.row
             mw.setMinimumSize(max(1, hint.width() - delta_w),
                               max(1, hint.height() - delta_h))
+            # 让窗口管理器按界面固有比例约束拖拽（macOS 原生等比锁）
+            mw.set_interface_aspect(hint.width(), hint.height())
         self.timer_ = QTimer()
         self.timer_.timeout.connect(self.__minimumWindow)
         self.timer_.start(1)
@@ -530,6 +532,9 @@ class Ui_MainWindow(Ui_MainWindow):
 
     def __drag_scale_target(self):
         # 按棋盘框当前可容纳的空间，换算出整数格子边长
+        layout = self.mainWindow.layout()
+        if layout is not None:
+            layout.activate()  # 立即重算布局，避免测量到滞后的棋盘框尺寸
         border = 2 * self.frame.lineWidth()
         avail_w = self.frame.width() - border
         avail_h = self.frame.height() - border
