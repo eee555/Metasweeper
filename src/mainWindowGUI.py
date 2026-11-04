@@ -17,18 +17,22 @@ class MainWindow(QtWidgets.QMainWindow):
     dragResizeFinished = QtCore.Signal()
     flag_drag_border = False
     _aspect_fixing = False
+    _programmatic = False
+    _suppress_drag = False
     _drag_aspect = 1.0
     _last_drag_w = 0
     _last_drag_h = 0
-    _drag_release_timer = None
+    _drag_idle_timer = None
     _native_aspect = False
 
     def __init__(self):
         super(MainWindow, self).__init__()
         self.setAcceptDrops(True)
-        # macOS 上优先用 NSWindow.setAspectRatio 让窗口管理器在拖拽期间
-        # 原生强制等比缩放；没有 pyobjc 时退回 resizeEvent 反馈修正
-        if sys.platform == "darwin":
+        # macOS cocoa 平台上优先用 NSWindow.setAspectRatio 让窗口管理器
+        # 在拖拽期间原生强制等比缩放；没有 pyobjc 或非 cocoa 平台
+        # （offscreen 测试平台的 winId 不是真实 NSView，不能强转）时退回
+        # resizeEvent 反馈修正
+        if sys.platform == "darwin" and QApplication.platformName() == "cocoa":
             try:
                 import objc
                 self._objc = objc
@@ -64,36 +68,32 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # 拖拽边缘调整窗口大小。缩放处理不能依赖定时器：macOS 实时拖拽期间
-        # 事件循环处于 tracking 模式，QTimer 不会触发，只能在 resizeEvent 里
-        # 直接处理；释放检查定时器同样在拖拽期间不会触发，松手后恢复触发
-        if self._aspect_fixing:
+        # 拖拽边缘调整窗口大小。两个 macOS 限制：
+        # 1) 原生拖拽手势的鼠标事件不经过 Qt，QApplication.mouseButtons()
+        #    不报告左键，因此不能按鼠标状态判定，只能排除程序化吸附，
+        #    其余 resize 一律视为用户拖拽；
+        # 2) 实时拖拽期间事件循环处于 tracking 模式，QTimer 不触发，
+        #    缩放处理必须在 resizeEvent 里直接做。
+        if self._aspect_fixing or self._programmatic or self._suppress_drag:
             return
-        left = Qt.MouseButton.LeftButton
-        buttons = QApplication.mouseButtons()
-        if buttons & left:
-            if not self.flag_drag_border:
-                self.flag_drag_border = True
-                self._drag_aspect = self.width() / max(1, self.height())
-                self._last_drag_w = self.width()
-                self._last_drag_h = self.height()
-                self._drag_release_timer = QTimer(self)
-                self._drag_release_timer.timeout.connect(self.__check_drag_release)
-                self._drag_release_timer.start(150)
-            self.__enforce_drag_aspect()
-            self.dragResize.emit()
-        elif self.flag_drag_border:
-            self.__finish_drag()
-
-    def __check_drag_release(self):
-        if QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
-            return
-        self.__finish_drag()
+        if not self.flag_drag_border:
+            self.flag_drag_border = True
+            self._drag_aspect = self.width() / max(1, self.height())
+            self._last_drag_w = self.width()
+            self._last_drag_h = self.height()
+        self.__enforce_drag_aspect()
+        self.dragResize.emit()
+        # 用户停止调整后静默 300ms 视为拖拽结束：实时拖拽期间定时器被
+        # tracking 模式挂起，松手后才会触发，天然形成去抖
+        if self._drag_idle_timer is None:
+            self._drag_idle_timer = QTimer(self)
+            self._drag_idle_timer.setSingleShot(True)
+            self._drag_idle_timer.timeout.connect(self.__finish_drag)
+        self._drag_idle_timer.start(300)
 
     def __finish_drag(self):
-        if self._drag_release_timer is not None:
-            self._drag_release_timer.stop()
-            self._drag_release_timer = None
+        if self._drag_idle_timer is not None:
+            self._drag_idle_timer.stop()
         if not self.flag_drag_border:
             return
         self.flag_drag_border = False

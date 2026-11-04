@@ -514,6 +514,9 @@ class Ui_MainWindow(Ui_MainWindow):
                               max(1, hint.height() - delta_h))
             # 让窗口管理器按界面固有比例约束拖拽（macOS 原生等比锁）
             mw.set_interface_aspect(hint.width(), hint.height())
+        # 吸附/布局自适应期间抑制拖拽判定，避免滚轮缩放引发的
+        # 程序化窗口变化被误判为用户拖拽
+        mw._suppress_drag = True
         self.timer_ = QTimer()
         self.timer_.timeout.connect(self.__minimumWindow)
         self.timer_.start(1)
@@ -524,11 +527,15 @@ class Ui_MainWindow(Ui_MainWindow):
             return
         hint = self.mainWindow.minimumSizeHint()
         if hint.isValid():
+            # 程序化吸附打标记，避免被误判为用户拖拽
+            self.mainWindow._programmatic = True
             self.mainWindow.resize(hint)
+            self.mainWindow._programmatic = False
         self.minimum_counter += 1
         if self.minimum_counter >= 100:
             self.minimum_counter = 0
             self.timer_.stop()
+            self.mainWindow._suppress_drag = False
 
     def __drag_scale_target(self):
         # 按棋盘框当前可容纳的空间，换算出整数格子边长
