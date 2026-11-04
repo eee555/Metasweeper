@@ -175,6 +175,21 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle("windowsvista" if sys.platform == "win32" else "Fusion")
+
+    if sys.platform == "darwin":
+        # macOS 下 Finder 双击录像时，文件通过 QFileOpenEvent 传递而非命令行参数；
+        # 已有实例在运行时同样由系统把打开事件投递到当前实例。
+        class _FileOpenEventFilter(QtCore.QObject):
+            def eventFilter(self, obj, event):
+                if event.type() == QtCore.QEvent.FileOpen and event.file():
+                    for win in QApplication.topLevelWidgets():
+                        if isinstance(win, mainWindowGUI.MainWindow):
+                            win.dropFileSignal.emit(event.file())
+                            break
+                return False
+
+        _file_open_filter = _FileOpenEventFilter()
+        app.installEventFilter(_file_open_filter)
     serverName = "MineSweeperServer"
     socket = QLocalSocket()
     socket.connectToServer(serverName)
