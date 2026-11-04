@@ -355,16 +355,6 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation>The cursor cannot move out of the border</translation>
     </message>
     <message>
-        <location filename="ui_gameSettings.py" line="607"/>
-        <source>开启后，在游戏界面上滚动鼠标滚轮即可缩放界面：上滚缩小，下滚增大</source>
-        <translation>When enabled, scroll the mouse wheel over the game board to zoom the interface: scroll up to zoom out, scroll down to zoom in</translation>
-    </message>
-    <message>
-        <location filename="ui_gameSettings.py" line="610"/>
-        <source>鼠标滚轮缩放</source>
-        <translation>Mouse Wheel Zoom</translation>
-    </message>
-    <message>
         <location filename="ui_gameSettings.py" line="455"/>
         <source>用于与其他人相区分，但不希望排名网站和软件展示出来</source>
         <translation>Used to distinguish from others, but not intended to be displayed on ranking websites and software</translation>

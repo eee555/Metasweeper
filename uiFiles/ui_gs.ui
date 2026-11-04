@@ -764,25 +764,6 @@ background-color:rgb(255, 255, 255)
           </widget>
          </item>
          <item>
-          <widget class="QCheckBox" name="checkBox_wheel_zoom">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>开启后，在游戏界面上滚动鼠标滚轮即可缩放界面：上滚缩小，下滚增大</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true"/>
-           </property>
-           <property name="text">
-            <string>鼠标滚轮缩放</string>
-           </property>
-          </widget>
-         </item>
-         <item>
           <widget class="QWidget" name="widget_4" native="true">
            <property name="minimumSize">
             <size>

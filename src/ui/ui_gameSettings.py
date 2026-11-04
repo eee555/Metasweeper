@@ -332,13 +332,6 @@ class Ui_Form(object):
 
         self.verticalLayout_5.addWidget(self.checkBox_cursor_limit)
 
-        self.checkBox_wheel_zoom = QCheckBox(self.frame_4)
-        self.checkBox_wheel_zoom.setObjectName(u"checkBox_wheel_zoom")
-        self.checkBox_wheel_zoom.setMinimumSize(QSize(0, 32))
-        self.checkBox_wheel_zoom.setStyleSheet(u"")
-
-        self.verticalLayout_5.addWidget(self.checkBox_wheel_zoom)
-
         self.widget_4 = QWidget(self.frame_4)
         self.widget_4.setObjectName(u"widget_4")
         self.widget_4.setMinimumSize(QSize(0, 32))
@@ -603,12 +596,6 @@ class Ui_Form(object):
 # endif // QT_CONFIG(tooltip)
         self.checkBox_cursor_limit.setText(QCoreApplication.translate(
             "Form", u"\u5149\u6807\u4e0d\u80fd\u8d85\u51fa\u8fb9\u6846", None))
-# if QT_CONFIG(tooltip)
-        self.checkBox_wheel_zoom.setToolTip(QCoreApplication.translate(
-            "Form", u"\u5f00\u542f\u540e\uff0c\u5728\u6e38\u620f\u754c\u9762\u4e0a\u6eda\u52a8\u9f20\u6807\u6eda\u8f6e\u5373\u53ef\u7f29\u653e\u754c\u9762\uff1a\u4e0a\u6eda\u7f29\u5c0f\uff0c\u4e0b\u6eda\u589e\u5927", None))
-# endif // QT_CONFIG(tooltip)
-        self.checkBox_wheel_zoom.setText(QCoreApplication.translate(
-            "Form", u"\u9f20\u6807\u6eda\u8f6e\u7f29\u653e", None))
 # if QT_CONFIG(tooltip)
         self.checkBox_auto_replay.setToolTip("")
 # endif // QT_CONFIG(tooltip)

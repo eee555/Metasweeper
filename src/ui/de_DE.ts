@@ -355,16 +355,6 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
         <translation>Der Cursor darf nicht über den Rand hinausragen</translation>
     </message>
     <message>
-        <location filename="ui_gameSettings.py" line="607"/>
-        <source>开启后，在游戏界面上滚动鼠标滚轮即可缩放界面：上滚缩小，下滚增大</source>
-        <translation>Nach dem Aktivieren kann mit dem Mausrad über dem Spielfeld gezoomt werden: nach oben verkleinern, nach unten vergrößern</translation>
-    </message>
-    <message>
-        <location filename="ui_gameSettings.py" line="610"/>
-        <source>鼠标滚轮缩放</source>
-        <translation>Zoom mit dem Mausrad</translation>
-    </message>
-    <message>
         <location filename="ui_gameSettings.py" line="455"/>
         <source>用于与其他人相区分，但不希望排名网站和软件展示出来</source>
         <translation>Dient dazu, sich von anderen zu unterscheiden, ist jedoch nicht für die Anzeige durch Ranking-Websites und Software vorgesehen</translation>

@@ -355,16 +355,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Kursor nie może wychodzić poza granice</translation>
     </message>
     <message>
-        <location filename="ui_gameSettings.py" line="607"/>
-        <source>开启后，在游戏界面上滚动鼠标滚轮即可缩放界面：上滚缩小，下滚增大</source>
-        <translation>Po włączeniu przewijanie kółkiem myszy nad planszą zmienia powiększenie: w górę pomniejsza, w dół powiększa</translation>
-    </message>
-    <message>
-        <location filename="ui_gameSettings.py" line="610"/>
-        <source>鼠标滚轮缩放</source>
-        <translation>Powiększanie kółkiem myszy</translation>
-    </message>
-    <message>
         <location filename="ui_gameSettings.py" line="455"/>
         <source>用于与其他人相区分，但不希望排名网站和软件展示出来</source>
         <translation>Służy do odróżnienia się od innych, ale nie jest przeznaczony do wyświetlania przez strony internetowe i oprogramowanie zajmujące się rankingami</translation>

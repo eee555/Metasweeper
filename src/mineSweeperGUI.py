@@ -1212,7 +1212,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.auto_replay = ui.auto_replay
             self.end_then_flag = ui.end_then_flag
             self.cursor_limit = ui.cursor_limit
-            self.wheel_zoom = ui.wheel_zoom
             self.auto_notification = ui.auto_notification
             self.player_identifier = ui.player_identifier
             self.label_info.setText(self.player_identifier)
