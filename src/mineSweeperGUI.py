@@ -228,6 +228,16 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
         self.reimportLEDPic(pixSize)
         self.label_2.reloadFace(pixSize)
+        # 窗口凹凸边框（阴影/高亮）跟随格子缩放，否则放大后边框过细而失真。
+        # 以启动时的格子尺寸为基准，保证默认外观与设计一致
+        if not hasattr(self, "_bevel_base_pix_size"):
+            self._bevel_base_pix_size = pixSize
+        bevel_scale = pixSize / self._bevel_base_pix_size
+        if hasattr(self, "frame_1"):
+            self.frame_1.setLineWidth(max(1, round(6 * bevel_scale)))
+            self.frame.setLineWidth(max(1, round(4 * bevel_scale)))
+            self.MinenumTimeWigdet.setLineWidth(
+                max(1, round(4 * bevel_scale)))
         self.set_face(FACE_SMILE)
         self.showMineNum(self.mineUnFlagedNum)
         self.showTime(0)
