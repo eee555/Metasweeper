@@ -20,6 +20,7 @@ from config.constants import (
     BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT,
     FACE_SMILE, FACE_CLICK, FACE_LOST, FACE_WIN, FACE_SMILE_DOWN,
     LEVEL_NAME_BEGINNER, LEVEL_NAME_INTERMEDIATE, LEVEL_NAME_EXPERT, LEVEL_NAME_CUSTOM,
+    READY, BOARD_READY, MIN_PIX_SIZE, MAX_PIX_SIZE,
 )
 from utils.app_logger import logger
 from plugin_sdk import GameServerBridge
@@ -334,6 +335,15 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label_12.mousewheelEvent.connect(self.mineNumWheel)
         self.label_13.mousewheelEvent.connect(self.mineNumWheel)
 
+        # 拖拽窗口边缘调整大小：棋盘区域优先吃掉多余空间，界面比例随之缩放
+        self.mainWindow.dragResize.connect(self.apply_drag_scale)
+        self.mainWindow.dragResizeFinished.connect(self.finish_drag_scale)
+        self.frame.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
+                                 QtWidgets.QSizePolicy.Policy.Expanding)
+        self.verticalLayout_2.setStretch(0, 1)    # frame_1 优先于底部信息行伸展
+        self.verticalLayout.setStretch(1, 1)      # 板区行优先于 LED 计数条伸展
+        self.horizontalLayout_2.setStretch(1, 1)  # 棋盘框优先于两侧弹簧伸展
+
         self.mainWindow.keyRelease.connect(self.mineKeyReleaseEvent)
 
         self.label.setObjectName("label")
@@ -490,20 +500,61 @@ class Ui_MainWindow(Ui_MainWindow):
             v, str) and v.isdigit() else v for (k, v) in s}
 
     def minimumWindow(self):
-        # 最小化展示窗口，并固定尺寸
+        # 收缩窗口至与界面精确贴合；不再锁定窗口尺寸，允许拖拽边缘缩放
         self.label.setFixedSize(QtCore.QSize(self.pixSize*self.column,
                                              self.pixSize*self.row))
         self.windowSizeState = 'tight'
+        # 允许窗口向缩小方向拖拽到格子为最小尺寸(MIN_PIX_SIZE)为止
+        mw = self.mainWindow
+        hint = mw.minimumSizeHint()
+        if hint.isValid():
+            delta_w = (self.pixSize - MIN_PIX_SIZE) * self.column
+            delta_h = (self.pixSize - MIN_PIX_SIZE) * self.row
+            mw.setMinimumSize(max(1, hint.width() - delta_w),
+                              max(1, hint.height() - delta_h))
         self.timer_ = QTimer()
         self.timer_.timeout.connect(self.__minimumWindow)
         self.timer_.start(1)
 
     def __minimumWindow(self):
-        self.mainWindow.setFixedSize(self.mainWindow.minimumSize())
+        # 拖拽边缘期间不打断用户调整，松手后由 dragResizeFinished 吸附
+        if self.mainWindow.flag_drag_border:
+            return
+        hint = self.mainWindow.minimumSizeHint()
+        if hint.isValid():
+            self.mainWindow.resize(hint)
         self.minimum_counter += 1
         if self.minimum_counter >= 100:
             self.minimum_counter = 0
             self.timer_.stop()
+
+    def __drag_scale_target(self):
+        # 按棋盘框当前可容纳的空间，换算出整数格子边长
+        border = 2 * self.frame.lineWidth()
+        avail_w = self.frame.width() - border
+        avail_h = self.frame.height() - border
+        if avail_w <= 0 or avail_h <= 0:
+            return None
+        pix = min(avail_w // self.column, avail_h // self.row)
+        return max(MIN_PIX_SIZE, min(MAX_PIX_SIZE, pix))
+
+    def apply_drag_scale(self):
+        # 拖拽边缘调整窗口大小：界面比例实时跟随（仅未开局时生效，防止局面被重置）
+        if self.game_state != READY or\
+                self.label.ms_board.game_board_state != BOARD_READY:
+            return
+        pix = self.__drag_scale_target()
+        if pix and pix != self.pixSize:
+            self.pixSize = pix
+
+    def finish_drag_scale(self):
+        # 松手：把比例调整到位，并让窗口吸附到与界面精确贴合的大小
+        if self.game_state == READY and\
+                self.label.ms_board.game_board_state == BOARD_READY:
+            pix = self.__drag_scale_target()
+            if pix and pix != self.pixSize:
+                self.pixSize = pix
+        self.minimumWindow()
 
     def trans_language(self, language=""):
         if not language:
@@ -604,9 +655,6 @@ class Ui_MainWindow(Ui_MainWindow):
             "DEFAULT/end_then_flag", True, bool)
         self.cursor_limit = self.game_setting.get_or_set_value(
             "DEFAULT/cursor_limit", False, bool)
-        # 是否允许鼠标滚轮直接缩放界面（默认关闭）
-        self.wheel_zoom = self.game_setting.get_or_set_value(
-            "DEFAULT/wheel_zoom", False, bool)
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:

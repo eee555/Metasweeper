@@ -10,8 +10,11 @@ class MainWindow(QtWidgets.QMainWindow):
     keyRelease = QtCore.Signal(str)
     closeEvent_ = QtCore.Signal()
     dropFileSignal = QtCore.Signal(str)
+    # 拖拽边缘调整窗口大小时发出：界面比例应跟随窗口尺寸变化
+    dragResize = QtCore.Signal()
+    # 拖拽结束：吸附到与界面比例精确匹配的窗口尺寸
+    dragResizeFinished = QtCore.Signal()
     flag_drag_border = False
-    minimum_counter = 0
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -25,22 +28,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self.keyRelease.emit('Space')
 
     def resizeEvent(self, event):
-        # 拖拽边框后resize尺寸
-        if QApplication.mouseButtons() & Qt.LeftButton:
+        super().resizeEvent(event)
+        # 拖拽边缘调整窗口大小（仅在按住左键的用户拖拽中触发）
+        left = Qt.MouseButton.LeftButton
+        if QApplication.mouseButtons() & left and not self.flag_drag_border:
             self.flag_drag_border = True
-            self.timer_ = QTimer()
-            self.timer_.timeout.connect(self.__minimumWindowRelease)
-            self.timer_.start(100)
+            self.dragResize.emit()
+            self._drag_tick_timer = QTimer(self)
+            self._drag_tick_timer.timeout.connect(self.dragResize)
+            self._drag_tick_timer.start(100)
+            self._drag_release_timer = QTimer(self)
+            self._drag_release_timer.timeout.connect(self.__check_drag_release)
+            self._drag_release_timer.start(100)
 
-    def __minimumWindowRelease(self):
-        if not (QApplication.mouseButtons() & Qt.LeftButton):
-            self.flag_drag_border = False
-        if not self.flag_drag_border:
-            self.resize(self.minimumSize())
-            self.minimum_counter += 1
-            if self.minimum_counter >= 10:
-                self.minimum_counter = 0
-                self.timer_.stop()
+    def __check_drag_release(self):
+        if QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
+            return
+        self._drag_tick_timer.stop()
+        self._drag_release_timer.stop()
+        self.flag_drag_border = False
+        self.dragResizeFinished.emit()
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         super().dragEnterEvent(event)
