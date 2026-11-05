@@ -810,6 +810,25 @@ background-color:rgb(255, 255, 255)
           </widget>
          </item>
          <item>
+          <widget class="QCheckBox" name="checkBox_board_shake">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>开出格子与踩雷时，棋盘短促抖动</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"/>
+           </property>
+           <property name="text">
+            <string>开格抖动特效</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QWidget" name="widget_4" native="true">
            <property name="minimumSize">
             <size>

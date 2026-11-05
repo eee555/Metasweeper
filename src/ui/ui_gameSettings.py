@@ -333,6 +333,13 @@ class Ui_Form(object):
 
         self.verticalLayout_5.addWidget(self.checkBox_cursor_limit)
 
+        self.checkBox_board_shake = QCheckBox(self.frame_4)
+        self.checkBox_board_shake.setObjectName(u"checkBox_board_shake")
+        self.checkBox_board_shake.setMinimumSize(QSize(0, 32))
+        self.checkBox_board_shake.setStyleSheet(u"")
+
+        self.verticalLayout_5.addWidget(self.checkBox_board_shake)
+
         self.widget_4 = QWidget(self.frame_4)
         self.widget_4.setObjectName(u"widget_4")
         self.widget_4.setMinimumSize(QSize(0, 32))
@@ -579,6 +586,10 @@ class Ui_Form(object):
         self.checkBox_cursor_limit.setToolTip("")
 #endif // QT_CONFIG(tooltip)
         self.checkBox_cursor_limit.setText(QCoreApplication.translate("Form", u"\u5149\u6807\u4e0d\u80fd\u8d85\u51fa\u8fb9\u6846", None))
+#if QT_CONFIG(tooltip)
+        self.checkBox_board_shake.setToolTip(QCoreApplication.translate("Form", u"\u5f00\u51fa\u683c\u5b50\u4e0e\u8e29\u96f7\u65f6\uff0c\u68cb\u76d8\u77ed\u4fc3\u6296\u52a8", None))
+#endif // QT_CONFIG(tooltip)
+        self.checkBox_board_shake.setText(QCoreApplication.translate("Form", u"\u5f00\u683c\u6296\u52a8\u7279\u6548", None))
 #if QT_CONFIG(tooltip)
         self.checkBox_auto_replay.setToolTip("")
 #endif // QT_CONFIG(tooltip)

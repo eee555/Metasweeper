@@ -834,6 +834,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.old_evfs_filename = file_name
 
     def gameFailed(self):  # 失败后改脸和状态变量
+        self.label.start_shake(strong=True)  # 踩雷强档抖动（纯表现层，开关关闭时内部直接返回）
         self.timer_10ms.stop()
         self.score_board_manager.editing_row = -1
 
@@ -1219,6 +1220,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.end_then_flag = ui.end_then_flag
             self.cursor_limit = ui.cursor_limit
             self.double_click_restart = ui.double_click_restart
+            self.board_shake = ui.board_shake
+            self.label.shake_enabled = self.board_shake
             self.auto_notification = ui.auto_notification
             self.player_identifier = ui.player_identifier
             self.label_info.setText(self.player_identifier)
