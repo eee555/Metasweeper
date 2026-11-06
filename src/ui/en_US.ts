@@ -184,6 +184,16 @@ The dropdown only shows plugins that declare the permission.</translation>
 <context>
     <name>Form</name>
     <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="789"/>
+        <source>左键双击重开（游戏结束后）</source>
+        <translation>Double left-click to restart (after game ends)</translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="786"/>
+        <source>胜利或失败后，在棋盘上双击鼠标左键重开新局</source>
+        <translation>After a win or loss, double-click the board with the left mouse button to start a new game.</translation>
+    </message>
+    <message>
         <location filename="../../uiFiles/ui_gs.ui" line="1179"/>
         <location filename="../../uiFiles/ui_about.ui" line="585"/>
         <location filename="../../uiFiles/ui_defined_parameter.ui" line="70"/>

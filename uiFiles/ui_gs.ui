@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>554</width>
-    <height>644</height>
+    <height>682</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -771,6 +771,22 @@ background-color:rgb(255, 255, 255)
            </property>
            <property name="text">
             <string>结束后标雷</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox_double_click_restart">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>胜利或失败后，在棋盘上双击鼠标左键重开新局</string>
+           </property>
+           <property name="text">
+            <string>左键双击重开（游戏结束后）</string>
            </property>
           </widget>
          </item>
