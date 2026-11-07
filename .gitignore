@@ -179,3 +179,6 @@ prompt.md
 
 # macOS
 .DS_Store
+
+# VSCode WorkSpace
+Solvable-Minesweeper.code-workspace
