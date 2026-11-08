@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#EAF2F7"/>
+      <stop offset="0.56" stop-color="#DCE7EE"/>
+      <stop offset="1" stop-color="#C9D8E3"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="16%" cy="10%" r="82%">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="88%" cy="84%" r="74%">
+      <stop offset="0" stop-color="#8FBAD2" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#8FBAD2" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grain" width="44" height="44" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="8" r="0.85" fill="#FFFFFF" opacity="0.12"/>
+      <circle cx="31" cy="29" r="0.65" fill="#8FBAD2" opacity="0.10"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="800" fill="url(#base)"/>
+  <rect width="1200" height="800" fill="url(#glowA)"/>
+  <rect width="1200" height="800" fill="url(#glowB)"/>
+  <g fill="none" stroke="#79AFCB" stroke-width="2" opacity="0.13" stroke-linecap="round">
+    <path d="M130 96v112m-49-84 98 56m0-56-98 56m49-84-17 23m17-23 17 23m-66 33 28 2m-28-2 9 25m98-25-28 2m28-2-9 25"/>
+    <path d="M1040 520v150m-65-112 130 74m0-74-130 74m65-112-20 28m20-28 20 28m-86 44 37 2m-37-2 12 33m130-33-37 2m37-2-12 33"/>
+    <path d="M680 76v60m-26-45 52 30m0-30-52 30m26-45-10 14m10-14 10 14"/>
+  </g>
+  <g fill="#FFFFFF" opacity="0.42">
+    <circle cx="295" cy="575" r="3"/><circle cx="850" cy="192" r="2.5"/>
+    <circle cx="570" cy="700" r="2"/><circle cx="1110" cy="320" r="2"/>
+  </g>
+  <g fill="none" stroke="#5F9FBE" stroke-width="4" opacity="0.20" stroke-linecap="round">
+    <path d="M175 330V170m-69 40 138 80m0-80-138 80m69-120-22 31m22-31 22 31m-107 10 39 3m-39-3 13 34m160-34-39 3m39-3-13 34m-107 29 39-3m-39 3 13-34m160 34-39-3m39 3-13-34"/>
+    <path d="M1020 760V590m-74 42 148 86m0-86-148 86m74-128-24 34m24-34 24 34m-114 11 42 3m-42-3 14 37m168-37-42 3m42-3-14 37"/>
+  </g>
+  <g fill="#FFFFFF" opacity="0.5">
+    <path d="M405 125l8 18 18 8-18 8-8 18-8-18-18-8 18-8z"/>
+    <path d="M805 690l6 14 14 6-14 6-6 14-6-14-14-6 14-6z"/>
+  </g>
+</svg>
