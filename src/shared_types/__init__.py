@@ -14,7 +14,12 @@ from .commands import (
     NewGameCommand,
     NewPresetGameCommand,
     MouseClickCommand,
+    SetSkinCommand,
     COMMAND_TYPES,
+    SKIN_CELL_KEYS,
+    SKIN_LED_KEYS,
+    SKIN_FACE_KEYS,
+    SKIN_COLOR_KEYS,
 )
 
 from .queries import (
@@ -48,7 +53,12 @@ __all__ = [
     "NewGameCommand",
     "NewPresetGameCommand",
     "MouseClickCommand",
+    "SetSkinCommand",
     "COMMAND_TYPES",
+    "SKIN_CELL_KEYS",
+    "SKIN_LED_KEYS",
+    "SKIN_FACE_KEYS",
+    "SKIN_COLOR_KEYS",
     # 查询
     "GetBoardStateQuery",
     "GetGameStatusQuery",

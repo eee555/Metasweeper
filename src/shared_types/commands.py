@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+import msgspec
+
 from lib_zmq_plugins.shared.base import BaseCommand
 
 from .enums import GameLevel, GameMode
@@ -76,5 +78,52 @@ class InitOpenCommand(BaseCommand, tag="init_open"):
     col: int = 0
 
 
+class SetSkinCommand(BaseCommand, tag="set_skin"):
+    """
+    热替换主窗口图片资源（纯内存，不写磁盘、不重启）。
+
+    所有资源以原始图片字节（SVG/PNG）传输，由主进程解码为 QPixmap 后
+    写入各控件的内存缓存，重绘后立即生效；主进程退出即自动还原。
+
+    Attributes:
+        cells: 格子图 {key: bytes}，key 见 SKIN_CELL_KEYS（16 张）
+        leds:  LED 数字 {0..9: bytes}（10 张）
+        faces: 笑脸 {FACE_*: bytes}，key 见 SKIN_FACE_KEYS（5 张）
+        colors: 框架/计数器配色 {键名: #RRGGBB}，见 SKIN_COLOR_KEYS；
+            只替换给定的键；提供 frame_svg 时，部分框架纯色背景键由 SVG 接管
+        frame_svg: 可选的大幅 SVG 背景，整张绘制在现有 centralwidget 上，子控件透出
+        reset: True 时忽略以上所有字段，恢复默认图片、背景与配色
+    """
+    cells: dict[int, bytes] = msgspec.field(default_factory=dict)
+    leds: dict[int, bytes] = msgspec.field(default_factory=dict)
+    faces: dict[int, bytes] = msgspec.field(default_factory=dict)
+    colors: dict[str, str] = msgspec.field(default_factory=dict)
+    frame_svg: bytes | None = None
+    reset: bool = False
+
+
+# 皮肤资源 key（主进程解码校验与插件打包共用；不含窗口图标）
+SKIN_CELL_KEYS = (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 14, 15, 16, 17, 100)
+SKIN_LED_KEYS = tuple(range(10))
+SKIN_FACE_KEYS = (14, 15, 16, 17, 18)  # FACE_SMILE/CLICK/LOST/WIN/SMILE_DOWN
+
+# 框架配色键：主窗口里非图片的浅灰区域（QPalette / QFrame 原生绘制）
+# window        : 主窗口/中央部件背景（原 #c0c0c0）
+# frame         : frame_1 外框、frame 雷区边框、顶部条边框（原灰色 3D 边框）
+# topbar        : MinenumTimeWigdet 顶部条背景（原浅灰）
+# infobar       : 底部 label_info 背景
+# text          : 底部信息文字（原黑色）
+# flag_bg       : 右下角国旗标签的白底（原 #ffffff；国旗图案本身不变）
+# sb_bg         : 计数器（计分板）窗口背景
+# sb_text       : 计数器标题与表格文字
+# sb_grid       : 计数器表格网格线
+# sb_header     : 计数器表格表头/选中底色（可选）
+# 注：菜单栏（背景/文字）按需求保持系统原样，不提供配色键
+SKIN_COLOR_KEYS = (
+    "window", "frame", "topbar", "infobar", "text", "flag_bg",
+    "sb_bg", "sb_text", "sb_grid", "sb_header",
+)
+
+
 COMMAND_TYPES = [NewGameCommand, NewPresetGameCommand,
-                 MouseClickCommand, InitOpenCommand]
+                 MouseClickCommand, InitOpenCommand, SetSkinCommand]

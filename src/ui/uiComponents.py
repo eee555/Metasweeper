@@ -85,6 +85,11 @@ class RoundMixin:
         # 可以随意拖动的圆角、阴影对话框的行为类
         self.border_width = 5
         self._dragging = False
+        # 圆角面板填充色。皮肤可通过 skin_bg_color 覆盖；
+        # None 时沿用默认的浅色（#f2f2f2），保持原有观感。
+        self.skin_bg_color: QColor | None = None
+        # 可选的整幅 SVG 栅格源；子窗口可把同一张 frame.svg 直接铺满圆角面板。
+        self.skin_bg_pixmap: QPixmap | None = None
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
 
@@ -108,16 +113,24 @@ class RoundMixin:
             p.setPen(color)
             p.drawPath(i_path)
 
-        # 圆角
-        p.setBrush(QtGui.QColor(242, 242, 242, 255))
-        p.setPen(Qt.transparent)
-
         rect = self.rect()
         rect.setLeft(9)
         rect.setTop(9)
         rect.setWidth(rect.width()-9)
         rect.setHeight(rect.height()-9)
-        p.drawRoundedRect(rect, 10, 10)
+        if self.skin_bg_pixmap is not None and not self.skin_bg_pixmap.isNull():
+            # 计数器使用同一整幅图，缩放铺满圆角面板，不生成控件级裁切贴图。
+            clip = QPainterPath()
+            clip.addRoundedRect(QRectF(rect), 10, 10)
+            p.save()
+            p.setClipPath(clip)
+            p.drawPixmap(rect, self.skin_bg_pixmap, self.skin_bg_pixmap.rect())
+            p.restore()
+        else:
+            # 圆角背景由计数器纯色皮肤控制；None 时沿用默认浅灰色。
+            p.setBrush(self.skin_bg_color or QtGui.QColor(242, 242, 242, 255))
+            p.setPen(Qt.transparent)
+            p.drawRoundedRect(rect, 10, 10)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -168,14 +181,30 @@ class StatusLabel (QtWidgets.QLabel):
         self.setFrameShadow(QtWidgets.QFrame.Raised)
         self.setLineWidth(1)
         self.setAlignment(QtCore.Qt.AlignCenter)
+        # 皮肤内存源：按下/松开两张脸的原始 QPixmap；None 表示用磁盘默认资源。
+        # 由 app.skin_applier 在运行时写入，不落盘、重启即还原。
+        self.skin_face_down: QPixmap | None = None
+        self.skin_face_normal: QPixmap | None = None
+
+    def _face_base(self, kind: str) -> QPixmap:
+        """取按下/松开态的原始图：优先内存皮肤源，否则读磁盘默认资源。"""
+        if kind == "down":
+            src = self.skin_face_down
+            return src if src is not None else QPixmap(self.smilefacedown_path)
+        src = self.skin_face_normal
+        return src if src is not None else QPixmap(self.smileface_path)
 
     def reloadFace(self, pixSize):
         # 重新修改脸的大小，叫rescale_face更妥
         self.pixSize = pixSize
-        self.pixmap1 = QPixmap(self.smilefacedown_path).scaled(
+        base1 = self._face_base("down")
+        base2 = self._face_base("normal")
+        self.pixmap1 = base1.copy().scaled(
             int(pixSize * 1.5), int(pixSize * 1.5))
-        self.pixmap2 = QPixmap(self.smileface_path).scaled(
+        self.pixmap2 = base2.copy().scaled(
             int(pixSize * 1.5), int(pixSize * 1.5))
+        self.pixmap1_svg = base1
+        self.pixmap2_svg = base2
         self.setMinimumSize(QtCore.QSize(
             int(pixSize * 1.5), int(pixSize * 1.5)))
         self.setMaximumSize(QtCore.QSize(
@@ -191,8 +220,8 @@ class StatusLabel (QtWidgets.QLabel):
         # config.read(game_setting_path, encoding='utf-8')
         # self.pixSize = config.getint('DEFAULT','pixSize')
         # self.pixSize = 5
-        self.pixmap1_svg = QPixmap(self.smilefacedown_path)
-        self.pixmap2_svg = QPixmap(self.smileface_path)
+        self.pixmap1_svg = self._face_base("down")
+        self.pixmap2_svg = self._face_base("normal")
         # self.reloadFace(self.pixSize)
         # self.resize(QtCore.QSize(int(self.pixSize * 1.5), int(self.pixSize * 1.5)))
 

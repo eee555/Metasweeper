@@ -1,9 +1,13 @@
 """主进程插件控制命令。"""
 
 from config.constants import BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT
-from shared_types.commands import NewGameCommand, NewPresetGameCommand, MouseClickCommand, InitOpenCommand
+from shared_types.commands import (
+    NewGameCommand, NewPresetGameCommand, MouseClickCommand,
+    InitOpenCommand, SetSkinCommand,
+)
 from shared_types.enums import GameLevel
 from utils.app_logger import logger
+from app.skin_applier import handle_set_skin
 
 
 def register_plugin_commands(bridge, ui):
@@ -57,7 +61,13 @@ def register_plugin_commands(bridge, ui):
         success = ui.execute_cell_click(cmd.row, cmd.col, 0)
         return CommandResponse(request_id=cmd.request_id, success=success)
 
+    def handle_set_skin_cmd(cmd: SetSkinCommand):
+        # 换肤是外观操作，不受 allowed_controls（作弊开关）约束；
+        # 权限由插件侧 ControlAuthorizationManager 独占授权保证。
+        return handle_set_skin(ui, cmd)
+
     bridge.register_handler(NewGameCommand, handle_new_game)
     bridge.register_handler(NewPresetGameCommand, handle_new_preset_game)
     bridge.register_handler(MouseClickCommand, handle_mouse_click)
     bridge.register_handler(InitOpenCommand, handle_init_open)
+    bridge.register_handler(SetSkinCommand, handle_set_skin_cmd)

@@ -4,6 +4,7 @@ import ms_toollib as ms
 from PySide6.QtCore import QPoint, QPointF, Qt, QRect, QPropertyAnimation, QEasingCurve
 from config.constants import BOARD_READY, BOARD_PLAYING, CELL_UNOPENED
 from shared_types.enums import MouseState
+from shared_types.commands import SKIN_CELL_KEYS
 import utils
 from utils.path_utils import resource_path
 
@@ -53,6 +54,11 @@ class mineLabel(QtWidgets.QLabel):
         self._shake_offset = QPointF(0.0, 0.0)
         self._shake_anim = None
         self.shake_enabled = True
+        # 皮肤内存源：{key: 原始 QPixmap}。None 表示使用磁盘默认资源。
+        # 由 app.skin_applier 在运行时写入；不落盘、重启即还原。
+        # 同时保存原始字节，供 _copy_board_svg 用 QSvgRenderer 渲染。
+        self.skin_source: dict[int, QPixmap] | None = None
+        self.skin_source_bytes: dict[int, bytes] | None = None
 
     def _get_shake_offset(self):
         return self._shake_offset
@@ -148,6 +154,16 @@ class mineLabel(QtWidgets.QLabel):
         self.blast_path = str(m.joinpath('blast.svg'))
         self.falsemine_path = str(m.joinpath('falsemine.svg'))
         self.mine_path = str(m.joinpath('mine.svg'))
+        # key -> 默认磁盘路径，供皮肤未覆盖的格子回退使用
+        self.cell_path_map: dict[int, str] = {
+            0: self.celldown_path, 1: self.cell1_path, 2: self.cell2_path,
+            3: self.cell3_path, 4: self.cell4_path, 5: self.cell5_path,
+            6: self.cell6_path, 7: self.cell7_path, 8: self.cell8_path,
+            10: self.cellup_path, 11: self.cellflag_path,
+            14: self.falsemine_path, 15: self.blast_path,
+            16: self.cellmine_path, 17: self.cellquestion_path,
+            100: self.mine_path,
+        }
 
     def set_rcp(self, row, column, pixSize):
         '''
@@ -538,47 +554,15 @@ class mineLabel(QtWidgets.QLabel):
         painter.end()
 
     def importCellPic(self, pixSize):
-        # 从磁盘导入资源，并缩放到希望的尺寸、比例
-        celldown = QPixmap(self.celldown_path)
-        cell1 = QPixmap(self.cell1_path)
-        cell2 = QPixmap(self.cell2_path)
-        cell3 = QPixmap(self.cell3_path)
-        cell4 = QPixmap(self.cell4_path)
-        cell5 = QPixmap(self.cell5_path)
-        cell6 = QPixmap(self.cell6_path)
-        cell7 = QPixmap(self.cell7_path)
-        cell8 = QPixmap(self.cell8_path)
-        cellup = QPixmap(self.cellup_path)
-        cellmine = QPixmap(self.cellmine_path)  # 白雷
-        cellflag = QPixmap(self.cellflag_path)  # 标雷
-        cellquestion = QPixmap(self.cellquestion_path)  # 问号
-        blast = QPixmap(self.blast_path)  # 红雷
-        falsemine = QPixmap(self.falsemine_path)  # 叉雷
-        mine = QPixmap(self.mine_path)  # 透明雷
-        self.pixmapNumBack = {0: celldown, 1: cell1, 2: cell2, 3: cell3, 4: cell4,
-                              5: cell5, 6: cell6, 7: cell7, 8: cell8,
-                              10: cellup, 11: cellflag, 14: falsemine,
-                              15: blast, 16: cellmine, 17: cellquestion, 100: mine}
-        celldown_ = celldown.copy().scaled(pixSize, pixSize)
-        cell1_ = cell1.copy().scaled(pixSize, pixSize)
-        cell2_ = cell2.copy().scaled(pixSize, pixSize)
-        cell3_ = cell3.copy().scaled(pixSize, pixSize)
-        cell4_ = cell4.copy().scaled(pixSize, pixSize)
-        cell5_ = cell5.copy().scaled(pixSize, pixSize)
-        cell6_ = cell6.copy().scaled(pixSize, pixSize)
-        cell7_ = cell7.copy().scaled(pixSize, pixSize)
-        cell8_ = cell8.copy().scaled(pixSize, pixSize)
-        cellup_ = cellup.copy().scaled(pixSize, pixSize)
-        cellmine_ = cellmine.copy().scaled(pixSize, pixSize)
-        cellflag_ = cellflag.copy().scaled(pixSize, pixSize)
-        cellquestion_ = cellquestion.copy().scaled(pixSize, pixSize)
-        blast_ = blast.copy().scaled(pixSize, pixSize)
-        falsemine_ = falsemine.copy().scaled(pixSize, pixSize)
-        mine_ = mine.copy().scaled(pixSize, pixSize)
-        self.pixmapNum = {0: celldown_, 1: cell1_, 2: cell2_, 3: cell3_, 4: cell4_,
-                          5: cell5_, 6: cell6_, 7: cell7_, 8: cell8_,
-                          10: cellup_, 11: cellflag_, 14: falsemine_,
-                          15: blast_, 16: cellmine_, 17: cellquestion_, 100: mine_}
+        # 导入原始资源到 pixmapNumBack，再统一缩放到 pixSize。
+        # 有内存皮肤源时优先取内存（可逐 key 回退到磁盘默认资源）。
+        skin = self.skin_source
+        self.pixmapNumBack = {
+            key: (skin[key] if skin and key in skin
+                  else QPixmap(self.cell_path_map[key]))
+            for key in SKIN_CELL_KEYS
+        }
+        self.reloadCellPic(pixSize)
 
     def reloadCellPic(self, pixSize):
         # 从内存导入资源，并缩放到希望的尺寸、比例。
