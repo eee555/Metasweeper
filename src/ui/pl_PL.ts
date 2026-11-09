@@ -100,8 +100,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="212"/>
-        <source>插件随机重开一局（结果非 official / 非 fair）</source>
-        <translation>Wtyczka losowo rozpoczyna nową grę (wynik ani official, ani fair)</translation>
+        <source>插件重开新局（等价于按 F2，不影响成绩）</source>
+        <translation>Wtyczka rozpoczyna nową grę (odpowiednik F2; nie wpływa na wynik)</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="214"/>
@@ -1014,8 +1014,8 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="38"/>
-        <source>允许插件的控制类命令后（如点击格子、重开新局等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。</source>
-        <translation>Po zezwoleniu na polecenia sterowania wtyczką (np. klikanie komórek, nowa gra), bieżąca powtórka zostanie oznaczona jako &quot;nieformalna&quot; i wykluczona z rankingów. Każde polecenie musi być autoryzowane w &lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;Menedżerze wtyczek&lt;/a&gt;.</translation>
+        <source>允许插件读取局面或代操作的控制项后（如局面更新、点击格子、预设局面等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。换肤、音效与重开新局不影响成绩。</source>
+        <translation>Po zezwoleniu na sterowanie wtyczką odczytujące planszę lub wykonujące działania (np. aktualizacje planszy, klikanie komórek, plansze presetowe), bieżąca powtórka zostanie oznaczona jako &quot;nieformalna&quot; i wykluczona z rankingów. Każde polecenie musi być autoryzowane w &lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;Menedżerze wtyczek&lt;/a&gt;. Skórki, dźwięk i nowa gra nie wpływają na wynik.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="72"/>

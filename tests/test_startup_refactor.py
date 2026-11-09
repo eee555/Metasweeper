@@ -3,7 +3,17 @@ import subprocess
 from types import SimpleNamespace
 
 from app import cli_check, plugin_commands, plugin_process
-from shared_types.commands import MouseClickCommand, NewGameCommand
+from shared_types.commands import (
+    COMMAND_TYPES, NON_CHEAT_TAGS, MouseClickCommand, NewGameCommand,
+    command_tag,
+)
+
+
+def test_non_cheat_classification_contract():
+    # 非作弊命令不得出现在高级设置的作弊开关里；含格子读取/代操作的命令仍在。
+    cheat_tags = {command_tag(t) for t in COMMAND_TYPES} - NON_CHEAT_TAGS
+    assert cheat_tags == {"new_preset_game", "mouse_click", "init_open"}
+    assert "new_random_game" not in cheat_tags
 
 
 def test_cli_missing_file_writes_next_to_main(monkeypatch, tmp_path):
@@ -56,12 +66,26 @@ def test_cleanup_stops_bridge_before_terminating_and_kills_on_timeout(monkeypatc
                      ("wait", 5), "kill", ("wait", 5)]
 
 
-def test_plugin_commands_deny_controls_before_touching_game():
+def test_plugin_commands_deny_controls_before_touching_game(monkeypatch):
+    touched = []
     handlers = {}
     bridge = SimpleNamespace(register_handler=handlers.__setitem__)
-    ui = SimpleNamespace(_allowed_controls=set())
+    ui = SimpleNamespace(_allowed_controls=set(), gameMode=0,
+                         setBoard_and_start=lambda *a: touched.append(a))
     plugin_commands.register_plugin_commands(bridge, ui)
-    command = SimpleNamespace(request_id="test")
+    command = SimpleNamespace(request_id="test", level=5, mode=0)
 
-    assert not handlers[NewGameCommand](command).success
+    # mouse_click 属于作弊开关，开关为空时必须拒绝。
     assert not handlers[MouseClickCommand](command).success
+    assert touched == []
+
+    # new_random_game 等价于按 F2，不属于作弊开关：能否执行只由独立授权决定，
+    # 与 _allowed_controls 无关。
+    monkeypatch.setattr(plugin_commands, "_is_non_cheat_authorized",
+                        lambda tag: False)
+    assert not handlers[NewGameCommand](command).success
+    assert touched == []
+    monkeypatch.setattr(plugin_commands, "_is_non_cheat_authorized",
+                        lambda tag: True)
+    assert handlers[NewGameCommand](command).success
+    assert len(touched) == 1

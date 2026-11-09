@@ -42,8 +42,9 @@ if isinstance(result, BoardStateResult) and result.success:
 - 定义在 `shared_types/queries.py`：请求继承 `BaseQuery`，响应继承 `BaseQueryResult`；
 - 每个查询对应一个具体结果类，字段有类型提示；
 - 与命令共用控制通道，通过 msgspec 的 `type` 标记区分，不新增端口；
-- 不进入 `ControlAuthorizationManager`。`get_board_state` 与 `get_game_status` 受主进程
-  `board_update` 权限约束；`get_game_context` 不含棋盘格子，不受该权限限制；
+- 不进入 `ControlAuthorizationManager`。只有含棋盘格子的 `get_board_state` 受主进程
+  `board_update` 权限约束；`get_game_status` 与 `get_game_context` 只返回界面可见信息
+  与统计元数据，不含棋盘格子，不受该权限限制；
 - 未注册处理器的查询返回 `BaseQueryResult(success=False, error="No handler ...")`，不会静默超时。
 
 **实现约束**：实时对局的 `ui.label.ms_board` 是尚未解析的 `ms.BaseVideo`，读取
@@ -103,10 +104,10 @@ if isinstance(result, BoardStateResult) and result.success:
 
 三个只读工具通过查询协议（`GetBoardStateQuery`、`GetGameStatusQuery`、`GetGameContextQuery`）主动向主进程
 取值，结果是与请求一一对应的强类型结果类（`BoardStateResult` 等），使用与事件推送相同的可见数据，
-不读取隐藏地雷。查询不是控制指令，不进入插件控制授权；`get_board_state` 与 `get_game_status`
-仍受主进程 `board_update` 权限约束，权限关闭时返回错误。`get_game_context` 只返回状态、参数、
-统计与控制权限，不包含任何棋盘格子，因此不受 `board_update` 限制，可在权限关闭时用于判断
-应当开启哪些开关。主动请求成功时结果带 `source="live"`；
+不读取隐藏地雷。查询不是控制指令，不进入插件控制授权；只有 `get_board_state` 含棋盘格子，
+仍受主进程 `board_update` 权限约束，权限关闭时返回错误。`get_game_status` 与 `get_game_context`
+只返回状态、参数、统计与控制权限，不包含任何棋盘格子，因此不受 `board_update` 限制，
+可在权限关闭时用于判断应当开启哪些开关。主动请求成功时结果带 `source="live"`；
 请求失败或主进程返回无效数据时，棋盘与状态回退到最近一次官方事件并标注 `source="cache"`，
 上下文查询没有缓存回退。
 

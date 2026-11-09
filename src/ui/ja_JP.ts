@@ -100,8 +100,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="212"/>
-        <source>插件随机重开一局（结果非 official / 非 fair）</source>
-        <translation>プラグインがランダムに新局を開始します（結果は official でも fair でもない）</translation>
+        <source>插件重开新局（等价于按 F2，不影响成绩）</source>
+        <translation>プラグインが新局を開始します（F2 キーと同等、成績に影響しません）</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="214"/>
@@ -789,8 +789,8 @@
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="38"/>
-        <source>允许插件的控制类命令后（如点击格子、重开新局等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。</source>
-        <translation>プラグインによる制御命令（セルクリック、新規ゲーム等）を許可すると、当該リプレイは自動的に「非公式」とマークされ、ランキングや統計に反映されません。各命令の権限は&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;プラグイン管理器&lt;/a&gt;で設定してください。</translation>
+        <source>允许插件读取局面或代操作的控制项后（如局面更新、点击格子、预设局面等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。换肤、音效与重开新局不影响成绩。</source>
+        <translation>盤面の読み取りや操作を代行する制御（盤面更新、セルクリック、プリセット盤面など）を許可すると、当該リプレイは自動的に「非公式」とマークされ、ランキングや統計に反映されません。各命令の権限は&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;プラグイン管理器&lt;/a&gt;で設定してください。スキン、効果音、新局開始は成績に影響しません。</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="72"/>

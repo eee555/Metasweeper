@@ -40,11 +40,16 @@ def test_permissions_and_live_board_safety(setup_queries):
     ui, handlers = setup_queries
     assert set(handlers) == {GetBoardStateQuery,
                              GetGameStatusQuery, GetGameContextQuery}
-    for query_type in (GetBoardStateQuery, GetGameStatusQuery):
-        result = handlers[query_type](query_type(request_id="denied"))
-        assert not result.success
-        assert result.request_id == "denied"
-        assert "board_update permission disabled" in result.error
+    # 只有含棋盘格子的 board_state 受 board_update 开关约束；
+    # game_status / game_context 只返回可见信息与统计元数据。
+    board = handlers[GetBoardStateQuery](
+        GetBoardStateQuery(request_id="denied"))
+    assert not board.success
+    assert board.request_id == "denied"
+    assert "board_update permission disabled" in board.error
+    for query_type in (GetGameStatusQuery, GetGameContextQuery):
+        result = handlers[query_type](query_type(request_id="open"))
+        assert result.success, query_type
 
     ui._allowed_controls.add("mouse_click")
     context = handlers[GetGameContextQuery](
@@ -53,6 +58,8 @@ def test_permissions_and_live_board_safety(setup_queries):
     assert context.rtime == 0 and context.bbbv_solved == 0 and context.progress is None
     assert context.permissions.allowed_controls == ["mouse_click"]
     assert context.permissions.mouse_click and not context.permissions.board_update
+    assert not hasattr(context.permissions, "new_random_game"), \
+        "重开新局不再是作弊开关"
 
 
 def test_visible_snapshot_and_invalid_dimensions(setup_queries):

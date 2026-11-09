@@ -95,7 +95,6 @@ def register_plugin_queries(bridge, ui):
                 "allowed_controls": sorted(ui._allowed_controls),
                 "board_update": "board_update" in ui._allowed_controls,
                 "mouse_click": "mouse_click" in ui._allowed_controls,
-                "new_random_game": "new_random_game" in ui._allowed_controls,
             },
         })
         return payload
@@ -125,8 +124,8 @@ def register_plugin_queries(bridge, ui):
                 error=f"board state unavailable: {e}")
 
     def handle_game_status_query(query: GetGameStatusQuery) -> GameStatusResult:
-        if 'board_update' not in ui._allowed_controls:
-            return _deny_board_read(query, GameStatusResult)
+        # 状态、计时、尺寸等均为界面可见信息，不含棋盘格子，不需要
+        # board_update 作弊开关；含格子的 board_state 才受该开关约束。
         try:
             return GameStatusResult(request_id=query.request_id, **_game_status_fields())
         except Exception as e:

@@ -100,8 +100,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="212"/>
-        <source>插件随机重开一局（结果非 official / 非 fair）</source>
-        <translation>The plugin randomly starts a new game (result is neither official nor fair)</translation>
+        <source>插件重开新局（等价于按 F2，不影响成绩）</source>
+        <translation>Plugin starts a new game (equivalent to pressing F2; does not affect the record)</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="214"/>
@@ -814,8 +814,8 @@ The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="38"/>
-        <source>允许插件的控制类命令后（如点击格子、重开新局等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。</source>
-        <translation>After plugin control commands are allowed (e.g., clicking cells, starting new games), the current replay will be marked as &quot;informal&quot; and excluded from rankings and statistics. Each command must be authorized in &lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;Plugin Manager&lt;/a&gt; before it takes effect.</translation>
+        <source>允许插件读取局面或代操作的控制项后（如局面更新、点击格子、预设局面等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。换肤、音效与重开新局不影响成绩。</source>
+        <translation>After allowing plugin controls that read the board or act on your behalf (e.g. board updates, cell clicks, preset boards), the current replay will be marked as &quot;informal&quot; and excluded from rankings and statistics. Each command must be authorized in &lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;Plugin Manager&lt;/a&gt; before it takes effect. Skins, sound and starting a new game do not affect the record.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="72"/>

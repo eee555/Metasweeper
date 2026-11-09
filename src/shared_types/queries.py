@@ -5,8 +5,10 @@
 
 - 请求与响应都是强类型类，IDE 可以补全字段和跳转定义。
 - 不进入插件控制授权（ControlAuthorizationManager）：查询不是控制指令。
-- 主进程仍按 allowed_controls 的 board_update 开关把关，以保持公平性语义；
-  读取的是与 BoardUpdateEvent 相同的可见局面，不包含隐藏地雷。
+- 含棋盘格子的 board_state 受 allowed_controls 的 board_update 开关把关，
+  以保持公平性语义；读取的是与 BoardUpdateEvent 相同的可见局面，不包含
+  隐藏地雷。game_status / game_context 只返回界面可见信息与统计元数据，
+  不受该开关限制。
 - 仅在控制通道传输，通过 msgspec 的 type 标记与命令区分。
 """
 from __future__ import annotations
@@ -95,11 +97,10 @@ class GetGameContextQuery(BaseQuery, tag="query.game_context"):
 
 
 class ControlPermissions(msgspec.Struct):
-    """当前开放的控制项，供外部 agent 判断能做什么"""
+    """当前开放的作弊开关，供外部 agent 判断能做什么"""
     allowed_controls: list[str] = []
     board_update: bool = False
     mouse_click: bool = False
-    new_random_game: bool = False
 
 
 class GameContextResult(BaseQueryResult, tag="query.game_context.result"):
@@ -111,7 +112,7 @@ class GameContextResult(BaseQueryResult, tag="query.game_context.result"):
         progress: 完成度（0..1），无法计算时为 None
         is_official, is_fair: 当前对局是否仍为官方 / 公平成绩
         software: 生成当前成绩的软件标识
-        permissions: 当前 allowed_controls 及常用控制项状态
+        permissions: 当前 allowed_controls 及常用作弊开关状态
     """
     game_status: str = ""
     game_status_code: int = 0

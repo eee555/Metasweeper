@@ -14,12 +14,12 @@ from app.skin_applier import handle_set_skin
 from app.sound_applier import handle_set_sound
 
 
-def _is_appearance_authorized(tag: str) -> bool:
-    """主进程侧复查外观命令授权。
+def _is_non_cheat_authorized(tag: str) -> bool:
+    """主进程侧复查非作弊命令的独立授权。
 
     此前授权只在插件进程 BasePlugin._check_control_auth() 里检查，任何直连
-    ZMQ 端口、绕过 SDK 构造 msgspec 包的进程都能发换肤/音效命令。这里读
-    插件管理器持久化的授权文件做二次确认。
+    ZMQ 端口、绕过 SDK 构造 msgspec 包的进程都能发这类命令。这里读插件
+    管理器持久化的授权文件做二次确认。
 
     `data/control_authorization.json` 由 ControlAuthorizationManager 维护；
     文件不存在或不可读时保持宽松（放行），避免授权系统尚未初始化时把合法
@@ -35,7 +35,7 @@ def _is_appearance_authorized(tag: str) -> bool:
     try:
         data = json.loads(auth_file.read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
-        logger.warning("[Auth] 控制授权文件不可读，外观命令按放行处理")
+        logger.warning("[Auth] 控制授权文件不可读，非作弊命令按放行处理")
         return True
     if not isinstance(data, dict):
         return True
@@ -46,8 +46,11 @@ def register_plugin_commands(bridge, ui):
     def handle_new_game(cmd: NewGameCommand):
         from lib_zmq_plugins.shared.base import CommandResponse as Response
 
-        if 'new_random_game' not in ui._allowed_controls:
-            return Response(request_id=cmd.request_id, success=False)
+        # 重开新局等价于玩家按 F2，不属于作弊开关；仍要求独立授权，
+        # 与换肤/音效相同，防止任何直连 ZMQ 的进程随意重开对局。
+        if not _is_non_cheat_authorized("new_random_game"):
+            return Response(request_id=cmd.request_id, success=False,
+                            error="未授权 NewGameCommand")
         if cmd.level == GameLevel.BEGINNER.value:
             rows, cols, mines = BOARD_BEGINNER
         elif cmd.level == GameLevel.INTERMEDIATE.value:
@@ -97,7 +100,7 @@ def register_plugin_commands(bridge, ui):
         # 换肤是外观操作，不受 allowed_controls（作弊开关）约束；
         # 除插件侧授权外，主进程再复查一次持久化授权。
         from lib_zmq_plugins.shared.base import CommandResponse
-        if not _is_appearance_authorized("set_skin"):
+        if not _is_non_cheat_authorized("set_skin"):
             return CommandResponse(request_id=cmd.request_id, success=False,
                                    error="未授权 SetSkinCommand")
         return handle_set_skin(ui, cmd)
@@ -106,7 +109,7 @@ def register_plugin_commands(bridge, ui):
         # 音效与皮肤同为外观操作，不受 allowed_controls 约束；
         # 使用独立的 SetSoundCommand 授权，与 SetSkinCommand 互不影响。
         from lib_zmq_plugins.shared.base import CommandResponse
-        if not _is_appearance_authorized("set_sound"):
+        if not _is_non_cheat_authorized("set_sound"):
             return CommandResponse(request_id=cmd.request_id, success=False,
                                    error="未授权 SetSoundCommand")
         return handle_set_sound(ui, cmd)

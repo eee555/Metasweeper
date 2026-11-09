@@ -20,7 +20,11 @@ _translate = QCoreApplication.translate
 
 class NewGameCommand(BaseCommand, tag="new_random_game"):
     """
-    新随机游戏指令，不安全，official和fair为false。
+    重新开局指令，等价于玩家按 F2 或点击笑脸。
+
+    重开只把棋盘重置为 ready，不埋雷、不泄露任何隐藏信息；地雷仍由玩家
+    第一击时随机埋下。因此本指令不影响成绩公平性，不计入 allowed_controls
+    作弊开关，仅受 ControlAuthorizationManager 的独立授权约束。
 
     Attributes:
         level: 游戏难度，使用 GameLevel 枚举值
@@ -159,6 +163,13 @@ COMMAND_TYPES = [NewGameCommand, NewPresetGameCommand,
                  MouseClickCommand, InitOpenCommand, SetSkinCommand,
                  SetSoundCommand]
 
+# 不计入 allowed_controls 作弊开关的命令（单一事实来源）。
+# 这些命令不改变或泄露局面：外观命令只改皮肤/音效；重开新局等价于玩家
+# 按 F2（只重置到 ready，不埋雷）。它们仍受 ControlAuthorizationManager
+# 的独立授权约束，但授权它们不应让整局被判成 JOKING、录像被作废。
+# 高级设置对话框、主进程 ini 清理、命令 handler 都以此为准。
+NON_CHEAT_TAGS = frozenset({"set_skin", "set_sound", "new_random_game"})
+
 # ── 控制命令说明（可多语言）────────────────────────────────────
 # 供插件管理器「控制授权」对话框、插件详情对话框，以及主程序
 # 「高级设置」里的作弊开关统一使用，避免各处各写一份、新增命令漏配。
@@ -178,7 +189,7 @@ COMMAND_LABELS: dict[str, str] = {
 }
 
 COMMAND_HINTS: dict[str, str] = {
-    "new_random_game": "插件随机重开一局（结果非 official / 非 fair）",
+    "new_random_game": "插件重开新局（等价于按 F2，不影响成绩）",
     "new_preset_game": "按指定棋盘开局（模式为 UPK，可含官方记录）",
     "mouse_click": "对指定格子模拟左 / 中 / 右键点击",
     "init_open": "预设局面初始化时翻开指定格子",
@@ -210,7 +221,7 @@ def _i18n_command_strings() -> None:
     _translate("Commands", "更换皮肤")
     _translate("Commands", "更改音效")
     _translate("Commands",
-               "插件随机重开一局（结果非 official / 非 fair）")
+               "插件重开新局（等价于按 F2，不影响成绩）")
     _translate("Commands",
                "按指定棋盘开局（模式为 UPK，可含官方记录）")
     _translate("Commands",

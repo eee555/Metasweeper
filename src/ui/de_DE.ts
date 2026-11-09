@@ -100,8 +100,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="212"/>
-        <source>插件随机重开一局（结果非 official / 非 fair）</source>
-        <translation>Das Plugin startet zufällig ein neues Spiel (Ergebnis weder official noch fair)</translation>
+        <source>插件重开新局（等价于按 F2，不影响成绩）</source>
+        <translation>Plugin startet ein neues Spiel (entspricht F2; beeinflusst das Ergebnis nicht)</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="214"/>
@@ -1014,8 +1014,8 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="38"/>
-        <source>允许插件的控制类命令后（如点击格子、重开新局等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。</source>
-        <translation>Nachdem Plugin-Steuerungsbefehle erlaubt wurden (z.B. Zellen klicken, neues Spiel), wird die aktuelle Wiederholung als &quot;informell&quot; markiert und von Ranglisten ausgeschlossen. Jeder Befehl muss im &lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;Plugin-Manager&lt;/a&gt; autorisiert werden.</translation>
+        <source>允许插件读取局面或代操作的控制项后（如局面更新、点击格子、预设局面等），当前局面的录像将自动标记为&quot;非正式&quot;，不计入任何排名与统计数据。各命令需要在&lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;插件管理器&lt;/a&gt;中完成授权后才生效。换肤、音效与重开新局不影响成绩。</source>
+        <translation>Nachdem Plugin-Steuerungen erlaubt wurden, die das Brett lesen oder Aktionen ausführen (z. B. Brett-Updates, Zellklicks, vorgegebene Bretter), wird die aktuelle Wiederholung als &quot;informell&quot; markiert und von Ranglisten ausgeschlossen. Jeder Befehl muss im &lt;a href=&quot;plugin:manager&quot; style=&quot;color:#00A2E8; text-decoration:underline;&quot;&gt;Plugin-Manager&lt;/a&gt; autorisiert werden. Skins, Sound und ein neues Spiel beeinflussen das Ergebnis nicht.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_advanced.ui" line="72"/>

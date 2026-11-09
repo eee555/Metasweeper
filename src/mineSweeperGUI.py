@@ -8,6 +8,7 @@ from dialogs import gameDefinedParameter
 from plugin_sdk.server_bridge import GameServerBridge
 from shared_types.events import GameFinishedEvent, BoardUpdateEvent, GameStatusChangeEvent, CloseEvent, ShowPluginManagerEvent
 from shared_types.enums import GameMode, ButtonEventType, MouseState
+from shared_types.commands import NON_CHEAT_TAGS
 import superGUI
 from dialogs import gameAbout
 from dialogs import gameSettings
@@ -112,9 +113,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         raw = self.game_setting.value('DEFAULT/allowed_controls', '', str)
         self._allowed_controls: set[str] = set(
             raw.split(',')) if raw else set()
-        # 外观命令（换肤/音效）不是作弊开关；清理历史 ini 残留值，否则
+        # 外观命令与重开新局不是作弊开关；清理历史 ini 残留值，否则
         # 只要集合非空，第一击就会被判成 JOKING、官方录像作废。
-        self._allowed_controls.difference_update({"set_skin", "set_sound"})
+        self._allowed_controls.difference_update(NON_CHEAT_TAGS)
         self.engine._allowed_controls = self._allowed_controls
 
         self.time_10ms: int = 0  # 已毫秒为单位的游戏时间，全局统一的
@@ -531,6 +532,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.engine._pixSize = self.pixSize
         self.engine.board_constraint = self.board_constraint
         self.engine.attempt_times_limit = self.attempt_times_limit
+        self.engine._allowed_controls = self._allowed_controls
         self.engine.ms_board = getattr(
             self.label, 'ms_board', self.engine.ms_board)
 
@@ -1335,6 +1337,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.gameRestart()
             self.filter_forever = ui.filter_forever
             self._allowed_controls = ui._allowed_controls.copy()
+            self.engine._allowed_controls = self._allowed_controls
 
     def action_QEvent(self):
         # 快捷键设置的回调
