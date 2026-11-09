@@ -14,7 +14,8 @@ from shared_types.events import ButtonClickEvent
 from shared_types.enums import ButtonEventType, MouseState
 from plugin_sdk.server_bridge import GameServerBridge
 from utils.app_logger import logger
-from utils.sound_manager import SoundManager, SoundEvent, SOUND_PRIORITY
+from utils.sound_manager import SoundManager
+from shared_types.sounds import SoundEvent, SOUND_PRIORITY
 
 # 局面中的鼠标和滚轮事件
 
@@ -69,19 +70,38 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                     questions += 1
         return BoardSnapshot(opened, flags, questions)
 
+    def _finish(self, win: bool) -> None:
+        """真实鼠标操作导致结局时统一走这里：先播结局音，再改状态。
+
+        刻意不把播放放进 gameWin()/gameFailed()，因为后者可能被录像回放、
+        自动重开等路径复用；这 6 个调用点都位于真实鼠标操作分支。
+        WIN/LOSE 属于独占事件，会自动 stop_all() 清掉同帧的 START/OPEN，
+        因此第一击直接踩雷也不会叠音。
+        """
+        SoundManager.instance().play(
+            SoundEvent.WIN if win else SoundEvent.LOSE)
+        if win:
+            self.gameWin()
+        else:
+            self.gameFailed()
+
     def _emit_feedback(self, before: BoardSnapshot, *,
                        old_state: MouseState | None = None,
-                       is_start: bool = False) -> None:
+                       is_start: bool = False,
+                       action: str = "lr") -> None:
         """一次 step 后的统一反馈出口：棋盘抖动 + 游戏音效。
 
-        由一次全盘 diff 同时判定开格/双击/插旗/拔旗/问号，并按优先级合并成
+        由一次全盘 diff 同时判定开格/双击/插旗/拔旗，并按优先级合并成
         单个 cue（intensity 取最大值），避免一次操作响多声。
         点已开格、无效点击、看概率(SHOW)、录像回放均不会走到这里。
+
+        `action` 为本次鼠标事件名：CHORD 只在真正的左键抬起（lr）且 step 前
+        鼠标状态为 chording 类时成立。标雷递归模式下 rc/rr 也会级联开格，
+        此时一律按 OPEN 处理，避免误响 CHORD。
         """
         after = self._snapshot()
         d_open = after.opened - before.opened
         d_flag = after.flags - before.flags
-        d_question = after.questions - before.questions
 
         # 开格打击感：开格数增加才触发弱档抖动（含第一击），保持原有手感
         if d_open > 0:
@@ -95,26 +115,23 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
 
         cues: list[tuple[int, SoundEvent, int]] = []
         if d_open > 0:
-            chord = old_state in (
+            chord = action == "lr" and old_state in (
                 MouseState.Chording, MouseState.ChordingNotFlag,
                 MouseState.DownUpAfterChording,
             )
             event = SoundEvent.CHORD if chord else SoundEvent.OPEN
             cues.append((SOUND_PRIORITY[event], event, d_open))
 
+        # 三个变化各自独立收集，再由优先级排序取最高；此前用 if/elif
+        # 让「旗 + 问号同时变化」在 d_flag>0 与 d_flag<0 时得到两种相反
+        # 处理（一边吞问号、一边吞拔旗），属于逻辑不一致。
         if d_flag > 0:
             # 标雷递归模式下一次 rc 可能级联标多面旗，intensity 体现数量
             cues.append(
                 (SOUND_PRIORITY[SoundEvent.FLAG_ON], SoundEvent.FLAG_ON, d_flag))
-        elif d_flag < 0 and d_question == 0:
+        elif d_flag < 0:
             cues.append(
                 (SOUND_PRIORITY[SoundEvent.FLAG_OFF], SoundEvent.FLAG_OFF, -d_flag))
-        elif d_question != 0:
-            # 11→17 / 17→10（启用问号时）归问号，而非拔旗；
-            # 当前配置 use_question=False，此分支恒不触发，仅预留。
-            cues.append(
-                (SOUND_PRIORITY[SoundEvent.QUESTION], SoundEvent.QUESTION,
-                 max(1, abs(d_question))))
 
         if not cues:
             return
@@ -182,12 +199,12 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
 
                 if self.label.ms_board.game_board_state == BOARD_WIN:
                     # 点一下可能获胜
-                    self.gameWin()
+                    self._finish(win=True)
                     self.label.update()
                     return
                 elif self.label.ms_board.game_board_state == BOARD_LOSS:
                     # 点一下可能踩雷（F3重开）
-                    self.gameFailed()
+                    self._finish(win=False)
                     self.label.update()
                     return
                 else:
@@ -201,11 +218,11 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self._emit_feedback(before, old_state=old)
 
             if self.label.ms_board.game_board_state == BOARD_WIN:
-                self.gameWin()
+                self._finish(win=True)
                 self.label.update()
                 return
             elif self.label.ms_board.game_board_state == BOARD_LOSS:
-                self.gameFailed()
+                self._finish(win=False)
                 self.label.update()
                 return
             self.label.update()
@@ -245,15 +262,15 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             # 递归模式下一次 rc 可能级联标多面旗，用全盘快照才能覆盖。
             before = self._snapshot()
             old = self._step_and_send('rc', i, j)
-            self._emit_feedback(before, old_state=old)
+            self._emit_feedback(before, old_state=old, action="rc")
             # 标雷递归模式（12/13/15/16）下，一次标雷可能经级联直接获胜或踩雷，
             # 必须像 lr 一样检查结局，否则计时器继续走，会被防变速齿轮守卫误判重开
             if self.label.ms_board.game_board_state == BOARD_WIN:
-                self.gameWin()
+                self._finish(win=True)
                 self.label.update()
                 return
             elif self.label.ms_board.game_board_state == BOARD_LOSS:
-                self.gameFailed()
+                self._finish(win=False)
                 self.label.update()
                 return
             self.label.update()
@@ -264,7 +281,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
         if self.game_state == READY or self.game_state == PLAYING or self.game_state == JOKING:
             before = self._snapshot()
             old = self._step_and_send('rr', i, j)
-            self._emit_feedback(before, old_state=old)
+            self._emit_feedback(before, old_state=old, action="rr")
             self.label.update()
             self._send_board_update_event()
             self.set_face(FACE_SMILE)

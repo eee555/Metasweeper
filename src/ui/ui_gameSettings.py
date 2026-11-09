@@ -371,46 +371,6 @@ class Ui_Form(object):
 
         self.verticalLayout_5.addWidget(self.widget_sound_volume)
 
-        self.widget_sound_pack = QWidget(self.frame_4)
-        self.widget_sound_pack.setObjectName(u"widget_sound_pack")
-        self.widget_sound_pack.setMinimumSize(QSize(0, 32))
-        self.horizontalLayout_sound_pack = QHBoxLayout(self.widget_sound_pack)
-        self.horizontalLayout_sound_pack.setSpacing(6)
-        self.horizontalLayout_sound_pack.setObjectName(u"horizontalLayout_sound_pack")
-        self.horizontalLayout_sound_pack.setContentsMargins(0, 0, 0, 0)
-        self.label_sound_pack = QLabel(self.widget_sound_pack)
-        self.label_sound_pack.setObjectName(u"label_sound_pack")
-
-        self.horizontalLayout_sound_pack.addWidget(self.label_sound_pack)
-
-        self.comboBox_sound_pack = QComboBox(self.widget_sound_pack)
-        self.comboBox_sound_pack.setObjectName(u"comboBox_sound_pack")
-
-        self.horizontalLayout_sound_pack.addWidget(self.comboBox_sound_pack)
-
-
-        self.verticalLayout_5.addWidget(self.widget_sound_pack)
-
-        self.widget_sound_extra = QWidget(self.frame_4)
-        self.widget_sound_extra.setObjectName(u"widget_sound_extra")
-        self.widget_sound_extra.setMinimumSize(QSize(0, 32))
-        self.horizontalLayout_sound_extra = QHBoxLayout(self.widget_sound_extra)
-        self.horizontalLayout_sound_extra.setSpacing(6)
-        self.horizontalLayout_sound_extra.setObjectName(u"horizontalLayout_sound_extra")
-        self.horizontalLayout_sound_extra.setContentsMargins(0, 0, 0, 0)
-        self.label_sound_extra = QLabel(self.widget_sound_extra)
-        self.label_sound_extra.setObjectName(u"label_sound_extra")
-
-        self.horizontalLayout_sound_extra.addWidget(self.label_sound_extra)
-
-        self.lineEdit_sound_extra_dir = QLineEdit(self.widget_sound_extra)
-        self.lineEdit_sound_extra_dir.setObjectName(u"lineEdit_sound_extra_dir")
-
-        self.horizontalLayout_sound_extra.addWidget(self.lineEdit_sound_extra_dir)
-
-
-        self.verticalLayout_5.addWidget(self.widget_sound_extra)
-
         self.widget_4 = QWidget(self.frame_4)
         self.widget_4.setObjectName(u"widget_4")
         self.widget_4.setMinimumSize(QSize(0, 32))
@@ -666,11 +626,6 @@ class Ui_Form(object):
 #endif // QT_CONFIG(tooltip)
         self.checkBox_sound_enabled.setText(QCoreApplication.translate("Form", u"\u6e38\u620f\u97f3\u6548", None))
         self.label_sound_volume.setText(QCoreApplication.translate("Form", u"\u97f3\u91cf\uff1a", None))
-        self.label_sound_pack.setText(QCoreApplication.translate("Form", u"\u97f3\u6548\u5305\uff1a", None))
-        self.label_sound_extra.setText(QCoreApplication.translate("Form", u"\u989d\u5916\u97f3\u6548\u5e93\uff1a", None))
-#if QT_CONFIG(tooltip)
-        self.lineEdit_sound_extra_dir.setToolTip(QCoreApplication.translate("Form", u"\u7559\u7a7a\u5219\u4f7f\u7528 media/sounds\uff1b\u586b\u5199\u540e\u4e0e\u81ea\u5e26\u97f3\u6548\u5305\u5408\u5e76", None))
-#endif // QT_CONFIG(tooltip)
 #if QT_CONFIG(tooltip)
         self.checkBox_auto_replay.setToolTip("")
 #endif // QT_CONFIG(tooltip)

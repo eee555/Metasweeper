@@ -1,9 +1,11 @@
-"""生成内建占位音效（44.1kHz / 16bit / 单声道 WAV）。
+"""生成主程序内建的默认占位音效（44.1kHz / 16bit / 单声道 WAV）。
 
-占位素材只用于打通链路与调参，后续替换为无版权素材即可：
-把同名 wav 放进音效包目录，重启或重新打开设置页即自动出现在下拉框。
-所有 wav 统一做峰值归一化（85% 满量程），保证开箱即可听见；
-运行本脚本会同时刷新根目录默认音效与 soft/ 示例包。
+本脚本只刷新 `media/sounds/*.wav` 这一组**默认资源**。可选音效包由
+「皮肤与音效」插件自带并播种到可写数据目录，示例包位于
+`src/plugins/skin_manager/sounds/`，不在此脚本职责内。
+
+占位素材只用于打通链路与调参，后续替换为无版权素材即可。所有 wav 统一
+做峰值归一化（85% 满量程），保证开箱即可听见。
 
 用法（在 src 目录下，或任意 cwd）：
     python develop_tools/generate_sounds.py
@@ -19,7 +21,6 @@ from utils.path_utils import resource_path
 
 SR = 44100
 OUT: Path = resource_path("media") / "sounds"
-SOFT_PACK: Path = OUT / "soft"
 
 # 目标峰值占 16bit 满量程的比例。占位音效原先峰值只有 ~4000/32767，
 # 再经 SoundManager 的音量增益后几乎听不见；统一归一化到接近满量程。
@@ -84,10 +85,9 @@ def _noise(spec: list[tuple[float, float, float]], dur: float, seed: int = 1) ->
     return [struct.unpack_from("<h", frames, i * 2)[0] for i in range(n)]
 
 
-def _write(name: str, samples: list[int], folder: Path | None = None) -> None:
-    folder = folder or OUT
-    folder.mkdir(parents=True, exist_ok=True)
-    path = folder / name
+def _write(name: str, samples: list[int]) -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    path = OUT / name
     samples = _normalize(samples)
     with wave.open(str(path), "wb") as w:
         w.setnchannels(1)
@@ -129,8 +129,7 @@ def main() -> None:
     # 拔旗：下行、更闷
     _write("flag_off.wav", _tone([(0, 0.06, 560, 0.40)], 0.06))
 
-    # 问号（当前配置禁用问号，仅预留）
-    _write("question.wav", _tone([(0, 0.06, 740, 0.35)], 0.06))
+    # 项目默认禁用问号，不再生成 question.wav（QUESTION 事件已移除）
 
     # 失败：低频 + 噪声闷响
     lose = _tone([(0, 0.22, 150, 0.55)], 0.22)
@@ -147,23 +146,7 @@ def main() -> None:
         (0.30, 0.42, 1047, 0.20),
     ], 0.42))
 
-    # 示例音效包「轻柔」：只替换 open / win，其余 6 个 cue 自动回退默认。
-    # 与默认音效走同一生成器，避免临时脚本导致振幅过小而「无声」。
-    _write("open.wav", _tone([(0, 0.09, 520, 0.38)], 0.09), SOFT_PACK)
-    _write("start.wav", _tone([
-        (0.00, 0.10, 587, 0.45),
-        (0.07, 0.22, 880, 0.40),
-    ], 0.22), SOFT_PACK)
-    _write("ready.wav", _tone([
-        (0.00, 0.16, 440, 0.38),
-        (0.12, 0.34, 659, 0.36),
-    ], 0.34), SOFT_PACK)
-    _write("win.wav", _tone([
-        (0.00, 0.14, 440, 0.32),
-        (0.10, 0.26, 587, 0.32),
-        (0.20, 0.32, 659, 0.30),
-    ], 0.32), SOFT_PACK)
-
+    # 可选音效包（soft 示例）由插件自带并播种，不在本脚本生成。
     print("完成。")
 
 

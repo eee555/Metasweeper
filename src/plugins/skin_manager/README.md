@@ -46,6 +46,25 @@
 > **不再需要手填外部目录**：皮肤包与音效包都改为「导入 zip」，自动落地到
 > 插件自己的数据目录 `data/plugin_data/SkinManagerPlugin/{skins,sounds}/`。
 
+## 音效包的归属
+
+**音效包的选择完全由本插件负责**。主程序只保留 `src/media/sounds/*.wav`
+这一组默认资源（每个事件一个固定文件名的 wav），以及游戏设置页里的
+「游戏音效」开关与音量；主程序设置页不再有任何音效包下拉框或额外目录输入框。
+
+- 插件自带的示例包 `soft/` 位于 `src/plugins/skin_manager/sounds/`，随插件分发；
+  插件初始化时通过 `seed_builtin_sound_packs()` 播种到可写数据目录
+  `data/plugin_data/SkinManagerPlugin/sounds/`（只补缺失、不覆盖用户数据），
+  因此开箱即可在「当前音效包」下拉框里选到。
+- 用户用「导入音效包」zip 安装的包也落在同一个数据目录；该目录通过
+  `SetSoundCommand.extra_dir` 传给主进程，主进程据此 `resolve()` 到包内 wav。
+- 打包版两个进程都由 `--add-data "src/plugins;plugins"` 分发插件目录，
+  且共享同一个 `--data-dir`，所以内置示例包与 zip 导入包在打包版同样可用。
+
+包格式不变：一个子目录就是一个包，`sound.json` 提供显示名，固定文件名
+（`open.wav` / `win.wav` …）按需提供；**缺哪个 cue 就沿用主程序根目录的
+默认 wav**。包名必须是单层目录名（不含 `/`、`..`）。
+
 > 下拉框不是手写 UI，而是 `config.py` 在模块导入时扫描皮肤目录、
 > 自动注册成 `ChoiceConfig` 选项（与 `clipboard_replay` 的
 > `add_handler_fields` 同一套路）。**新增皮肤目录即自动出现在下拉框里**，
@@ -56,8 +75,8 @@
 ```
 config.py 导入
   → discover_choices() 扫描 skins/*/（跳过 _ 开头目录）
-  → 读每目录 skin.json 的 name 作为显示名
-  → register_skins() 覆盖 SkinManagerConfig.skin 的 choices
+  → 读每目录 skin.json 的 name 作为显示名（非 dict 内容安全回退目录名）
+  → register_choices(config_type, "skin", choices) 覆盖 SkinManagerConfig.skin
   → 插件设置对话框按 ChoiceConfig 自动生成 QComboBox
 ```
 

@@ -13,16 +13,17 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from shared_types.commands import (  # noqa: E402
     COMMAND_TYPES, SOUND_EVENT_NAMES, SetSkinCommand, SetSoundCommand,
 )
-from utils.sound_manager import SoundManager, SoundEvent  # noqa: E402
+from utils.sound_manager import SoundManager  # noqa: E402
+from shared_types.sounds import SoundEvent  # noqa: E402
 from app import sound_applier  # noqa: E402
 from app.sound_applier import capture_startup_settings, handle_set_sound  # noqa: E402
 
 
 class _FakeUI:
+    """主程序设置页只有开关/音量；音效包不在这里。"""
     def __init__(self):
         self.sound_enabled = False
         self.sound_volume = 70
-        self.sound_pack = ""
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -51,6 +52,7 @@ def test_command_registered_and_independent_tag():
     assert SetSoundCommand.__struct_config__.tag == "set_sound"
     assert SetSoundCommand.__struct_config__.tag != SetSkinCommand.__struct_config__.tag
     assert "open" in SOUND_EVENT_NAMES and "ready" in SOUND_EVENT_NAMES
+    assert "question" not in SOUND_EVENT_NAMES
 
 
 def test_command_roundtrip():
@@ -66,47 +68,77 @@ def test_command_roundtrip():
 
 
 def test_handler_applies_settings():
+    """音效包由插件侧通过 pack + extra_dir 一起指定，主程序据此 resolve。"""
+    from plugins.skin_manager.sound import (
+        imported_sound_dir, seed_builtin_sound_packs,
+    )
+    seed_builtin_sound_packs()
     ui = _ui()
     resp = handle_set_sound(ui, SetSoundCommand(
-        enabled=True, volume=42, pack="soft", request_id="r1"))
+        enabled=True, volume=42, pack="soft",
+        extra_dir=str(imported_sound_dir()), request_id="r1"))
     mgr = SoundManager.instance()
     assert resp.success and resp.error is None
     assert resp.request_id == "r1"
-    assert mgr._enabled is True
-    assert round(mgr._volume * 100) == 42
+    assert mgr.current_enabled() is True
+    assert mgr.current_volume() == 42
     assert mgr.current_pack() == "soft"
-    assert mgr.resolve(SoundEvent.OPEN).name == "open.wav"
     assert mgr.resolve(SoundEvent.OPEN).parent.name == "soft"
+
+
+def test_pack_without_extra_dir_falls_back_to_default():
+    """主程序只有默认一组：只给 pack、不给插件落地目录时应回退根目录 wav。"""
+    ui = _ui()
+    handle_set_sound(ui, SetSoundCommand(enabled=True, pack="soft"))
+    assert SoundManager.instance().resolve(SoundEvent.OPEN).parent.name == "sounds"
 
 
 def test_handler_partial_update_keeps_other_fields():
     ui = _ui()
-    handle_set_sound(ui, SetSoundCommand(enabled=True, volume=50, pack="soft"))
-    # 只改音量，其余保持
-    handle_set_sound(ui, SetSoundCommand(volume=90))
+    handle_set_sound(ui, SetSoundCommand(enabled=True, volume=29, pack="soft"))
+    # 只改开关，音量必须精确保持 29（此前会漂移到 28）
+    handle_set_sound(ui, SetSoundCommand(enabled=True))
     mgr = SoundManager.instance()
-    assert mgr._enabled is True
-    assert round(mgr._volume * 100) == 90
+    assert mgr.current_enabled() is True
+    assert mgr.current_volume() == 29
     assert mgr.current_pack() == "soft"
 
 
-def test_handler_reset_restores_startup():
+def test_partial_update_volume_boundaries_no_drift():
+    """29 / 57 / 58 是浮点截断会掉 1 的值。"""
+    ui = _ui()
+    for v in (29, 57, 58):
+        handle_set_sound(ui, SetSoundCommand(volume=v))
+        handle_set_sound(ui, SetSoundCommand(enabled=True))
+        assert SoundManager.instance().current_volume() == v, v
+
+
+def test_handler_reset_restores_startup_but_keeps_plugin_pack():
+    """reset 只还原主程序职责（开关/音量）；音效包属于插件侧，不被越权清空。"""
     ui = _ui()
     handle_set_sound(ui, SetSoundCommand(enabled=True, volume=10, pack="soft"))
     resp = handle_set_sound(ui, SetSoundCommand(reset=True))
     mgr = SoundManager.instance()
     assert resp.success
-    assert mgr._enabled is False
-    assert round(mgr._volume * 100) == 70
-    assert mgr.current_pack() == ""
+    assert mgr.current_enabled() is False
+    assert mgr.current_volume() == 70
+    assert mgr.current_pack() == "soft"
 
 
 def test_handler_rejects_invalid_params():
     ui = _ui()
-    bad_volume = handle_set_sound(ui, SetSoundCommand(volume=200))
-    assert not bad_volume.success and "音量" in bad_volume.error
+    assert not handle_set_sound(ui, SetSoundCommand(volume=200)).success
     bad_event = handle_set_sound(ui, SetSoundCommand(play_event="nope"))
     assert not bad_event.success and "未知音效事件" in bad_event.error
+
+
+def test_handler_rejects_unsafe_pack_and_extra_dir():
+    ui = _ui()
+    for bad in ("../..", "C:/Windows", "a/b"):
+        resp = handle_set_sound(ui, SetSoundCommand(pack=bad))
+        assert not resp.success and "非法音效包名" in resp.error
+    resp = handle_set_sound(ui, SetSoundCommand(extra_dir="../.."))
+    assert not resp.success and "非法音效库目录" in resp.error
 
 
 def test_handler_preview_does_not_change_pack():
@@ -118,7 +150,7 @@ def test_handler_preview_does_not_change_pack():
 
 def test_plugin_sound_module_builds_command():
     from plugins.skin_manager.sound import (
-        build_sound_command, discover_sound_choices, DEFAULT_PACK,
+        build_sound_command, discover_sound_choices,
     )
     cmd = build_sound_command(enabled=True, volume=55, pack="",
                               play_event="win")
@@ -128,10 +160,11 @@ def test_plugin_sound_module_builds_command():
         build_sound_command(volume=999)
     with pytest.raises(ValueError):
         build_sound_command(play_event="nope")
+    with pytest.raises(ValueError):
+        build_sound_command(pack="../..")
 
     choices = discover_sound_choices()
-    assert choices[0] == (DEFAULT_PACK, choices[0][1])
-    assert "soft" in dict(choices), "应能发现主进程自带 soft 音效包"
+    assert choices[0][0] == ""
 
 
 def test_plugin_config_fields_are_independent():
@@ -140,20 +173,16 @@ def test_plugin_config_fields_are_independent():
     assert set(sound_fields) == {
         "sound_enabled", "sound_volume", "sound_pack", "sound_zip",
     }
-    # 皮肤字段仍在，且 choices 未被音效注册覆盖
     assert "skin" in dir(SkinManagerConfig)
     assert "skin_zip" in dir(SkinManagerConfig)
     assert len(SkinManagerConfig.skin.choices) > 1
-    assert any(v == "soft" for v, _ in SkinManagerConfig.sound_pack.choices)
 
 
 def test_zip_import_fields_target_plugin_data_dir():
     from plugins.skin_manager.config import SkinManagerConfig
-    skin_zip = SkinManagerConfig.skin_zip
-    sound_zip = SkinManagerConfig.sound_zip
-    assert skin_zip.widget_type == "zip_import"
-    assert skin_zip.target_subdir == "skins"
-    assert sound_zip.target_subdir == "sounds"
+    assert SkinManagerConfig.skin_zip.widget_type == "zip_import"
+    assert SkinManagerConfig.skin_zip.target_subdir == "skins"
+    assert SkinManagerConfig.sound_zip.target_subdir == "sounds"
 
 
 def test_build_sound_command_points_to_imported_dir():
@@ -164,8 +193,44 @@ def test_build_sound_command_points_to_imported_dir():
     assert cmd.extra_dir == str(imported_sound_dir())
 
 
+def test_builtin_pack_is_seeded_and_selectable():
+    """音效包选择完全在插件侧：内置示例包播种后可在下拉框选到。"""
+    import shutil
+    from plugins.skin_manager.sound import (
+        BUILTIN_SOUND_DIR, discover_sound_choices, imported_sound_dir,
+        seed_builtin_sound_packs,
+    )
+    root = imported_sound_dir()
+    builtin_names = [p.name for p in BUILTIN_SOUND_DIR.iterdir()
+                     if p.is_dir() and not p.name.startswith("_")]
+    assert "soft" in builtin_names                 # 示例包随插件分发
+    # 删掉再播种，验证「只补缺失、不覆盖」不会破坏已有数据
+    shutil.rmtree(root / "soft", ignore_errors=True)
+    seed_builtin_sound_packs()
+    assert (root / "soft" / "open.wav").is_file()
+    assert any(v == "soft" for v, _ in discover_sound_choices())
+    # 再播种一次：用户已导入/修改的同名包不被覆盖
+    marker = root / "soft" / "user_marker.txt"
+    marker.write_text("keep", encoding="utf-8")
+    seed_builtin_sound_packs()
+    assert marker.is_file()
+    marker.unlink()
+
+
+def test_main_program_has_no_pack_setting():
+    """主程序设置页不再有音效包/额外库入口与 ini 键。"""
+    from dialogs import gameSettings
+    import inspect
+    src = inspect.getsource(gameSettings)
+    assert "comboBox_sound_pack" not in src
+    assert "lineEdit_sound_extra_dir" not in src
+    assert "sound_pack" not in src
+    assert "sound_extra_dir" not in src
+
+
 def test_import_zip_end_to_end(tmp_path):
     import json
+    import shutil
     import zipfile
     from plugins.skin_manager.zip_import import (
         import_zip, imported_dir, ZipImportError,
@@ -180,22 +245,81 @@ def test_import_zip_end_to_end(tmp_path):
         z.writestr("my_pack/open.wav", b"FAKE")
 
     root = imported_dir("sounds")
+    shutil.rmtree(root / "my_pack", ignore_errors=True)
     result = import_zip(zp, root)
     try:
         assert result.pack_name == "my_pack"
         assert (root / "my_pack" / "open.wav").is_file()
         assert any(v == "my_pack" for v, _ in discover_sound_choices())
-        assert any(v == "" for v, _ in discover_choices())  # 默认项仍在
+        assert any(v == "" for v, _ in discover_choices())
     finally:
-        import shutil
         shutil.rmtree(root / "my_pack", ignore_errors=True)
 
-    # 恶意路径拦截
     bad = tmp_path / "evil.zip"
     with zipfile.ZipFile(bad, "w") as z:
         z.writestr("../evil.wav", b"x")
     with pytest.raises(ZipImportError):
         import_zip(bad, root)
+
+
+def test_import_zip_handles_nested_root_and_rejects_empty(tmp_path):
+    """顶层多一个 README / 资源在子目录时也能定位到资源根。"""
+    import json
+    import shutil
+    import zipfile
+    from plugins.skin_manager.zip_import import import_zip, ZipImportError
+
+    zp = tmp_path / "nested.zip"
+    with zipfile.ZipFile(zp, "w") as z:
+        z.writestr("outer/images/open.wav", b"FAKE")
+        z.writestr("outer/sound.json",
+                   json.dumps({"name": "嵌套包"}, ensure_ascii=False))
+
+    root = tmp_path / "imported"
+    shutil.rmtree(root / "outer", ignore_errors=True)
+    result = import_zip(zp, root)
+    try:
+        # 资源根定位到 outer/images/，但 meta 在 outer/ 下，显示名仍应读到
+        assert result.pack_name == "outer"
+        assert (root / "outer" / "open.wav").is_file() or (
+            root / "outer" / "images" / "open.wav").is_file()
+        assert result.display == "嵌套包"
+    finally:
+        shutil.rmtree(root / "outer", ignore_errors=True)
+
+    empty = tmp_path / "empty.zip"
+    with zipfile.ZipFile(empty, "w") as z:
+        z.writestr("readme.txt", "x")
+    with pytest.raises(ZipImportError):
+        import_zip(empty, root)
+
+
+def test_end_to_end_command_to_handler():
+    """序列化 → 解码 → handler 分派 → configure 全链路。"""
+    from lib_zmq_plugins.serializer import Serializer
+    from app import plugin_commands
+
+    s = Serializer()
+    s.register_command_types(*COMMAND_TYPES)
+    cmd = SetSoundCommand(enabled=True, volume=29, pack="soft",
+                          request_id="e2e")
+    wire = s.encode_command(cmd)
+    decoded = s.decode_command(wire)
+
+    ui = _ui()
+    ui._allowed_controls = set()
+    captured = {}
+
+    class _Bridge:
+        def register_handler(self, cmd_type, handler):
+            captured[cmd_type.__struct_config__.tag] = handler
+
+    plugin_commands.register_plugin_commands(_Bridge(), ui)
+    handler = captured["set_sound"]
+    resp = handler(decoded)
+    assert resp.success
+    assert SoundManager.instance().current_volume() == 29
+    assert SoundManager.instance().current_pack() == "soft"
 
 
 def test_plugin_declares_both_controls():

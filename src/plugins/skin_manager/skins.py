@@ -40,23 +40,13 @@ FRAME_SVG_FILE = "frame.svg"
 
 
 def list_skins(root: Path) -> list[tuple[str, str]]:
-    """返回 [(目录名, 显示名), ...]，按目录名排序。"""
-    if not root.is_dir():
-        return []
-    result: list[tuple[str, str]] = []
-    for child in sorted(root.iterdir()):
-        if not child.is_dir() or child.name.startswith("_"):
-            continue
-        display = child.name
-        meta = child / "skin.json"
-        if meta.is_file():
-            try:
-                data = json.loads(meta.read_text(encoding="utf-8"))
-                display = str(data.get("name") or child.name)
-            except (OSError, ValueError, TypeError):
-                pass
-        result.append((child.name, display))
-    return result
+    """返回 [(目录名, 显示名), ...]，按目录名排序。
+
+    转调共享实现：对 `skin.json` 非 dict 内容做类型守卫，避免此前
+    ``[]`` / ``null`` 触发未被捕获的 AttributeError 让插件模块导入失败。
+    """
+    from shared_types.sounds import SKIN_META_FILE, list_packs
+    return list_packs(root, SKIN_META_FILE)
 
 
 def find_skin_folder(roots: list[Path], skin_name: str) -> Path | None:

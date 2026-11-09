@@ -12,6 +12,8 @@ from PySide6.QtCore import QCoreApplication
 from lib_zmq_plugins.shared.base import BaseCommand
 
 from .enums import GameLevel, GameMode
+# 音效事件名由共享枚举派生（re-export，供命令参数校验）
+from .sounds import SOUND_EVENT_NAMES
 
 _translate = QCoreApplication.translate
 
@@ -128,13 +130,6 @@ class SetSoundCommand(BaseCommand, tag="set_sound"):
     extra_dir: Optional[str] = None
     reset: bool = False
     play_event: Optional[str] = None
-
-
-# 音效事件名（与 SoundManager.SoundEvent.value 一致），供命令校验
-SOUND_EVENT_NAMES = (
-    "ready", "start", "open", "chord", "flag_on", "flag_off",
-    "question", "win", "lose",
-)
 
 
 # 皮肤资源 key（主进程解码校验与插件打包共用；不含窗口图标）

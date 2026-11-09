@@ -113,8 +113,9 @@ if __name__ == "__main__":
             from app.sound_applier import capture_startup_settings
             capture_startup_settings(ui)
             SoundManager.instance().play_ready()
-        except Exception:
-            pass
+        except Exception as exc:
+            from utils.app_logger import logger
+            logger.warning(f"启动音效初始化失败，已静默: {exc}")
 
         # ── 启动 ZMQ Server + 插件管理器 ──
 
@@ -134,7 +135,17 @@ if __name__ == "__main__":
 
         configure_capture_guard(ui)
 
-        app.aboutToQuit.connect(lambda: cleanup_plugin_process(plugin_process))
+        def _on_about_to_quit():
+            # 退出前停掉所有在响的音效并取消未播出的补播，避免 Qt 音频后端
+            # 在播放中被销毁导致告警/崩溃。
+            try:
+                from utils.sound_manager import SoundManager
+                SoundManager.instance().stop_all()
+            except Exception:
+                pass
+            cleanup_plugin_process(plugin_process)
+
+        app.aboutToQuit.connect(_on_about_to_quit)
         sys.exit(app.exec())
 
 # 最高优先级

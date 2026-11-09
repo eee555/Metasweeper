@@ -112,6 +112,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         raw = self.game_setting.value('DEFAULT/allowed_controls', '', str)
         self._allowed_controls: set[str] = set(
             raw.split(',')) if raw else set()
+        # 外观命令（换肤/音效）不是作弊开关；清理历史 ini 残留值，否则
+        # 只要集合非空，第一击就会被判成 JOKING、官方录像作废。
+        self._allowed_controls.difference_update({"set_skin", "set_sound"})
         self.engine._allowed_controls = self._allowed_controls
 
         self.time_10ms: int = 0  # 已毫秒为单位的游戏时间，全局统一的

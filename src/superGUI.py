@@ -678,16 +678,12 @@ class Ui_MainWindow(Ui_MainWindow):
         self.board_shake = self.game_setting.get_or_set_value(
             "DEFAULT/board_shake", True, bool)
         self.label.shake_enabled = self.board_shake
-        # 游戏性音效：开关、音量、当前音效包、额外音效库目录。默认关闭，
-        # 用户需在游戏设置里主动勾选「游戏音效」才会发声。
+        # 游戏性音效：主程序只负责默认音效（media/sounds/*.wav）的开关与
+        # 音量；音效包的选择与热切换完全由「皮肤与音效」插件负责。
         self.sound_enabled = self.game_setting.get_or_set_value(
             "DEFAULT/sound_enabled", False, bool)
         self.sound_volume = self.game_setting.get_or_set_value(
             "DEFAULT/sound_volume", 70, int)
-        self.sound_pack = self.game_setting.get_or_set_value(
-            "DEFAULT/sound_pack", "", str)
-        self.sound_extra_dir = self.game_setting.get_or_set_value(
-            "DEFAULT/sound_extra_dir", "", str)
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:
@@ -711,8 +707,7 @@ class Ui_MainWindow(Ui_MainWindow):
         try:
             from utils.sound_manager import SoundManager
             SoundManager.instance().configure(
-                enabled=self.sound_enabled, volume=self.sound_volume,
-                pack=self.sound_pack, extra_dir=self.sound_extra_dir)
+                enabled=self.sound_enabled, volume=self.sound_volume)
         except Exception:
             logger.warning("音效初始化失败，已保持静音", exc_info=True)
 

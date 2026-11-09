@@ -69,62 +69,62 @@
 <context>
     <name>Commands</name>
     <message>
-        <location filename="../shared_types/commands.py" line="211"/>
+        <location filename="../shared_types/commands.py" line="206"/>
         <source>重开新局</source>
         <translation>Nowa gra</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="212"/>
+        <location filename="../shared_types/commands.py" line="207"/>
         <source>预设局面</source>
         <translation>Zadana plansza</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="213"/>
+        <location filename="../shared_types/commands.py" line="208"/>
         <source>鼠标点击</source>
         <translation>Kliknięcie myszy</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="214"/>
+        <location filename="../shared_types/commands.py" line="209"/>
         <source>初始化翻开</source>
         <translation>Początkowe odkrycie</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="215"/>
+        <location filename="../shared_types/commands.py" line="210"/>
         <source>更换皮肤</source>
         <translation>Zmień skórkę</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="216"/>
+        <location filename="../shared_types/commands.py" line="211"/>
         <source>更改音效</source>
         <translation>Zmień dźwięk</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="217"/>
+        <location filename="../shared_types/commands.py" line="212"/>
         <source>插件随机重开一局（结果非 official / 非 fair）</source>
         <translation>Wtyczka losowo rozpoczyna nową grę (wynik ani official, ani fair)</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="219"/>
+        <location filename="../shared_types/commands.py" line="214"/>
         <source>按指定棋盘开局（模式为 UPK，可含官方记录）</source>
         <translation>Rozpocznij z zadaną planszą (tryb UPK, może liczyć się jako oficjalny wynik)</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="221"/>
+        <location filename="../shared_types/commands.py" line="216"/>
         <source>对指定格子模拟左 / 中 / 右键点击</source>
         <translation>Symuluj kliknięcie lewym / środkowym / prawym przyciskiem na podanym polu</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="223"/>
+        <location filename="../shared_types/commands.py" line="218"/>
         <source>预设局面初始化时翻开指定格子</source>
         <translation>Odkryj podane pole podczas inicjalizacji zadanej planszy</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="225"/>
+        <location filename="../shared_types/commands.py" line="220"/>
         <source>热替换主窗口图片皮肤（纯内存、不重启、独立授权）</source>
         <translation>Zastąp skórkę obrazów głównego okna w trakcie działania (tylko w pamięci, bez restartu, osobne uprawnienie)</translation>
     </message>
     <message>
-        <location filename="../shared_types/commands.py" line="227"/>
+        <location filename="../shared_types/commands.py" line="222"/>
         <source>热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）</source>
         <translation>Zaktualizuj w trakcie działania dźwięk / głośność / pakiet dźwięków (niezależnie od uprawnienia skórki)</translation>
     </message>
@@ -208,22 +208,22 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
 <context>
     <name>CsvExportProgressDialog</name>
     <message>
-        <location filename="../utils/csv_export.py" line="361"/>
+        <location filename="../utils/csv_export.py" line="358"/>
         <source>导出 CSV</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../utils/csv_export.py" line="362"/>
+        <location filename="../utils/csv_export.py" line="359"/>
         <source>正在读取 stats.dat...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../utils/csv_export.py" line="380"/>
+        <location filename="../utils/csv_export.py" line="377"/>
         <source>正在读取并解密记录... {n}%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../utils/csv_export.py" line="384"/>
+        <location filename="../utils/csv_export.py" line="381"/>
         <source>正在计算并导出记录... {cur}/{total}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -257,8 +257,8 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Po wygranej lub przegranej kliknij dwukrotnie planszę lewym przyciskiem myszy, aby rozpocząć nową grę.</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1361"/>
-        <location filename="../../uiFiles/ui_about.ui" line="585"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1283"/>
+        <location filename="../../uiFiles/ui_about.ui" line="584"/>
         <location filename="../../uiFiles/ui_defined_parameter.ui" line="70"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="73"/>
         <location filename="../../uiFiles/ui_record_pop.ui" line="1077"/>
@@ -268,7 +268,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Czy na pewno</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1398"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1320"/>
         <location filename="../../uiFiles/ui_defined_parameter.ui" line="54"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="54"/>
         <location filename="../../uiFiles/ui_advanced.ui" line="174"/>
@@ -312,8 +312,8 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="148"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="573"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1047"/>
-        <location filename="../mineSweeperGUI.py" line="953"/>
-        <location filename="../mineSweeperGUI.py" line="957"/>
+        <location filename="../mineSweeperGUI.py" line="946"/>
+        <location filename="../mineSweeperGUI.py" line="950"/>
         <location filename="../shared_types/enums.py" line="170"/>
         <location filename="../utils/helpers.py" line="25"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="302"/>
@@ -325,7 +325,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="153"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="578"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1052"/>
-        <location filename="../mineSweeperGUI.py" line="960"/>
+        <location filename="../mineSweeperGUI.py" line="953"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="303"/>
         <source>Win7</source>
         <translation>Win7</translation>
@@ -335,7 +335,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="158"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="583"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1057"/>
-        <location filename="../mineSweeperGUI.py" line="966"/>
+        <location filename="../mineSweeperGUI.py" line="959"/>
         <location filename="../shared_types/enums.py" line="178"/>
         <location filename="../utils/helpers.py" line="37"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="305"/>
@@ -347,7 +347,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="163"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="588"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1062"/>
-        <location filename="../mineSweeperGUI.py" line="969"/>
+        <location filename="../mineSweeperGUI.py" line="962"/>
         <location filename="../shared_types/enums.py" line="180"/>
         <location filename="../utils/helpers.py" line="39"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="306"/>
@@ -359,7 +359,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="168"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="593"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1067"/>
-        <location filename="../mineSweeperGUI.py" line="963"/>
+        <location filename="../mineSweeperGUI.py" line="956"/>
         <location filename="../shared_types/enums.py" line="176"/>
         <location filename="../utils/helpers.py" line="35"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="304"/>
@@ -371,7 +371,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="173"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="598"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1072"/>
-        <location filename="../mineSweeperGUI.py" line="972"/>
+        <location filename="../mineSweeperGUI.py" line="965"/>
         <location filename="../shared_types/enums.py" line="182"/>
         <location filename="../utils/helpers.py" line="41"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="307"/>
@@ -383,7 +383,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="178"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="603"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1077"/>
-        <location filename="../mineSweeperGUI.py" line="975"/>
+        <location filename="../mineSweeperGUI.py" line="968"/>
         <location filename="../shared_types/enums.py" line="184"/>
         <location filename="../utils/helpers.py" line="43"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="308"/>
@@ -395,7 +395,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="183"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="608"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1082"/>
-        <location filename="../mineSweeperGUI.py" line="978"/>
+        <location filename="../mineSweeperGUI.py" line="971"/>
         <location filename="../shared_types/enums.py" line="186"/>
         <location filename="../utils/helpers.py" line="45"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="309"/>
@@ -404,7 +404,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="164"/>
-        <location filename="../mineSweeperGUI.py" line="981"/>
+        <location filename="../mineSweeperGUI.py" line="974"/>
         <location filename="../shared_types/enums.py" line="188"/>
         <location filename="../utils/helpers.py" line="47"/>
         <source>双击递归</source>
@@ -412,7 +412,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="169"/>
-        <location filename="../mineSweeperGUI.py" line="984"/>
+        <location filename="../mineSweeperGUI.py" line="977"/>
         <location filename="../shared_types/enums.py" line="190"/>
         <location filename="../utils/helpers.py" line="49"/>
         <source>标雷递归</source>
@@ -420,7 +420,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="174"/>
-        <location filename="../mineSweeperGUI.py" line="987"/>
+        <location filename="../mineSweeperGUI.py" line="980"/>
         <location filename="../shared_types/enums.py" line="192"/>
         <location filename="../utils/helpers.py" line="51"/>
         <source>双击标雷递归</source>
@@ -428,7 +428,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="179"/>
-        <location filename="../mineSweeperGUI.py" line="990"/>
+        <location filename="../mineSweeperGUI.py" line="983"/>
         <location filename="../shared_types/enums.py" line="194"/>
         <location filename="../utils/helpers.py" line="53"/>
         <source>无猜双击递归</source>
@@ -436,7 +436,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="184"/>
-        <location filename="../mineSweeperGUI.py" line="993"/>
+        <location filename="../mineSweeperGUI.py" line="986"/>
         <location filename="../shared_types/enums.py" line="196"/>
         <location filename="../utils/helpers.py" line="55"/>
         <source>无猜标雷递归</source>
@@ -444,7 +444,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="189"/>
-        <location filename="../mineSweeperGUI.py" line="996"/>
+        <location filename="../mineSweeperGUI.py" line="989"/>
         <location filename="../shared_types/enums.py" line="198"/>
         <location filename="../utils/helpers.py" line="57"/>
         <source>无猜双击标雷递归</source>
@@ -453,45 +453,30 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="821"/>
         <source>开出格子与踩雷时，棋盘短促抖动</source>
-        <translation type="unfinished"></translation>
+        <translation>Krótkie drżenie planszy przy odkrywaniu pól lub trafieniu miny&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
         <source>开格抖动特效</source>
-        <translation type="unfinished"></translation>
+        <translation>Efekt drżenia przy odkrywaniu&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="840"/>
         <source>开格、双击、插旗、开局、胜负等游戏性音效</source>
-        <translation type="unfinished"></translation>
+        <translation>Dźwięki gry: odkrywanie, chordowanie, flagowanie, start, wygrana/przegrana&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="843"/>
         <source>游戏音效</source>
-        <translation type="unfinished"></translation>
+        <translation>Dźwięki gry&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="874"/>
         <source>音量：</source>
-        <translation type="unfinished"></translation>
+        <translation>Głośność:&gt;</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="927"/>
-        <source>音效包：</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="964"/>
-        <source>额外音效库：</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="971"/>
-        <source>留空则使用 media/sounds；填写后与自带音效包合并</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1234"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1156"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="504"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="929"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1165"/>
@@ -499,7 +484,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Liczba prób:</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1163"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1085"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="453"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="878"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1386"/>
@@ -507,7 +492,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Ograniczenia sytuacyjne:</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1011"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="933"/>
         <source>自动重开：</source>
         <translation>Automatyczne ponowne otwarcie:</translation>
     </message>
@@ -677,7 +662,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Po zakończeniu nagranie zostanie automatycznie zapisane w folderze „replay”</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1123"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1045"/>
         <source>允许纪录弹窗（推荐）</source>
         <translation>Zezwól na powiadomienia wyskakujące (zalecane)</translation>
     </message>
@@ -727,8 +712,8 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Automatycznie zapisywana kolekcja filmów</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1364"/>
-        <location filename="../../uiFiles/ui_about.ui" line="588"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1286"/>
+        <location filename="../../uiFiles/ui_about.ui" line="587"/>
         <location filename="../../uiFiles/ui_defined_parameter.ui" line="73"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="76"/>
         <location filename="../../uiFiles/ui_record_pop.ui" line="1080"/>
@@ -758,6 +743,16 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Samouczek</translation>
     </message>
     <message>
+        <location filename="../../uiFiles/ui_about.ui" line="177"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/zh/guide/minesweeper/metasweeper&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/zh/guide/minesweeper/metasweeper&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_about.ui" line="217"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/zh/guide/minesweeper/terminology&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/zh/guide/minesweeper/terminology&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../uiFiles/ui_about.ui" line="253"/>
         <source>开发：王嘉宁、李京志</source>
         <translation>Tworzenie: 王嘉宁, 李京志</translation>
@@ -783,22 +778,22 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Sponsorowanie</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_about.ui" line="503"/>
+        <location filename="../../uiFiles/ui_about.ui" line="502"/>
         <source>1. 在非商业用途前提下，用户有权不受任何限制地对“元扫雷”软件进行复制、存储及传播。</source>
         <translation>1. Pod warunkiem wykorzystania niekomercyjnego użytkownik ma prawo do nieograniczonego kopiowania, przechowywania i rozpowszechniania oprogramowania „Meta Minesweeper“.</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_about.ui" line="513"/>
+        <location filename="../../uiFiles/ui_about.ui" line="512"/>
         <source>2. 由“元扫雷”软件生成的录像文件，其全部所有权归对应玩家本人所有。</source>
         <translation>2. Własność wszystkich plików wideo wygenerowanych przez oprogramowanie „Meta Minesweeper“ należy w całości do odpowiedniego gracza.</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_about.ui" line="523"/>
+        <location filename="../../uiFiles/ui_about.ui" line="522"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;3. 本项目源代码遵循GPLv3并附加额外条款发布。该额外条款特别禁止任何未经开发团队授权的商业使用行为，并对项目相关收益的分配方式作出明确约定。具体内容详见&lt;a href=&quot;https://github.com/eee555/Metasweeper/blob/master/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;LICENSE&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;3. Kod źródłowy tego projektu jest udostępniany na licencji GPLv3 z dodatkowymi postanowieniami. Te dodatkowe postanowienia szczególnie zabraniają wszelkiego komercyjnego wykorzystania bez zgody zespołu deweloperskiego i jasno określają sposób podziału dochodów związanych z projektem. Szczegóły zobacz&lt;a href=&quot;https://github.com/eee555/Metasweeper/blob/master/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;LICENSE&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_about.ui" line="482"/>
+        <location filename="../../uiFiles/ui_about.ui" line="481"/>
         <source>协议</source>
         <translation>Umowa</translation>
     </message>
@@ -1254,104 +1249,104 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Tryb nauki</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="145"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="136"/>
         <source>仙逆背景的修炼体系 - 每局扫雷胜利获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者</source>
         <translation>System kultivacji Xian Ni - zdobywaj PD za każdą wygraną. Wznieś się ze śmiertelnika do istoty niszczącej 108 gwiazd jednym ruchem.</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="229"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="220"/>
         <source>当前仍是默认匿名标识，请先在游戏设置中修改玩家标识后再开启自动上传。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="277"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="268"/>
         <source>令牌与当前玩家标识不匹配。请确认上传令牌，或更换玩家标识后重试。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="281"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="292"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="272"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="283"/>
         <source>无法校验上传令牌（HTTP %1）</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="286"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="289"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="277"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="280"/>
         <source>无法校验上传令牌，请检查网络。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="436"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="427"/>
         <source>匿名玩家</source>
         <translation>Anonimowy gracz</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="799"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="790"/>
         <source>当前玩家标识为空或仍是默认「匿名玩家」，无法上传排行。请先在游戏设置中修改玩家标识。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="871"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="956"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="862"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="947"/>
         <source>上传失败: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="904"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="895"/>
         <source>排行已上传。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="912"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="994"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="903"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="985"/>
         <source>上传失败（HTTP %1）</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="938"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="948"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="929"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="939"/>
         <source>上传超时，请检查网络或排行站地址。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="941"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="932"/>
         <source>无法连接排行站，请检查网络或 API 地址。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="970"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="961"/>
         <source>排行站 Cloudflare 拦截了上传（1010）。请在 Pages 项目关闭 Bot Fight Mode 后重试。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="978"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="984"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="969"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="975"/>
         <source>令牌不匹配，无法更新该标识。请确认上传令牌，或更换玩家标识后重试。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="983"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="974"/>
         <source>上传被拒绝：%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="989"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="980"/>
         <source>上传过于频繁，请稍后再试。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="992"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="983"/>
         <source>服务器拒绝了本次数据：%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="993"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="984"/>
         <source>服务器拒绝了本次数据（校验失败）。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1021"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1026"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1012"/>
+        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1017"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="411"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="439"/>
         <source>上传排行</source>
@@ -1644,7 +1639,7 @@ nieśmiertelnego ciała</translation>
         <translation>PD</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="665"/>
+        <location filename="../mainWindowGUIImportExport.py" line="645"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="590"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="602"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="647"/>
@@ -2169,68 +2164,68 @@ nieśmiertelnego ciała</translation>
         <translation>Niestandardowy</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="197"/>
+        <location filename="../mainWindowGUIImportExport.py" line="196"/>
         <source>正在验证程序...</source>
         <translation>Weryfikowanie programu...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="213"/>
+        <location filename="../mainWindowGUIImportExport.py" line="212"/>
         <source>正在验证录像...</source>
         <translation>Weryfikowanie nagrania...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="219"/>
+        <location filename="../mainWindowGUIImportExport.py" line="218"/>
         <source>正在解析录像 {cur}/{total}...</source>
         <translation>Analizowanie nagrania {cur}/{total}...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="240"/>
+        <location filename="../mainWindowGUIImportExport.py" line="239"/>
         <source>正在写入 stats.dat  {cur}/{total}...</source>
         <translation>Zapisywanie stats.dat {cur}/{total}...</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="247"/>
+        <location filename="../mainWindowGUIImportExport.py" line="246"/>
         <source>完成！</source>
         <translation>Gotowe!</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="642"/>
+        <location filename="../mainWindowGUIImportExport.py" line="622"/>
         <source>选择验证程序</source>
         <translation>Wybierz program weryfikujący</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="643"/>
+        <location filename="../mainWindowGUIImportExport.py" line="623"/>
         <source>程序 (*.exe);;所有文件 (*)</source>
         <translation>Program (*.exe);;Wszystkie pliki (*)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="649"/>
+        <location filename="../mainWindowGUIImportExport.py" line="629"/>
         <source>选择录像</source>
         <translation>Wybierz nagranie</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="650"/>
+        <location filename="../mainWindowGUIImportExport.py" line="630"/>
         <source>录像文件 (*.evf *.evfs);;所有文件 (*)</source>
         <translation>Pliki nagrań (*.evf *.evfs);;Wszystkie pliki (*)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="656"/>
+        <location filename="../mainWindowGUIImportExport.py" line="636"/>
         <source>选择录像文件夹</source>
         <translation>Wybierz folder nagrań</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="666"/>
+        <location filename="../mainWindowGUIImportExport.py" line="646"/>
         <source>请选择验证程序和录像路径</source>
         <translation>Wybierz program weryfikujący i ścieżkę nagrania</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="955"/>
+        <location filename="../mineSweeperGUI.py" line="948"/>
         <source>标准（盲扫）</source>
         <translation>Standard (Ślepe odminowanie)</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUIEvent.py" line="293"/>
-        <location filename="../mineSweeperGUIEvent.py" line="301"/>
+        <location filename="../mineSweeperGUIEvent.py" line="309"/>
+        <location filename="../mineSweeperGUIEvent.py" line="317"/>
         <source>(是雷的概率)</source>
         <translation>(Prawdopodobieństwo miny)</translation>
     </message>
@@ -2527,47 +2522,6 @@ nieśmiertelnego ciała</translation>
         <translation>Eksportuj nagrania</translation>
     </message>
     <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="9"/>
-        <source>鼠标点击（MouseClickCommand）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="10"/>
-        <source>重开新局（NewGameCommand）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="11"/>
-        <source>棋盘更新（BoardUpdateEvent）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="12"/>
-        <source>预设局面（NewPresetGameCommand）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="13"/>
-        <source>初始化翻开（InitOpenCommand）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="14"/>
-        <source>更换皮肤（SetSkinCommand）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="15"/>
-        <source>更改音效（SetSoundCommand）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="66"/>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="79"/>
-        <source>允许{label}</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../plugin_sdk/config_types/base_config.py" line="170"/>
         <location filename="../plugin_sdk/config_types/base_config.py" line="172"/>
         <location filename="../plugin_sdk/config_types/base_config.py" line="173"/>
@@ -2731,7 +2685,7 @@ nieśmiertelnego ciała</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/challenge_mode/plugin.py" line="70"/>
+        <location filename="../plugins/challenge_mode/plugin.py" line="61"/>
         <source>顺序闯关模式 - 共1000个精心设计的关卡</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2862,6 +2816,12 @@ nieśmiertelnego ciała</translation>
         <location filename="../plugins/stats/plugin.py" line="92"/>
         <source>游戏数据统计与可视化</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="62"/>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="74"/>
+        <source>允许 %1</source>
+        <translation>Zezwól na %1&gt;</translation>
     </message>
 </context>
 <context>
@@ -3051,189 +3011,189 @@ nieśmiertelnego ciała</translation>
     </message>
     <message>
         <location filename="../../uiFiles/main_board.ui" line="774"/>
-        <location filename="../mainWindowGUIImportExport.py" line="231"/>
-        <location filename="../mainWindowGUIImportExport.py" line="395"/>
-        <location filename="../mainWindowGUIImportExport.py" line="403"/>
+        <location filename="../mainWindowGUIImportExport.py" line="230"/>
+        <location filename="../mainWindowGUIImportExport.py" line="391"/>
+        <location filename="../mainWindowGUIImportExport.py" line="399"/>
         <source>导入</source>
         <translation>Importuj</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="191"/>
-        <location filename="../mainWindowGUIImportExport.py" line="204"/>
-        <location filename="../mainWindowGUIImportExport.py" line="209"/>
-        <location filename="../mainWindowGUIImportExport.py" line="226"/>
-        <location filename="../mainWindowGUIImportExport.py" line="386"/>
-        <location filename="../mainWindowGUIImportExport.py" line="434"/>
+        <location filename="../mainWindowGUIImportExport.py" line="190"/>
+        <location filename="../mainWindowGUIImportExport.py" line="203"/>
+        <location filename="../mainWindowGUIImportExport.py" line="208"/>
+        <location filename="../mainWindowGUIImportExport.py" line="225"/>
+        <location filename="../mainWindowGUIImportExport.py" line="382"/>
+        <location filename="../mainWindowGUIImportExport.py" line="430"/>
         <source>导入失败</source>
         <translation>Import nieudany</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="192"/>
+        <location filename="../mainWindowGUIImportExport.py" line="191"/>
         <source>路径不存在</source>
         <translation>Ścieżka nie istnieje</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="205"/>
+        <location filename="../mainWindowGUIImportExport.py" line="204"/>
         <source>无法读取验证程序</source>
         <translation>Nie można odczytać programu weryfikującego</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="210"/>
+        <location filename="../mainWindowGUIImportExport.py" line="209"/>
         <source>未知的验证程序版本</source>
         <translation>Nieznana wersja programu weryfikującego</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="227"/>
+        <location filename="../mainWindowGUIImportExport.py" line="226"/>
         <source>验证失败</source>
         <translation>Weryfikacja nieudana</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="232"/>
+        <location filename="../mainWindowGUIImportExport.py" line="231"/>
         <source>没有新的录像需要导入</source>
         <translation>Brak nowych nagrań do zaimportowania</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="251"/>
+        <location filename="../mainWindowGUIImportExport.py" line="250"/>
         <source>成功导入 {n} 条录像</source>
         <translation>Pomyślnie zaimportowano {n} nagrań</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="254"/>
-        <location filename="../mainWindowGUIImportExport.py" line="415"/>
+        <location filename="../mainWindowGUIImportExport.py" line="253"/>
+        <location filename="../mainWindowGUIImportExport.py" line="411"/>
         <source>导入成功</source>
         <translation>Import zakończony sukcesem</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="377"/>
+        <location filename="../mainWindowGUIImportExport.py" line="373"/>
         <source>选择旧版 stats.dat</source>
         <translation>Wybierz starą stats.dat</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="379"/>
+        <location filename="../mainWindowGUIImportExport.py" line="375"/>
         <source>DAT 文件 (stats.dat *.dat);;所有文件 (*)</source>
         <translation>Pliki DAT (stats.dat *.dat);;Wszystkie pliki (*)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="387"/>
+        <location filename="../mainWindowGUIImportExport.py" line="383"/>
         <source>不能导入当前正在使用的 stats.dat</source>
         <translation>Nie można zaimportować aktualnie używanej stats.dat</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="396"/>
+        <location filename="../mainWindowGUIImportExport.py" line="392"/>
         <source>旧版 stats.dat 中没有有效记录</source>
         <translation>Brak ważnych rekordów w starej stats.dat</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="404"/>
+        <location filename="../mainWindowGUIImportExport.py" line="400"/>
         <source>共 {n} 条记录，全部与当前重复</source>
         <translation>{n} rekordów, wszystkie są duplikatami</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="409"/>
+        <location filename="../mainWindowGUIImportExport.py" line="405"/>
         <source>成功导入 {n} 条记录</source>
         <translation>Pomyślnie zaimportowano {n} rekordów</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="412"/>
+        <location filename="../mainWindowGUIImportExport.py" line="408"/>
         <source>，跳过 {n} 条重复</source>
         <translation>, pominięto {n} duplikatów</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="435"/>
+        <location filename="../mainWindowGUIImportExport.py" line="431"/>
         <source>不支持的 stats.dat 版本 (v{ver})，请升级程序</source>
         <translation>Nieobsługiwana wersja stats.dat (v{ver}), zaktualizuj program</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="493"/>
-        <location filename="../mainWindowGUIImportExport.py" line="533"/>
-        <location filename="../mainWindowGUIImportExport.py" line="543"/>
-        <location filename="../mainWindowGUIImportExport.py" line="590"/>
-        <location filename="../mainWindowGUIImportExport.py" line="599"/>
+        <location filename="../mainWindowGUIImportExport.py" line="482"/>
+        <location filename="../mainWindowGUIImportExport.py" line="522"/>
+        <location filename="../mainWindowGUIImportExport.py" line="532"/>
+        <location filename="../mainWindowGUIImportExport.py" line="574"/>
+        <location filename="../mainWindowGUIImportExport.py" line="583"/>
         <source>导出失败</source>
         <translation>Eksport nieudany</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="494"/>
-        <location filename="../mainWindowGUIImportExport.py" line="544"/>
+        <location filename="../mainWindowGUIImportExport.py" line="483"/>
+        <location filename="../mainWindowGUIImportExport.py" line="533"/>
         <source>stats.dat 不存在或为空</source>
         <translation>stats.dat nie istnieje lub jest pusta</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="502"/>
+        <location filename="../mainWindowGUIImportExport.py" line="491"/>
         <source>导出 Arbiter Textstats CSV（全部）</source>
         <translation>Eksportuj Arbiter Textstats CSV (wszystkie)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="505"/>
+        <location filename="../mainWindowGUIImportExport.py" line="494"/>
         <source>Textstats CSV 文件 (*.csv)</source>
         <translation>Plik Textstats CSV (*.csv)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="510"/>
+        <location filename="../mainWindowGUIImportExport.py" line="499"/>
         <source>导出 Arbiter Stats CSV</source>
         <translation>Eksportuj Arbiter Stats CSV</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="513"/>
+        <location filename="../mainWindowGUIImportExport.py" line="502"/>
         <source>Stats CSV 文件 (*.csv)</source>
         <translation>Plik Stats CSV (*.csv)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="534"/>
+        <location filename="../mainWindowGUIImportExport.py" line="523"/>
         <source>导出 CSV 失败：{error}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="591"/>
+        <location filename="../mainWindowGUIImportExport.py" line="575"/>
         <source>未找到有效的记录</source>
         <translation>Nie znaleziono ważnych rekordów</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="537"/>
-        <location filename="../mainWindowGUIImportExport.py" line="617"/>
+        <location filename="../mainWindowGUIImportExport.py" line="526"/>
+        <location filename="../mainWindowGUIImportExport.py" line="597"/>
         <source>导出成功</source>
         <translation>Eksport zakończony sukcesem</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="538"/>
-        <location filename="../mainWindowGUIImportExport.py" line="618"/>
+        <location filename="../mainWindowGUIImportExport.py" line="527"/>
+        <location filename="../mainWindowGUIImportExport.py" line="598"/>
         <source>已导出 {n} 条记录到
 {path}</source>
         <translation>Wyeksportowano {n} rekordów do
 {path}</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="551"/>
+        <location filename="../mainWindowGUIImportExport.py" line="540"/>
         <source>导出 meta.all.dat</source>
         <translation>Eksportuj meta.all.dat</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="553"/>
+        <location filename="../mainWindowGUIImportExport.py" line="542"/>
         <source>Meta All DAT 文件 (*.all.dat)</source>
         <translation>Plik Meta All DAT (*.all.dat)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="558"/>
+        <location filename="../mainWindowGUIImportExport.py" line="547"/>
         <source>导出 meta.dat</source>
         <translation>Eksportuj meta.dat</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="560"/>
+        <location filename="../mainWindowGUIImportExport.py" line="549"/>
         <source>Meta DAT 文件 (*.dat)</source>
         <translation>Plik Meta DAT (*.dat)</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="600"/>
+        <location filename="../mainWindowGUIImportExport.py" line="584"/>
         <source>未找到记录</source>
         <translation>Nie znaleziono rekordów</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="1693"/>
+        <location filename="../mineSweeperGUI.py" line="1669"/>
         <source>粘贴失败</source>
         <translation>Wklejanie nieudane</translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="1694"/>
+        <location filename="../mineSweeperGUI.py" line="1670"/>
         <source>剪贴板内容无法识别为扫雷局面</source>
         <translation>Zawartość schowka nie została rozpoznana jako plansza sapera</translation>
     </message>
@@ -3872,6 +3832,203 @@ nieśmiertelnego ciała</translation>
         <location filename="../plugin_manager/main_window.py" line="652"/>
         <source>显示来源</source>
         <translation>Pokaż źródło</translation>
+    </message>
+</context>
+<context>
+    <name>SkinManager</name>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="75"/>
+        <location filename="../plugins/skin_manager/config.py" line="96"/>
+        <source>当前皮肤</source>
+        <translation>Bieżąca skórka&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="76"/>
+        <location filename="../plugins/skin_manager/config.py" line="133"/>
+        <source>当前音效包</source>
+        <translation>Bieżąca paczka dźwięków&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="77"/>
+        <location filename="../plugins/skin_manager/config.py" line="98"/>
+        <source>选择后立即生效（纯内存热替换，不重启）；选「默认皮肤」即还原</source>
+        <translation>Działa natychmiast (w pamięci, bez restartu); domyślne przywraca&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="79"/>
+        <location filename="../plugins/skin_manager/config.py" line="135"/>
+        <source>选择后立即生效（纯内存热替换，不重启）；选「默认音效」即还原</source>
+        <translation>Działa natychmiast (w pamięci, bez restartu); domyślne przywraca&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="88"/>
+        <source>启动时自动应用</source>
+        <translation>Zastosuj automatycznie przy starcie&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="89"/>
+        <source>插件启动并连接主进程后，自动应用上次选择的皮肤与音效设置</source>
+        <translation>Po połączeniu ponownie zastosuj ostatnie ustawienia skórki i dźwięków&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="105"/>
+        <source>导入皮肤包</source>
+        <translation>Importuj paczkę skórki&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="107"/>
+        <source>导入皮肤 zip</source>
+        <translation>Importuj zip skórki&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="108"/>
+        <source>选择 zip 自动解压到本插件数据目录 skins/，随后即可在下拉框选择</source>
+        <translation>Rozpakuj zip do skins/; paczka pojawi się na liście&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="116"/>
+        <source>启用游戏音效</source>
+        <translation>Włącz dźwięki gry&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="117"/>
+        <source>通过 SetSoundCommand 独立控制；不影响主程序设置页里的开关</source>
+        <translation>Sterowane niezależnie przez SetSoundCommand; osobne od ustawień gry&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="124"/>
+        <source>音效音量</source>
+        <translation>Głośność dźwięków&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="128"/>
+        <source>0~100，选择后立即生效</source>
+        <translation>0–100, działa natychmiast&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="142"/>
+        <source>导入音效包</source>
+        <translation>Importuj paczkę dźwięków&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="144"/>
+        <source>导入音效 zip</source>
+        <translation>Importuj zip dźwięków&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/config.py" line="145"/>
+        <source>选择 zip 自动解压到本插件数据目录 sounds/，随后即可在下拉框选择</source>
+        <translation>Rozpakuj zip do sounds/; paczka pojawi się na liście&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="27"/>
+        <source>就绪</source>
+        <translation>Gotowy&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="28"/>
+        <source>开局</source>
+        <translation>Start&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="29"/>
+        <source>开格</source>
+        <translation>Odkryj&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="30"/>
+        <source>双击</source>
+        <translation>Chord&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="31"/>
+        <source>插旗</source>
+        <translation>Flaga wł.&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="32"/>
+        <source>拔旗</source>
+        <translation>Flaga wył.&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="33"/>
+        <source>胜利</source>
+        <translation type="unfinished">Zwycięstwo</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="34"/>
+        <source>失败</source>
+        <translation type="unfinished">Porażka</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="50"/>
+        <source>皮肤管理</source>
+        <translation>Zarządzanie skórkami&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="54"/>
+        <source>在插件列表里右键本插件 →「设置...」，从「当前皮肤」下拉框选择，选择后立即生效，无需重启。
+选「默认皮肤」即可还原。</source>
+        <translation>Prawy przycisk na wtyczce → Ustawienia, wybierz skórkę. Działa od razu, bez restartu.
+Domyślna przywraca.&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="62"/>
+        <source>尚未应用皮肤</source>
+        <translation>Nie zastosowano jeszcze skórki&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="65"/>
+        <source>重新应用</source>
+        <translation>Zastosuj ponownie&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="66"/>
+        <source>强制把当前选中的皮肤重新发送到主进程</source>
+        <translation>Wymuś ponowne wysłanie skórki do procesu gry&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="72"/>
+        <source>在插件「设置...」里用「导入皮肤包」按钮安装 zip，或把资源放到插件目录 skins/&lt;名称&gt;/ 下，导入后即自动出现在下拉框里。</source>
+        <translation>Użyj przycisku importu w Ustawieniach lub umieść pliki w skins/&lt;nazwa&gt;/.&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="82"/>
+        <source>音效</source>
+        <translation>Dźwięki&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="85"/>
+        <source>在插件「设置...」里分别设置「启用游戏音效」「音效音量」「当前音效包」，与皮肤设置相互独立，互不影响。授权也是独立的 SetSoundCommand。</source>
+        <translation>W Ustawieniach skonfiguruj niezależnie włączenie, głośność i paczkę. Osobna autoryzacja SetSoundCommand.&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="93"/>
+        <source>试听：</source>
+        <translation>Podgląd:&gt;</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="102"/>
+        <source>播放</source>
+        <translation type="unfinished">Odtwórz</translation>
+    </message>
+    <message>
+        <location filename="../plugins/skin_manager/widgets.py" line="103"/>
+        <source>按当前音效设置发送试听请求（需已授权 SetSoundCommand）</source>
+        <translation>Wyślij żądanie podglądu z bieżącymi ustawieniami (wymaga autoryzacji SetSoundCommand)&gt;</translation>
+    </message>
+</context>
+<context>
+    <name>Sounds</name>
+    <message>
+        <location filename="../shared_types/sounds.py" line="76"/>
+        <source>默认音效（不替换）</source>
+        <translation>Domyślne dźwięki (bez podmiany)&gt;</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/sounds.py" line="81"/>
+        <source>默认皮肤（不替换）</source>
+        <translation>Domyślny skórka (bez podmiany)&gt;</translation>
     </message>
 </context>
 <context>

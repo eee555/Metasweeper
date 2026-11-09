@@ -451,13 +451,29 @@ def _apply_colors(
 
 
 def _restore_colors(ui: "MineSweeperGUI") -> None:
-    """恢复换肤前记录的原始样式与 palette。"""
+    """恢复换肤前记录的原始样式与 palette。
+
+    注意 `sb_table` 的样式表会被 gameScoreBoard.apply_scale() 在每次滚轮
+    缩放时重写为 ``font-size: Npx; <皮肤规则>``。若这里把整体设回首次
+    换肤时的快照，会丢失用户当前的缩放字号。因此只移除皮肤规则、保留
+    当前 font-size 声明。
+    """
     _SCORE_BOARD_QSS_EXTRA.clear()
     widgets = _widget_keys(ui)
     for name, widget in widgets.items():
         if widget is None:
             continue
-        widget.setStyleSheet(_ORIGINAL_STYLES.get(f"{name}.qss", ""))
+        original = _ORIGINAL_STYLES.get(f"{name}.qss", "")
+        if name == "sb_table":
+            current = widget.styleSheet() or ""
+            font_decl = ""
+            for part in current.split(";"):
+                if part.strip().startswith("font-size"):
+                    font_decl = part.strip() + "; "
+                    break
+            widget.setStyleSheet((font_decl + original).strip())
+        else:
+            widget.setStyleSheet(original)
     sb_window = widgets.get("sb_window")
     if sb_window is not None and hasattr(sb_window, "skin_bg_color"):
         setattr(sb_window, "skin_bg_color", None)
@@ -495,8 +511,13 @@ def _restore_colors(ui: "MineSweeperGUI") -> None:
             widget.update()
 
 
-def reset_skin(ui: "MineSweeperGUI") -> None:
-    """清空所有内存皮肤源，恢复磁盘默认资源、原始配色并刷新显示。"""
+def _clear_skin_state(ui: "MineSweeperGUI") -> None:
+    """无条件清空上一套皮肤的全部内存状态（图片源 + 配色 + 大 SVG）。
+
+    此前 apply_skin 用 ``if cells:`` / ``if colors or frame_svg:`` 条件写入，
+    切到「只换数字」「只换笑脸」这类轻量皮肤时会保留**上一套**皮肤的其他
+    图片与配色，与 README「缺哪个文件就沿用默认资源」的承诺相反。
+    """
     frame_background = getattr(ui, "_frame_svg_background", None)
     if frame_background is not None:
         frame_background.detach()
@@ -511,7 +532,14 @@ def reset_skin(ui: "MineSweeperGUI") -> None:
     ui.label_2.skin_face_down = None
     ui.label_2.skin_face_normal = None
 
+    # 无条件还原配色：清空 _SCORE_BOARD_QSS_EXTRA，避免纯图片皮肤路径下
+    # 旧规则残留、并在计分板缩放时被重新拼回去。
     _restore_colors(ui)
+
+
+def reset_skin(ui: "MineSweeperGUI") -> None:
+    """清空所有内存皮肤源，恢复磁盘默认资源、原始配色并刷新显示。"""
+    _clear_skin_state(ui)
     _refresh(ui)
     logger.info("[Skin] 已恢复默认皮肤与配色")
 
@@ -535,6 +563,10 @@ def apply_skin(ui: "MineSweeperGUI", cmd: SetSkinCommand) -> None:
     colors = _validate_colors(cmd.colors)
 
     # ── 全部校验成功，以下为原子写入 ──
+    # 先无条件清空上一套皮肤，再只写入新皮肤实际提供的部分。这样「缺哪个
+    # 文件就沿用默认资源」（README 承诺）才成立，而不是沿用上一套皮肤。
+    _clear_skin_state(ui)
+
     label = ui.label
     if cells:
         label.skin_source = cells
@@ -549,12 +581,6 @@ def apply_skin(ui: "MineSweeperGUI", cmd: SetSkinCommand) -> None:
         # StatusLabel 的按下/松开两张脸必须同步，否则按下时会露出默认脸
         ui.label_2.skin_face_normal = faces.get(FACE_SMILE)
         ui.label_2.skin_face_down = faces.get(FACE_SMILE_DOWN)
-
-    # 每次切换皮肤都先清除上一张大 SVG，避免新皮肤未提供 frame.svg 时残留旧图。
-    previous = getattr(ui, "_frame_svg_background", None)
-    if previous is not None:
-        previous.detach()
-        delattr(ui, "_frame_svg_background")
 
     if colors or frame_svg is not None:
         _apply_colors(ui, colors, frame_background=frame_svg is not None)

@@ -9,7 +9,6 @@ from PySide6.QtCore import QSortFilterProxyModel
 from PySide6.QtWidgets import QComboBox
 from config.constants import BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT
 from utils.path_utils import resource_path
-from utils.sound_manager import discover_choices as discover_sound_choices
 
 
 class ui_Form(Ui_Form):
@@ -51,10 +50,6 @@ class ui_Form(Ui_Form):
             'DEFAULT/sound_enabled', False, bool)
         self.sound_volume = self.game_setting.value(
             'DEFAULT/sound_volume', 70, int)
-        self.sound_pack = self.game_setting.value(
-            'DEFAULT/sound_pack', '', str)
-        self.sound_extra_dir = self.game_setting.value(
-            'DEFAULT/sound_extra_dir', '', str)
         self.board_constraint = mainWindow.board_constraint
         self.attempt_times_limit = mainWindow.attempt_times_limit
 
@@ -89,23 +84,9 @@ class ui_Form(Ui_Form):
         self.comboBox_country.lineEdit().setText(self.country)
         self.comboBox_country.addItems(self.country_name)
 
-        self._refresh_sound_choices()
+        # 音效包的选择完全由「皮肤与音效」插件负责：主程序只提供默认音效
+        # （media/sounds/*.wav）与开关/音量，不再扫描或列出任何音效包。
         self.setParameter()
-
-    def _refresh_sound_choices(self):
-        """扫描音效包目录，自动注册到下拉框（与 skin_manager 同构）。
-
-        额外音效库目录改变时重新扫描；当前值仍存在则保持选中。
-        """
-        choices = discover_sound_choices(self.sound_extra_dir or None)
-        current = self.sound_pack
-        self.comboBox_sound_pack.blockSignals(True)
-        self.comboBox_sound_pack.clear()
-        for value, label in choices:
-            self.comboBox_sound_pack.addItem(label, value)
-        idx = self.comboBox_sound_pack.findData(current)
-        self.comboBox_sound_pack.setCurrentIndex(idx if idx >= 0 else 0)
-        self.comboBox_sound_pack.blockSignals(False)
 
     def set_country_flag(self, flag_name):
         # 设置国旗图案
@@ -159,9 +140,6 @@ class ui_Form(Ui_Form):
         self.checkBox_board_shake.setChecked(self.board_shake)
         self.checkBox_sound_enabled.setChecked(self.sound_enabled)
         self.horizontalSlider_sound_volume.setValue(self.sound_volume)
-        self.lineEdit_sound_extra_dir.setText(self.sound_extra_dir)
-        idx = self.comboBox_sound_pack.findData(self.sound_pack)
-        self.comboBox_sound_pack.setCurrentIndex(idx if idx >= 0 else 0)
 
         if not self.checkBox_auto_replay.isChecked():
             self.spinBox_auto_replay.setEnabled(False)
@@ -194,8 +172,6 @@ class ui_Form(Ui_Form):
         self.board_shake = self.checkBox_board_shake.isChecked()
         self.sound_enabled = self.checkBox_sound_enabled.isChecked()
         self.sound_volume = self.horizontalSlider_sound_volume.value()
-        self.sound_extra_dir = self.lineEdit_sound_extra_dir.text().strip()
-        self.sound_pack = self.comboBox_sound_pack.currentData() or ''
         self.gameMode = [0, 4, 6, 7, 5, 8, 9,
                          10, 11, 12, 13, 14, 15, 16][self.comboBox_gamemode.currentIndex()]
         # gameMode = 0，4, 5, 6, 7, 8, 9, 10, 11–16代表：
@@ -211,10 +187,6 @@ class ui_Form(Ui_Form):
             "DEFAULT/sound_enabled", self.sound_enabled)
         self.game_setting.set_value(
             "DEFAULT/sound_volume", self.sound_volume)
-        self.game_setting.set_value(
-            "DEFAULT/sound_pack", self.sound_pack)
-        self.game_setting.set_value(
-            "DEFAULT/sound_extra_dir", self.sound_extra_dir)
         self.game_setting.set_value(
             'DEFAULT/double_click_restart', self.double_click_restart)
         self.game_setting.set_value(

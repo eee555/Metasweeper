@@ -16,12 +16,12 @@ from plugin_sdk import BasePlugin, PluginInfo, WindowMode
 from shared_types.commands import SetSkinCommand, SetSoundCommand
 
 from .config import (
-    BUILTIN_SKINS_DIR, SkinManagerConfig, discover_choices, register_skins,
-    register_sound_choices,
+    BUILTIN_SKINS_DIR, SkinManagerConfig, discover_choices, register_choices,
 )
 from .skins import build_command
 from .sound import (
     build_sound_command, discover_sound_choices, imported_sound_dir,
+    seed_builtin_sound_packs,
 )
 from .zip_import import imported_dir
 from .widgets import SkinManagerWidget
@@ -74,20 +74,24 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
         return [BUILTIN_SKINS_DIR, imported_dir("skins")]
 
     def _refresh_choices(self) -> None:
-        """重新扫描皮肤目录并刷新配置类上的 ChoiceConfig 选项。
-
-        与 clipboard_replay 的自动注册一致：扫描发生在模块导入时，
-        这里额外支持用户在设置页改了「额外皮肤库目录」后立即刷新。
-        """
+        """重新扫描皮肤目录并刷新配置类上的 ChoiceConfig 选项。"""
         choices = discover_choices()
-        register_skins(SkinManagerConfig, choices)
+        register_choices(SkinManagerConfig, "skin", choices)
         # 已实例化的配置对象持有自己的 _fields，需同步替换
         if self.other_info is not None:
             fields = self.other_info._fields
             if "skin" in fields:
                 fields["skin"] = getattr(SkinManagerConfig, "skin")
         if self._applied is not None and self._applied not in dict(choices):
+            # 已应用的皮肤包被删除/改名：清缓存的同时必须让主进程还原，
+            # 否则插件认为「未应用」，主窗口却仍显示已消失的皮肤。
             self._applied = None
+            self._apply("", force=True)
+        # 配置值可能仍指向已失效的包名，同步修正回默认，避免下次 auto_apply
+        # 用一个不存在的名字反复发请求。
+        current = str(self.other_info.skin or "") if self.other_info else ""
+        if current and current not in dict(choices):
+            self.other_info.skin = ""
 
     # ── 应用 / 还原 ──────────────────────────────────────────────
     def _apply(self, skin_name: str, force: bool = False) -> None:
@@ -138,11 +142,14 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
     def _refresh_sound_choices(self) -> None:
         """重新扫描音效包目录并刷新配置类上的 ChoiceConfig 选项。"""
         choices = discover_sound_choices()
-        register_sound_choices(SkinManagerConfig, choices)
+        register_choices(SkinManagerConfig, "sound_pack", choices)
         if self.other_info is not None:
             fields = self.other_info._fields
             if "sound_pack" in fields:
                 fields["sound_pack"] = getattr(SkinManagerConfig, "sound_pack")
+        current = str(self.other_info.sound_pack or "") if self.other_info else ""
+        if current and current not in dict(choices):
+            self.other_info.sound_pack = ""
 
     def _apply_sound(self, force: bool = False, *,
                      play_event: str | None = None) -> None:
@@ -186,38 +193,51 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
 
     # ── 生命周期 ─────────────────────────────────────────────────
     def on_initialized(self) -> None:
+        # 音效包完全由本插件管理：先把随插件分发的示例包播种到两进程共享
+        # 的可写数据目录，再刷新下拉框，用户即可直接选到 soft/ 等包。
+        seed_builtin_sound_packs()
+        # 停用→再启用会二次调用 on_initialized；Qt 默认不去重相同连接，
+        # 先断开再连，避免一次配置变化触发两次 _on_config_changed（force
+        # 分支会重复发送最多 4MB 图片、试听双响）。
+        try:
+            self.config_changed.disconnect(self._on_config_changed)
+        except (RuntimeError, TypeError):
+            pass
         self.config_changed.connect(
             self._on_config_changed, Qt.ConnectionType.QueuedConnection)
         self._refresh_choices()
         self._refresh_sound_choices()
         if self._ui is not None:
+            try:
+                self._ui.sound_preview_requested.disconnect(
+                    self._on_sound_preview_requested)
+            except (RuntimeError, TypeError):
+                pass
             self._ui.sound_preview_requested.connect(
                 self._on_sound_preview_requested,
                 Qt.ConnectionType.QueuedConnection)
         if self.other_info.auto_apply:
-            # 稍等主进程 ZMQ 就绪后自动应用上次选择（皮肤、音效各自独立发送）
+            # 固定 1500/1600ms 是竞态：慢启动机器上 ZMQ 未就绪时
+            # request() 返回 None 后无重试，此后不再应用。改为带一次重试的
+            # 短延时，并在成功后不再重复发送。
             from PySide6.QtCore import QTimer
-            if self.other_info.skin:
-                QTimer.singleShot(
-                    1500,
-                    lambda: self._apply(str(self.other_info.skin), force=True),
-                )
-            QTimer.singleShot(1600, lambda: self._apply_sound(force=True))
+
+            def _auto_apply(retry: int = 1) -> None:
+                skin = str(self.other_info.skin or "")
+                if skin:
+                    self._apply(skin, force=True)
+                self._apply_sound(force=True)
+                if retry and (self._applied is None and skin):
+                    QTimer.singleShot(2000, lambda: _auto_apply(retry - 1))
+
+            QTimer.singleShot(1500, lambda: _auto_apply(1))
 
     def _on_config_changed(self, name: str, value) -> None:
         if name == "skin_zip":
-            # zip 已解压到插件数据目录，重新扫描并刷新下拉框
+            # zip 已解压到插件数据目录；_refresh_choices 内部会处理失效包还原
             self._refresh_choices()
-            choices = dict(discover_choices())
-            current = str(self.other_info.skin or "")
-            if current and current not in choices:
-                self._apply("", force=True)
         elif name == "sound_zip":
             self._refresh_sound_choices()
-            choices = dict(discover_sound_choices())
-            current = str(self.other_info.sound_pack or "")
-            if current and current not in choices:
-                self.other_info.sound_pack = ""
             self._apply_sound(force=True)
         elif name == "skin":
             self._apply(str(value or ""))
@@ -225,6 +245,11 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
             self._apply_sound()
 
     def on_shutdown(self) -> None:
+        # 断开持久信号，避免停用→再启用时重复连接累积。
+        try:
+            self.config_changed.disconnect(self._on_config_changed)
+        except (RuntimeError, TypeError):
+            pass
         # 插件关闭时分别还原主进程内存皮肤与音效（主进程退出本身也会自动还原）
         try:
             self.request(SetSkinCommand(reset=True), timeout=2.0)
