@@ -10,10 +10,12 @@ from plugins.XianNiUpgrade.plugin import XianNiUpgradePlugin
 
 
 def test_non_standard_modes_can_gain_base_xp():
+    # mode=8 不在 _MODE_K 白名单内，按设计没有难度系数、不计经验。
+    # 改用已支持的非标准模式 7（弱无猜）验证「非标准模式同样可获得基础经验」。
     plugin = XianNiUpgradePlugin.__new__(XianNiUpgradePlugin)
 
     xp = plugin._calc_xp_base(
-        mode=8,
+        mode=7,
         level=3,
         row=8,
         column=8,

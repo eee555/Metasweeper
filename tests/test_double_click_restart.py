@@ -119,6 +119,10 @@ def test_right_double_click_preserves_right_button_events(board):
 
 
 def test_chording_does_not_emit_left_double_release(board):
+    # leftAndRightPressed 已在「双键 chord 触发 Rust panic」修复后废弃：
+    # mineLabel 不再发射该信号，改由控制器状态机合成和弦，避免再次崩溃。
+    # 本用例验证：右键按下会清掉双击标志，抬起左键时只发普通释放，不误发
+    # 左键双击释放（否则会在游戏结束时触发重开）。
     double_releases, chord_presses, releases = Mock(), Mock(), Mock()
     board.leftDoubleRelease.connect(double_releases)
     board.leftAndRightPressed.connect(chord_presses)
@@ -126,7 +130,7 @@ def test_chording_does_not_emit_left_double_release(board):
     send_mouse(board, QEvent.MouseButtonDblClick, Qt.LeftButton, Qt.LeftButton)
     send_mouse(board, QEvent.MouseButtonPress, Qt.RightButton, Qt.LeftButton | Qt.RightButton)
     send_mouse(board, QEvent.MouseButtonRelease, Qt.LeftButton, Qt.RightButton)
-    chord_presses.assert_called_once_with(30, 10)
+    chord_presses.assert_not_called()
     releases.assert_called_once_with(30, 10)
     double_releases.assert_not_called()
 
