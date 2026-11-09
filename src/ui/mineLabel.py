@@ -127,13 +127,14 @@ class mineLabel(QtWidgets.QLabel):
             self.current_y = xx
 
         # xx和yy是反的，列、行
-        if e.buttons() == QtCore.Qt.LeftButton | QtCore.Qt.RightButton:
-            self.leftAndRightPressed.emit(self.current_x, self.current_y)
-        else:
-            if e.buttons() == QtCore.Qt.LeftButton:
-                self.leftPressed.emit(self.current_x, self.current_y)
-            elif e.buttons() == QtCore.Qt.RightButton:
-                self.rightPressed.emit(self.current_x, self.current_y)
+        # 忠实记录左/右键按下：双键时 e.button() 即后按下的键，按原样转发，
+        # 状态机会自然合成双击（UpUp+rc 或 UpDown+lc 都进入 Chording）。
+        # 不再合并发 'cc'：状态机对 (残留 MouseState, 'cc') 有硬 Err 分支，
+        # wheel 以 panic=abort 编译，一旦命中进程直接崩溃（2026-11-09 crash）。
+        if e.button() == QtCore.Qt.LeftButton:
+            self.leftPressed.emit(self.current_x, self.current_y)
+        elif e.button() == QtCore.Qt.RightButton:
+            self.rightPressed.emit(self.current_x, self.current_y)
 
     def mouseReleaseEvent(self, e):
         # 每个标签的鼠标事件发射给槽的都是自身的坐标
