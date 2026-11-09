@@ -26,7 +26,7 @@ bash package_tool/macos/build_mac.sh
 | 插件系统（ZMQ 事件总线 + 独立进程） | ✅ | ✅ |
 | 界面风格 | windowsvista | Fusion |
 | 录像官方签名（`metaminesweeper_checksum` 闭源模块） | ✅ | ❌ 与所有自打包版本一致，录像无法通过官方签名校验 |
-| OBR 截屏识别（Ctrl+Space） | ✅ | 首次使用需在 系统设置 → 隐私与安全性 → 屏幕录制 中授权 |
+| OBR 截屏识别（macOS 用 `⌘⇧A`；`⌘Space`/`⌃Space` 均被系统占用） | ✅ | 首次使用需在 系统设置 → 隐私与安全性 → 屏幕录制 中授权 |
 | 限制鼠标不超出棋盘（Win32 ClipCursor） | ✅ | ❌ macOS 无公开等价 API，该设置不生效 |
 | 防截屏（SetWindowDisplayAffinity） | ✅ | ❌ macOS 无公开等价 API，高级设置中开关不生效 |
 
