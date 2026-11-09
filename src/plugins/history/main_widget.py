@@ -296,11 +296,15 @@ class HistoryMainWidget(QWidget):
                     for name in computed_names:
                         if name not in query_fields:
                             query_fields.append(name)
+                # board 物理列是雷图 BLOB，SELECT 时用 UDF 展开回 JSON 文本，
+                # 保证表格显示、悬浮预览、复制 JSON 拿到的仍是原字符串。
+                from .board_codec import BOARD_JSON_SQL
                 select_fields = ','.join(
-                    f'"{f}"' if f not in _PHYSICAL_FIELDS else f
+                    BOARD_JSON_SQL if f == "board"
+                    else (f'"{f}"' if f not in _PHYSICAL_FIELDS else f)
                     for f in query_fields
                 )
-                # 有计算列时用子查询，否则直接查原表
+                # 有计算列时用子查询；子查询里把 board 展开，外层才能直接引用
                 subquery = ComputedColumn.build_subquery_sql(
                     self._computed_columns)
                 if subquery:

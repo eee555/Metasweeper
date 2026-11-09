@@ -136,4 +136,15 @@ class ComputedColumn:
         computed_parts = ", ".join(
             f"({col.expression}) AS \"{col.name}\"" for col in columns
         )
-        return f"SELECT *, {computed_parts} FROM history"
+        # board 物理列是雷图 BLOB。不能用 SELECT *（会把 BLOB 原样带进
+        # 子查询且优先级高于同名展开列），必须显式列出除 board 外的所有列，
+        # 再用 UDF 生成名为 board 的 JSON 文本列。
+        from .models import HistoryData
+        physical = [f for f in HistoryData.fields() if f != "board"]
+        # 全部加双引号：row/column/left/right/level 等是 SQL 关键字或保留字
+        column_sql = ", ".join(f'"{f}"' for f in physical)
+        return (
+            f"SELECT {column_sql}, "
+            f"py_board_json(\"board\") AS \"board\", {computed_parts} "
+            "FROM history"
+        )

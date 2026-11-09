@@ -110,6 +110,10 @@ def db_connection(
     """
     conn = sqlite3.connect(str(db_path))
     try:
+        # board 雷图展开函数始终注册（与用户自定义 py_ 脚本无关），
+        # 任何连接上的 SELECT py_board_json(board) 都必须可用。
+        from .board_codec import register_board_functions
+        register_board_functions(conn)
         if register_custom_functions:
             _register_custom_functions(conn)
         yield conn
@@ -135,6 +139,9 @@ def delete_record_tx(conn: sqlite3.Connection, replay_id: int) -> bool:
             "DELETE FROM replay_data WHERE replay_id = ?", (replay_id,))
     except sqlite3.OperationalError:
         pass  # 子表不存在，无录像数据可删
+    # 新分块存储采用 tombstone（块内是绝对偏移，不能物理删）
+    from .replay_store import mark_deleted
+    mark_deleted(conn, replay_id)
     return deleted
 
 

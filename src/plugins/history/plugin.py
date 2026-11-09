@@ -6,6 +6,9 @@ from __future__ import annotations
 from .widgets import HistoryMainWidget
 from .compression import compress, decompress
 from .computed_column import ComputedColumn, validate_column_name
+from .replay_store import (
+    ensure_tables, write_record, migrate_from_replay_data, BLOCK_SIZE,
+)
 from plugins.services.history import HistoryService, GameRecord
 from shared_types.events import GameFinishedEvent, LanguageChangeEvent
 from plugin_sdk import (
@@ -30,10 +33,15 @@ _MIGRATE_BATCH = 100
 
 
 class _CompressionMigrateWorker(QThread):
-    """后台压缩迁移工作线程，静默处理旧数据"""
+    """后台录像分块迁移线程。
+
+    把旧 ``replay_data`` 的逐条 zlib 数据灌入分块列式存储；
+    逐条 bit-exact 校验通过后才清空旧表并 VACUUM 回收空间。
+    任何一步失败都保留旧表，下次启动继续，可安全回退。
+    """
 
     def __init__(self, db_path: Path, logger: Any = None,
-                 batch_size: int = 100, parent=None):
+                 batch_size: int = BLOCK_SIZE, parent=None):
         super().__init__(parent)
         self._db_path = db_path
         self._logger = logger
@@ -42,38 +50,32 @@ class _CompressionMigrateWorker(QThread):
     def run(self):
         with db_connection(self._db_path, register_custom_functions=False) as conn:
             try:
-                cursor = conn.cursor()
-                # 检查 replay_data 表是否存在
-                cursor.execute("PRAGMA table_info(replay_data)")
-                if not cursor.fetchall():
-                    return  # schema 还没升级，跳过
-
-                while True:
-                    cursor.execute(
-                        "SELECT replay_id, raw_data FROM replay_data "
-                        "WHERE compressed = 0 AND raw_data IS NOT NULL "
-                        "LIMIT ?",
-                        (self._batch_size,),
-                    )
-                    rows = cursor.fetchall()
-                    if not rows:
-                        break
-                    for replay_id, raw_data in rows:
-                        if raw_data is None:
-                            continue
-                        compressed_data = compress(raw_data)
-                        cursor.execute(
-                            "UPDATE replay_data SET raw_data = ?, compressed = 1 "
-                            "WHERE replay_id = ?",
-                            (compressed_data, replay_id),
-                        )
+                from .replay_store import finalize_migration
+                from .board_codec import migrate_board_to_blob
+                ensure_tables(conn)
+                migrated, sealed = migrate_from_replay_data(
+                    conn, batch_size=self._batch_size)
+                if self._logger is not None and migrated:
+                    self._logger.info(
+                        f"后台录像分块迁移完成: {migrated} 条, {sealed} 块")
+                # 只有全部校验通过才清空旧表；否则旧表保留作回退
+                if finalize_migration(conn):
+                    if self._logger is not None:
+                        self._logger.info("旧 replay_data 表已清空并回收空间")
+                elif self._logger is not None:
+                    self._logger.warning("迁移校验未通过，保留旧 replay_data 表")
+                # board 列 JSON → 雷图 BLOB（幂等，逐条校验）
+                board_n = migrate_board_to_blob(conn)
+                if board_n:
                     conn.commit()
-                # 所有记录压缩完成，VACUUM 回收磁盘空间
-                cursor.execute("VACUUM")
+                    conn.execute("VACUUM")
+                    if self._logger is not None:
+                        self._logger.info(
+                            f"board 列压缩完成: {board_n} 条")
             except Exception as e:
                 # 静默失败但记录警告，下次启动继续
                 if self._logger is not None:
-                    self._logger.warning(f"后台压缩迁移失败: {e}")
+                    self._logger.warning(f"后台录像分块迁移失败: {e}")
 
 
 class HistoryConfig(OtherInfoBase):
@@ -299,21 +301,30 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         db_path = self.data_dir / "history.db"
         if not db_path.exists():
             return
-        # 检查是否有未压缩的记录
+        # 检查是否还有待迁移的旧录像数据或未压缩的 board
         with db_connection(db_path, register_custom_functions=False) as conn:
             cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(replay_data)")
-            if not cursor.fetchall():
-                return  # schema 还没升级，跳过
-            cursor.execute(
-                "SELECT COUNT(*) FROM replay_data WHERE compressed = 0 AND raw_data IS NOT NULL"
-            )
-            count = cursor.fetchone()[0]
-        if count > 0:
+            try:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM replay_data "
+                    "WHERE replay_id NOT IN (SELECT replay_id FROM replay_index)"
+                )
+                count = cursor.fetchone()[0]
+            except sqlite3.OperationalError:
+                count = 0
+            try:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM history WHERE board IS NOT NULL "
+                    "AND py_board_is_blob(board) = 0"
+                )
+                board_count = cursor.fetchone()[0]
+            except sqlite3.OperationalError:
+                board_count = 0
+        if count > 0 or board_count > 0:
             self._migrate_worker = _CompressionMigrateWorker(
                 db_path, logger=self.logger)
             self._migrate_worker.start()
-            self.logger.info(f"后台压缩迁移启动，待处理 {count} 条记录")
+            self.logger.info(f"后台录像分块迁移启动，待处理 {count} 条记录")
 
     def _cleanup_legacy_view(self) -> None:
         """清理旧版本遗留的 VIEW（子查询方式不再需要）"""
@@ -384,6 +395,8 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                     self._migrate_raw_data_to_replay(conn)
                     # 确保查询索引存在
                     ensure_indexes(conn)
+                    # 分块列式存储表（幂等，不改 history 任何列）
+                    ensure_tables(conn)
                     return
                 self.logger.info("旧 schema，迁移中…")
                 cursor.executescript("DROP TABLE IF EXISTS history;")
@@ -439,6 +452,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             conn.commit()
             # 确保查询索引存在
             ensure_indexes(conn)
+            ensure_tables(conn)
             self.logger.info(f"Database created: {db_path}")
 
     def _migrate_raw_data_to_replay(self, conn: sqlite3.Connection) -> None:
@@ -497,9 +511,14 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             import json
             data["board"] = json.dumps(data["board"], separators=(",", ":"))
         data.pop("timestamp", None)
-        # raw_data/compressed 不写入 history 元数据表，拆到 replay_data 子表
+        # raw_data/compressed 不写入 history 元数据表，拆到录像数据子表
         raw_data = data.pop("raw_data", None)
         data.pop("compressed", None)
+        # board 以雷图 BLOB 落盘；读取侧统一用 py_board_json() 展开
+        from .board_codec import board_json_to_blob
+        board_blob = board_json_to_blob(data.get("board"))
+        if board_blob is not None:
+            data["board"] = board_blob
         raw_compressed = compress(raw_data) if raw_data is not None else None
         columns = ", ".join(data.keys())
         placeholders = ", ".join(f":{k}" for k in data.keys())
@@ -511,13 +530,19 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                 f"INSERT INTO history ({columns}) VALUES ({placeholders})",
                 data,
             )
-            # 录像数据写入子表（与元数据同一事务）
+            replay_id = cursor.lastrowid
+            if replay_id is None:
+                raise RuntimeError("插入 history 后未取得 replay_id")
+            # 旧 replay_data 子表：保留作回退（迁移稳定后由 finalize 清空）
             if raw_compressed is not None:
                 cursor.execute(
                     "INSERT INTO replay_data (replay_id, raw_data, compressed) "
                     "VALUES (?, ?, 1)",
-                    (cursor.lastrowid, raw_compressed),
+                    (replay_id, raw_compressed),
                 )
+            # 新分块列式存储：先落 staging，攒够一块自动封口
+            if raw_data is not None:
+                write_record(conn, replay_id, raw_data)
             conn.commit()
             self.logger.info(
                 f"Saved: game_state={event.game_state} time={event.rtime:.1f}s"

@@ -336,14 +336,23 @@ class HistoryTable(QWidget):
         return getattr(self.model._data[row_idx], "replay_id", None)
 
     def _read_raw_data(self, replay_id: int) -> bytes | None:
-        """读取录像原始数据（兼容三种库形态）
+        """读取录像原始数据（兼容四种库形态）
 
-        a) 新库 / 已迁移库：数据在 replay_data 子表
-        b) 中间态旧库：优先 replay_data，回退 history.raw_data
-        c) 全压缩旧库：raw_data 在 history.raw_data 且 compressed=1
+        a) 分块列式存储：replay_index / replay_segment / replay_staging
+        b) 已迁移库：数据在 replay_data 子表
+        c) 中间态旧库：优先 replay_data，回退 history.raw_data
+        d) 全压缩旧库：raw_data 在 history.raw_data 且 compressed=1
         """
         with db_connection(self._db_path) as conn:
             cursor = conn.cursor()
+            # 优先读分块列式存储；失败自动回退到下面的旧路径
+            from .replay_store import read_raw_data as _store_read
+            try:
+                result = _store_read(conn, replay_id)
+            except Exception:
+                result = None
+            if result is not None:
+                return result
             # 优先读 replay_data 子表
             try:
                 cursor.execute(

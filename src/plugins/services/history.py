@@ -28,6 +28,11 @@ Usage::
                 "SELECT COUNT(*) as count, AVG(rtime) as avg_time FROM history WHERE level = ?",
                 (1,)
             )
+
+注意：``history.board`` 物理列是雷图 BLOB，通过 ``raw_query`` 写
+``SELECT *`` 会拿到 ``bytes``；需要 JSON 文本请用 ``py_board_json(board)``
+展开。详见 ``HistoryService.raw_query`` 的说明或
+``docs/history-board-storage.md``。
 """
 from __future__ import annotations
 
@@ -75,6 +80,8 @@ class HistoryService(Protocol):
     实现此接口的插件可被其他插件通过 call_service() 调用。
     
     注意：此接口仅提供只读操作，删除等敏感操作不对外暴露。
+    注意：``history.board`` 是雷图 BLOB；通过 raw_query 取 JSON 文本需用
+          ``py_board_json(board)``，详见 raw_query 说明。
     
     类型安全：IDE 可完整推断返回类型和方法签名。
     """
@@ -109,17 +116,38 @@ class HistoryService(Protocol):
     def raw_query(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
         """
         直接执行 SQL 查询（灵活查询）
-        
+
+        重要约定 —— ``history.board`` 列：
+
+        该列物理存储的是**雷图 BLOB**（``[2B row][2B col][位图]``），
+        不是带数字的完成局面 JSON 文本。因此：
+
+        - ``SELECT * FROM history`` 拿到的 ``board`` 是 ``bytes``。
+        - 需要 JSON 文本时用 ``py_board_json(board)`` 展开::
+
+              SELECT replay_id, py_board_json(board) AS board FROM history
+
+        - 对局面做字符串比较/LIKE 时必须展开，否则会作用在二进制上::
+
+              SELECT ... WHERE py_board_json(board) LIKE ?
+
+        - 自定义计算列若引用 board，也应写 ``py_board_json(board)``。
+
+        以上 UDF 在每个连接上自动注册，无需调用方额外配置。
+        其余所有列（rtime / level / bbbv / ...）类型与语义均未改变。
+
         Args:
             sql: SQL 查询语句（使用 ? 作为参数占位符）
             params: 参数元组
-            
+
         Returns:
             字典列表，每行一个字典
-            
+
         Example:
             records = history.raw_query(
-                "SELECT * FROM history WHERE level = ? AND rtime < ? ORDER BY rtime LIMIT 10",
+                "SELECT replay_id, rtime, level, "
+                "py_board_json(board) AS board FROM history "
+                "WHERE level = ? AND rtime < ? ORDER BY rtime LIMIT 10",
                 (1, 60.0)
             )
             for r in records:

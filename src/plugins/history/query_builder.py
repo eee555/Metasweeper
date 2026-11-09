@@ -25,6 +25,18 @@ _translate = QCoreApplication.translate
 # 日期时间支持的解析格式（与旧版行为一致）
 _DATETIME_FORMATS = ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S")
 
+# board 物理列是雷图 BLOB；在 SQL 中引用该字段时必须用 UDF 展开成
+# JSON 文本，否则 LIKE / 排序会作用在二进制上，语义悄悄改变。
+_BOARD_FIELD_SQL = 'py_board_json("board")'
+
+
+def _sql_field(field: str) -> str:
+    """把白名单字段名转成 SQL 表达式（board 需展开）。
+
+    其余字段返回原样字段名，保持既有 SQL 字符串形态不变。
+    """
+    return _BOARD_FIELD_SQL if field == "board" else field
+
 
 def _row_error(row: int, template: str, value: str = "") -> ValueError:
     """构造带行号的校验错误（模板使用 %1/%2 占位，与 UI 提示风格一致）"""
@@ -269,7 +281,8 @@ def build_where(
         row_params, value_sql = _build_value(
             field_type, compare, value, row, field)
         clauses.append(
-            f" {left_bracket} {field} {compare.to_sql} {value_sql} {right_bracket} "
+            f" {left_bracket} {_sql_field(field)} {compare.to_sql} "
+            f"{value_sql} {right_bracket} "
         )
         params.extend(row_params)
 
@@ -308,7 +321,7 @@ def build_order_by(sort_rows: list[dict], known_fields: set[str]) -> str:
             raise _row_error(row, "第%1行 排序字段 %2 不是有效的字段名", field)
 
         order_sql = "ASC" if order_text == _translate("Form", "升序") else "DESC"
-        orders.append(f"{field} {order_sql}")
+        orders.append(f"{_sql_field(field)} {order_sql}")
 
     if orders:
         return " ORDER BY " + ", ".join(orders)
