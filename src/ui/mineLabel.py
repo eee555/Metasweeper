@@ -65,6 +65,13 @@ class mineLabel(QtWidgets.QLabel):
         return self._shake_offset
 
     def _set_shake_offset(self, offset):
+        # 每帧量化到物理像素网格：动画插值帧的位移不落在半物理像素上，
+        # 整盘位图 1:1 直出不重采样（与 cell_pitch 取整原则一致）——
+        # 否则抖动期间全盘发糊，观感变成糊变的剧烈振荡而非干净短抖
+        dpr = self.devicePixelRatioF()
+        if dpr > 0 and not offset.isNull():
+            offset = QPointF(round(offset.x() * dpr) / dpr,
+                             round(offset.y() * dpr) / dpr)
         self._shake_offset = offset
         self.update()
 
@@ -84,10 +91,10 @@ class mineLabel(QtWidgets.QLabel):
             return False
 
     # ── 抖动参数（表现层审美常量，集中调参）──
-    SHAKE_AMP_RATIO = 0.2           # 弱档振幅相对格子边长的比例
-    SHAKE_AMP_MAX_PX = 4.0          # 弱档振幅的物理像素上限（按 devicePixelRatio 换算）
-    SHAKE_DURATION_MS = 130         # 弱档时长（ms）
-    SHAKE_STRONG_SCALE = 2.0        # 踩雷强档振幅 = 弱档 × 该倍率
+    SHAKE_AMP_RATIO = 0.05          # 弱档振幅相对格子边长的比例
+    SHAKE_AMP_MAX_PX = 1.0          # 弱档振幅的物理像素上限（按 devicePixelRatio 换算）
+    SHAKE_DURATION_MS = 100         # 弱档时长（ms）
+    SHAKE_STRONG_SCALE = 4.0        # 踩雷强档振幅 = 弱档 × 该倍率
     SHAKE_STRONG_DURATION_MS = 280  # 踩雷强档时长（ms）
 
     def start_shake(self, *, strong=False):
@@ -120,13 +127,14 @@ class mineLabel(QtWidgets.QLabel):
                 (1.0, QPointF(0.0, 0.0)),
             ])
         else:
+            # 弱档：纯垂直「下沉-回弹」按压反馈，不水平晃动（水平位移
+            # 最容易被肉眼捕捉，1~2px 的横移即 perceived 剧烈）；
+            # 下沉 1 物理像素 + OutQuad 回弹，100ms 内完成
             anim.setDuration(self.SHAKE_DURATION_MS)
             anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             anim.setKeyValues([
                 (0.0, QPointF(0.0, 0.0)),
-                (0.25, QPointF(amp, -0.6 * amp)),
-                (0.55, QPointF(-0.7 * amp, 0.5 * amp)),
-                (0.8, QPointF(0.4 * amp, -0.3 * amp)),
+                (0.3, QPointF(0.0, amp)),
                 (1.0, QPointF(0.0, 0.0)),
             ])
         # 打断重启时先归零，避免上一段动画的残移成为新起点

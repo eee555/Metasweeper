@@ -546,6 +546,17 @@ class Ui_MainWindow(Ui_MainWindow):
             mw.resize(hint)
             mw._programmatic = False
         self.minimum_counter += 1
+        # 收敛判定：窗口已与界面精确贴合（resize 后未被外力改走），提前
+        # 结束吸附并复位拖拽抑制。此前固定跑满 100 轮，期间 _suppress_drag
+        # 一直为 True：用户此刻开始拖边缘时 resizeEvent 被吞（dragResize
+        # 不发、pixSize 不跟随），timer 又每轮 resize(hint) 把窗口弹回旧
+        # 尺寸——表现为「拖拽调不了尺寸」+ 窗口在目标/hint 之间反复横跳
+        # （游戏过程界面抖动）。贴合即停从根上斩断这条循环。
+        if mw.width() == hint.width() and mw.height() == hint.height():
+            self.minimum_counter = 0
+            self.timer_.stop()
+            mw._suppress_drag = False
+            return
         if self.minimum_counter >= 100:
             self.minimum_counter = 0
             self.timer_.stop()

@@ -74,8 +74,16 @@ class MainWindow(QtWidgets.QMainWindow):
         #    其余 resize 一律视为用户拖拽；
         # 2) 实时拖拽期间事件循环处于 tracking 模式，QTimer 不触发，
         #    缩放处理必须在 resizeEvent 里直接做。
-        if self._aspect_fixing or self._programmatic or self._suppress_drag:
+        if self._aspect_fixing or self._programmatic:
             return
+        if self._suppress_drag:
+            # suppress 本意是忽略滚轮缩放引发的程序化窗口变化（那类变化
+            # 均带 _programmatic 标志，已在上一行排除）。若在此处仍收到
+            # 非 programmatic 的 resize，说明是用户真实拖拽（例如吸附
+            # timer 尚未收敛时用户就抓住边缘），必须立刻解除抑制并按
+            # 拖拽处理——否则 resize 被吞、dragResize 不发、pixSize 不
+            # 跟随，窗口还会被吸附 timer 弹回旧尺寸（拖不动+界面抖动）。
+            self._suppress_drag = False
         if not self.flag_drag_border:
             self.flag_drag_border = True
             self._drag_aspect = self.width() / max(1, self.height())
