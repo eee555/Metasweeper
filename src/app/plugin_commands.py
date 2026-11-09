@@ -3,11 +3,12 @@
 from config.constants import BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT
 from shared_types.commands import (
     NewGameCommand, NewPresetGameCommand, MouseClickCommand,
-    InitOpenCommand, SetSkinCommand,
+    InitOpenCommand, SetSkinCommand, SetSoundCommand,
 )
 from shared_types.enums import GameLevel
 from utils.app_logger import logger
 from app.skin_applier import handle_set_skin
+from app.sound_applier import handle_set_sound
 
 
 def register_plugin_commands(bridge, ui):
@@ -66,8 +67,14 @@ def register_plugin_commands(bridge, ui):
         # 权限由插件侧 ControlAuthorizationManager 独占授权保证。
         return handle_set_skin(ui, cmd)
 
+    def handle_set_sound_cmd(cmd: SetSoundCommand):
+        # 音效与皮肤同为外观操作，不受 allowed_controls 约束；
+        # 使用独立的 SetSoundCommand 授权，与 SetSkinCommand 互不影响。
+        return handle_set_sound(ui, cmd)
+
     bridge.register_handler(NewGameCommand, handle_new_game)
     bridge.register_handler(NewPresetGameCommand, handle_new_preset_game)
     bridge.register_handler(MouseClickCommand, handle_mouse_click)
     bridge.register_handler(InitOpenCommand, handle_init_open)
     bridge.register_handler(SetSkinCommand, handle_set_skin_cmd)
+    bridge.register_handler(SetSoundCommand, handle_set_sound_cmd)

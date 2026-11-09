@@ -678,6 +678,16 @@ class Ui_MainWindow(Ui_MainWindow):
         self.board_shake = self.game_setting.get_or_set_value(
             "DEFAULT/board_shake", True, bool)
         self.label.shake_enabled = self.board_shake
+        # 游戏性音效：开关、音量、当前音效包、额外音效库目录。默认关闭，
+        # 用户需在游戏设置里主动勾选「游戏音效」才会发声。
+        self.sound_enabled = self.game_setting.get_or_set_value(
+            "DEFAULT/sound_enabled", False, bool)
+        self.sound_volume = self.game_setting.get_or_set_value(
+            "DEFAULT/sound_volume", 70, int)
+        self.sound_pack = self.game_setting.get_or_set_value(
+            "DEFAULT/sound_pack", "", str)
+        self.sound_extra_dir = self.game_setting.get_or_set_value(
+            "DEFAULT/sound_extra_dir", "", str)
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:
@@ -696,6 +706,15 @@ class Ui_MainWindow(Ui_MainWindow):
         self.attempt_times_limit = self.game_setting.get_or_set_value(
             f"{level}/attempt_times_limit", 100000, int)
         self.game_setting.sync()
+        # QApplication 此时已存在，初始化音效（懒加载 QSoundEffect 并预加载 wav）。
+        # 直接调模块单例而不依赖子类方法，保证父类方法可被独立调用/测试。
+        try:
+            from utils.sound_manager import SoundManager
+            SoundManager.instance().configure(
+                enabled=self.sound_enabled, volume=self.sound_volume,
+                pack=self.sound_pack, extra_dir=self.sound_extra_dir)
+        except Exception:
+            logger.warning("音效初始化失败，已保持静音", exc_info=True)
 
     def read_or_create_record(self):
         record_key_name_list = ["BFLAG", "BNF", "BWIN7", "BSS", "BWS", "BCS", "BTBS", "BSG",

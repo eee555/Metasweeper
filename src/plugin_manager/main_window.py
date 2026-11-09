@@ -53,6 +53,7 @@ from .settings_manager import SettingsManager
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
 from shared_types.widgets.toggle_switch import ToggleSwitch
 from shared_types.widgets.confirm_dialog import ConfirmDialog
+from shared_types.commands import command_hint, command_label
 from plugin_sdk.control_auth import ControlAuthorizationManager
 from plugin_sdk.config_types import OtherInfoBase
 from .app_paths import get_data_dir
@@ -1026,8 +1027,14 @@ class ControlAuthorizationDialog(QDialog):
             except ValueError:
                 continue
 
-            # 控制命令名称
-            name_item = QTableWidgetItem(cmd_type.__name__)
+            # 控制命令名称：主显示简短中文名，tooltip 给说明与类名，
+            # 避免只剩英文类名看不出用途
+            cmd_label = command_label(cmd_type)
+            name_item = QTableWidgetItem(f"{cmd_label} ({tag})")
+            name_item.setToolTip(
+                f"{cmd_label}\n"
+                f"{command_hint(cmd_type)}\n"
+                f"类名: {cmd_type.__name__}")
             name_item.setData(Qt.UserRole, cmd_type)  # 存储类型
             self._table.setItem(row, 0, name_item)
 

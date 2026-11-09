@@ -13,9 +13,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from plugin_sdk import OtherInfoBase, BoolConfig, ChoiceConfig, PathConfig
+from plugin_sdk import (
+    OtherInfoBase, BoolConfig, ChoiceConfig, IntConfig,
+)
 
 from .skins import list_skins
+from .sound import (
+    DEFAULT_PACK, DEFAULT_PACK_LABEL, discover_sound_choices,
+)
+from .zip_import import ZipImportConfig, imported_dir
 
 # 插件自带皮肤库（源码/打包后都随插件目录一起分发）
 BUILTIN_SKINS_DIR = Path(__file__).resolve().parent / "skins"
@@ -24,16 +30,15 @@ BUILTIN_SKINS_DIR = Path(__file__).resolve().parent / "skins"
 _DEFAULT_CHOICE = ("", "默认皮肤（不替换）")
 
 
-def discover_choices(skins_dir: Path | str | None = None) -> list[tuple[str, str]]:
+def discover_choices() -> list[tuple[str, str]]:
     """扫描皮肤目录，返回 ChoiceConfig 选项列表 [(目录名, 显示名), ...]。
 
-    自带皮肤库与用户配置的额外目录合并；同名皮肤以自带库为准。
+    扫描顺序：自带 skins/ → 插件数据目录 skins/（zip 导入落地处）。
+    同名以先扫描到的为准。
     """
     choices: dict[str, str] = dict(list_skins(BUILTIN_SKINS_DIR))
-    if skins_dir:
-        extra = Path(str(skins_dir).strip())
-        for name, display in list_skins(extra):
-            choices.setdefault(name, display)
+    for name, display in list_skins(imported_dir("skins")):
+        choices.setdefault(name, display)
     items = [(name, choices[name]) for name in sorted(choices)]
     return [_DEFAULT_CHOICE, *items]
 
@@ -57,15 +62,34 @@ def register_skins(
     setattr(config_type, "skin", field)
 
 
+def register_sound_choices(
+    config_type: type[OtherInfoBase],
+    choices: list[tuple[str, str]],
+) -> None:
+    """把音效包选项注册到独立的 `sound_pack` 字段上。
+
+    与 `register_skins` 完全分离：皮肤与音效各自扫描、各自刷新，
+    一方变动不会重置另一方的下拉框。
+    """
+    field = ChoiceConfig(
+        default="",
+        label="当前音效包",
+        choices=choices,
+        description="选择后立即生效（纯内存热替换，不重启）；选「默认音效」即还原",
+    )
+    setattr(config_type, "sound_pack", field)
+
+
 class SkinManagerConfig(OtherInfoBase):
-    """插件配置（皮肤下拉框由 discover_choices 自动注册）"""
+    """插件配置（皮肤、音效两套下拉框分别自动注册，互不依赖）"""
 
     auto_apply = BoolConfig(
         default=True,
         label="启动时自动应用",
-        description="插件启动并连接主进程后，自动应用上次选择的皮肤",
+        description="插件启动并连接主进程后，自动应用上次选择的皮肤与音效设置",
     )
 
+    # ── 皮肤（原有，独立）──
     skin = ChoiceConfig(
         default="",
         label="当前皮肤",
@@ -73,12 +97,52 @@ class SkinManagerConfig(OtherInfoBase):
         description="选择后立即生效（纯内存热替换，不重启）；选「默认皮肤」即还原",
     )
 
-    skins_dir = PathConfig(
+    skin_zip = ZipImportConfig(
         default="",
-        label="额外皮肤库目录",
-        description="留空则使用插件自带 skins/；填写后与自带皮肤合并",
+        label="导入皮肤包",
+        target_subdir="skins",
+        button_text="导入皮肤 zip",
+        description="选择 zip 自动解压到本插件数据目录 skins/，随后即可在下拉框选择",
+    )
+
+    # ── 音效（新增，与皮肤完全独立）──
+    sound_enabled = BoolConfig(
+        default=False,
+        label="启用游戏音效",
+        description="通过 SetSoundCommand 独立控制；不影响主程序设置页里的开关",
+    )
+
+    sound_volume = IntConfig(
+        default=70,
+        label="音效音量",
+        min_value=0,
+        max_value=100,
+        use_slider=True,
+        description="0~100，选择后立即生效",
+    )
+
+    sound_pack = ChoiceConfig(
+        default="",
+        label="当前音效包",
+        choices=[(DEFAULT_PACK, DEFAULT_PACK_LABEL)],
+        description="选择后立即生效（纯内存热替换，不重启）；选「默认音效」即还原",
+    )
+
+    sound_zip = ZipImportConfig(
+        default="",
+        label="导入音效包",
+        target_subdir="sounds",
+        button_text="导入音效 zip",
+        description="选择 zip 自动解压到本插件数据目录 sounds/，随后即可在下拉框选择",
     )
 
 
-# ── 模块导入时自动注册：扫描自带皮肤目录，生成下拉框选项 ──
+# ── 模块导入时自动注册：两套目录各自扫描，互不影响 ──
 register_skins(SkinManagerConfig, discover_choices())
+register_sound_choices(SkinManagerConfig, discover_sound_choices())
+
+
+def refresh_all_choices():
+    """zip 导入后重新扫描两套目录并刷新已注册的下拉框选项。"""
+    register_skins(SkinManagerConfig, discover_choices())
+    register_sound_choices(SkinManagerConfig, discover_sound_choices())

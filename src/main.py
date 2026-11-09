@@ -105,6 +105,17 @@ if __name__ == "__main__":
         ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
         ui.mainWindow.show()
 
+        # 程序就绪音：主窗口已显示、音效设置也已由 superGUI 初始化完成。
+        # 内部延迟一小段等待音频后端，默认关闭音效时此方法直接返回。
+        # 同时记录启动设置，供 SetSoundCommand(reset=True) 精确还原。
+        try:
+            from utils.sound_manager import SoundManager
+            from app.sound_applier import capture_startup_settings
+            capture_startup_settings(ui)
+            SoundManager.instance().play_ready()
+        except Exception:
+            pass
+
         # ── 启动 ZMQ Server + 插件管理器 ──
 
         plugin_process = start_plugin_process(ui, mainWindow, plugins_disabled)

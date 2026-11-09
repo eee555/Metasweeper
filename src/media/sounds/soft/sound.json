@@ -1,0 +1,6 @@
+{
+  "name": "轻柔（示例：仅替换开格与胜利）",
+  "author": "Metasweeper",
+  "version": "1.0.0",
+  "note": "演示『缺文件即沿用默认音效』：本包只提供 open.wav 与 win.wav，其余 6 个 cue 自动回退到 media/sounds/ 根目录下的默认资源"
+}

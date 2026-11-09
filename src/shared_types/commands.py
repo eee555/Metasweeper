@@ -7,9 +7,13 @@ from typing import List, Optional
 
 import msgspec
 
+from PySide6.QtCore import QCoreApplication
+
 from lib_zmq_plugins.shared.base import BaseCommand
 
 from .enums import GameLevel, GameMode
+
+_translate = QCoreApplication.translate
 
 
 class NewGameCommand(BaseCommand, tag="new_random_game"):
@@ -102,6 +106,37 @@ class SetSkinCommand(BaseCommand, tag="set_skin"):
     reset: bool = False
 
 
+class SetSoundCommand(BaseCommand, tag="set_sound"):
+    """热更新游戏音效（纯内存、不写 gameSetting.ini、不重启）。
+
+    与 `SetSkinCommand` 完全独立：独立的 tag、独立的控制授权，插件可以只
+    申请音效权限而不影响皮肤权限。主进程只把它转调给
+    `utils.sound_manager.SoundManager`，游戏逻辑代码不感知。
+
+    Attributes:
+        enabled: 是否启用音效；None 表示保持当前值
+        volume: 音量 0~100；None 表示保持当前值
+        pack: 音效包目录名；空串表示默认音效；None 表示保持当前值
+        extra_dir: 额外音效库目录；None 表示保持当前值
+        reset: True 时恢复主进程启动时从 ini 读入的音效设置（忽略以上字段）
+        play_event: 可选，应用设置后试听一个事件（如 "open" / "win"）；
+            仅用于插件界面试听，不属于游戏性音效触发
+    """
+    enabled: Optional[bool] = None
+    volume: Optional[int] = None
+    pack: Optional[str] = None
+    extra_dir: Optional[str] = None
+    reset: bool = False
+    play_event: Optional[str] = None
+
+
+# 音效事件名（与 SoundManager.SoundEvent.value 一致），供命令校验
+SOUND_EVENT_NAMES = (
+    "ready", "start", "open", "chord", "flag_on", "flag_off",
+    "question", "win", "lose",
+)
+
+
 # 皮肤资源 key（主进程解码校验与插件打包共用；不含窗口图标）
 SKIN_CELL_KEYS = (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 14, 15, 16, 17, 100)
 SKIN_LED_KEYS = tuple(range(10))
@@ -126,4 +161,93 @@ SKIN_COLOR_KEYS = (
 
 
 COMMAND_TYPES = [NewGameCommand, NewPresetGameCommand,
-                 MouseClickCommand, InitOpenCommand, SetSkinCommand]
+                 MouseClickCommand, InitOpenCommand, SetSkinCommand,
+                 SetSoundCommand]
+
+# ── 控制命令说明（可多语言）────────────────────────────────────
+# 供插件管理器「控制授权」对话框、插件详情对话框，以及主程序
+# 「高级设置」里的作弊开关统一使用，避免各处各写一份、新增命令漏配。
+#
+# 键为 msgspec tag；值为「中文源文本」。运行时由 command_label()/
+# command_hint() 经 _translate(COMMANDS_I18N_CONTEXT, <源文本>) 返回
+# 当前语言译文，因此这里始终保存中文作为 lupdate 抽取用的 source text。
+# 新增命令时：① 在两张 dict 各补一行 ② 在 _i18n_command_strings() 补
+# translate 调用 ③ 确认本文件在 src/ui/生成ts文件.bat 的 SHARED 清单里。
+COMMAND_LABELS: dict[str, str] = {
+    "new_random_game": "重开新局",
+    "new_preset_game": "预设局面",
+    "mouse_click": "鼠标点击",
+    "init_open": "初始化翻开",
+    "set_skin": "更换皮肤",
+    "set_sound": "更改音效",
+}
+
+COMMAND_HINTS: dict[str, str] = {
+    "new_random_game": "插件随机重开一局（结果非 official / 非 fair）",
+    "new_preset_game": "按指定棋盘开局（模式为 UPK，可含官方记录）",
+    "mouse_click": "对指定格子模拟左 / 中 / 右键点击",
+    "init_open": "预设局面初始化时翻开指定格子",
+    "set_skin": "热替换主窗口图片皮肤（纯内存、不重启、独立授权）",
+    "set_sound": "热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）",
+}
+
+# 翻译上下文（对应 .ts 里的 <context><name>，三处界面共用同一份词条）
+COMMANDS_I18N_CONTEXT = "Commands"
+
+
+def _i18n_command_strings() -> None:
+    """pyside6-lupdate 扫描用哑函数，运行时不调用。
+
+    command_label()/command_hint() 以变量向 translate() 传源文本，扫描器
+    无法抽取；这里把源文本逐条硬编码进 translate() 调用，让它们进入 .ts。
+    与 plugins/XianNiUpgrade/models.py 的 _i18n_hints() 同一套路。
+
+    ⚠️ context 必须是字符串字面量 "Commands"（不能用变量）：
+    pyside6-lupdate 静态分析要求 context 为字面量，否则整条词条被跳过。
+    运行时 command_label()/command_hint() 用常量 COMMANDS_I18N_CONTEXT，
+    其值同为 "Commands"，与 .ts 里的 <name>Commands</name> 对齐。
+    新增命令时在此同步补行。
+    """
+    _translate("Commands", "重开新局")
+    _translate("Commands", "预设局面")
+    _translate("Commands", "鼠标点击")
+    _translate("Commands", "初始化翻开")
+    _translate("Commands", "更换皮肤")
+    _translate("Commands", "更改音效")
+    _translate("Commands",
+               "插件随机重开一局（结果非 official / 非 fair）")
+    _translate("Commands",
+               "按指定棋盘开局（模式为 UPK，可含官方记录）")
+    _translate("Commands",
+               "对指定格子模拟左 / 中 / 右键点击")
+    _translate("Commands",
+               "预设局面初始化时翻开指定格子")
+    _translate("Commands",
+               "热替换主窗口图片皮肤（纯内存、不重启、独立授权）")
+    _translate("Commands",
+               "热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）")
+
+
+def command_tag(cmd_type: type) -> str:
+    """取命令类的 msgspec tag；失败返回类名兜底。tag 是技术标识，不翻译。"""
+    cfg = getattr(cmd_type, "__struct_config__", None)
+    tag = getattr(cfg, "tag", None) if cfg is not None else None
+    return str(tag) if tag else cmd_type.__name__
+
+
+def command_label(cmd_type: type) -> str:
+    """简短名称，按当前界面语言返回译文；无对应 tag 时回退类名（不翻译）。"""
+    src = COMMAND_LABELS.get(command_tag(cmd_type))
+    if src is None:
+        return cmd_type.__name__
+    return _translate(COMMANDS_I18N_CONTEXT, src)
+
+
+def command_hint(cmd_type: type) -> str:
+    """一句话说明，按当前语言返回译文；无对应 tag 时回退 docstring 首行
+    （技术兜底，不翻译）。"""
+    src = COMMAND_HINTS.get(command_tag(cmd_type))
+    if src is not None:
+        return _translate(COMMANDS_I18N_CONTEXT, src)
+    doc = (cmd_type.__doc__ or "").strip().splitlines()
+    return doc[0] if doc else cmd_type.__name__

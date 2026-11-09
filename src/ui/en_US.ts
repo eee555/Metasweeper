@@ -67,25 +67,88 @@
     </message>
 </context>
 <context>
+    <name>Commands</name>
+    <message>
+        <location filename="../shared_types/commands.py" line="211"/>
+        <source>重开新局</source>
+        <translation>New Game</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="212"/>
+        <source>预设局面</source>
+        <translation>Preset Board</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="213"/>
+        <source>鼠标点击</source>
+        <translation>Mouse Click</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="214"/>
+        <source>初始化翻开</source>
+        <translation>Initial Open</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="215"/>
+        <source>更换皮肤</source>
+        <translation>Change Skin</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="216"/>
+        <source>更改音效</source>
+        <translation>Change Sound</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="217"/>
+        <source>插件随机重开一局（结果非 official / 非 fair）</source>
+        <translation>The plugin randomly starts a new game (result is neither official nor fair)</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="219"/>
+        <source>按指定棋盘开局（模式为 UPK，可含官方记录）</source>
+        <translation>Start with the given board (UPK mode, may count as an official record)</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="221"/>
+        <source>对指定格子模拟左 / 中 / 右键点击</source>
+        <translation>Simulate left / middle / right click on a given cell</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="223"/>
+        <source>预设局面初始化时翻开指定格子</source>
+        <translation>Open a given cell during preset-board initialization</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="225"/>
+        <source>热替换主窗口图片皮肤（纯内存、不重启、独立授权）</source>
+        <translation>Hot-replace the main window's image skin (memory-only, no restart, separate permission)</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="227"/>
+        <source>热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）</source>
+        <translation>Hot-update game sound switch / volume / sound pack (separate from the skin permission)</translation>
+    </message>
+</context>
+<context>
     <name>ConnectionStatusWidget</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="367"/>
-        <location filename="../plugin_manager/main_window.py" line="403"/>
+        <location filename="../plugin_manager/main_window.py" line="368"/>
+        <location filename="../plugin_manager/main_window.py" line="404"/>
         <source>● 未连接</source>
         <translation>● Disconnected</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="392"/>
+        <location filename="../plugin_manager/main_window.py" line="393"/>
         <source>● 已连接</source>
         <translation>● Connected</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="397"/>
+        <location filename="../plugin_manager/main_window.py" line="398"/>
         <source>(重连 {n} 次</source>
         <translation>(Reconnect {n})</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="407"/>
+        <location filename="../plugin_manager/main_window.py" line="408"/>
         <source>(断开, 重连 {n} 次)</source>
         <translation>(Disconnected, reconnect {n})</translation>
     </message>
@@ -93,12 +156,12 @@
 <context>
     <name>ControlAuthorizationDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="972"/>
+        <location filename="../plugin_manager/main_window.py" line="973"/>
         <source>控制授权配置</source>
         <translation>Control Authorization</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="984"/>
+        <location filename="../plugin_manager/main_window.py" line="985"/>
         <source>每个控制命令只能授权给一个插件。
 未授权的控制命令，所有插件都不能使用。
 下拉列表仅显示声明了该权限的插件。</source>
@@ -107,37 +170,37 @@ Unauthorized commands cannot be used by any plugin.
 The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="995"/>
+        <location filename="../plugin_manager/main_window.py" line="996"/>
         <source>控制命令</source>
         <translation>Command</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="996"/>
+        <location filename="../plugin_manager/main_window.py" line="997"/>
         <source>授权插件</source>
         <translation>Authorized Plugin</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="997"/>
+        <location filename="../plugin_manager/main_window.py" line="998"/>
         <source>状态</source>
         <translation>Status</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1046"/>
+        <location filename="../plugin_manager/main_window.py" line="1053"/>
         <source>未授权</source>
         <translation>Unauthorized</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1089"/>
+        <location filename="../plugin_manager/main_window.py" line="1096"/>
         <source>无申请</source>
         <translation>No Request</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1092"/>
+        <location filename="../plugin_manager/main_window.py" line="1099"/>
         <source>● 已授权</source>
         <translation>● Authorized</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1095"/>
+        <location filename="../plugin_manager/main_window.py" line="1102"/>
         <source>○ 未授权</source>
         <translation>○ Unauthorized</translation>
     </message>
@@ -168,7 +231,7 @@ The dropdown only shows plugins that declare the permission.</translation>
 <context>
     <name>DetachedPluginWindow</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="115"/>
+        <location filename="../plugin_manager/main_window.py" line="116"/>
         <source>📎  关闭此窗口可自动嵌回到标签页</source>
         <translation>📎  Close to reattach to tab</translation>
     </message>
@@ -194,7 +257,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation>After a win or loss, double-click the board with the left mouse button to start a new game.</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1179"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1361"/>
         <location filename="../../uiFiles/ui_about.ui" line="585"/>
         <location filename="../../uiFiles/ui_defined_parameter.ui" line="70"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="73"/>
@@ -205,7 +268,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1216"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1398"/>
         <location filename="../../uiFiles/ui_defined_parameter.ui" line="54"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="54"/>
         <location filename="../../uiFiles/ui_advanced.ui" line="174"/>
@@ -249,8 +312,8 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="148"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="573"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1047"/>
-        <location filename="../mineSweeperGUI.py" line="877"/>
-        <location filename="../mineSweeperGUI.py" line="881"/>
+        <location filename="../mineSweeperGUI.py" line="953"/>
+        <location filename="../mineSweeperGUI.py" line="957"/>
         <location filename="../shared_types/enums.py" line="170"/>
         <location filename="../utils/helpers.py" line="25"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="302"/>
@@ -262,7 +325,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="153"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="578"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1052"/>
-        <location filename="../mineSweeperGUI.py" line="884"/>
+        <location filename="../mineSweeperGUI.py" line="960"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="303"/>
         <source>Win7</source>
         <translation>Win7</translation>
@@ -272,7 +335,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="158"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="583"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1057"/>
-        <location filename="../mineSweeperGUI.py" line="890"/>
+        <location filename="../mineSweeperGUI.py" line="966"/>
         <location filename="../shared_types/enums.py" line="178"/>
         <location filename="../utils/helpers.py" line="37"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="305"/>
@@ -284,7 +347,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="163"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="588"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1062"/>
-        <location filename="../mineSweeperGUI.py" line="893"/>
+        <location filename="../mineSweeperGUI.py" line="969"/>
         <location filename="../shared_types/enums.py" line="180"/>
         <location filename="../utils/helpers.py" line="39"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="306"/>
@@ -296,7 +359,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="168"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="593"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1067"/>
-        <location filename="../mineSweeperGUI.py" line="887"/>
+        <location filename="../mineSweeperGUI.py" line="963"/>
         <location filename="../shared_types/enums.py" line="176"/>
         <location filename="../utils/helpers.py" line="35"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="304"/>
@@ -308,7 +371,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="173"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="598"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1072"/>
-        <location filename="../mineSweeperGUI.py" line="896"/>
+        <location filename="../mineSweeperGUI.py" line="972"/>
         <location filename="../shared_types/enums.py" line="182"/>
         <location filename="../utils/helpers.py" line="41"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="307"/>
@@ -320,7 +383,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="178"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="603"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1077"/>
-        <location filename="../mineSweeperGUI.py" line="899"/>
+        <location filename="../mineSweeperGUI.py" line="975"/>
         <location filename="../shared_types/enums.py" line="184"/>
         <location filename="../utils/helpers.py" line="43"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="308"/>
@@ -332,7 +395,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="183"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="608"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1082"/>
-        <location filename="../mineSweeperGUI.py" line="902"/>
+        <location filename="../mineSweeperGUI.py" line="978"/>
         <location filename="../shared_types/enums.py" line="186"/>
         <location filename="../utils/helpers.py" line="45"/>
         <location filename="../plugins/XianNiUpgrade/models.py" line="309"/>
@@ -341,7 +404,7 @@ The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="164"/>
-        <location filename="../mineSweeperGUI.py" line="905"/>
+        <location filename="../mineSweeperGUI.py" line="981"/>
         <location filename="../shared_types/enums.py" line="188"/>
         <location filename="../utils/helpers.py" line="47"/>
         <source>双击递归</source>
@@ -349,7 +412,7 @@ The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="169"/>
-        <location filename="../mineSweeperGUI.py" line="908"/>
+        <location filename="../mineSweeperGUI.py" line="984"/>
         <location filename="../shared_types/enums.py" line="190"/>
         <location filename="../utils/helpers.py" line="49"/>
         <source>标雷递归</source>
@@ -357,7 +420,7 @@ The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="174"/>
-        <location filename="../mineSweeperGUI.py" line="911"/>
+        <location filename="../mineSweeperGUI.py" line="987"/>
         <location filename="../shared_types/enums.py" line="192"/>
         <location filename="../utils/helpers.py" line="51"/>
         <source>双击标雷递归</source>
@@ -365,7 +428,7 @@ The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="179"/>
-        <location filename="../mineSweeperGUI.py" line="914"/>
+        <location filename="../mineSweeperGUI.py" line="990"/>
         <location filename="../shared_types/enums.py" line="194"/>
         <location filename="../utils/helpers.py" line="53"/>
         <source>无猜双击递归</source>
@@ -373,7 +436,7 @@ The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="184"/>
-        <location filename="../mineSweeperGUI.py" line="917"/>
+        <location filename="../mineSweeperGUI.py" line="993"/>
         <location filename="../shared_types/enums.py" line="196"/>
         <location filename="../utils/helpers.py" line="55"/>
         <source>无猜标雷递归</source>
@@ -381,24 +444,64 @@ The dropdown only shows plugins that declare the permission.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="189"/>
-        <location filename="../mineSweeperGUI.py" line="920"/>
+        <location filename="../mineSweeperGUI.py" line="996"/>
         <location filename="../shared_types/enums.py" line="198"/>
         <location filename="../utils/helpers.py" line="57"/>
         <source>无猜双击标雷递归</source>
         <translation>No guess chord flag recursive</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="829"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="821"/>
+        <source>开出格子与踩雷时，棋盘短促抖动</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="827"/>
+        <source>开格抖动特效</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="840"/>
+        <source>开格、双击、插旗、开局、胜负等游戏性音效</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="843"/>
+        <source>游戏音效</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="874"/>
+        <source>音量：</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="927"/>
+        <source>音效包：</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="964"/>
+        <source>额外音效库：</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="971"/>
+        <source>留空则使用 media/sounds；填写后与自带音效包合并</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="1011"/>
         <source>自动重开：</source>
         <translation>Auto restart:</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="941"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1123"/>
         <source>允许纪录弹窗（推荐）</source>
         <translation>Allow popovers for best scores (recommended)</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1052"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1234"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="504"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="929"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1165"/>
@@ -406,7 +509,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation>Attempts:</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="981"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1163"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="453"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="878"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1386"/>
@@ -589,7 +692,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation>Championship identifier:</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="792"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="808"/>
         <source>光标不能超出边框</source>
         <translation>The cursor cannot move out of the border</translation>
     </message>
@@ -624,7 +727,7 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation>Auto save evfs</translation>
     </message>
     <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="1182"/>
+        <location filename="../../uiFiles/ui_gs.ui" line="1364"/>
         <location filename="../../uiFiles/ui_about.ui" line="588"/>
         <location filename="../../uiFiles/ui_defined_parameter.ui" line="73"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="76"/>
@@ -803,8 +906,28 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="62"/>
-        <location filename="../dialogs/gameAdvancedSettings.py" line="75"/>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="12"/>
+        <source>预设局面（NewPresetGameCommand）</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="13"/>
+        <source>初始化翻开（InitOpenCommand）</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="14"/>
+        <source>更换皮肤（SetSkinCommand）</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="15"/>
+        <source>更改音效（SetSoundCommand）</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="66"/>
+        <location filename="../dialogs/gameAdvancedSettings.py" line="79"/>
         <source>允许{label}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -831,57 +954,57 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation type="unfinished">Plugins</translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="191"/>
+        <location filename="../mainWindowGUIImportExport.py" line="197"/>
         <source>正在验证程序...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="207"/>
+        <location filename="../mainWindowGUIImportExport.py" line="213"/>
         <source>正在验证录像...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="213"/>
+        <location filename="../mainWindowGUIImportExport.py" line="219"/>
         <source>正在解析录像 {cur}/{total}...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="234"/>
+        <location filename="../mainWindowGUIImportExport.py" line="240"/>
         <source>正在写入 stats.dat  {cur}/{total}...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="241"/>
+        <location filename="../mainWindowGUIImportExport.py" line="247"/>
         <source>完成！</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="636"/>
+        <location filename="../mainWindowGUIImportExport.py" line="642"/>
         <source>选择验证程序</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="637"/>
+        <location filename="../mainWindowGUIImportExport.py" line="643"/>
         <source>程序 (*.exe);;所有文件 (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="643"/>
+        <location filename="../mainWindowGUIImportExport.py" line="649"/>
         <source>选择录像</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="644"/>
+        <location filename="../mainWindowGUIImportExport.py" line="650"/>
         <source>录像文件 (*.evf *.evfs);;所有文件 (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="650"/>
+        <location filename="../mainWindowGUIImportExport.py" line="656"/>
         <source>选择录像文件夹</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="659"/>
+        <location filename="../mainWindowGUIImportExport.py" line="665"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="590"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="602"/>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="647"/>
@@ -889,18 +1012,18 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="660"/>
+        <location filename="../mainWindowGUIImportExport.py" line="666"/>
         <source>请选择验证程序和录像路径</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="879"/>
+        <location filename="../mineSweeperGUI.py" line="955"/>
         <source>标准（盲扫）</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUIEvent.py" line="178"/>
-        <location filename="../mineSweeperGUIEvent.py" line="186"/>
+        <location filename="../mineSweeperGUIEvent.py" line="293"/>
+        <location filename="../mineSweeperGUIEvent.py" line="301"/>
         <source>(是雷的概率)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2742,42 +2865,42 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>LogViewerDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="735"/>
+        <location filename="../plugin_manager/main_window.py" line="736"/>
         <source>日志查看</source>
         <translation>Log Viewer</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="758"/>
+        <location filename="../plugin_manager/main_window.py" line="759"/>
         <source>日志源:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="761"/>
+        <location filename="../plugin_manager/main_window.py" line="762"/>
         <source>主进程</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="763"/>
+        <location filename="../plugin_manager/main_window.py" line="764"/>
         <source>插件: {name}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="771"/>
+        <location filename="../plugin_manager/main_window.py" line="772"/>
         <source>等级:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="782"/>
+        <location filename="../plugin_manager/main_window.py" line="783"/>
         <source>自动滚动</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="788"/>
+        <location filename="../plugin_manager/main_window.py" line="789"/>
         <source>显示来源</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="794"/>
+        <location filename="../plugin_manager/main_window.py" line="795"/>
         <source>清空</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2926,9 +3049,9 @@ th { background: #F3E5F5; color: #6A1B9A; }
     </message>
     <message>
         <location filename="../../uiFiles/main_board.ui" line="774"/>
-        <location filename="../mainWindowGUIImportExport.py" line="225"/>
-        <location filename="../mainWindowGUIImportExport.py" line="389"/>
-        <location filename="../mainWindowGUIImportExport.py" line="397"/>
+        <location filename="../mainWindowGUIImportExport.py" line="231"/>
+        <location filename="../mainWindowGUIImportExport.py" line="395"/>
+        <location filename="../mainWindowGUIImportExport.py" line="403"/>
         <source>导入</source>
         <translation>Import</translation>
     </message>
@@ -2968,201 +3091,181 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <translation>Board image (svg)</translation>
     </message>
     <message>
-        <location filename="../main.py" line="246"/>
-        <location filename="../main.py" line="261"/>
-        <source>插件管理器</source>
-        <translation type="unfinished">Plugin Manager</translation>
-    </message>
-    <message>
-        <location filename="../main.py" line="247"/>
-        <source>找不到 plugin_manager.exe：
-{path}
-
-插件将被禁用。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../main.py" line="262"/>
-        <source>启动 plugin_manager 失败：
-{err}</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainWindowGUIImportExport.py" line="185"/>
-        <location filename="../mainWindowGUIImportExport.py" line="198"/>
-        <location filename="../mainWindowGUIImportExport.py" line="203"/>
-        <location filename="../mainWindowGUIImportExport.py" line="220"/>
-        <location filename="../mainWindowGUIImportExport.py" line="380"/>
-        <location filename="../mainWindowGUIImportExport.py" line="428"/>
+        <location filename="../mainWindowGUIImportExport.py" line="191"/>
+        <location filename="../mainWindowGUIImportExport.py" line="204"/>
+        <location filename="../mainWindowGUIImportExport.py" line="209"/>
+        <location filename="../mainWindowGUIImportExport.py" line="226"/>
+        <location filename="../mainWindowGUIImportExport.py" line="386"/>
+        <location filename="../mainWindowGUIImportExport.py" line="434"/>
         <source>导入失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="186"/>
+        <location filename="../mainWindowGUIImportExport.py" line="192"/>
         <source>路径不存在</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="199"/>
+        <location filename="../mainWindowGUIImportExport.py" line="205"/>
         <source>无法读取验证程序</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="204"/>
+        <location filename="../mainWindowGUIImportExport.py" line="210"/>
         <source>未知的验证程序版本</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="221"/>
+        <location filename="../mainWindowGUIImportExport.py" line="227"/>
         <source>验证失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="226"/>
+        <location filename="../mainWindowGUIImportExport.py" line="232"/>
         <source>没有新的录像需要导入</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="245"/>
+        <location filename="../mainWindowGUIImportExport.py" line="251"/>
         <source>成功导入 {n} 条录像</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="248"/>
-        <location filename="../mainWindowGUIImportExport.py" line="409"/>
+        <location filename="../mainWindowGUIImportExport.py" line="254"/>
+        <location filename="../mainWindowGUIImportExport.py" line="415"/>
         <source>导入成功</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="371"/>
+        <location filename="../mainWindowGUIImportExport.py" line="377"/>
         <source>选择旧版 stats.dat</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="373"/>
+        <location filename="../mainWindowGUIImportExport.py" line="379"/>
         <source>DAT 文件 (stats.dat *.dat);;所有文件 (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="381"/>
+        <location filename="../mainWindowGUIImportExport.py" line="387"/>
         <source>不能导入当前正在使用的 stats.dat</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="390"/>
+        <location filename="../mainWindowGUIImportExport.py" line="396"/>
         <source>旧版 stats.dat 中没有有效记录</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="398"/>
+        <location filename="../mainWindowGUIImportExport.py" line="404"/>
         <source>共 {n} 条记录，全部与当前重复</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="403"/>
+        <location filename="../mainWindowGUIImportExport.py" line="409"/>
         <source>成功导入 {n} 条记录</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="406"/>
+        <location filename="../mainWindowGUIImportExport.py" line="412"/>
         <source>，跳过 {n} 条重复</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="429"/>
+        <location filename="../mainWindowGUIImportExport.py" line="435"/>
         <source>不支持的 stats.dat 版本 (v{ver})，请升级程序</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="487"/>
-        <location filename="../mainWindowGUIImportExport.py" line="527"/>
-        <location filename="../mainWindowGUIImportExport.py" line="537"/>
-        <location filename="../mainWindowGUIImportExport.py" line="584"/>
-        <location filename="../mainWindowGUIImportExport.py" line="593"/>
+        <location filename="../mainWindowGUIImportExport.py" line="493"/>
+        <location filename="../mainWindowGUIImportExport.py" line="533"/>
+        <location filename="../mainWindowGUIImportExport.py" line="543"/>
+        <location filename="../mainWindowGUIImportExport.py" line="590"/>
+        <location filename="../mainWindowGUIImportExport.py" line="599"/>
         <source>导出失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="488"/>
-        <location filename="../mainWindowGUIImportExport.py" line="538"/>
+        <location filename="../mainWindowGUIImportExport.py" line="494"/>
+        <location filename="../mainWindowGUIImportExport.py" line="544"/>
         <source>stats.dat 不存在或为空</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="496"/>
+        <location filename="../mainWindowGUIImportExport.py" line="502"/>
         <source>导出 Arbiter Textstats CSV（全部）</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="499"/>
+        <location filename="../mainWindowGUIImportExport.py" line="505"/>
         <source>Textstats CSV 文件 (*.csv)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="504"/>
+        <location filename="../mainWindowGUIImportExport.py" line="510"/>
         <source>导出 Arbiter Stats CSV</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="507"/>
+        <location filename="../mainWindowGUIImportExport.py" line="513"/>
         <source>Stats CSV 文件 (*.csv)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="528"/>
+        <location filename="../mainWindowGUIImportExport.py" line="534"/>
         <source>导出 CSV 失败：{error}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="531"/>
-        <location filename="../mainWindowGUIImportExport.py" line="611"/>
+        <location filename="../mainWindowGUIImportExport.py" line="537"/>
+        <location filename="../mainWindowGUIImportExport.py" line="617"/>
         <source>导出成功</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="532"/>
-        <location filename="../mainWindowGUIImportExport.py" line="612"/>
+        <location filename="../mainWindowGUIImportExport.py" line="538"/>
+        <location filename="../mainWindowGUIImportExport.py" line="618"/>
         <source>已导出 {n} 条记录到
 {path}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="545"/>
+        <location filename="../mainWindowGUIImportExport.py" line="551"/>
         <source>导出 meta.all.dat</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="547"/>
+        <location filename="../mainWindowGUIImportExport.py" line="553"/>
         <source>Meta All DAT 文件 (*.all.dat)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="552"/>
+        <location filename="../mainWindowGUIImportExport.py" line="558"/>
         <source>导出 meta.dat</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="554"/>
+        <location filename="../mainWindowGUIImportExport.py" line="560"/>
         <source>Meta DAT 文件 (*.dat)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="585"/>
+        <location filename="../mainWindowGUIImportExport.py" line="591"/>
         <source>未找到有效的记录</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainWindowGUIImportExport.py" line="594"/>
+        <location filename="../mainWindowGUIImportExport.py" line="600"/>
         <source>未找到记录</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="1593"/>
+        <location filename="../mineSweeperGUI.py" line="1693"/>
         <source>粘贴失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mineSweeperGUI.py" line="1594"/>
+        <location filename="../mineSweeperGUI.py" line="1694"/>
         <source>剪贴板内容无法识别为扫雷局面</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3245,53 +3348,53 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>PluginInfoDialog</name>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="62"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="69"/>
         <source>插件详情 - {name}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="76"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="83"/>
         <source>基本信息</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="78"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="85"/>
         <source>名称</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="79"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="86"/>
         <source>版本</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="80"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="87"/>
         <source>作者</source>
         <translation type="unfinished">Author</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="82"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="89"/>
         <source>暂无描述</source>
         <translation type="unfinished">No description</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="84"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="91"/>
         <source>描述</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="89"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="96"/>
         <source>订阅的事件</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="91"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="98"/>
         <source>权限</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="113"/>
-        <location filename="../plugin_manager/plugin_info_dialog.py" line="180"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="120"/>
+        <location filename="../plugin_manager/plugin_info_dialog.py" line="188"/>
         <source>无</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3299,256 +3402,256 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>PluginManagerWindow</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1224"/>
-        <location filename="../plugin_manager/main_window.py" line="1358"/>
+        <location filename="../plugin_manager/main_window.py" line="1231"/>
+        <location filename="../plugin_manager/main_window.py" line="1365"/>
         <source>下载插件...</source>
         <translation>Download Plugin...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1191"/>
-        <location filename="../plugin_manager/main_window.py" line="1356"/>
-        <location filename="../plugin_manager/main_window.py" line="2055"/>
+        <location filename="../plugin_manager/main_window.py" line="1198"/>
+        <location filename="../plugin_manager/main_window.py" line="1363"/>
+        <location filename="../plugin_manager/main_window.py" line="2062"/>
         <source>插件管理器</source>
         <translation>Plugin Manager</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1221"/>
-        <location filename="../plugin_manager/main_window.py" line="1357"/>
+        <location filename="../plugin_manager/main_window.py" line="1228"/>
+        <location filename="../plugin_manager/main_window.py" line="1364"/>
         <source>选项</source>
         <translation>Options</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1228"/>
-        <location filename="../plugin_manager/main_window.py" line="1359"/>
+        <location filename="../plugin_manager/main_window.py" line="1235"/>
+        <location filename="../plugin_manager/main_window.py" line="1366"/>
         <source>设置</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1232"/>
-        <location filename="../plugin_manager/main_window.py" line="1360"/>
+        <location filename="../plugin_manager/main_window.py" line="1239"/>
+        <location filename="../plugin_manager/main_window.py" line="1367"/>
         <source>基础设置...</source>
         <translation>Basic Settings...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1238"/>
-        <location filename="../plugin_manager/main_window.py" line="1361"/>
+        <location filename="../plugin_manager/main_window.py" line="1245"/>
+        <location filename="../plugin_manager/main_window.py" line="1368"/>
         <source>控制授权...</source>
         <translation>Authorization...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1245"/>
-        <location filename="../plugin_manager/main_window.py" line="1362"/>
+        <location filename="../plugin_manager/main_window.py" line="1252"/>
+        <location filename="../plugin_manager/main_window.py" line="1369"/>
         <source>启动调试</source>
         <translation>Start Debug</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1251"/>
-        <location filename="../plugin_manager/main_window.py" line="1366"/>
-        <location filename="../plugin_manager/main_window.py" line="1454"/>
-        <location filename="../plugin_manager/main_window.py" line="1465"/>
+        <location filename="../plugin_manager/main_window.py" line="1258"/>
+        <location filename="../plugin_manager/main_window.py" line="1373"/>
+        <location filename="../plugin_manager/main_window.py" line="1461"/>
         <location filename="../plugin_manager/main_window.py" line="1472"/>
+        <location filename="../plugin_manager/main_window.py" line="1479"/>
         <source>插件开发指南</source>
         <translation>Plugin Dev Guide</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1255"/>
-        <location filename="../plugin_manager/main_window.py" line="1367"/>
+        <location filename="../plugin_manager/main_window.py" line="1262"/>
+        <location filename="../plugin_manager/main_window.py" line="1374"/>
         <source>查看</source>
         <translation>View</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1258"/>
-        <location filename="../plugin_manager/main_window.py" line="1368"/>
+        <location filename="../plugin_manager/main_window.py" line="1265"/>
+        <location filename="../plugin_manager/main_window.py" line="1375"/>
         <source>日志查看</source>
         <translation>Log Viewer</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1262"/>
-        <location filename="../plugin_manager/main_window.py" line="1369"/>
+        <location filename="../plugin_manager/main_window.py" line="1269"/>
+        <location filename="../plugin_manager/main_window.py" line="1376"/>
         <source>工具栏</source>
         <translation>Toolbar</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1267"/>
-        <location filename="../plugin_manager/main_window.py" line="1370"/>
+        <location filename="../plugin_manager/main_window.py" line="1274"/>
+        <location filename="../plugin_manager/main_window.py" line="1377"/>
         <source>刷新</source>
         <translation>Refresh</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1268"/>
-        <location filename="../plugin_manager/main_window.py" line="1371"/>
+        <location filename="../plugin_manager/main_window.py" line="1275"/>
+        <location filename="../plugin_manager/main_window.py" line="1378"/>
         <source>刷新插件列表</source>
         <translation>Refresh plugin list</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1274"/>
-        <location filename="../plugin_manager/main_window.py" line="1372"/>
+        <location filename="../plugin_manager/main_window.py" line="1281"/>
+        <location filename="../plugin_manager/main_window.py" line="1379"/>
         <source>控制授权</source>
         <translation>Authorization</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1275"/>
-        <location filename="../plugin_manager/main_window.py" line="1373"/>
+        <location filename="../plugin_manager/main_window.py" line="1282"/>
+        <location filename="../plugin_manager/main_window.py" line="1380"/>
         <source>配置插件控制命令权限</source>
         <translation>Configure command permissions</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1290"/>
-        <location filename="../plugin_manager/main_window.py" line="1374"/>
+        <location filename="../plugin_manager/main_window.py" line="1297"/>
+        <location filename="../plugin_manager/main_window.py" line="1381"/>
         <source>插件列表</source>
         <translation>Plugin List</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1326"/>
-        <location filename="../plugin_manager/main_window.py" line="1379"/>
+        <location filename="../plugin_manager/main_window.py" line="1333"/>
+        <location filename="../plugin_manager/main_window.py" line="1386"/>
         <source>正在连接...</source>
         <translation>Connecting...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1337"/>
-        <location filename="../plugin_manager/main_window.py" line="1376"/>
+        <location filename="../plugin_manager/main_window.py" line="1344"/>
+        <location filename="../plugin_manager/main_window.py" line="1383"/>
         <source>插件管理器 - 右键打开菜单</source>
         <translation>Plugin Manager - Right-click for menu</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1340"/>
-        <location filename="../plugin_manager/main_window.py" line="1377"/>
+        <location filename="../plugin_manager/main_window.py" line="1347"/>
+        <location filename="../plugin_manager/main_window.py" line="1384"/>
         <source>显示主窗口</source>
         <translation>Show Window</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1343"/>
-        <location filename="../plugin_manager/main_window.py" line="1378"/>
+        <location filename="../plugin_manager/main_window.py" line="1350"/>
+        <location filename="../plugin_manager/main_window.py" line="1385"/>
         <source>退出</source>
         <translation>Quit</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1364"/>
-        <location filename="../plugin_manager/main_window.py" line="1613"/>
+        <location filename="../plugin_manager/main_window.py" line="1371"/>
+        <location filename="../plugin_manager/main_window.py" line="1620"/>
         <source>调试已启动</source>
         <translation>Debug Started</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1455"/>
+        <location filename="../plugin_manager/main_window.py" line="1462"/>
         <source>未找到插件开发指南文档：
 {path}</source>
         <translation>Plugin dev guide not found:
 {path}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1466"/>
+        <location filename="../plugin_manager/main_window.py" line="1473"/>
         <source>无法读取文档：
 {error}</source>
         <translation>Cannot read document:
 {error}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1527"/>
+        <location filename="../plugin_manager/main_window.py" line="1534"/>
         <source>设置已保存</source>
         <translation>Settings saved</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1584"/>
+        <location filename="../plugin_manager/main_window.py" line="1591"/>
         <source>已连接到主进程</source>
         <translation>Connected to main process</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1586"/>
+        <location filename="../plugin_manager/main_window.py" line="1593"/>
         <source>未连接 (重连 {n} 次)</source>
         <translation>Not connected (reconnect {n})</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1587"/>
+        <location filename="../plugin_manager/main_window.py" line="1594"/>
         <source>未连接到主进程</source>
         <translation>Not connected to main process</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1616"/>
+        <location filename="../plugin_manager/main_window.py" line="1623"/>
         <source>调试服务已在端口 5678 启动，等待 VS Code 连接。重启插件管理器可关闭调试。</source>
         <translation>Debug server started on port 5678, waiting for VS Code. Restart to stop debugging.</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1636"/>
+        <location filename="../plugin_manager/main_window.py" line="1643"/>
         <source>插件 {name} 就绪</source>
         <translation>Plugin {name} ready</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1707"/>
+        <location filename="../plugin_manager/main_window.py" line="1714"/>
         <source>已加载 {total} 个插件，{enabled} 个已启用</source>
         <translation>Loaded {total} plugins, {enabled} enabled</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1729"/>
+        <location filename="../plugin_manager/main_window.py" line="1736"/>
         <source>启用</source>
         <translation>Enable</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1730"/>
+        <location filename="../plugin_manager/main_window.py" line="1737"/>
         <source>禁用</source>
         <translation>Disable</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1740"/>
+        <location filename="../plugin_manager/main_window.py" line="1747"/>
         <source>插件详情</source>
         <translation>Plugin Info</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1750"/>
+        <location filename="../plugin_manager/main_window.py" line="1757"/>
         <source>打开窗口</source>
         <translation>Open Window</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1751"/>
+        <location filename="../plugin_manager/main_window.py" line="1758"/>
         <source>关闭窗口</source>
         <translation>Close Window</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1761"/>
+        <location filename="../plugin_manager/main_window.py" line="1768"/>
         <source>打开日志</source>
         <translation>Open Log</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1764"/>
+        <location filename="../plugin_manager/main_window.py" line="1771"/>
         <source>查看 README</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1777"/>
+        <location filename="../plugin_manager/main_window.py" line="1784"/>
         <source>一键授权控制权限</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1782"/>
+        <location filename="../plugin_manager/main_window.py" line="1789"/>
         <source>设置...</source>
         <translation>Settings...</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1804"/>
+        <location filename="../plugin_manager/main_window.py" line="1811"/>
         <source>已授权 {n} 个控制命令给插件 {name}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1898"/>
+        <location filename="../plugin_manager/main_window.py" line="1905"/>
         <source>README</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1899"/>
+        <location filename="../plugin_manager/main_window.py" line="1906"/>
         <source>读取 README 失败: {err}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2056"/>
+        <location filename="../plugin_manager/main_window.py" line="2063"/>
         <source>程序已在系统托盘中运行</source>
         <translation>Running in system tray</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2065"/>
+        <location filename="../plugin_manager/main_window.py" line="2072"/>
         <source>确认关闭</source>
         <translation>Confirm Exit</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2066"/>
+        <location filename="../plugin_manager/main_window.py" line="2073"/>
         <source>关闭窗口将停止插件管理器，确定吗？</source>
         <translation>Closing will stop the plugin manager. Are you sure?</translation>
     </message>
@@ -3556,62 +3659,62 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>PluginSettingsDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="434"/>
+        <location filename="../plugin_manager/main_window.py" line="435"/>
         <source>插件设置 - {n}</source>
         <translation>Plugin Settings - {n}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="442"/>
+        <location filename="../plugin_manager/main_window.py" line="443"/>
         <source>基本设置</source>
         <translation>Basic</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="447"/>
+        <location filename="../plugin_manager/main_window.py" line="448"/>
         <source>启用插件:</source>
         <translation>Enable plugin:</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="451"/>
+        <location filename="../plugin_manager/main_window.py" line="452"/>
         <source>启动时显示窗口:</source>
         <translation>Show on start:</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="455"/>
+        <location filename="../plugin_manager/main_window.py" line="456"/>
         <source>窗口加载方式</source>
         <translation>Window Loading</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="468"/>
+        <location filename="../plugin_manager/main_window.py" line="469"/>
         <source>窗口位置:</source>
         <translation>Window position:</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="472"/>
+        <location filename="../plugin_manager/main_window.py" line="473"/>
         <source>日志设置</source>
         <translation>Log Settings</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="485"/>
+        <location filename="../plugin_manager/main_window.py" line="486"/>
         <source>日志级别:</source>
         <translation>Log level:</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="493"/>
+        <location filename="../plugin_manager/main_window.py" line="494"/>
         <source>插件配置</source>
         <translation>Plugin Config</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="515"/>
+        <location filename="../plugin_manager/main_window.py" line="516"/>
         <source>配置文件：{path}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="552"/>
+        <location filename="../plugin_manager/main_window.py" line="553"/>
         <source>{label}：{reason}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="560"/>
+        <location filename="../plugin_manager/main_window.py" line="561"/>
         <source>配置无效</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3727,43 +3830,43 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>SettingsDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="601"/>
+        <location filename="../plugin_manager/main_window.py" line="602"/>
         <source>基础设置</source>
         <translation>Basic Settings</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="610"/>
+        <location filename="../plugin_manager/main_window.py" line="611"/>
         <source>主进程文件日志</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="620"/>
-        <location filename="../plugin_manager/main_window.py" line="637"/>
+        <location filename="../plugin_manager/main_window.py" line="621"/>
+        <location filename="../plugin_manager/main_window.py" line="638"/>
         <source>日志等级</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="621"/>
+        <location filename="../plugin_manager/main_window.py" line="622"/>
         <source>主进程日志文件的记录等级</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="627"/>
+        <location filename="../plugin_manager/main_window.py" line="628"/>
         <source>日志查看器</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="639"/>
+        <location filename="../plugin_manager/main_window.py" line="640"/>
         <source>日志查看器显示的日志等级</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="645"/>
+        <location filename="../plugin_manager/main_window.py" line="646"/>
         <source>自动滚动</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="651"/>
+        <location filename="../plugin_manager/main_window.py" line="652"/>
         <source>显示来源</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3872,7 +3975,7 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>_PluginReadmeDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1143"/>
+        <location filename="../plugin_manager/main_window.py" line="1150"/>
         <source>该插件目录下未找到 README.md</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3880,7 +3983,7 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <context>
     <name>parent</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="1131"/>
+        <location filename="../plugin_manager/main_window.py" line="1138"/>
         <source>{name} - README</source>
         <translation type="unfinished"></translation>
     </message>

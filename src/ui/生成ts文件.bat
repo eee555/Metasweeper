@@ -17,7 +17,7 @@ set DIALOGS=../dialogs/CheckUpdateGui.py ../dialogs/gameAdvancedSettings.py ../d
 set REPLAY_ANALYSIS=../replay_analysis/combo_click.py ../replay_analysis/flag.py ../replay_analysis/guess.py ../replay_analysis/one_point_five_click.py
 
 @REM ---------- 公共类型与工具 ----------
-set SHARED=../shared_types/enums.py ../shared_types/widgets/confirm_dialog.py ../utils/csv_export.py ../utils/helpers.py
+set SHARED=../shared_types/enums.py ../shared_types/commands.py ../shared_types/widgets/confirm_dialog.py ../utils/csv_export.py ../utils/helpers.py
 
 @REM ---------- 插件 SDK 与插件管理器 ----------
 set PLUGIN_SDK=../plugin_sdk/config_types/base_config.py ../plugin_sdk/config_types/file_config.py ../plugin_sdk/config_types/path_config.py ../plugin_sdk/config_types/text_config.py

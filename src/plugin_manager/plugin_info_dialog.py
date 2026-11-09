@@ -24,10 +24,17 @@ from PySide6.QtWidgets import (
 
 from plugin_sdk.control_auth import ControlAuthorizationManager
 from shared_types import EVENT_TYPES
+from shared_types.commands import (
+    COMMAND_HINTS, COMMAND_LABELS, COMMANDS_I18N_CONTEXT,
+    command_hint, command_label,
+)
 from shared_types.widgets import ConfirmDialog
 
 if TYPE_CHECKING:
     from plugin_sdk.plugin_base import BasePlugin
+
+
+_translate = QCoreApplication.translate
 
 
 def _get_struct_tag(cls) -> str | None:
@@ -172,8 +179,9 @@ class PluginInfoDialog(ConfirmDialog):
     ) -> None:
         """填充权限列表：声明权限与授权记录取并集，逐项标注授予状态。
 
-        已授予项显示「类名 (tag) ✅ 已授予」；未授权项显示
-        「类名 (tag) ⭕ 未授予」并以灰色区分（与空列表占位风格一致）。
+        已授予项显示「中文名 (tag) ✅ 已授予」；未授权项显示
+        「中文名 (tag) ⭕ 未授予」并以灰色区分（与空列表占位风格一致）。
+        每项 tooltip 给出一句话说明与类名，避免只剩英文类名看不出用途。
         """
         items = self._permission_texts(declared, authorized_tags)
         if not items:
@@ -181,30 +189,45 @@ class PluginInfoDialog(ConfirmDialog):
             item.setForeground(QColor("#9e9e9e"))
             lst.addItem(item)
             return
-        for text, granted in items:
+        for text, granted, hint in items:
             item = QListWidgetItem(
                 f"{text} ✅ {self.tr('已授予')}" if granted
                 else f"{text} ⭕ {self.tr('未授予')}"
             )
+            if hint:
+                item.setToolTip(hint)
             if not granted:
                 item.setForeground(QColor("#9e9e9e"))
             lst.addItem(item)
 
     def _permission_texts(
         self, declared: list, authorized_tags: set[str]
-    ) -> list[tuple[str, bool]]:
-        """返回 [(显示文本, 是否已授予)]，声明与授权记录取并集"""
-        result: list[tuple[str, bool]] = []
+    ) -> list[tuple[str, bool, str]]:
+        """返回 [(显示文本, 是否已授予, tooltip)]，声明与授权记录取并集"""
+        result: list[tuple[str, bool, str]] = []
         shown: set[str] = set()
         for cls in declared:
-            name = getattr(cls, "__name__", str(cls))
-            tag = _get_struct_tag(cls)
-            text = f"{name} ({tag})" if tag else name
-            result.append((text, bool(tag) and tag in authorized_tags))
-            shown.add(tag if tag else name)
-        # 已授权但未在声明中的命令，直接以 tag 补充展示
+            tag = _get_struct_tag(cls)          # 真 tag 或 None
+            label = command_label(cls)
+            text = f"{label} ({tag})" if tag else label
+            tooltip = (f"{label}\n{command_hint(cls)}\n"
+                       f"类名: {getattr(cls, '__name__', cls)}")
+            result.append((text, bool(tag) and tag in authorized_tags,
+                           tooltip))
+            shown.add(tag if tag else label)
+        # 已授权但未在声明中的命令，直接以中文名补充展示
         for tag in sorted(authorized_tags):
             if tag not in shown:
-                result.append((tag, True))
+                label_src = COMMAND_LABELS.get(tag)
+                hint_src = COMMAND_HINTS.get(tag)
+                if label_src is not None:
+                    label = _translate(COMMANDS_I18N_CONTEXT, label_src)
+                else:
+                    label = tag
+                hint = (_translate(COMMANDS_I18N_CONTEXT, hint_src)
+                        if hint_src else "")
+                tooltip = f"{label}\n{hint}" if hint else label
+                text = label if label == tag else f"{label} ({tag})"
+                result.append((text, True, tooltip))
                 shown.add(tag)
         return result

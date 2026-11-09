@@ -12,6 +12,7 @@ _COMMAND_LABELS = {
     "new_preset_game": QCoreApplication.translate("Form", "预设局面（NewPresetGameCommand）"),
     "init_open": QCoreApplication.translate("Form", "初始化翻开（InitOpenCommand）"),
     "set_skin": QCoreApplication.translate("Form", "更换皮肤（SetSkinCommand）"),
+    "set_sound": QCoreApplication.translate("Form", "更改音效（SetSoundCommand）"),
 }
 
 

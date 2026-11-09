@@ -1,0 +1,6 @@
+{
+  "name": "模板音效包（复制本目录后逐个替换 wav）",
+  "author": "",
+  "version": "1.0.0",
+  "note": "缺哪个 wav 就沿用 media/sounds/ 根目录下的默认音效；sound.json 只用于列表显示名"
+}
