@@ -1,24 +1,23 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Form generated from reading UI file 'ui_record_pop.ui'
+## Form generated from reading UI file 'ui_record_pop.ui'
 ##
-# Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.12.0
 ##
-# WARNING! All changes made in this file will be lost when recompiling UI file!
+## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-                            QMetaObject, QObject, QPoint, QRect,
-                            QSize, QTime, QUrl, Qt)
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
 from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-                           QFont, QFontDatabase, QGradient, QIcon,
-                           QImage, QKeySequence, QLinearGradient, QPainter,
-                           QPalette, QPixmap, QRadialGradient, QTransform)
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLayout,
-                               QPushButton, QSizePolicy, QSpacerItem, QVBoxLayout,
-                               QWidget)
-
+    QPushButton, QSizePolicy, QSpacerItem, QVBoxLayout,
+    QWidget)
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -40,13 +39,11 @@ class Ui_Form(object):
         self.label_race_label_3.setScaledContents(False)
         self.label_race_label_3.setWordWrap(False)
 
-        self.verticalLayout.addWidget(
-            self.label_race_label_3, 0, Qt.AlignHCenter)
+        self.verticalLayout.addWidget(self.label_race_label_3, 0, Qt.AlignHCenter)
 
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.horizontalSpacer_33 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_33 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer_33)
 
@@ -62,10 +59,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_2.addWidget(self.label_16)
 
-        self.horizontalSpacer_34 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_34 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer_34)
+
 
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
@@ -76,8 +73,7 @@ class Ui_Form(object):
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.horizontalLayout_3.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer)
 
@@ -97,10 +93,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_3.addWidget(self.label_1)
 
-        self.horizontalSpacer_2 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_2)
+
 
         self.verticalLayout.addWidget(self.widget1)
 
@@ -111,8 +107,7 @@ class Ui_Form(object):
         self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
         self.horizontalLayout_6.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_6.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_7 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_7 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_6.addItem(self.horizontalSpacer_7)
 
@@ -132,10 +127,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_6.addWidget(self.label_3)
 
-        self.horizontalSpacer_8 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_8 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_6.addItem(self.horizontalSpacer_8)
+
 
         self.verticalLayout.addWidget(self.widget3)
 
@@ -146,8 +141,7 @@ class Ui_Form(object):
         self.horizontalLayout_7.setObjectName(u"horizontalLayout_7")
         self.horizontalLayout_7.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_7.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_9 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_9 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_7.addItem(self.horizontalSpacer_9)
 
@@ -167,10 +161,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_7.addWidget(self.label_5)
 
-        self.horizontalSpacer_10 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_10 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_7.addItem(self.horizontalSpacer_10)
+
 
         self.verticalLayout.addWidget(self.widget5)
 
@@ -179,11 +173,9 @@ class Ui_Form(object):
         self.widget7.setMinimumSize(QSize(0, 41))
         self.horizontalLayout_10 = QHBoxLayout(self.widget7)
         self.horizontalLayout_10.setObjectName(u"horizontalLayout_10")
-        self.horizontalLayout_10.setSizeConstraint(
-            QLayout.SetDefaultConstraint)
+        self.horizontalLayout_10.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_10.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_15 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_15 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_10.addItem(self.horizontalSpacer_15)
 
@@ -203,10 +195,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_10.addWidget(self.label_7)
 
-        self.horizontalSpacer_16 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_16 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_10.addItem(self.horizontalSpacer_16)
+
 
         self.verticalLayout.addWidget(self.widget7)
 
@@ -215,11 +207,9 @@ class Ui_Form(object):
         self.widget9.setMinimumSize(QSize(0, 41))
         self.horizontalLayout_12 = QHBoxLayout(self.widget9)
         self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
-        self.horizontalLayout_12.setSizeConstraint(
-            QLayout.SetDefaultConstraint)
+        self.horizontalLayout_12.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_12.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_19 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_19 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_12.addItem(self.horizontalSpacer_19)
 
@@ -239,10 +229,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_12.addWidget(self.label_9)
 
-        self.horizontalSpacer_20 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_20 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_12.addItem(self.horizontalSpacer_20)
+
 
         self.verticalLayout.addWidget(self.widget9)
 
@@ -251,11 +241,9 @@ class Ui_Form(object):
         self.widget11.setMinimumSize(QSize(0, 41))
         self.horizontalLayout_13 = QHBoxLayout(self.widget11)
         self.horizontalLayout_13.setObjectName(u"horizontalLayout_13")
-        self.horizontalLayout_13.setSizeConstraint(
-            QLayout.SetDefaultConstraint)
+        self.horizontalLayout_13.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_13.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_21 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_21 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_13.addItem(self.horizontalSpacer_21)
 
@@ -275,10 +263,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_13.addWidget(self.label_11)
 
-        self.horizontalSpacer_22 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_22 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_13.addItem(self.horizontalSpacer_22)
+
 
         self.verticalLayout.addWidget(self.widget11)
 
@@ -287,11 +275,9 @@ class Ui_Form(object):
         self.widget13.setMinimumSize(QSize(0, 41))
         self.horizontalLayout_15 = QHBoxLayout(self.widget13)
         self.horizontalLayout_15.setObjectName(u"horizontalLayout_15")
-        self.horizontalLayout_15.setSizeConstraint(
-            QLayout.SetDefaultConstraint)
+        self.horizontalLayout_15.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_15.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_27 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_27 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_15.addItem(self.horizontalSpacer_27)
 
@@ -328,10 +314,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_15.addWidget(self.label___13)
 
-        self.horizontalSpacer_28 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_28 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_15.addItem(self.horizontalSpacer_28)
+
 
         self.verticalLayout.addWidget(self.widget13)
 
@@ -340,11 +326,9 @@ class Ui_Form(object):
         self.widget14.setMinimumSize(QSize(0, 41))
         self.horizontalLayout_16 = QHBoxLayout(self.widget14)
         self.horizontalLayout_16.setObjectName(u"horizontalLayout_16")
-        self.horizontalLayout_16.setSizeConstraint(
-            QLayout.SetDefaultConstraint)
+        self.horizontalLayout_16.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_16.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_29 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_29 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_16.addItem(self.horizontalSpacer_29)
 
@@ -381,10 +365,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_16.addWidget(self.label___14)
 
-        self.horizontalSpacer_30 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_30 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_16.addItem(self.horizontalSpacer_30)
+
 
         self.verticalLayout.addWidget(self.widget14)
 
@@ -393,11 +377,9 @@ class Ui_Form(object):
         self.widget15.setMinimumSize(QSize(0, 41))
         self.horizontalLayout_17 = QHBoxLayout(self.widget15)
         self.horizontalLayout_17.setObjectName(u"horizontalLayout_17")
-        self.horizontalLayout_17.setSizeConstraint(
-            QLayout.SetDefaultConstraint)
+        self.horizontalLayout_17.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_17.setContentsMargins(0, 0, 0, 0)
-        self.horizontalSpacer_31 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_31 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_17.addItem(self.horizontalSpacer_31)
 
@@ -434,10 +416,10 @@ class Ui_Form(object):
 
         self.horizontalLayout_17.addWidget(self.label___15)
 
-        self.horizontalSpacer_32 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_32 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_17.addItem(self.horizontalSpacer_32)
+
 
         self.verticalLayout.addWidget(self.widget15)
 
@@ -446,8 +428,7 @@ class Ui_Form(object):
         self.widget.setMinimumSize(QSize(0, 41))
         self.horizontalLayout = QHBoxLayout(self.widget)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalSpacer_25 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_25 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout.addItem(self.horizontalSpacer_25)
 
@@ -463,12 +444,13 @@ class Ui_Form(object):
 
         self.horizontalLayout.addWidget(self.pushButton)
 
-        self.horizontalSpacer_26 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_26 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout.addItem(self.horizontalSpacer_26)
 
+
         self.verticalLayout.addWidget(self.widget)
+
 
         self.retranslateUi(Form)
         self.pushButton.clicked.connect(Form.close)
@@ -477,51 +459,34 @@ class Ui_Form(object):
     # setupUi
 
     def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate(
-            "Form", u"\u5173\u4e8e", None))
-        self.label_race_label_3.setText(QCoreApplication.translate(
-            "Form", u"\u606d\u559c\u6253\u7834\uff1a", None))
-        self.label.setText(QCoreApplication.translate(
-            "Form", u"\u6a21\u5f0f\uff1a", None))
-        self.label_16.setText(QCoreApplication.translate(
-            "Form", u"\u672a\u6807\u96f7\uff08\u6807\u51c6\uff09", None))
+        Form.setWindowTitle(QCoreApplication.translate("Form", u"\u5173\u4e8e", None))
+        self.label_race_label_3.setText(QCoreApplication.translate("Form", u"\u606d\u559c\u6253\u7834\uff1a", None))
+        self.label.setText(QCoreApplication.translate("Form", u"\u6a21\u5f0f\uff1a", None))
+        self.label_16.setText(QCoreApplication.translate("Form", u"\u672a\u6807\u96f7\uff08\u6807\u51c6\uff09", None))
         self.label1.setText("")
-        self.label_1.setText(QCoreApplication.translate(
-            "Form", u"Time\u6210\u7ee9\uff01", None))
+        self.label_1.setText(QCoreApplication.translate("Form", u"Time\u6210\u7ee9\uff01", None))
         self.label3.setText("")
-        self.label_3.setText(QCoreApplication.translate(
-            "Form", u"3BV/s\u6210\u7ee9\uff01", None))
+        self.label_3.setText(QCoreApplication.translate("Form", u"3BV/s\u6210\u7ee9\uff01", None))
         self.label5.setText("")
-        self.label_5.setText(QCoreApplication.translate(
-            "Form", u"STNB\u6210\u7ee9\uff01", None))
+        self.label_5.setText(QCoreApplication.translate("Form", u"STNB\u6210\u7ee9\uff01", None))
         self.label7.setText("")
-        self.label_7.setText(QCoreApplication.translate(
-            "Form", u"IOE\u6210\u7ee9\uff01", None))
+        self.label_7.setText(QCoreApplication.translate("Form", u"IOE\u6210\u7ee9\uff01", None))
         self.label9.setText("")
-        self.label_9.setText(QCoreApplication.translate(
-            "Form", u"Path\u6210\u7ee9\uff01", None))
+        self.label_9.setText(QCoreApplication.translate("Form", u"Path\u6210\u7ee9\uff01", None))
         self.label11.setText("")
-        self.label_11.setText(QCoreApplication.translate(
-            "Form", u"RQP\u6210\u7ee9\uff01", None))
+        self.label_11.setText(QCoreApplication.translate("Form", u"RQP\u6210\u7ee9\uff01", None))
         self.label13.setText("")
-        self.label_13.setText(QCoreApplication.translate(
-            "Form", u"\u521d\u7ea7", None))
-        self.label___13.setText(QCoreApplication.translate(
-            "Form", u"\u4e2a\u4eba\u6700\u4f73\uff01", None))
+        self.label_13.setText(QCoreApplication.translate("Form", u"\u521d\u7ea7", None))
+        self.label___13.setText(QCoreApplication.translate("Form", u"\u4e2a\u4eba\u6700\u4f73\uff01", None))
         self.label14.setText("")
-        self.label_14.setText(QCoreApplication.translate(
-            "Form", u"\u4e2d\u7ea7", None))
-        self.label___14.setText(QCoreApplication.translate(
-            "Form", u"\u4e2a\u4eba\u6700\u4f73\uff01", None))
+        self.label_14.setText(QCoreApplication.translate("Form", u"\u4e2d\u7ea7", None))
+        self.label___14.setText(QCoreApplication.translate("Form", u"\u4e2a\u4eba\u6700\u4f73\uff01", None))
         self.label15.setText("")
-        self.label_15.setText(QCoreApplication.translate(
-            "Form", u"\u9ad8\u7ea7", None))
-        self.label___15.setText(QCoreApplication.translate(
-            "Form", u"\u4e2a\u4eba\u6700\u4f73\uff01", None))
-        self.pushButton.setText(QCoreApplication.translate(
-            "Form", u"\u786e\u5b9a", None))
-# if QT_CONFIG(shortcut)
-        self.pushButton.setShortcut(
-            QCoreApplication.translate("Form", u"Return", None))
-# endif // QT_CONFIG(shortcut)
+        self.label_15.setText(QCoreApplication.translate("Form", u"\u9ad8\u7ea7", None))
+        self.label___15.setText(QCoreApplication.translate("Form", u"\u4e2a\u4eba\u6700\u4f73\uff01", None))
+        self.pushButton.setText(QCoreApplication.translate("Form", u"\u786e\u5b9a", None))
+#if QT_CONFIG(shortcut)
+        self.pushButton.setShortcut(QCoreApplication.translate("Form", u"Return", None))
+#endif // QT_CONFIG(shortcut)
     # retranslateUi
+

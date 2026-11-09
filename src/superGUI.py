@@ -16,6 +16,7 @@ import sys
 from typing import List, Tuple
 
 from shared_types.events import LanguageChangeEvent
+from shared_types.commands import SKIN_LED_KEYS, SKIN_FACE_KEYS
 from config.constants import (
     BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT,
     FACE_SMILE, FACE_CLICK, FACE_LOST, FACE_WIN, FACE_SMILE_DOWN,
@@ -243,6 +244,24 @@ class Ui_MainWindow(Ui_MainWindow):
         self.LED8_path = str(resource_path('media') / 'LED8.png')
         self.LED9_path = str(resource_path('media') / 'LED9.png')
 
+        # ── 皮肤内存源（纯内存热替换，由 app.skin_applier 写入）──
+        # skin_faces: {FACE_*: 原始 QPixmap}，skin_leds: {0..9: 原始 QPixmap}
+        # 这些字段不落盘，主进程退出即还原。国旗图案按需求不纳入换肤。
+        self.skin_faces: dict[int, QPixmap] | None = None
+        self.skin_leds: dict[int, QPixmap] | None = None
+        # key -> 默认磁盘路径，供未覆盖的 key 逐项回退
+        self.face_path_map = {
+            FACE_SMILE: self.smileface_path, FACE_CLICK: self.clickface_path,
+            FACE_LOST: self.lostface_path, FACE_WIN: self.winface_path,
+            FACE_SMILE_DOWN: self.smilefacedown_path,
+        }
+        self.led_path_map = {
+            0: self.LED0_path, 1: self.LED1_path, 2: self.LED2_path,
+            3: self.LED3_path, 4: self.LED4_path, 5: self.LED5_path,
+            6: self.LED6_path, 7: self.LED7_path, 8: self.LED8_path,
+            9: self.LED9_path,
+        }
+
         self.mainWindow.setWindowIcon(QIcon(self.ico_path))
 
         self.predefinedBoardPara = [{}] * 7
@@ -331,6 +350,7 @@ class Ui_MainWindow(Ui_MainWindow):
             QSize(self.pixSize*self.column + 8, self.pixSize*self.row + 8))
         self.label.leftPressed.connect(self.mineAreaLeftPressed)
         self.label.leftRelease.connect(self.mineAreaLeftRelease)
+        self.label.leftDoubleRelease.connect(self.mineAreaLeftDoubleRelease)
         self.label.leftAndRightPressed.connect(
             self.mineAreaLeftAndRightPressed)
         # self.label.leftAndRightRelease.connect(self.mineAreaLeftAndRightRelease)
@@ -357,68 +377,34 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label.setObjectName("label")
 
     def importLEDPic(self, pixSize):
-        # 从磁盘导入资源，并缩放到希望的尺寸、比例
-        pixmap14 = QPixmap(self.smileface_path)
-        pixmap15 = QPixmap(self.clickface_path)
-        pixmap16 = QPixmap(self.lostface_path)
-        pixmap17 = QPixmap(self.winface_path)
-        pixmap18 = QPixmap(self.smilefacedown_path)
-        self.pixmapNumPix = {FACE_SMILE: pixmap14, FACE_CLICK: pixmap15,
-                             FACE_LOST: pixmap16, FACE_WIN: pixmap17, FACE_SMILE_DOWN: pixmap18}
-        pixmap14_ = pixmap14.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap15_ = pixmap15.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap16_ = pixmap16.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap17_ = pixmap17.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap18_ = pixmap18.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        self.pixmapNum = {FACE_SMILE: pixmap14_, FACE_CLICK: pixmap15_,
-                          FACE_LOST: pixmap16_, FACE_WIN: pixmap17_, FACE_SMILE_DOWN: pixmap18_}
-        # 以上是读取数字的图片，局面中的数字；以下是上方LED数字的图片
-        pixLEDmap0 = QPixmap(self.LED0_path)
-        pixLEDmap1 = QPixmap(self.LED1_path)
-        pixLEDmap2 = QPixmap(self.LED2_path)
-        pixLEDmap3 = QPixmap(self.LED3_path)
-        pixLEDmap4 = QPixmap(self.LED4_path)
-        pixLEDmap5 = QPixmap(self.LED5_path)
-        pixLEDmap6 = QPixmap(self.LED6_path)
-        pixLEDmap7 = QPixmap(self.LED7_path)
-        pixLEDmap8 = QPixmap(self.LED8_path)
-        pixLEDmap9 = QPixmap(self.LED9_path)
-        self.pixmapLEDNumPix = {0: pixLEDmap0, 1: pixLEDmap1, 2: pixLEDmap2, 3: pixLEDmap3,
-                                4: pixLEDmap4, 5: pixLEDmap5, 6: pixLEDmap6, 7: pixLEDmap7,
-                                8: pixLEDmap8, 9: pixLEDmap9}
-        pixLEDmap0_ = pixLEDmap0.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap1_ = pixLEDmap1.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap2_ = pixLEDmap2.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap3_ = pixLEDmap3.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap4_ = pixLEDmap4.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap5_ = pixLEDmap5.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap6_ = pixLEDmap6.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap7_ = pixLEDmap7.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap8_ = pixLEDmap8.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap9_ = pixLEDmap9.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        self.pixmapLEDNum = {0: pixLEDmap0_, 1: pixLEDmap1_, 2: pixLEDmap2_, 3: pixLEDmap3_,
-                             4: pixLEDmap4_, 5: pixLEDmap5_, 6: pixLEDmap6_, 7: pixLEDmap7_,
-                             8: pixLEDmap8_, 9: pixLEDmap9_}
+        # 导入原始资源到 pixmapNumPix / pixmapLEDNumPix，再统一缩放。
+        # 有内存皮肤源时优先取内存（可逐 key 回退到磁盘默认资源）。
+        faces = self.skin_faces
+        leds = self.skin_leds
+        self.pixmapNumPix = {
+            key: (faces[key] if faces and key in faces
+                  else QPixmap(self.face_path_map[key]))
+            for key in SKIN_FACE_KEYS
+        }
+        self.pixmapLEDNumPix = {
+            key: (leds[key] if leds and key in leds
+                  else QPixmap(self.led_path_map[key]))
+            for key in SKIN_LED_KEYS
+        }
+        self.pixmapNum = {
+            key: value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5))
+            for key, value in self.pixmapNumPix.items()
+        }
+        # 以上是笑脸；以下是上方LED数字的图片（比例 208/368 沿用原逻辑）
+        self.pixmapLEDNum = {
+            key: value.copy().scaled(
+                int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+            for key, value in self.pixmapLEDNumPix.items()
+        }
 
     def reimportLEDPic(self, pixSize):
-        # 重新将资源的尺寸缩放到希望的尺寸、比例
-        if hasattr(self, "pixmapNumPix"):
-            self.pixmapNum = {key: value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-                              for key, value in self.pixmapNumPix.items()}
-            self.pixmapLEDNum = {key: value.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-                                 for key, value in self.pixmapLEDNumPix.items()}
-        else:
-            self.importLEDPic(pixSize)
+        # 重新从磁盘/内存皮肤源导入并缩放到希望的尺寸、比例
+        self.importLEDPic(pixSize)
 
     def readPredefinedBoardPara(self):
         # 从配置中更新出快捷键1, 2, 3, 4、5、6的定义(0是自定义)
@@ -686,6 +672,12 @@ class Ui_MainWindow(Ui_MainWindow):
             "DEFAULT/end_then_flag", True, bool)
         self.cursor_limit = self.game_setting.get_or_set_value(
             "DEFAULT/cursor_limit", False, bool)
+        self.double_click_restart = self.game_setting.get_or_set_value(
+            'DEFAULT/double_click_restart', False, bool)
+        # 开格打击感：棋盘抖动特效，默认开启
+        self.board_shake = self.game_setting.get_or_set_value(
+            "DEFAULT/board_shake", True, bool)
+        self.label.shake_enabled = self.board_shake
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:
@@ -709,7 +701,12 @@ class Ui_MainWindow(Ui_MainWindow):
         record_key_name_list = ["BFLAG", "BNF", "BWIN7", "BSS", "BWS", "BCS", "BTBS", "BSG",
                                 "BWG", "IFLAG", "INF", "IWIN7", "ISS", "IWS", "ICS", "ITBS",
                                 "ISG", "IWG", "EFLAG", "ENF", "EWIN7", "ESS", "EWS", "ECS",
-                                "ETBS", "ESG", "EWG"]
+                                "ETBS", "ESG", "EWG",
+                                # 递归模式（evf 11-16）：双击递归、标雷递归、双击标雷递归、
+                                # 无猜双击递归、无猜标雷递归、无猜双击标雷递归
+                                "BCR", "BFR", "BCFR", "BNCR", "BNFR", "BNCFR",
+                                "ICR", "IFR", "ICFR", "INCR", "INFR", "INCFR",
+                                "ECR", "EFR", "ECFR", "ENCR", "ENFR", "ENCFR"]
         self.record_key_name_list = record_key_name_list + \
             ["BEGINNER", "INTERMEDIATE", "EXPERT"]
         # self.record = {}

@@ -1,71 +1,62 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Form generated from reading UI file 'main_board.ui'
+## Form generated from reading UI file 'main_board.ui'
 ##
-# Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.12.0
 ##
-# WARNING! All changes made in this file will be lost when recompiling UI file!
+## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-                            QMetaObject, QObject, QPoint, QRect,
-                            QSize, QTime, QUrl, Qt)
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
 from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
-                           QCursor, QFont, QFontDatabase, QGradient,
-                           QIcon, QImage, QKeySequence, QLinearGradient,
-                           QPainter, QPalette, QPixmap, QRadialGradient,
-                           QTransform)
+    QCursor, QFont, QFontDatabase, QGradient,
+    QIcon, QImage, QKeySequence, QLinearGradient,
+    QPainter, QPalette, QPixmap, QRadialGradient,
+    QTransform)
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
-                               QLayout, QMainWindow, QMenu, QMenuBar,
-                               QSizePolicy, QSpacerItem, QTabWidget, QVBoxLayout,
-                               QWidget)
+    QLayout, QMainWindow, QMenu, QMenuBar,
+    QSizePolicy, QSpacerItem, QTabWidget, QVBoxLayout,
+    QWidget)
 
 from ui.mineLabel import mineLabel
 from ui.mineNumLabel import mineNumLabel
 from ui.uiComponents import StatusLabel
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.resize(968, 217)
-        sizePolicy = QSizePolicy(
-            QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            MainWindow.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(MainWindow.sizePolicy().hasHeightForWidth())
         MainWindow.setSizePolicy(sizePolicy)
         MainWindow.setMinimumSize(QSize(0, 0))
         MainWindow.setSizeIncrement(QSize(0, 0))
         palette = QPalette()
         brush = QBrush(QColor(255, 255, 255, 255))
         brush.setStyle(Qt.BrushStyle.SolidPattern)
-        palette.setBrush(QPalette.ColorGroup.Active,
-                         QPalette.ColorRole.Base, brush)
+        palette.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.Base, brush)
         brush1 = QBrush(QColor(192, 192, 192, 255))
         brush1.setStyle(Qt.BrushStyle.SolidPattern)
-        palette.setBrush(QPalette.ColorGroup.Active,
-                         QPalette.ColorRole.Window, brush1)
-        palette.setBrush(QPalette.ColorGroup.Inactive,
-                         QPalette.ColorRole.Base, brush)
-        palette.setBrush(QPalette.ColorGroup.Inactive,
-                         QPalette.ColorRole.Window, brush1)
-        palette.setBrush(QPalette.ColorGroup.Disabled,
-                         QPalette.ColorRole.Base, brush1)
-        palette.setBrush(QPalette.ColorGroup.Disabled,
-                         QPalette.ColorRole.Window, brush1)
+        palette.setBrush(QPalette.ColorGroup.Active, QPalette.ColorRole.Window, brush1)
+        palette.setBrush(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Base, brush)
+        palette.setBrush(QPalette.ColorGroup.Inactive, QPalette.ColorRole.Window, brush1)
+        palette.setBrush(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Base, brush1)
+        palette.setBrush(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Window, brush1)
         MainWindow.setPalette(palette)
         font = QFont()
         font.setFamilies([u"\u5fae\u8f6f\u96c5\u9ed1"])
         MainWindow.setFont(font)
         MainWindow.setAutoFillBackground(False)
         MainWindow.setStyleSheet(u"QMenu::indicator {\n"
-                                 "    width: 0px;\n"
-                                 "    height: 0px;\n"
-                                 "}")
+"    width: 0px;\n"
+"    height: 0px;\n"
+"}")
         MainWindow.setToolButtonStyle(Qt.ToolButtonIconOnly)
         MainWindow.setDocumentMode(False)
         MainWindow.setTabShape(QTabWidget.Rounded)
@@ -76,160 +67,160 @@ class Ui_MainWindow(object):
         font1.setFamilies([u"\u5fae\u8f6f\u96c5\u9ed1"])
         font1.setPointSize(12)
         self.actionnew_game.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionnew_game.setShortcut(u"N")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actionchu_ji = QAction(MainWindow)
         self.actionchu_ji.setObjectName(u"actionchu_ji")
         self.actionchu_ji.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionchu_ji.setShortcut(u"B")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actionchu_ji.setShortcutContext(Qt.WindowShortcut)
         self.actionzhogn_ji = QAction(MainWindow)
         self.actionzhogn_ji.setObjectName(u"actionzhogn_ji")
         self.actionzhogn_ji.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionzhogn_ji.setShortcut(u"I")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actiongao_ji = QAction(MainWindow)
         self.actiongao_ji.setObjectName(u"actiongao_ji")
         self.actiongao_ji.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actiongao_ji.setShortcut(u"E")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actionzi_ding_yi = QAction(MainWindow)
         self.actionzi_ding_yi.setObjectName(u"actionzi_ding_yi")
         self.actionzi_ding_yi.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionzi_ding_yi.setShortcut(u"C")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actiontui_chu = QAction(MainWindow)
         self.actiontui_chu.setObjectName(u"actiontui_chu")
         self.actiontui_chu.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actiontui_chu.setShortcut(u"Ctrl+X")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actionyouxi_she_zhi = QAction(MainWindow)
         self.actionyouxi_she_zhi.setObjectName(u"actionyouxi_she_zhi")
         self.actionyouxi_she_zhi.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionyouxi_she_zhi.setShortcut(u"S")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actiongaun_yv = QAction(MainWindow)
         self.actiongaun_yv.setObjectName(u"actiongaun_yv")
         self.actiongaun_yv.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actiongaun_yv.setShortcut(u"A")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_kuaijiejian = QAction(MainWindow)
         self.action_kuaijiejian.setObjectName(u"action_kuaijiejian")
         self.action_kuaijiejian.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.action_kuaijiejian.setShortcut(u"Z")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actionopen = QAction(MainWindow)
         self.actionopen.setObjectName(u"actionopen")
         self.actionopen.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionopen.setShortcut(u"O")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.chinese_action = QAction(MainWindow)
         self.chinese_action.setObjectName(u"chinese_action")
         self.chinese_action.setText(u"\u4e2d\u6587")
         self.chinese_action.setIconText(u"\u4e2d\u6587")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.chinese_action.setToolTip(u"\u4e2d\u6587")
-# endif // QT_CONFIG(tooltip)
-# if QT_CONFIG(statustip)
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(statustip)
         self.chinese_action.setStatusTip(u"")
-# endif // QT_CONFIG(statustip)
-# if QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(statustip)
+#if QT_CONFIG(whatsthis)
         self.chinese_action.setWhatsThis(u"")
-# endif // QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(whatsthis)
         self.chinese_action.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.chinese_action.setShortcut(u"")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.english_action = QAction(MainWindow)
         self.english_action.setObjectName(u"english_action")
         self.english_action.setText(u"English")
         self.english_action.setIconText(u"English")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.english_action.setToolTip(u"English")
-# endif // QT_CONFIG(tooltip)
-# if QT_CONFIG(statustip)
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(statustip)
         self.english_action.setStatusTip(u"")
-# endif // QT_CONFIG(statustip)
-# if QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(statustip)
+#if QT_CONFIG(whatsthis)
         self.english_action.setWhatsThis(u"")
-# endif // QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(whatsthis)
         self.english_action.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.english_action.setShortcut(u"")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_mouse = QAction(MainWindow)
         self.action_mouse.setObjectName(u"action_mouse")
         self.action_mouse.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.action_mouse.setShortcut(u"M")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.polish_action = QAction(MainWindow)
         self.polish_action.setObjectName(u"polish_action")
         self.polish_action.setText(u"Polski")
         self.polish_action.setIconText(u"Polski")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.polish_action.setToolTip(u"Polski")
-# endif // QT_CONFIG(tooltip)
-# if QT_CONFIG(statustip)
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(statustip)
         self.polish_action.setStatusTip(u"")
-# endif // QT_CONFIG(statustip)
-# if QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(statustip)
+#if QT_CONFIG(whatsthis)
         self.polish_action.setWhatsThis(u"")
-# endif // QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(whatsthis)
         self.polish_action.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.polish_action.setShortcut(u"")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.german_action = QAction(MainWindow)
         self.german_action.setObjectName(u"german_action")
         self.german_action.setText(u"Deutsch")
         self.german_action.setIconText(u"Deutsch")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.german_action.setToolTip(u"Deutsch")
-# endif // QT_CONFIG(tooltip)
-# if QT_CONFIG(statustip)
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(statustip)
         self.german_action.setStatusTip(u"")
-# endif // QT_CONFIG(statustip)
-# if QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(statustip)
+#if QT_CONFIG(whatsthis)
         self.german_action.setWhatsThis(u"")
-# endif // QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(whatsthis)
         self.german_action.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.german_action.setShortcut(u"")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_save = QAction(MainWindow)
         self.action_save.setObjectName(u"action_save")
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.action_save.setShortcut(u"Ctrl+S")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_replay = QAction(MainWindow)
         self.action_replay.setObjectName(u"action_replay")
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.action_replay.setShortcut(u"R")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actionauto_update = QAction(MainWindow)
         self.actionauto_update.setObjectName(u"actionauto_update")
         self.actionauto_update.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionauto_update.setShortcut(u"")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_open_replay = QAction(MainWindow)
         self.action_open_replay.setObjectName(u"action_open_replay")
         self.action_open_replay.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.action_open_replay.setShortcut(u"W")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_open_replay.setMenuRole(QAction.TextHeuristicRole)
         self.action_open_ini = QAction(MainWindow)
         self.action_open_ini.setObjectName(u"action_open_ini")
@@ -237,20 +228,20 @@ class Ui_MainWindow(object):
         self.action_level = QAction(MainWindow)
         self.action_level.setObjectName(u"action_level")
         self.action_level.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.action_level.setShortcut(u"L")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_best = QAction(MainWindow)
         self.action_best.setObjectName(u"action_best")
         self.action_best.setFont(font1)
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.action_best.setShortcut(u"P")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.actionchajian = QAction(MainWindow)
         self.actionchajian.setObjectName(u"actionchajian")
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.actionchajian.setShortcut(u"F1")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
         self.action_advance = QAction(MainWindow)
         self.action_advance.setObjectName(u"action_advance")
         self.action_advance.setFont(font1)
@@ -258,9 +249,9 @@ class Ui_MainWindow(object):
         self.action_stats_csv.setObjectName(u"action_stats_csv")
         self.action_stats_csv.setText(u"stats_csv.csv")
         self.action_stats_csv.setIconText(u"stats_csv.csv")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.action_stats_csv.setToolTip(u"Arbiter stats_csv.csv")
-# endif // QT_CONFIG(tooltip)
+#endif // QT_CONFIG(tooltip)
         self.action_stats_csv.setFont(font1)
         self.actionArbiter_dat = QAction(MainWindow)
         self.actionArbiter_dat.setObjectName(u"actionArbiter_dat")
@@ -269,60 +260,58 @@ class Ui_MainWindow(object):
         self.japanese_action.setObjectName(u"japanese_action")
         self.japanese_action.setText(u"\u65e5\u672c\u8a9e")
         self.japanese_action.setIconText(u"\u65e5\u672c\u8a9e")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.japanese_action.setToolTip(u"\u65e5\u672c\u8a9e")
-# endif // QT_CONFIG(tooltip)
+#endif // QT_CONFIG(tooltip)
         self.japanese_action.setFont(font1)
         self.action_meta_dat = QAction(MainWindow)
         self.action_meta_dat.setObjectName(u"action_meta_dat")
         self.action_meta_dat.setText(u"meta.dat")
         self.action_meta_dat.setIconText(u"meta.dat")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.action_meta_dat.setToolTip(u"meta.dat")
-# endif // QT_CONFIG(tooltip)
+#endif // QT_CONFIG(tooltip)
         self.action_meta_dat.setFont(font1)
         self.action_textstats_csv = QAction(MainWindow)
         self.action_textstats_csv.setObjectName(u"action_textstats_csv")
         self.action_textstats_csv.setText(u"textstats.csv")
         self.action_textstats_csv.setIconText(u"textstats.csv")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.action_textstats_csv.setToolTip(u"textstats.csv")
-# endif // QT_CONFIG(tooltip)
+#endif // QT_CONFIG(tooltip)
         self.action_textstats_csv.setFont(font1)
         self.action_meta_all_dat = QAction(MainWindow)
         self.action_meta_all_dat.setObjectName(u"action_meta_all_dat")
         self.action_meta_all_dat.setText(u"meta.all.dat")
         self.action_meta_all_dat.setIconText(u"meta.all.dat")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.action_meta_all_dat.setToolTip(u"meta.all.dat")
-# endif // QT_CONFIG(tooltip)
+#endif // QT_CONFIG(tooltip)
         self.action_meta_all_dat.setFont(font1)
         self.action_import_3_2_2 = QAction(MainWindow)
         self.action_import_3_2_2.setObjectName(u"action_import_3_2_2")
         self.action_import_3_2_2.setText(u"3.2.2 evf")
         self.action_import_3_2_2.setIconText(u"3.2.2 evf")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.action_import_3_2_2.setToolTip(u"3.2.2 evf")
-# endif // QT_CONFIG(tooltip)
+#endif // QT_CONFIG(tooltip)
         self.action_import_3_2_2.setFont(font1)
         self.action_import_dat = QAction(MainWindow)
         self.action_import_dat.setObjectName(u"action_import_dat")
         self.action_import_dat.setText(u"stats.dat")
         self.action_import_dat.setIconText(u"stats.dat")
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.action_import_dat.setToolTip(u"stats.dat")
-# endif // QT_CONFIG(tooltip)
+#endif // QT_CONFIG(tooltip)
         self.action_import_dat.setFont(font1)
         self.action_copy_array = QAction(MainWindow)
         self.action_copy_array.setObjectName(u"action_copy_array")
         self.action_copy_array.setFont(font1)
         self.action_copy_board_file_ascii = QAction(MainWindow)
-        self.action_copy_board_file_ascii.setObjectName(
-            u"action_copy_board_file_ascii")
+        self.action_copy_board_file_ascii.setObjectName(u"action_copy_board_file_ascii")
         self.action_copy_board_file_ascii.setFont(font1)
         self.action_copy_board_file_emoji = QAction(MainWindow)
-        self.action_copy_board_file_emoji.setObjectName(
-            u"action_copy_board_file_emoji")
+        self.action_copy_board_file_emoji.setObjectName(u"action_copy_board_file_emoji")
         self.action_copy_board_file_emoji.setFont(font1)
         self.action_copy_image_png = QAction(MainWindow)
         self.action_copy_image_png.setObjectName(u"action_copy_image_png")
@@ -370,12 +359,10 @@ class Ui_MainWindow(object):
         self.horizontalLayout_3.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.label_11 = mineNumLabel(self.MinenumTimeWigdet)
         self.label_11.setObjectName(u"label_11")
-        sizePolicy1 = QSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(
-            self.label_11.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.label_11.sizePolicy().hasHeightForWidth())
         self.label_11.setSizePolicy(sizePolicy1)
         self.label_11.setMinimumSize(QSize(0, 0))
         self.label_11.setMaximumSize(QSize(16777215, 16777215))
@@ -383,8 +370,7 @@ class Ui_MainWindow(object):
         self.label_11.setLineWidth(0)
         self.label_11.setPixmap(QPixmap(u"media/test.png"))
         self.label_11.setScaledContents(False)
-        self.label_11.setAlignment(
-            Qt.AlignLeading | Qt.AlignLeft | Qt.AlignVCenter)
+        self.label_11.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignVCenter)
 
         self.horizontalLayout_3.addWidget(self.label_11)
 
@@ -409,28 +395,25 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_3.addWidget(self.label_13)
 
+
         self.horizontalLayout.addLayout(self.horizontalLayout_3)
 
-        self.horizontalSpacer = QSpacerItem(
-            40, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout.addItem(self.horizontalSpacer)
 
         self.label_2 = StatusLabel(self.MinenumTimeWigdet)
         self.label_2.setObjectName(u"label_2")
-        sizePolicy1.setHeightForWidth(
-            self.label_2.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
         self.label_2.setSizePolicy(sizePolicy1)
         self.label_2.setSizeIncrement(QSize(0, 0))
         self.label_2.setLineWidth(0)
-        self.label_2.setAlignment(
-            Qt.AlignBottom | Qt.AlignLeading | Qt.AlignLeft)
+        self.label_2.setAlignment(Qt.AlignBottom|Qt.AlignLeading|Qt.AlignLeft)
         self.label_2.setMargin(0)
 
         self.horizontalLayout.addWidget(self.label_2)
 
-        self.horizontalSpacer_2 = QSpacerItem(
-            40, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_2 = QSpacerItem(40, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout.addItem(self.horizontalSpacer_2)
 
@@ -443,48 +426,43 @@ class Ui_MainWindow(object):
         self.label_31.setLineWidth(0)
         self.label_31.setPixmap(QPixmap(u"media/test.png"))
 
-        self.horizontalLayout_4.addWidget(
-            self.label_31, 0, Qt.AlignHCenter | Qt.AlignVCenter)
+        self.horizontalLayout_4.addWidget(self.label_31, 0, Qt.AlignHCenter|Qt.AlignVCenter)
 
         self.label_32 = QLabel(self.MinenumTimeWigdet)
         self.label_32.setObjectName(u"label_32")
         self.label_32.setLineWidth(0)
         self.label_32.setPixmap(QPixmap(u"media/test.png"))
 
-        self.horizontalLayout_4.addWidget(
-            self.label_32, 0, Qt.AlignHCenter | Qt.AlignVCenter)
+        self.horizontalLayout_4.addWidget(self.label_32, 0, Qt.AlignHCenter|Qt.AlignVCenter)
 
         self.label_33 = QLabel(self.MinenumTimeWigdet)
         self.label_33.setObjectName(u"label_33")
-        sizePolicy1.setHeightForWidth(
-            self.label_33.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.label_33.sizePolicy().hasHeightForWidth())
         self.label_33.setSizePolicy(sizePolicy1)
         self.label_33.setMinimumSize(QSize(0, 0))
         self.label_33.setLineWidth(0)
         self.label_33.setPixmap(QPixmap(u"media/test.png"))
         self.label_33.setScaledContents(False)
-        self.label_33.setAlignment(
-            Qt.AlignBottom | Qt.AlignLeading | Qt.AlignLeft)
+        self.label_33.setAlignment(Qt.AlignBottom|Qt.AlignLeading|Qt.AlignLeft)
 
-        self.horizontalLayout_4.addWidget(
-            self.label_33, 0, Qt.AlignHCenter | Qt.AlignVCenter)
+        self.horizontalLayout_4.addWidget(self.label_33, 0, Qt.AlignHCenter|Qt.AlignVCenter)
+
 
         self.horizontalLayout.addLayout(self.horizontalLayout_4)
+
 
         self.verticalLayout.addWidget(self.MinenumTimeWigdet)
 
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.horizontalLayout_2.setContentsMargins(-1, 0, -1, -1)
-        self.horizontalSpacer_3 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer_3)
 
         self.frame = QFrame(self.frame_1)
         self.frame.setObjectName(u"frame")
-        sizePolicy.setHeightForWidth(
-            self.frame.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(self.frame.sizePolicy().hasHeightForWidth())
         self.frame.setSizePolicy(sizePolicy)
         self.frame.setMinimumSize(QSize(0, 0))
         self.frame.setFrameShape(QFrame.Panel)
@@ -504,14 +482,16 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_3.addWidget(self.label)
 
+
         self.horizontalLayout_2.addWidget(self.frame)
 
-        self.horizontalSpacer_4 = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer_4)
 
+
         self.verticalLayout.addLayout(self.horizontalLayout_2)
+
 
         self.verticalLayout_2.addWidget(self.frame_1)
 
@@ -524,15 +504,15 @@ class Ui_MainWindow(object):
         self.label_info.setMinimumSize(QSize(0, 41))
         self.label_info.setMaximumSize(QSize(16777215, 41))
         self.label_info.setFont(font1)
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.label_info.setToolTip(u"")
-# endif // QT_CONFIG(tooltip)
-# if QT_CONFIG(statustip)
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(statustip)
         self.label_info.setStatusTip(u"")
-# endif // QT_CONFIG(statustip)
-# if QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(statustip)
+#if QT_CONFIG(whatsthis)
         self.label_info.setWhatsThis(u"")
-# endif // QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(whatsthis)
         self.label_info.setFrameShape(QFrame.NoFrame)
         self.label_info.setFrameShadow(QFrame.Plain)
         self.label_info.setText(u"\u9884\u7559\u3001\u5907\u7528")
@@ -555,7 +535,9 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_5.addWidget(self.label_flag)
 
+
         self.horizontalLayout_6.addLayout(self.horizontalLayout_5)
+
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_6)
 
@@ -649,63 +631,36 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate(
-            "MainWindow", u"\u5143\u626b\u96f7", None))
-        self.actionnew_game.setText(QCoreApplication.translate(
-            "MainWindow", u"\u65b0\u6e38\u620f", None))
-# if QT_CONFIG(whatsthis)
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"\u5143\u626b\u96f7", None))
+        self.actionnew_game.setText(QCoreApplication.translate("MainWindow", u"\u65b0\u6e38\u620f", None))
+#if QT_CONFIG(whatsthis)
         self.actionnew_game.setWhatsThis("")
-# endif // QT_CONFIG(whatsthis)
-        self.actionchu_ji.setText(QCoreApplication.translate(
-            "MainWindow", u"\u521d\u7ea7", None))
-        self.actionzhogn_ji.setText(QCoreApplication.translate(
-            "MainWindow", u"\u4e2d\u7ea7", None))
-        self.actiongao_ji.setText(QCoreApplication.translate(
-            "MainWindow", u"\u9ad8\u7ea7", None))
-        self.actionzi_ding_yi.setText(QCoreApplication.translate(
-            "MainWindow", u"\u81ea\u5b9a\u4e49", None))
-        self.actiontui_chu.setText(QCoreApplication.translate(
-            "MainWindow", u"\u9000\u51fa", None))
-        self.actionyouxi_she_zhi.setText(QCoreApplication.translate(
-            "MainWindow", u"\u6e38\u620f\u8bbe\u7f6e", None))
-        self.actiongaun_yv.setText(QCoreApplication.translate(
-            "MainWindow", u"\u5173\u4e8e", None))
-        self.action_kuaijiejian.setText(QCoreApplication.translate(
-            "MainWindow", u"\u5feb\u6377\u952e\u8bbe\u7f6e", None))
-        self.actionopen.setText(QCoreApplication.translate(
-            "MainWindow", u"\u6253\u5f00", None))
-        self.action_mouse.setText(QCoreApplication.translate(
-            "MainWindow", u"\u9f20\u6807\u8bbe\u7f6e", None))
-        self.action_save.setText(QCoreApplication.translate(
-            "MainWindow", u"\u4fdd\u5b58", None))
-        self.action_replay.setText(QCoreApplication.translate(
-            "MainWindow", u"\u56de\u653e", None))
-        self.actionauto_update.setText(QCoreApplication.translate(
-            "MainWindow", u"\u68c0\u67e5\u66f4\u65b0", None))
-        self.action_open_replay.setText(QCoreApplication.translate(
-            "MainWindow", u"\u5f55\u50cf\u76ee\u5f55", None))
-        self.action_open_ini.setText(QCoreApplication.translate(
-            "MainWindow", u"\u8bbe\u7f6e\u76ee\u5f55", None))
-        self.action_level.setText(QCoreApplication.translate(
-            "MainWindow", u"\u6210\u5c31", None))
-        self.action_best.setText(QCoreApplication.translate(
-            "MainWindow", u"\u4e2a\u4eba\u7eaa\u5f55", None))
-        self.actionchajian.setText(QCoreApplication.translate(
-            "MainWindow", u"\u63d2\u4ef6", None))
-        self.action_advance.setText(QCoreApplication.translate(
-            "MainWindow", u"\u9ad8\u7ea7\u8bbe\u7f6e", None))
-        self.actionArbiter_dat.setText(
-            QCoreApplication.translate("MainWindow", u"Arbiter dat", None))
-        self.action_copy_array.setText(QCoreApplication.translate(
-            "MainWindow", u"\u5c40\u9762\u6570\u7ec4", None))
-        self.action_copy_board_file_ascii.setText(QCoreApplication.translate(
-            "MainWindow", u".board \u6587\u4ef6\uff08ascii\uff09", None))
-        self.action_copy_board_file_emoji.setText(QCoreApplication.translate(
-            "MainWindow", u".board \u6587\u4ef6\uff08emoji\uff09", None))
-        self.action_copy_image_png.setText(QCoreApplication.translate(
-            "MainWindow", u"\u5c40\u9762\u56fe\u7247\uff08png\uff09", None))
-        self.action_copy_image_svg.setText(QCoreApplication.translate(
-            "MainWindow", u"\u5c40\u9762\u56fe\u7247\uff08svg\uff09", None))
+#endif // QT_CONFIG(whatsthis)
+        self.actionchu_ji.setText(QCoreApplication.translate("MainWindow", u"\u521d\u7ea7", None))
+        self.actionzhogn_ji.setText(QCoreApplication.translate("MainWindow", u"\u4e2d\u7ea7", None))
+        self.actiongao_ji.setText(QCoreApplication.translate("MainWindow", u"\u9ad8\u7ea7", None))
+        self.actionzi_ding_yi.setText(QCoreApplication.translate("MainWindow", u"\u81ea\u5b9a\u4e49", None))
+        self.actiontui_chu.setText(QCoreApplication.translate("MainWindow", u"\u9000\u51fa", None))
+        self.actionyouxi_she_zhi.setText(QCoreApplication.translate("MainWindow", u"\u6e38\u620f\u8bbe\u7f6e", None))
+        self.actiongaun_yv.setText(QCoreApplication.translate("MainWindow", u"\u5173\u4e8e", None))
+        self.action_kuaijiejian.setText(QCoreApplication.translate("MainWindow", u"\u5feb\u6377\u952e\u8bbe\u7f6e", None))
+        self.actionopen.setText(QCoreApplication.translate("MainWindow", u"\u6253\u5f00", None))
+        self.action_mouse.setText(QCoreApplication.translate("MainWindow", u"\u9f20\u6807\u8bbe\u7f6e", None))
+        self.action_save.setText(QCoreApplication.translate("MainWindow", u"\u4fdd\u5b58", None))
+        self.action_replay.setText(QCoreApplication.translate("MainWindow", u"\u56de\u653e", None))
+        self.actionauto_update.setText(QCoreApplication.translate("MainWindow", u"\u68c0\u67e5\u66f4\u65b0", None))
+        self.action_open_replay.setText(QCoreApplication.translate("MainWindow", u"\u5f55\u50cf\u76ee\u5f55", None))
+        self.action_open_ini.setText(QCoreApplication.translate("MainWindow", u"\u8bbe\u7f6e\u76ee\u5f55", None))
+        self.action_level.setText(QCoreApplication.translate("MainWindow", u"\u6210\u5c31", None))
+        self.action_best.setText(QCoreApplication.translate("MainWindow", u"\u4e2a\u4eba\u7eaa\u5f55", None))
+        self.actionchajian.setText(QCoreApplication.translate("MainWindow", u"\u63d2\u4ef6", None))
+        self.action_advance.setText(QCoreApplication.translate("MainWindow", u"\u9ad8\u7ea7\u8bbe\u7f6e", None))
+        self.actionArbiter_dat.setText(QCoreApplication.translate("MainWindow", u"Arbiter dat", None))
+        self.action_copy_array.setText(QCoreApplication.translate("MainWindow", u"\u5c40\u9762\u6570\u7ec4", None))
+        self.action_copy_board_file_ascii.setText(QCoreApplication.translate("MainWindow", u".board \u6587\u4ef6\uff08ascii\uff09", None))
+        self.action_copy_board_file_emoji.setText(QCoreApplication.translate("MainWindow", u".board \u6587\u4ef6\uff08emoji\uff09", None))
+        self.action_copy_image_png.setText(QCoreApplication.translate("MainWindow", u"\u5c40\u9762\u56fe\u7247\uff08png\uff09", None))
+        self.action_copy_image_svg.setText(QCoreApplication.translate("MainWindow", u"\u5c40\u9762\u56fe\u7247\uff08svg\uff09", None))
         self.label_11.setText("")
         self.label_12.setText("")
         self.label_13.setText("")
@@ -715,22 +670,14 @@ class Ui_MainWindow(object):
         self.label_33.setText("")
         self.label.setText("")
         self.label_flag.setText("")
-        self.menu.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u6e38\u620f", None))
-        self.menu_2.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u8bbe\u7f6e", None))
-        self.language_menu.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u8bed\u8a00", None))
-        self.menu_3.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u5e2e\u52a9", None))
-        self.menu_4.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u67e5\u770b", None))
-        self.menu_data.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u6570\u636e", None))
-        self.menu_7.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u5bfc\u5165", None))
-        self.menu_8.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u5bfc\u51fa", None))
-        self.menu_copy_board.setTitle(QCoreApplication.translate(
-            "MainWindow", u"\u590d\u5236\u5c40\u9762", None))
+        self.menu.setTitle(QCoreApplication.translate("MainWindow", u"\u6e38\u620f", None))
+        self.menu_2.setTitle(QCoreApplication.translate("MainWindow", u"\u8bbe\u7f6e", None))
+        self.language_menu.setTitle(QCoreApplication.translate("MainWindow", u"\u8bed\u8a00", None))
+        self.menu_3.setTitle(QCoreApplication.translate("MainWindow", u"\u5e2e\u52a9", None))
+        self.menu_4.setTitle(QCoreApplication.translate("MainWindow", u"\u67e5\u770b", None))
+        self.menu_data.setTitle(QCoreApplication.translate("MainWindow", u"\u6570\u636e", None))
+        self.menu_7.setTitle(QCoreApplication.translate("MainWindow", u"\u5bfc\u5165", None))
+        self.menu_8.setTitle(QCoreApplication.translate("MainWindow", u"\u5bfc\u51fa", None))
+        self.menu_copy_board.setTitle(QCoreApplication.translate("MainWindow", u"\u590d\u5236\u5c40\u9762", None))
     # retranslateUi
+

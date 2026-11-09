@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#211B31"/><stop offset="0.56" stop-color="#171321"/><stop offset="1" stop-color="#100E19"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="16%" cy="10%" r="82%">
+      <stop offset="0" stop-color="#4CE7F5" stop-opacity="0.32"/><stop offset="1" stop-color="#4CE7F5" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="88%" cy="84%" r="74%">
+      <stop offset="0" stop-color="#D74FC7" stop-opacity="0.15"/><stop offset="1" stop-color="#D74FC7" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grain" width="44" height="44" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="8" r="0.85" fill="#4CE7F5" opacity="0.12"/>
+      <circle cx="31" cy="29" r="0.65" fill="#D74FC7" opacity="0.10"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="800" fill="url(#base)"/>
+  <rect width="1200" height="800" fill="url(#glowA)"/>
+  <rect width="1200" height="800" fill="url(#glowB)"/>
+  <g fill="none" stroke="#51DFF2" stroke-width="2" opacity="0.18">
+    <path d="M0 116h142l45 45h104l48-48h115M1200 678h-155l-50-50H892l-42 42H730"/>
+    <path d="M0 520h92l50-50h120l34 34h86M1200 250h-96l-45 45h-106l-38-38h-86"/>
+    <path d="M305 0v80l42 42v42M940 800v-92l-45-45v-55"/>
+  </g>
+  <g fill="#FF62D5" opacity="0.25">
+    <circle cx="340" cy="113" r="4"/><circle cx="850" cy="670" r="4"/>
+    <circle cx="382" cy="554" r="3"/><circle cx="829" cy="302" r="3"/>
+  </g>
+  <g fill="none" stroke="#D74FC7" stroke-width="1.5" opacity="0.10">
+    <circle cx="340" cy="113" r="15"/><circle cx="850" cy="670" r="15"/>
+  </g>
+  <g fill="none" stroke="#51DFF2" stroke-width="5" opacity="0.22">
+    <path d="M0 82h190l70 70h135l68-68h120M0 96h184l70 70h136l68-68h126"/>
+    <path d="M1200 718h-188l-68-68H805l-72 72H600M1200 704h-182l-68-68H811l-72 72H600"/>
+    <path d="M0 600h110l44-44h124M1200 230h-118l-40 40H910"/>
+  </g>
+  <g fill="#FF62D5" opacity="0.32">
+    <circle cx="463" cy="84" r="7"/><circle cx="735" cy="722" r="7"/>
+    <circle cx="278" cy="556" r="5"/><circle cx="1042" cy="270" r="5"/>
+  </g>
+  <g opacity="0.42">
+    <path d="M0 800V700h56v-82h63V510h48v65h34V454h61v346z" fill="#26CBE2"/>
+    <path d="M1200 0v112h-64v78h-52v96h-70v-58h-44v118h-76v72h-74V0z" fill="#E446C5"/>
+    <path d="M0 800V772h54v-70h63v-88h42v-50h34v236zM1200 0v30h-66v72h-46v82h-44v48h-40V0z" fill="#171321"/>
+  </g>
+</svg>

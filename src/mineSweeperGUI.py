@@ -29,6 +29,9 @@ from pathlib import Path
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 import csv
+import math
+import time
+from typing import Any, cast
 from datetime import datetime
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QDialog
 from country_name import country_name
@@ -55,12 +58,48 @@ from config.constants import (
 _translate = QCoreApplication.translate
 
 
+def wait_for_pluck(snapshot: Any) -> float:
+    """等待独立快照完成，并传播后台计算错误。"""
+    if snapshot is None:
+        raise RuntimeError("live pluck 快照不可用")
+    wait = getattr(snapshot, 'wait', None)
+    while True:
+        try:
+            value = cast(float | None, wait() if callable(wait) else snapshot.poll())
+        except Exception as exc:
+            raise RuntimeError(f"live pluck 后台计算失败: {exc}") from exc
+        if value is not None:
+            if math.isnan(value):
+                raise ValueError(f"live pluck 结果无效: {value}")
+            return value
+        if callable(wait):
+            raise ValueError("live pluck 结果不可用")
+        time.sleep(0.02)
+
+
+class _FinishedScoreBoard:
+    """计分板读取已完成的 pluck，其他指标仍来自原棋盘。"""
+    def __init__(self, board, pluck):
+        self._board = board
+        self.pluck = pluck
+
+    def __getattr__(self, name):
+        return getattr(self._board, name)
+
+
+def _enable_live_pluck(board):
+    if hasattr(board, 'live_pluck_enabled'):
+        board.live_pluck_enabled = True
+
+
 class MineSweeperGUI(MainWindowGUIImportExport):
 
     def __init__(self, MainWindow: MainWindow, args):
         self.mainWindow = MainWindow
         self.checksum_guard = metasweeper_checksum.ChecksumGuard()
         super(MineSweeperGUI, self).__init__(MainWindow, args)
+
+        _enable_live_pluck(self.label.ms_board)
 
         self.engine = GameEngine(
             ms_board=getattr(self.label, 'ms_board', None))
@@ -205,6 +244,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         if hasattr(self, "_pixSize") and pixSize == self._pixSize:
             return
         self.label.set_rcp(self.row, self.column, pixSize)
+        _enable_live_pluck(self.label.ms_board)
         self.label.reloadCellPic(pixSize)
 
         board_key = (self.row, self.column, self.minenum)
@@ -376,6 +416,19 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.dump_evf_file_data()
         # 发信号给插件，游戏结束了
         board = self.label.ms_board.board
+        finished_board = self.label.ms_board
+        try:
+            snapshot_factory = getattr(finished_board, 'live_pluck_snapshot', None)
+            if callable(snapshot_factory):
+                pluck = wait_for_pluck(snapshot_factory())
+            else:
+                # 旧版没有独立快照；重置棋盘之前保留其原有同步计算行为。
+                pluck = finished_board.pluck
+                if math.isnan(pluck):
+                    raise ValueError(f"live pluck 结果无效: {pluck}")
+        except Exception as exc:
+            raise RuntimeError(f"游戏结束时计算 pluck 失败: {exc}") from exc
+        self._finished_score_board = _FinishedScoreBoard(finished_board, pluck)
         event = GameFinishedEvent(
             game_state=GAME_STATE_ORDER.index(new_game_state),
             nf=self.label.ms_board.rce == 0,
@@ -409,9 +462,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             is_fair=self.label.ms_board.is_fair,
             op=self.label.ms_board.op,
             isl=self.label.ms_board.isl,
-            pluck=self.label.ms_board.pluck,
-            board=board if isinstance(board, list) else board.into_vec_vec(),
-            raw_data=self.label.ms_board.raw_data
+            pluck=pluck,
+            board=[list(row) for row in (board if isinstance(board, list) else board.into_vec_vec())],
+            raw_data=bytes(self.label.ms_board.raw_data)
         )
 
         # 强制保存stats.dat文件
@@ -442,8 +495,16 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             board_bytes=utils.board_list_to_bytes(event.board),
             short_md5=hashlib.md5(self.label.ms_board.raw_data).digest()[:8]
         )
-        GameServerBridge.instance().send_event(event)
+        self._save_finished_record(event, record)
 
+        # 根据条件保存录像；这些操作仍需在当前棋盘被重置之前完成。
+        if self.autosave_video and self.checksum_module_ok() and\
+                new_game_state in "win":
+            self.save_evf_file()
+        self.try_append_evfs(new_game_state)
+
+    def _save_finished_record(self, event, record):
+        GameServerBridge.instance().send_event(event)
         binary_data = record.encode()
         # GCM 推荐 12 字节 nonce
         nonce = get_random_bytes(12)
@@ -463,12 +524,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             len_bytes = blob_length.to_bytes(2, byteorder="big", signed=False)
             f.write(len_bytes)
             f.write(blob)
-
-        # 根据策略保存录像文件到磁盘
-        if self.autosave_video and self.checksum_module_ok() and\
-                new_game_state in "win":
-            self.save_evf_file()
-        self.try_append_evfs(new_game_state)
 
     def _sync_engine(self):
         self.engine._row = self.row
@@ -491,6 +546,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             })
             self.score_board_manager.show(
                 self.label.ms_board, index_type=1)
+        # 把游戏模式告诉局面状态机，由它自行推衍无猜/可猜等模式
+        self.label.ms_board.mode = self.gameMode
 
     def timeCount(self):
         # 10ms时间步进的回调，改计数器、改右上角时间
@@ -525,10 +582,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.score_board_manager.with_namespace({
             "max_block_len": self.engine._max_block_len,
         })
-
-    def chording_ai(self, i, j):
-        self._sync_engine()
-        self.engine.chording_ai(i, j)
 
     def mineNumWheel(self, i):
         if self.game_state == 'ready':
@@ -614,6 +667,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # self.label.set_rcp(self.row, self.column, self.pixSize)
         self.game_state = 'ready'
         self.label.ms_board.reset(self.row, self.column, self.pixSize)
+        _enable_live_pluck(self.label.ms_board)
         self.label.reloadCellPic(self.pixSize)
         self.label_2.reloadFace(self.pixSize)
 
@@ -650,6 +704,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.timer_10ms.stop()
         self.score_board_manager.editing_row = -1
         self.label.ms_board.reset(self.row, self.column, self.pixSize)
+        _enable_live_pluck(self.label.ms_board)
         self.label.update()
 
         # self.label.paintProbability = False
@@ -696,7 +751,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             # "minenum": self.minenum,
         })
 
-        self.score_board_manager.show(self.label.ms_board, index_type=2)
+        finished = getattr(self, '_finished_score_board', None)
+        board = finished if finished is not None and finished._board is self.label.ms_board else self.label.ms_board
+        self.score_board_manager.show(board, index_type=2)
         self.enable_screenshot()
         self.unlimit_cursor()
         # ms_board = self.label.ms_board
@@ -847,6 +904,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.old_evfs_filename = file_name
 
     def gameFailed(self):  # 失败后改脸和状态变量
+        self.label.start_shake(strong=True)  # 踩雷强档抖动（纯表现层，开关关闭时内部直接返回）
         self.timer_10ms.stop()
         self.score_board_manager.editing_row = -1
 
@@ -913,6 +971,24 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         elif self.gameMode == GameMode.LuckyMode.value:
             record_key += "WG"
             mode_text = _translate("Form", "弱可猜")
+        elif self.gameMode == GameMode.ChordRecursive.value:
+            record_key += "CR"
+            mode_text = _translate("Form", "双击递归")
+        elif self.gameMode == GameMode.FlagRecursive.value:
+            record_key += "FR"
+            mode_text = _translate("Form", "标雷递归")
+        elif self.gameMode == GameMode.ChordFlagRecursive.value:
+            record_key += "CFR"
+            mode_text = _translate("Form", "双击标雷递归")
+        elif self.gameMode == GameMode.NoGuessChordRecursive.value:
+            record_key += "NCR"
+            mode_text = _translate("Form", "无猜双击递归")
+        elif self.gameMode == GameMode.NoGuessFlagRecursive.value:
+            record_key += "NFR"
+            mode_text = _translate("Form", "无猜标雷递归")
+        elif self.gameMode == GameMode.NoGuessChordFlagRecursive.value:
+            record_key += "NCFR"
+            mode_text = _translate("Form", "无猜双击标雷递归")
         else:
             raise RuntimeError()
 
@@ -1127,6 +1203,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             # 解决播放录像时快捷键切换难度报错
             self.label.ms_board = ms.BaseVideo(
                 [[0] * column for _ in range(row)], self.pixSize)
+        _enable_live_pluck(self.label.ms_board)
         self.gameMode = self.predefinedBoardPara[k]['gamemode']
         self.score_board_manager.with_namespace({
             "mode": self.gameMode,
@@ -1216,6 +1293,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.auto_replay = ui.auto_replay
             self.end_then_flag = ui.end_then_flag
             self.cursor_limit = ui.cursor_limit
+            self.double_click_restart = ui.double_click_restart
+            self.board_shake = ui.board_shake
+            self.label.shake_enabled = self.board_shake
             self.auto_notification = ui.auto_notification
             self.player_identifier = ui.player_identifier
             self.label_info.setText(self.player_identifier)

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="graphite" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#303B47"/>
+      <stop offset="0.56" stop-color="#222B34"/>
+      <stop offset="1" stop-color="#171D24"/>
+    </linearGradient>
+    <radialGradient id="coolGlow" cx="18%" cy="12%" r="78%">
+      <stop offset="0" stop-color="#7D9DB6" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#7D9DB6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="warmGlow" cx="88%" cy="82%" r="70%">
+      <stop offset="0" stop-color="#A7865C" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#A7865C" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="microDots" width="44" height="44" patternUnits="userSpaceOnUse">
+      <circle cx="7" cy="9" r="0.8" fill="#C7D3DE" opacity="0.075"/>
+      <circle cx="32" cy="29" r="0.65" fill="#C7D3DE" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="800" fill="url(#graphite)"/>
+  <rect width="1200" height="800" fill="url(#coolGlow)"/>
+  <rect width="1200" height="800" fill="url(#warmGlow)"/>
+  <g fill="none" stroke="#B8C6D2" stroke-width="1.4" opacity="0.075">
+    <path d="M0 110H210l38 38h170l34-34h120M1200 610H1010l-44-44H790l-38 38H620"/>
+    <path d="M0 690h145l52-52h126l36 36h94M1200 155h-160l-42 42H880l-35-35h-90"/>
+    <path d="M78 0v94l42 42v110M1120 800V690l-42-42V530"/>
+  </g>
+  <g fill="#D7B77C" opacity="0.18">
+    <circle cx="452" cy="114" r="3"/><circle cx="803" cy="682" r="3"/>
+    <circle cx="171" cy="470" r="2"/><circle cx="1040" cy="345" r="2"/>
+  </g>
+  <g fill="none" stroke="#AAB7C2" stroke-width="3" opacity="0.16">
+    <path d="M82 302l74-42 74 42v84l-74 42-74-42z M104 315l52-30 52 30v58l-52 30-52-30z"/>
+    <path d="M980 392l92-53 92 53v106l-92 53-92-53z M1008 408l64-37 64 37v74l-64 37-64-37z"/>
+    <path d="M0 286h76l29 17M1200 540h-70l-34 20"/>
+  </g>
+  <path d="M0 274h170M0 279h110M1030 530h170M1090 535h110"
+        stroke="#D7B77C" stroke-opacity="0.16" stroke-width="2"/>
+</svg>

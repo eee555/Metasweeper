@@ -129,7 +129,8 @@ class OtherInfoBase:
         写入设置页已经校验过的值，不再次调用字段 validator。
 
         联网校验若在确定时跑过一遍，保存时不应再打一次。
-        silent=True 时不触发 on_change（设置页从 GUI 线程写入时使用）。
+        silent=True 表示「值已由设置页校验过」，仅用于跳过重复校验；
+        变化通知仍会照常发出，否则设置页改配置后插件收不到通知。
         """
         fields = object.__getattribute__(self, "_fields")
         values = object.__getattribute__(self, "_values")
@@ -140,7 +141,7 @@ class OtherInfoBase:
                 continue
             old_value = values.get(name, fields[name].default)
             values[name] = new_value
-            if not silent and on_change is not None and old_value != new_value:
+            if on_change is not None and old_value != new_value:
                 on_change(name, new_value)
 
     @classmethod

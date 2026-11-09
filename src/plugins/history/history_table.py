@@ -396,11 +396,12 @@ class HistoryTable(QWidget):
     def play_row(self):
         exec_dir = get_executable_dir()
         exe = exec_dir / "metasweeper.exe"
+        if not exe.is_file():
+            exe = exec_dir / "metaminsweeper.exe"
         main_py = exec_dir / "src" / "main.py"
 
         # 主程序不存在时直接提示，避免白写临时文件
-        # （修正旧文案：误写为 metaminesweeper.exe，实际找 metasweeper.exe）
-        if not main_py.exists() and not exe.exists():
+        if not main_py.is_file() and not exe.is_file():
             QMessageBox.warning(
                 self, _translate("Form", "错误"), _translate(
                     "Form", "找不到主程序 (main.py 或 metasweeper.exe)")
@@ -418,7 +419,7 @@ class HistoryTable(QWidget):
                     "Form", "保存 evf 文件失败")
             )
             return
-        if main_py.exists():
+        if main_py.is_file():
             subprocess.Popen(
                 [sys.executable, str(main_py), str(temp_filename)])
         else:

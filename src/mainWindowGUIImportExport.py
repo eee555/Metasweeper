@@ -121,11 +121,18 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             6: label.cell6_path, 7: label.cell7_path, 8: label.cell8_path,
             10: label.cellup_path, 11: label.cellflag_path,
             14: label.falsemine_path, 15: label.blast_path,
-            16: label.cellmine_path, 100: label.mine_path,
+            16: label.cellmine_path, 17: label.cellquestion_path,
+            100: label.mine_path,
         }
         renderers = {}
+        # 皮肤生效时优先用内存中的原始字节渲染，保证导出与屏幕一致；
+        # 未覆盖的格子回退到磁盘默认资源。
+        from PySide6.QtCore import QByteArray
+        skin_bytes = getattr(label, "skin_source_bytes", None) or {}
         for val, path in cell_paths.items():
-            if os.path.exists(path):
+            if val in skin_bytes:
+                renderers[val] = QSvgRenderer(QByteArray(skin_bytes[val]))
+            elif os.path.exists(path):
                 renderers[val] = QSvgRenderer(path)
         board_origin = label.mapTo(self.centralwidget, QPoint(0, 0))
         buf = QBuffer()

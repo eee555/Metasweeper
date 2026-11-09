@@ -57,7 +57,7 @@
       </font>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <property name="usesScrollButtons">
       <bool>true</bool>
@@ -117,7 +117,7 @@
           <string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/eee555/Metasweeper&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://github.com/eee555/Metasweeper&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
-          <enum>Qt::RichText</enum>
+          <enum>Qt::TextFormat::RichText</enum>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -130,7 +130,7 @@
        <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
-          <enum>Qt::Vertical</enum>
+          <enum>Qt::Orientation::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -171,13 +171,13 @@
           <string notr="true"/>
          </property>
          <property name="layoutDirection">
-          <enum>Qt::LeftToRight</enum>
+          <enum>Qt::LayoutDirection::LeftToRight</enum>
          </property>
          <property name="text">
-          <string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[80.教程.软件]元扫雷使用教程&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/zh/guide/minesweeper/metasweeper&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/zh/guide/minesweeper/metasweeper&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
-          <enum>Qt::RichText</enum>
+          <enum>Qt::TextFormat::RichText</enum>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -211,13 +211,13 @@
           <string notr="true"/>
          </property>
          <property name="layoutDirection">
-          <enum>Qt::LeftToRight</enum>
+          <enum>Qt::LayoutDirection::LeftToRight</enum>
          </property>
          <property name="text">
-          <string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/#/guide/[5.教程.术语]扫雷术语介绍.md&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/#/guide/[5.教程.术语]扫雷术语介绍.md&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/zh/guide/minesweeper/terminology&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/zh/guide/minesweeper/terminology&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
-          <enum>Qt::RichText</enum>
+          <enum>Qt::TextFormat::RichText</enum>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -230,7 +230,7 @@
        <item>
         <spacer name="verticalSpacer_2">
          <property name="orientation">
-          <enum>Qt::Vertical</enum>
+          <enum>Qt::Orientation::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -280,7 +280,7 @@
        <item>
         <spacer name="verticalSpacer_3">
          <property name="orientation">
-          <enum>Qt::Vertical</enum>
+          <enum>Qt::Orientation::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -321,13 +321,13 @@
           <string notr="true"/>
          </property>
          <property name="layoutDirection">
-          <enum>Qt::LeftToRight</enum>
+          <enum>Qt::LayoutDirection::LeftToRight</enum>
          </property>
          <property name="text">
           <string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Github：&lt;a href=&quot;https://github.com/eee555/Metasweeper/issues&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://github.com/eee555/Metasweeper/issues&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Gitee：&lt;a href=&quot;https://gitee.com/ee55/Metasweeper/issues&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://gitee.com/ee55/Metasweeper/issues&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Discord：&lt;a href=&quot;https://discord.gg/ks8ngPX5bT&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://discord.gg/ks8ngPX5bT&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;QQ群：&lt;a href=&quot;https://qm.qq.com/q/hNShGUQkJG&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://qm.qq.com/q/hNShGUQkJG&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
-          <enum>Qt::RichText</enum>
+          <enum>Qt::TextFormat::RichText</enum>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -340,7 +340,7 @@
        <item>
         <spacer name="verticalSpacer_4">
          <property name="orientation">
-          <enum>Qt::Vertical</enum>
+          <enum>Qt::Orientation::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -412,13 +412,13 @@
              <string/>
             </property>
             <property name="textFormat">
-             <enum>Qt::PlainText</enum>
+             <enum>Qt::TextFormat::PlainText</enum>
             </property>
             <property name="scaledContents">
              <bool>false</bool>
             </property>
             <property name="alignment">
-             <set>Qt::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
             <property name="wordWrap">
              <bool>false</bool>
@@ -446,7 +446,7 @@
              <string/>
             </property>
             <property name="alignment">
-             <set>Qt::AlignCenter</set>
+             <set>Qt::AlignmentFlag::AlignCenter</set>
             </property>
            </widget>
           </item>
@@ -456,7 +456,7 @@
        <item>
         <spacer name="verticalSpacer_6">
          <property name="orientation">
-          <enum>Qt::Vertical</enum>
+          <enum>Qt::Orientation::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -473,7 +473,6 @@
        <font>
         <family>微软雅黑</family>
         <pointsize>12</pointsize>
-        <weight>50</weight>
         <italic>false</italic>
         <bold>false</bold>
        </font>
@@ -523,7 +522,7 @@
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;3. 本项目源代码遵循GPLv3并附加额外条款发布。该额外条款特别禁止任何未经开发团队授权的商业使用行为，并对项目相关收益的分配方式作出明确约定。具体内容详见&lt;a href=&quot;https://github.com/eee555/Metasweeper/blob/master/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;LICENSE&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="textFormat">
-          <enum>Qt::RichText</enum>
+          <enum>Qt::TextFormat::RichText</enum>
          </property>
          <property name="scaledContents">
           <bool>false</bool>
@@ -539,7 +538,7 @@
        <item>
         <spacer name="verticalSpacer_5">
          <property name="orientation">
-          <enum>Qt::Vertical</enum>
+          <enum>Qt::Orientation::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -576,10 +575,10 @@
         <bool>false</bool>
        </property>
        <property name="focusPolicy">
-        <enum>Qt::NoFocus</enum>
+        <enum>Qt::FocusPolicy::NoFocus</enum>
        </property>
        <property name="layoutDirection">
-        <enum>Qt::RightToLeft</enum>
+        <enum>Qt::LayoutDirection::RightToLeft</enum>
        </property>
        <property name="text">
         <string>确定</string>
