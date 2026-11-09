@@ -326,3 +326,33 @@ def test_plugin_declares_both_controls():
     from plugins.skin_manager.plugin import SkinManagerPlugin
     required = SkinManagerPlugin.plugin_info().required_controls
     assert SetSkinCommand in required and SetSoundCommand in required
+
+
+def test_safe_disconnect_is_silent_when_not_connected():
+    """回归：PySide6 的 disconnect 未连接时发 RuntimeWarning 而非抛异常，
+    插件初始化不应再刷 'libpyside: Failed to disconnect' 告警。"""
+    import warnings
+    from PySide6.QtCore import QObject, Signal
+    from plugins.skin_manager.plugin import _safe_disconnect
+
+    class _Emitter(QObject):
+        sig = Signal(str)
+
+    emitter = _Emitter()
+
+    def slot(_x):
+        pass
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _safe_disconnect(emitter.sig, slot)
+        assert not [w for w in caught
+                    if "Failed to disconnect" in str(w.message)]
+
+    # 已连接时应真正断开，且同样无告警
+    emitter.sig.connect(slot)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _safe_disconnect(emitter.sig, slot)
+        assert not [w for w in caught
+                    if "Failed to disconnect" in str(w.message)]

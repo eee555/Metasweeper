@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import cast
 
@@ -25,6 +26,25 @@ from .sound import (
 )
 from .zip_import import imported_dir
 from .widgets import SkinManagerWidget
+
+
+def _safe_disconnect(signal, slot) -> None:
+    """断开信号连接，且容忍「本来就没连上」。
+
+    PySide6 的 `Signal.disconnect()` 在连接不存在时**不抛异常**，而是发出
+    `RuntimeWarning: libpyside: Failed to disconnect ...`，因此
+    `try/except (RuntimeError, TypeError)` 抓不住，会在每次插件初始化时
+    刷一条告警。这里把该警告就地忽略（仅限这一句调用），并用
+    try/except 兜住真正抛异常的其他绑定类型。
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*Failed to disconnect.*",
+            category=RuntimeWarning)
+        try:
+            signal.disconnect(slot)
+        except (RuntimeError, TypeError):
+            pass
 
 
 class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
@@ -199,20 +219,14 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
         # 停用→再启用会二次调用 on_initialized；Qt 默认不去重相同连接，
         # 先断开再连，避免一次配置变化触发两次 _on_config_changed（force
         # 分支会重复发送最多 4MB 图片、试听双响）。
-        try:
-            self.config_changed.disconnect(self._on_config_changed)
-        except (RuntimeError, TypeError):
-            pass
+        _safe_disconnect(self.config_changed, self._on_config_changed)
         self.config_changed.connect(
             self._on_config_changed, Qt.ConnectionType.QueuedConnection)
         self._refresh_choices()
         self._refresh_sound_choices()
         if self._ui is not None:
-            try:
-                self._ui.sound_preview_requested.disconnect(
-                    self._on_sound_preview_requested)
-            except (RuntimeError, TypeError):
-                pass
+            _safe_disconnect(self._ui.sound_preview_requested,
+                             self._on_sound_preview_requested)
             self._ui.sound_preview_requested.connect(
                 self._on_sound_preview_requested,
                 Qt.ConnectionType.QueuedConnection)
@@ -246,10 +260,7 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
 
     def on_shutdown(self) -> None:
         # 断开持久信号，避免停用→再启用时重复连接累积。
-        try:
-            self.config_changed.disconnect(self._on_config_changed)
-        except (RuntimeError, TypeError):
-            pass
+        _safe_disconnect(self.config_changed, self._on_config_changed)
         # 插件关闭时分别还原主进程内存皮肤与音效（主进程退出本身也会自动还原）
         try:
             self.request(SetSkinCommand(reset=True), timeout=2.0)
