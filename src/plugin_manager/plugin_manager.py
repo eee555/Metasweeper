@@ -98,6 +98,8 @@ class PluginManager:
         endpoint: str,
         plugin_dirs: list[Path] | None = None,
         log_handler: LogHandler | None = None,
+        pub_endpoint: str | None = None,
+        ctrl_endpoint: str | None = None,
     ):
         self._endpoint = endpoint
         self._log = log_handler
@@ -109,12 +111,14 @@ class PluginManager:
         if plugin_dirs is None:
             plugin_dirs = get_all_plugin_dirs()
 
-        # 共享的 Client
+        # 共享的 Client（主进程随机端口模式会显式传入真实 PUB/CTRL 端点）
         self._client = ZMQClient(
             endpoint=endpoint,
             on_connected=self._on_connected,
             on_disconnected=self._on_disconnected,
             log_handler=log_handler,
+            pub_endpoint=pub_endpoint,
+            ctrl_endpoint=ctrl_endpoint,
         )
         self._dispatcher = EventDispatcher()
         self._loader = PluginLoader(plugin_dirs)
@@ -465,21 +469,26 @@ def run_plugin_manager_process(
     plugin_dirs: list[str] | None = None,
     with_gui: bool = True,
     show_main_window: bool = True,
+    pub_endpoint: str | None = None,
+    ctrl_endpoint: str | None = None,
 ) -> int:
     """
     在独立进程中运行插件管理器
 
     Args:
-        endpoint: ZMQ Server 地址
+        endpoint: ZMQ Server 基准地址（用于显示/兼容）
         plugin_dirs: 插件目录列表
         with_gui: 是否显示界面（False 为完全无界面后台模式）
         show_main_window: 是否显示主窗口（False 时 GUI 仅显示托盘图标）
+        pub_endpoint: 主进程实际绑定的 PUB 端点（随机端口模式由命令行传入）
+        ctrl_endpoint: 主进程实际绑定的 CTRL 端点（随机端口模式由命令行传入）
 
     Returns:
         退出代码
     """
     manager = PluginManager(
-        endpoint=endpoint, plugin_dirs=plugin_dirs, log_handler=_LogHandler()  # type: ignore
+        endpoint=endpoint, plugin_dirs=plugin_dirs, log_handler=_LogHandler(),  # type: ignore
+        pub_endpoint=pub_endpoint, ctrl_endpoint=ctrl_endpoint,
     )
 
     try:

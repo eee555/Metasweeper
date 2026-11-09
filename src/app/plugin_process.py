@@ -30,6 +30,14 @@ def start_plugin_process(ui, main_window, plugins_disabled):
 
     if running or plugins_disabled:
         return None
+    # 服务端已由 main.py 先行 start()，PUB/CTRL 各自申请了系统随机端口。
+    # 把真实端点通过命令行显式传给插件管理器，避免固定端口冲突。
+    bridge = GameServerBridge.instance()
+    endpoint_args = [
+        "--endpoint", bridge.endpoint,
+        "--pub-endpoint", bridge.pub_endpoint,
+        "--ctrl-endpoint", bridge.ctrl_endpoint,
+    ]
     if get_runtime_mode() != "source":
         base_dir = str(get_executable_dir())
         if sys.platform == "darwin":
@@ -44,7 +52,7 @@ def start_plugin_process(ui, main_window, plugins_disabled):
                     "{path}", plugin_exe),
             )
             return None
-        cmd = [plugin_exe, "--mode", "tray", "--data-dir", data_dir]
+        cmd = [plugin_exe, "--mode", "tray", "--data-dir", data_dir, *endpoint_args]
         cwd = base_dir
         try:
             return subprocess.Popen(cmd, cwd=cwd, env=get_env_for_subprocess())
@@ -56,7 +64,7 @@ def start_plugin_process(ui, main_window, plugins_disabled):
             )
             return None
     cmd = [sys.executable, "-m", "plugin_manager",
-           "--mode", "tray", "--data-dir", data_dir]
+           "--mode", "tray", "--data-dir", data_dir, *endpoint_args]
     cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     try:
         return subprocess.Popen(cmd, cwd=cwd, env=get_env_for_subprocess())

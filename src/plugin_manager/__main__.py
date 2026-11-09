@@ -52,7 +52,17 @@ def main() -> int:
         "--endpoint",
         default=os.environ.get(
             "METASWEEPER_ZMQ_ENDPOINT", "tcp://127.0.0.1:5555"),
-        help="ZMQ Server 地址 (默认: tcp://127.0.0.1:5555)",
+        help="ZMQ Server 基准地址 (默认: tcp://127.0.0.1:5555)",
+    )
+    parser.add_argument(
+        "--pub-endpoint",
+        default=os.environ.get("METASWEEPER_ZMQ_PUB_ENDPOINT"),
+        help="主进程实际绑定的 PUB 端点（全随机端口模式由命令行传入）",
+    )
+    parser.add_argument(
+        "--ctrl-endpoint",
+        default=os.environ.get("METASWEEPER_ZMQ_CTRL_ENDPOINT"),
+        help="主进程实际绑定的 CTRL 端点（全随机端口模式由命令行传入）",
     )
     parser.add_argument(
         "--mode",
@@ -91,6 +101,8 @@ def main() -> int:
         endpoint=args.endpoint,
         with_gui=not args.no_gui,
         show_main_window=show_main_window,
+        pub_endpoint=args.pub_endpoint,
+        ctrl_endpoint=args.ctrl_endpoint,
     )
 
 

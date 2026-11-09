@@ -51,9 +51,15 @@ class ZMQClient:
         on_connected: Callable[[], Any] | None = None,
         on_disconnected: Callable[[], Any] | None = None,
         log_handler: LogHandler | None = None,
+        pub_endpoint: str | None = None,
+        ctrl_endpoint: str | None = None,
     ) -> None:
         self._endpoint = endpoint
-        self._pub_endpoint, self._ctrl_endpoint = _derive_endpoints(endpoint)
+        derived_pub, derived_ctrl = _derive_endpoints(endpoint)
+        # 显式端点优先（主进程随机端口模式通过命令行传入真实地址）；
+        # 未提供时回退到旧的 base+1 / base+2 派生，兼容固定端口与测试。
+        self._pub_endpoint = pub_endpoint or derived_pub
+        self._ctrl_endpoint = ctrl_endpoint or derived_ctrl
         self._serializer = Serializer()
         self._serializer.register_command_types(SyncCommand)
         self._log: LogHandler = log_handler or NullHandler()

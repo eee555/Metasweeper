@@ -29,17 +29,23 @@ class CommandNotSentError(TimeoutError):
 
 class CommandIO:
     def __init__(self, endpoint: str, authorize: Callable[[BaseCommand], bool],
-                 execute: Callable[[str, dict], dict]):
-        parsed = urlparse(endpoint)
-        if parsed.scheme == "tcp" and parsed.hostname and parsed.port and parsed.port <= 65533:
-            host = parsed.hostname
-            if ":" in host:
-                host = f"[{host}]"
-            self.endpoint = f"tcp://{host}:{parsed.port + 2}"
-        elif parsed.scheme == "ipc" and parsed.path:
-            self.endpoint = f"ipc://{parsed.path}_ctrl"
+                 execute: Callable[[str, dict], dict],
+                 ctrl_endpoint: str | None = None):
+        # 优先使用主进程显式传入的真实 CTRL 端点（全随机端口模式）。
+        # 未提供时回退到旧的 base+2 派生，兼容固定端口与独立测试。
+        if ctrl_endpoint:
+            self.endpoint = ctrl_endpoint
         else:
-            raise ValueError("Unsupported SDK endpoint")
+            parsed = urlparse(endpoint)
+            if parsed.scheme == "tcp" and parsed.hostname and parsed.port and parsed.port <= 65533:
+                host = parsed.hostname
+                if ":" in host:
+                    host = f"[{host}]"
+                self.endpoint = f"tcp://{host}:{parsed.port + 2}"
+            elif parsed.scheme == "ipc" and parsed.path:
+                self.endpoint = f"ipc://{parsed.path}_ctrl"
+            else:
+                raise ValueError("Unsupported SDK endpoint")
         self.authorize = authorize
         self.execute = execute
         self.queue: queue.Queue[PendingCall] = queue.Queue(MAX_CONNECTIONS)

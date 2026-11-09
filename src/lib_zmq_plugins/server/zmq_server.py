@@ -42,12 +42,50 @@ def _derive_endpoints(base: str) -> tuple[str, str]:
         raise ValueError(f"Unsupported scheme: {parsed.scheme}")
 
 
+def _extract_host_prefix(endpoint: str) -> str:
+    """提取端点的 host 前缀（不含端口），用于随机端口绑定。
+
+    - tcp://127.0.0.1:5555 -> tcp://127.0.0.1
+    - tcp://127.0.0.1      -> tcp://127.0.0.1
+    - tcp://[::1]:5555     -> tcp://[::1]（IPv6 字面量保留方括号）
+    - ipc:///tmp/foo       -> ipc:///tmp/foo
+    """
+    parsed = urlparse(endpoint)
+    if parsed.scheme == "tcp":
+        host = parsed.hostname or "127.0.0.1"
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        return f"tcp://{host}"
+    if parsed.scheme == "ipc":
+        return f"ipc://{parsed.path}"
+    raise ValueError(f"Unsupported scheme for random port: {parsed.scheme}")
+
+
 class ZMQServer:
     """ZMQ 服务端，运行在游戏主进程中"""
 
-    def __init__(self, endpoint: str, log_handler: LogHandler | None = None) -> None:
+    def __init__(
+        self,
+        endpoint: str,
+        log_handler: LogHandler | None = None,
+        *,
+        bind_to_random_port: bool = False,
+        random_port_min: int = 20000,
+        random_port_max: int = 60000,
+    ) -> None:
+        """
+        Args:
+            endpoint: 基准端点。固定模式下为完整地址（如 tcp://127.0.0.1:5555）；
+                随机模式下只需提供 scheme + host，端口由系统分配。
+            bind_to_random_port: 为真时 PUB / CTRL 各自向系统申请独立的空闲随机
+                端口（默认关闭以保持库层兼容；主进程通过桥接器显式开启）。
+            random_port_min/max: 随机端口的范围。
+        """
         self._endpoint = endpoint
         self._pub_endpoint, self._ctrl_endpoint = _derive_endpoints(endpoint)
+        self._bind_to_random_port = bind_to_random_port
+        self._random_port_min = random_port_min
+        self._random_port_max = random_port_max
         self._serializer = Serializer()
         self._serializer.register_command_types(SyncCommand)
         self._handlers: dict[str, Callable[[
@@ -103,6 +141,47 @@ class ZMQServer:
     ) -> None:
         self._snapshot_providers[get_event_tag(topic)] = provider
 
+    # ── 属性 ──
+
+    @property
+    def endpoint(self) -> str:
+        """基准端点。随机端口模式下该值不用于连接，请用 pub/ctrl_endpoint。"""
+        return self._endpoint
+
+    @property
+    def pub_endpoint(self) -> str:
+        """PUB 实际绑定的端点（随机端口模式下由系统分配）。"""
+        return self._pub_endpoint
+
+    @property
+    def ctrl_endpoint(self) -> str:
+        """ROUTER/CTRL 实际绑定的端点（随机端口模式下由系统分配）。"""
+        return self._ctrl_endpoint
+
+    # ── 随机端口绑定 ──
+
+    def _bind_random_ports(self) -> None:
+        """PUB / ROUTER 各自独立向系统申请空闲随机端口并绑定。
+
+        「全随机」：两个 socket 互不依赖，不要求端口连续，也不会伪造一个
+        可供 +1/+2 派生的基准端点。调用方必须通过 pub_endpoint /
+        ctrl_endpoint 把真实地址显式传给客户端（命令行参数）。
+        """
+        prefix = _extract_host_prefix(self._endpoint)
+        if self._pub_socket is None or self._router_socket is None:
+            raise RuntimeError("Sockets are not initialized")
+
+        # 两个端口各自交给 ZMQ 挑选，避免自行探测带来的 TOCTOU 竞态。
+        pub_port = self._pub_socket.bind_to_random_port(
+            prefix, min_port=self._random_port_min,
+            max_port=self._random_port_max, max_tries=100)
+        ctrl_port = self._router_socket.bind_to_random_port(
+            prefix, min_port=self._random_port_min,
+            max_port=self._random_port_max, max_tries=100)
+
+        self._pub_endpoint = f"{prefix}:{pub_port}"
+        self._ctrl_endpoint = f"{prefix}:{ctrl_port}"
+
     # ── 生命周期 ──
 
     def start(self) -> None:
@@ -122,16 +201,19 @@ class ZMQServer:
 
         self._poller = zmq.Poller()
 
-        self._pub_socket.bind(self._pub_endpoint)
-        self._router_socket.bind(self._ctrl_endpoint)
+        if self._bind_to_random_port:
+            self._bind_random_ports()
+        else:
+            self._pub_socket.bind(self._pub_endpoint)
+            self._router_socket.bind(self._ctrl_endpoint)
 
         self._poller.register(self._router_socket, zmq.POLLIN)
 
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
 
-        self._log.info("Server started: pub=%s, ctrl=%s",
-                       self._pub_endpoint, self._ctrl_endpoint)
+        self._log.info("Server started: endpoint=%s, pub=%s, ctrl=%s",
+                       self._endpoint, self._pub_endpoint, self._ctrl_endpoint)
 
     def stop(self) -> None:
         self._stopped.set()

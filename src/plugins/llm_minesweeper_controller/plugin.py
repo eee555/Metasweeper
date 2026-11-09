@@ -113,7 +113,8 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
             owner = CommandIO(
                 client.endpoint,
                 lambda command: self._tools.has_auth(type(command)),
-                self._tools.execute_function)
+                self._tools.execute_function,
+                ctrl_endpoint=getattr(client, "ctrl_endpoint", None))
             self._tools.report_progress = owner.report_progress
             bridge = RequestBridge(owner.submit)
             server = McpServer(port, TOOLS, bridge)

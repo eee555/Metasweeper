@@ -91,6 +91,7 @@ class GameServerBridge(QObject):
         self,
         endpoint: str | None = None,
         log_handler: LogHandler | None = None,
+        bind_to_random_port: bool = True,
     ):
         # 防止重复初始化
         if getattr(self, '_initialized', False):
@@ -98,13 +99,18 @@ class GameServerBridge(QObject):
 
         super().__init__()
 
-        # 默认端点（允许用环境变量覆盖，供测试等多实例场景隔离端口）
+        # 默认端点（允许用环境变量覆盖 host 前缀）。随机端口模式下端口由
+        # 系统分配，endpoint 仅提供 scheme + host，端口会被忽略。
         if endpoint is None:
             endpoint = os.environ.get(
-                "METASWEEPER_ZMQ_ENDPOINT", "tcp://127.0.0.1:5555")
+                "METASWEEPER_ZMQ_ENDPOINT", "tcp://127.0.0.1")
 
         self._endpoint = endpoint
-        self._server = ZMQServer(endpoint=endpoint, log_handler=log_handler)
+        self._server = ZMQServer(
+            endpoint=endpoint,
+            log_handler=log_handler,
+            bind_to_random_port=bind_to_random_port,
+        )
 
         # 保存主线程引用
         self._main_thread = threading.main_thread()
@@ -127,6 +133,16 @@ class GameServerBridge(QObject):
     @property
     def endpoint(self) -> str:
         return self._endpoint
+
+    @property
+    def pub_endpoint(self) -> str:
+        """PUB 实际绑定的端点（随机端口由系统分配）。"""
+        return self._server.pub_endpoint
+
+    @property
+    def ctrl_endpoint(self) -> str:
+        """ROUTER/CTRL 实际绑定的端点（随机端口由系统分配）。"""
+        return self._server.ctrl_endpoint
 
     @property
     def server(self) -> ZMQServer:
@@ -223,7 +239,9 @@ class GameServerBridge(QObject):
     def start(self) -> None:
         """启动服务"""
         self._server.start()
-        logger.info(f"Game server bridge started at {self._endpoint}")
+        logger.info(
+            f"Game server bridge started: pub={self.pub_endpoint}, "
+            f"ctrl={self.ctrl_endpoint}")
 
     def stop(self) -> None:
         """停止服务"""
