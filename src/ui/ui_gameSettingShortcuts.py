@@ -1,32 +1,30 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Form generated from reading UI file 'ui_gs_shortcuts.ui'
+## Form generated from reading UI file 'ui_gs_shortcuts.ui'
 ##
-# Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.12.0
 ##
-# WARNING! All changes made in this file will be lost when recompiling UI file!
+## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-                            QMetaObject, QObject, QPoint, QRect,
-                            QSize, QTime, QUrl, Qt)
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
 from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-                           QFont, QFontDatabase, QGradient, QIcon,
-                           QImage, QKeySequence, QLinearGradient, QPainter,
-                           QPalette, QPixmap, QRadialGradient, QTransform)
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QFrame,
-                               QLabel, QLineEdit, QPushButton, QSizePolicy,
-                               QSpinBox, QTabWidget, QWidget)
-
+    QLabel, QLineEdit, QPushButton, QSizePolicy,
+    QSpinBox, QTabWidget, QWidget)
 
 class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
         Form.resize(598, 380)
-        sizePolicy = QSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(Form.sizePolicy().hasHeightForWidth())
@@ -36,8 +34,7 @@ class Ui_Form(object):
         Form.setMouseTracking(True)
         Form.setWindowTitle(u"")
         icon = QIcon()
-        icon.addFile(u"media/cat.ico", QSize(),
-                     QIcon.Mode.Normal, QIcon.State.Off)
+        icon.addFile(u"media/cat.ico", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         Form.setWindowIcon(icon)
         self.pushButton_2 = QPushButton(Form)
         self.pushButton_2.setObjectName(u"pushButton_2")
@@ -79,8 +76,7 @@ class Ui_Form(object):
         font1.setFamilies([u"\u5fae\u8f6f\u96c5\u9ed1"])
         font1.setPointSize(12)
         self.comboBox_gamemode4.setFont(font1)
-        self.comboBox_gamemode4.setSizeAdjustPolicy(
-            QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.comboBox_gamemode4.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.spinBox_minenum4 = QSpinBox(self.tab_4)
         self.spinBox_minenum4.setObjectName(u"spinBox_minenum4")
         self.spinBox_minenum4.setGeometry(QRect(110, 100, 160, 32))
@@ -92,25 +88,20 @@ class Ui_Form(object):
         self.spinBox_minenum4.setMaximum(999)
         self.spinBox_minenum4.setValue(72)
         self.spinBox_attempt_times_limit4 = QSpinBox(self.tab_4)
-        self.spinBox_attempt_times_limit4.setObjectName(
-            u"spinBox_attempt_times_limit4")
+        self.spinBox_attempt_times_limit4.setObjectName(u"spinBox_attempt_times_limit4")
         self.spinBox_attempt_times_limit4.setGeometry(QRect(138, 180, 132, 32))
-        sizePolicy1 = QSizePolicy(
-            QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(
-            self.spinBox_attempt_times_limit4.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.spinBox_attempt_times_limit4.sizePolicy().hasHeightForWidth())
         self.spinBox_attempt_times_limit4.setSizePolicy(sizePolicy1)
         self.spinBox_attempt_times_limit4.setFont(font1)
         self.spinBox_attempt_times_limit4.setFocusPolicy(Qt.ClickFocus)
         self.spinBox_attempt_times_limit4.setFrame(True)
         self.spinBox_attempt_times_limit4.setAlignment(Qt.AlignCenter)
-        self.spinBox_attempt_times_limit4.setButtonSymbols(
-            QAbstractSpinBox.NoButtons)
+        self.spinBox_attempt_times_limit4.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.spinBox_attempt_times_limit4.setKeyboardTracking(True)
-        self.spinBox_attempt_times_limit4.setProperty(
-            u"showGroupSeparator", False)
+        self.spinBox_attempt_times_limit4.setProperty(u"showGroupSeparator", False)
         self.spinBox_attempt_times_limit4.setMinimum(0)
         self.spinBox_attempt_times_limit4.setMaximum(99999999)
         self.spinBox_attempt_times_limit4.setValue(99999999)
@@ -145,8 +136,7 @@ class Ui_Form(object):
         self.spinBox_pixsize4 = QSpinBox(self.tab_4)
         self.spinBox_pixsize4.setObjectName(u"spinBox_pixsize4")
         self.spinBox_pixsize4.setGeometry(QRect(378, 100, 160, 32))
-        sizePolicy1.setHeightForWidth(
-            self.spinBox_pixsize4.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.spinBox_pixsize4.sizePolicy().hasHeightForWidth())
         self.spinBox_pixsize4.setSizePolicy(sizePolicy1)
         self.spinBox_pixsize4.setMaximumSize(QSize(99999, 16777215))
         self.spinBox_pixsize4.setFont(font1)
@@ -175,8 +165,7 @@ class Ui_Form(object):
         self.label_height4.setObjectName(u"label_height4")
         self.label_height4.setGeometry(QRect(20, 59, 61, 32))
         self.label_attempt_times_limit4 = QLabel(self.tab_4)
-        self.label_attempt_times_limit4.setObjectName(
-            u"label_attempt_times_limit4")
+        self.label_attempt_times_limit4.setObjectName(u"label_attempt_times_limit4")
         self.label_attempt_times_limit4.setGeometry(QRect(20, 180, 91, 31))
         self.label_attempt_times_limit4.setFont(font1)
         self.label_attempt_times_limit4.setScaledContents(False)
@@ -203,8 +192,7 @@ class Ui_Form(object):
         self.comboBox_gamemode5.setObjectName(u"comboBox_gamemode5")
         self.comboBox_gamemode5.setGeometry(QRect(110, 15, 180, 32))
         self.comboBox_gamemode5.setFont(font1)
-        self.comboBox_gamemode5.setSizeAdjustPolicy(
-            QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.comboBox_gamemode5.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.spinBox_minenum5 = QSpinBox(self.tab_3)
         self.spinBox_minenum5.setObjectName(u"spinBox_minenum5")
         self.spinBox_minenum5.setGeometry(QRect(110, 100, 160, 32))
@@ -216,21 +204,17 @@ class Ui_Form(object):
         self.spinBox_minenum5.setMaximum(999)
         self.spinBox_minenum5.setValue(72)
         self.spinBox_attempt_times_limit5 = QSpinBox(self.tab_3)
-        self.spinBox_attempt_times_limit5.setObjectName(
-            u"spinBox_attempt_times_limit5")
+        self.spinBox_attempt_times_limit5.setObjectName(u"spinBox_attempt_times_limit5")
         self.spinBox_attempt_times_limit5.setGeometry(QRect(138, 180, 132, 32))
-        sizePolicy1.setHeightForWidth(
-            self.spinBox_attempt_times_limit5.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.spinBox_attempt_times_limit5.sizePolicy().hasHeightForWidth())
         self.spinBox_attempt_times_limit5.setSizePolicy(sizePolicy1)
         self.spinBox_attempt_times_limit5.setFont(font1)
         self.spinBox_attempt_times_limit5.setFocusPolicy(Qt.ClickFocus)
         self.spinBox_attempt_times_limit5.setFrame(True)
         self.spinBox_attempt_times_limit5.setAlignment(Qt.AlignCenter)
-        self.spinBox_attempt_times_limit5.setButtonSymbols(
-            QAbstractSpinBox.NoButtons)
+        self.spinBox_attempt_times_limit5.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.spinBox_attempt_times_limit5.setKeyboardTracking(True)
-        self.spinBox_attempt_times_limit5.setProperty(
-            u"showGroupSeparator", False)
+        self.spinBox_attempt_times_limit5.setProperty(u"showGroupSeparator", False)
         self.spinBox_attempt_times_limit5.setMinimum(0)
         self.spinBox_attempt_times_limit5.setMaximum(99999999)
         self.spinBox_attempt_times_limit5.setValue(99999999)
@@ -265,8 +249,7 @@ class Ui_Form(object):
         self.spinBox_pixsize5 = QSpinBox(self.tab_3)
         self.spinBox_pixsize5.setObjectName(u"spinBox_pixsize5")
         self.spinBox_pixsize5.setGeometry(QRect(378, 100, 160, 32))
-        sizePolicy1.setHeightForWidth(
-            self.spinBox_pixsize5.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.spinBox_pixsize5.sizePolicy().hasHeightForWidth())
         self.spinBox_pixsize5.setSizePolicy(sizePolicy1)
         self.spinBox_pixsize5.setMaximumSize(QSize(99999, 16777215))
         self.spinBox_pixsize5.setFont(font1)
@@ -295,8 +278,7 @@ class Ui_Form(object):
         self.label_height5.setObjectName(u"label_height5")
         self.label_height5.setGeometry(QRect(20, 59, 71, 32))
         self.label_attempt_times_limit5 = QLabel(self.tab_3)
-        self.label_attempt_times_limit5.setObjectName(
-            u"label_attempt_times_limit5")
+        self.label_attempt_times_limit5.setObjectName(u"label_attempt_times_limit5")
         self.label_attempt_times_limit5.setGeometry(QRect(20, 180, 91, 31))
         self.label_attempt_times_limit5.setFont(font1)
         self.label_attempt_times_limit5.setScaledContents(False)
@@ -312,21 +294,17 @@ class Ui_Form(object):
         self.tab_41 = QWidget()
         self.tab_41.setObjectName(u"tab_41")
         self.spinBox_attempt_times_limit6 = QSpinBox(self.tab_41)
-        self.spinBox_attempt_times_limit6.setObjectName(
-            u"spinBox_attempt_times_limit6")
+        self.spinBox_attempt_times_limit6.setObjectName(u"spinBox_attempt_times_limit6")
         self.spinBox_attempt_times_limit6.setGeometry(QRect(138, 180, 132, 32))
-        sizePolicy1.setHeightForWidth(
-            self.spinBox_attempt_times_limit6.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.spinBox_attempt_times_limit6.sizePolicy().hasHeightForWidth())
         self.spinBox_attempt_times_limit6.setSizePolicy(sizePolicy1)
         self.spinBox_attempt_times_limit6.setFont(font1)
         self.spinBox_attempt_times_limit6.setFocusPolicy(Qt.ClickFocus)
         self.spinBox_attempt_times_limit6.setFrame(True)
         self.spinBox_attempt_times_limit6.setAlignment(Qt.AlignCenter)
-        self.spinBox_attempt_times_limit6.setButtonSymbols(
-            QAbstractSpinBox.NoButtons)
+        self.spinBox_attempt_times_limit6.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.spinBox_attempt_times_limit6.setKeyboardTracking(True)
-        self.spinBox_attempt_times_limit6.setProperty(
-            u"showGroupSeparator", False)
+        self.spinBox_attempt_times_limit6.setProperty(u"showGroupSeparator", False)
         self.spinBox_attempt_times_limit6.setMinimum(0)
         self.spinBox_attempt_times_limit6.setMaximum(99999999)
         self.spinBox_attempt_times_limit6.setValue(99999999)
@@ -342,8 +320,7 @@ class Ui_Form(object):
         self.comboBox_gamemode6.setObjectName(u"comboBox_gamemode6")
         self.comboBox_gamemode6.setGeometry(QRect(110, 15, 180, 32))
         self.comboBox_gamemode6.setFont(font1)
-        self.comboBox_gamemode6.setSizeAdjustPolicy(
-            QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.comboBox_gamemode6.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.label_height6 = QLabel(self.tab_41)
         self.label_height6.setObjectName(u"label_height6")
         self.label_height6.setGeometry(QRect(20, 59, 61, 32))
@@ -362,8 +339,7 @@ class Ui_Form(object):
         self.spinBox_height6.setMaximum(1000)
         self.spinBox_height6.setValue(16)
         self.label_attempt_times_limit6 = QLabel(self.tab_41)
-        self.label_attempt_times_limit6.setObjectName(
-            u"label_attempt_times_limit6")
+        self.label_attempt_times_limit6.setObjectName(u"label_attempt_times_limit6")
         self.label_attempt_times_limit6.setGeometry(QRect(20, 180, 91, 31))
         self.label_attempt_times_limit6.setFont(font1)
         self.label_attempt_times_limit6.setScaledContents(False)
@@ -390,8 +366,7 @@ class Ui_Form(object):
         self.spinBox_pixsize6 = QSpinBox(self.tab_41)
         self.spinBox_pixsize6.setObjectName(u"spinBox_pixsize6")
         self.spinBox_pixsize6.setGeometry(QRect(378, 100, 160, 32))
-        sizePolicy1.setHeightForWidth(
-            self.spinBox_pixsize6.sizePolicy().hasHeightForWidth())
+        sizePolicy1.setHeightForWidth(self.spinBox_pixsize6.sizePolicy().hasHeightForWidth())
         self.spinBox_pixsize6.setSizePolicy(sizePolicy1)
         self.spinBox_pixsize6.setMaximumSize(QSize(99999, 16777215))
         self.spinBox_pixsize6.setFont(font1)
@@ -438,122 +413,73 @@ class Ui_Form(object):
         self.comboBox_gamemode5.setCurrentIndex(4)
         self.comboBox_gamemode6.setCurrentIndex(4)
 
+
         QMetaObject.connectSlotsByName(Form)
     # setupUi
 
     def retranslateUi(self, Form):
-        self.pushButton_2.setText(
-            QCoreApplication.translate("Form", u"\u53d6\u6d88", None))
-# if QT_CONFIG(shortcut)
+        self.pushButton_2.setText(QCoreApplication.translate("Form", u"\u53d6\u6d88", None))
+#if QT_CONFIG(shortcut)
         self.pushButton_2.setShortcut("")
-# endif // QT_CONFIG(shortcut)
-        self.pushButton.setText(QCoreApplication.translate(
-            "Form", u"\u786e\u5b9a", None))
-# if QT_CONFIG(shortcut)
-        self.pushButton.setShortcut(
-            QCoreApplication.translate("Form", u"Return", None))
-# endif // QT_CONFIG(shortcut)
-        self.comboBox_gamemode4.setItemText(
-            0, QCoreApplication.translate("Form", u"\u6807\u51c6", None))
-        self.comboBox_gamemode4.setItemText(
-            1, QCoreApplication.translate("Form", u"Win7", None))
-        self.comboBox_gamemode4.setItemText(
-            2, QCoreApplication.translate("Form", u"\u5f3a\u65e0\u731c", None))
-        self.comboBox_gamemode4.setItemText(
-            3, QCoreApplication.translate("Form", u"\u5f31\u65e0\u731c", None))
-        self.comboBox_gamemode4.setItemText(4, QCoreApplication.translate(
-            "Form", u"\u7ecf\u5178\u65e0\u731c", None))
-        self.comboBox_gamemode4.setItemText(
-            5, QCoreApplication.translate("Form", u"\u51c6\u65e0\u731c", None))
-        self.comboBox_gamemode4.setItemText(
-            6, QCoreApplication.translate("Form", u"\u5f3a\u53ef\u731c", None))
-        self.comboBox_gamemode4.setItemText(
-            7, QCoreApplication.translate("Form", u"\u5f31\u53ef\u731c", None))
+#endif // QT_CONFIG(shortcut)
+        self.pushButton.setText(QCoreApplication.translate("Form", u"\u786e\u5b9a", None))
+#if QT_CONFIG(shortcut)
+        self.pushButton.setShortcut(QCoreApplication.translate("Form", u"Return", None))
+#endif // QT_CONFIG(shortcut)
+        self.comboBox_gamemode4.setItemText(0, QCoreApplication.translate("Form", u"\u6807\u51c6", None))
+        self.comboBox_gamemode4.setItemText(1, QCoreApplication.translate("Form", u"Win7", None))
+        self.comboBox_gamemode4.setItemText(2, QCoreApplication.translate("Form", u"\u5f3a\u65e0\u731c", None))
+        self.comboBox_gamemode4.setItemText(3, QCoreApplication.translate("Form", u"\u5f31\u65e0\u731c", None))
+        self.comboBox_gamemode4.setItemText(4, QCoreApplication.translate("Form", u"\u7ecf\u5178\u65e0\u731c", None))
+        self.comboBox_gamemode4.setItemText(5, QCoreApplication.translate("Form", u"\u51c6\u65e0\u731c", None))
+        self.comboBox_gamemode4.setItemText(6, QCoreApplication.translate("Form", u"\u5f3a\u53ef\u731c", None))
+        self.comboBox_gamemode4.setItemText(7, QCoreApplication.translate("Form", u"\u5f31\u53ef\u731c", None))
 
         self.lineEdit_constraint4.setText("")
-        self.label_gamemode4.setText(QCoreApplication.translate(
-            "Form", u"\u6a21\u5f0f\uff1a", None))
-        self.label_constraint4.setText(QCoreApplication.translate(
-            "Form", u"\u5c40\u9762\u7ea6\u675f\uff1a", None))
-        self.label_minenum4.setText(QCoreApplication.translate(
-            "Form", u"\u96f7\u6570\uff1a", None))
-        self.label_height4.setText(QCoreApplication.translate(
-            "Form", u"\u9ad8\u5ea6\uff1a", None))
-        self.label_attempt_times_limit4.setText(QCoreApplication.translate(
-            "Form", u"\u5c1d\u8bd5\u6b21\u6570\uff1a", None))
-        self.label_width4.setText(QCoreApplication.translate(
-            "Form", u"\u5bbd\u5ea6\uff1a", None))
-        self.label_pixsize4.setText(QCoreApplication.translate(
-            "Form", u"\u8fb9\u957f\uff1a", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(
-            self.tab_4), QCoreApplication.translate("Form", u"\u5feb\u6377\u952e[4]", None))
-        self.comboBox_gamemode5.setItemText(
-            0, QCoreApplication.translate("Form", u"\u6807\u51c6", None))
-        self.comboBox_gamemode5.setItemText(
-            1, QCoreApplication.translate("Form", u"Win7", None))
-        self.comboBox_gamemode5.setItemText(
-            2, QCoreApplication.translate("Form", u"\u5f3a\u65e0\u731c", None))
-        self.comboBox_gamemode5.setItemText(
-            3, QCoreApplication.translate("Form", u"\u5f31\u65e0\u731c", None))
-        self.comboBox_gamemode5.setItemText(4, QCoreApplication.translate(
-            "Form", u"\u7ecf\u5178\u65e0\u731c", None))
-        self.comboBox_gamemode5.setItemText(
-            5, QCoreApplication.translate("Form", u"\u51c6\u65e0\u731c", None))
-        self.comboBox_gamemode5.setItemText(
-            6, QCoreApplication.translate("Form", u"\u5f3a\u53ef\u731c", None))
-        self.comboBox_gamemode5.setItemText(
-            7, QCoreApplication.translate("Form", u"\u5f31\u53ef\u731c", None))
+        self.label_gamemode4.setText(QCoreApplication.translate("Form", u"\u6a21\u5f0f\uff1a", None))
+        self.label_constraint4.setText(QCoreApplication.translate("Form", u"\u5c40\u9762\u7ea6\u675f\uff1a", None))
+        self.label_minenum4.setText(QCoreApplication.translate("Form", u"\u96f7\u6570\uff1a", None))
+        self.label_height4.setText(QCoreApplication.translate("Form", u"\u9ad8\u5ea6\uff1a", None))
+        self.label_attempt_times_limit4.setText(QCoreApplication.translate("Form", u"\u5c1d\u8bd5\u6b21\u6570\uff1a", None))
+        self.label_width4.setText(QCoreApplication.translate("Form", u"\u5bbd\u5ea6\uff1a", None))
+        self.label_pixsize4.setText(QCoreApplication.translate("Form", u"\u8fb9\u957f\uff1a", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_4), QCoreApplication.translate("Form", u"\u5feb\u6377\u952e[4]", None))
+        self.comboBox_gamemode5.setItemText(0, QCoreApplication.translate("Form", u"\u6807\u51c6", None))
+        self.comboBox_gamemode5.setItemText(1, QCoreApplication.translate("Form", u"Win7", None))
+        self.comboBox_gamemode5.setItemText(2, QCoreApplication.translate("Form", u"\u5f3a\u65e0\u731c", None))
+        self.comboBox_gamemode5.setItemText(3, QCoreApplication.translate("Form", u"\u5f31\u65e0\u731c", None))
+        self.comboBox_gamemode5.setItemText(4, QCoreApplication.translate("Form", u"\u7ecf\u5178\u65e0\u731c", None))
+        self.comboBox_gamemode5.setItemText(5, QCoreApplication.translate("Form", u"\u51c6\u65e0\u731c", None))
+        self.comboBox_gamemode5.setItemText(6, QCoreApplication.translate("Form", u"\u5f3a\u53ef\u731c", None))
+        self.comboBox_gamemode5.setItemText(7, QCoreApplication.translate("Form", u"\u5f31\u53ef\u731c", None))
 
         self.lineEdit_constraint5.setText("")
-        self.label_gamemode5.setText(QCoreApplication.translate(
-            "Form", u"\u6a21\u5f0f\uff1a", None))
-        self.label_constraint5.setText(QCoreApplication.translate(
-            "Form", u"\u5c40\u9762\u7ea6\u675f\uff1a", None))
-        self.label_minenum5.setText(QCoreApplication.translate(
-            "Form", u"\u96f7\u6570\uff1a", None))
-        self.label_height5.setText(QCoreApplication.translate(
-            "Form", u"\u9ad8\u5ea6\uff1a", None))
-        self.label_attempt_times_limit5.setText(QCoreApplication.translate(
-            "Form", u"\u5c1d\u8bd5\u6b21\u6570\uff1a", None))
-        self.label_width5.setText(QCoreApplication.translate(
-            "Form", u"\u5bbd\u5ea6\uff1a", None))
-        self.label_pixsize5.setText(QCoreApplication.translate(
-            "Form", u"\u8fb9\u957f\uff1a", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(
-            self.tab_3), QCoreApplication.translate("Form", u"\u5feb\u6377\u952e[5]", None))
-        self.comboBox_gamemode6.setItemText(
-            0, QCoreApplication.translate("Form", u"\u6807\u51c6", None))
-        self.comboBox_gamemode6.setItemText(
-            1, QCoreApplication.translate("Form", u"Win7", None))
-        self.comboBox_gamemode6.setItemText(
-            2, QCoreApplication.translate("Form", u"\u5f3a\u65e0\u731c", None))
-        self.comboBox_gamemode6.setItemText(
-            3, QCoreApplication.translate("Form", u"\u5f31\u65e0\u731c", None))
-        self.comboBox_gamemode6.setItemText(4, QCoreApplication.translate(
-            "Form", u"\u7ecf\u5178\u65e0\u731c", None))
-        self.comboBox_gamemode6.setItemText(
-            5, QCoreApplication.translate("Form", u"\u51c6\u65e0\u731c", None))
-        self.comboBox_gamemode6.setItemText(
-            6, QCoreApplication.translate("Form", u"\u5f3a\u53ef\u731c", None))
-        self.comboBox_gamemode6.setItemText(
-            7, QCoreApplication.translate("Form", u"\u5f31\u53ef\u731c", None))
+        self.label_gamemode5.setText(QCoreApplication.translate("Form", u"\u6a21\u5f0f\uff1a", None))
+        self.label_constraint5.setText(QCoreApplication.translate("Form", u"\u5c40\u9762\u7ea6\u675f\uff1a", None))
+        self.label_minenum5.setText(QCoreApplication.translate("Form", u"\u96f7\u6570\uff1a", None))
+        self.label_height5.setText(QCoreApplication.translate("Form", u"\u9ad8\u5ea6\uff1a", None))
+        self.label_attempt_times_limit5.setText(QCoreApplication.translate("Form", u"\u5c1d\u8bd5\u6b21\u6570\uff1a", None))
+        self.label_width5.setText(QCoreApplication.translate("Form", u"\u5bbd\u5ea6\uff1a", None))
+        self.label_pixsize5.setText(QCoreApplication.translate("Form", u"\u8fb9\u957f\uff1a", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), QCoreApplication.translate("Form", u"\u5feb\u6377\u952e[5]", None))
+        self.comboBox_gamemode6.setItemText(0, QCoreApplication.translate("Form", u"\u6807\u51c6", None))
+        self.comboBox_gamemode6.setItemText(1, QCoreApplication.translate("Form", u"Win7", None))
+        self.comboBox_gamemode6.setItemText(2, QCoreApplication.translate("Form", u"\u5f3a\u65e0\u731c", None))
+        self.comboBox_gamemode6.setItemText(3, QCoreApplication.translate("Form", u"\u5f31\u65e0\u731c", None))
+        self.comboBox_gamemode6.setItemText(4, QCoreApplication.translate("Form", u"\u7ecf\u5178\u65e0\u731c", None))
+        self.comboBox_gamemode6.setItemText(5, QCoreApplication.translate("Form", u"\u51c6\u65e0\u731c", None))
+        self.comboBox_gamemode6.setItemText(6, QCoreApplication.translate("Form", u"\u5f3a\u53ef\u731c", None))
+        self.comboBox_gamemode6.setItemText(7, QCoreApplication.translate("Form", u"\u5f31\u53ef\u731c", None))
 
-        self.label_height6.setText(QCoreApplication.translate(
-            "Form", u"\u9ad8\u5ea6\uff1a", None))
-        self.label_width6.setText(QCoreApplication.translate(
-            "Form", u"\u5bbd\u5ea6\uff1a", None))
-        self.label_attempt_times_limit6.setText(QCoreApplication.translate(
-            "Form", u"\u5c1d\u8bd5\u6b21\u6570\uff1a", None))
-        self.label_pixsize6.setText(QCoreApplication.translate(
-            "Form", u"\u8fb9\u957f\uff1a", None))
-        self.label_gamemode6.setText(QCoreApplication.translate(
-            "Form", u"\u6a21\u5f0f\uff1a", None))
+        self.label_height6.setText(QCoreApplication.translate("Form", u"\u9ad8\u5ea6\uff1a", None))
+        self.label_width6.setText(QCoreApplication.translate("Form", u"\u5bbd\u5ea6\uff1a", None))
+        self.label_attempt_times_limit6.setText(QCoreApplication.translate("Form", u"\u5c1d\u8bd5\u6b21\u6570\uff1a", None))
+        self.label_pixsize6.setText(QCoreApplication.translate("Form", u"\u8fb9\u957f\uff1a", None))
+        self.label_gamemode6.setText(QCoreApplication.translate("Form", u"\u6a21\u5f0f\uff1a", None))
         self.lineEdit_constraint6.setText("")
-        self.label_minenum6.setText(QCoreApplication.translate(
-            "Form", u"\u96f7\u6570\uff1a", None))
-        self.label_constraint6.setText(QCoreApplication.translate(
-            "Form", u"\u5c40\u9762\u7ea6\u675f\uff1a", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(
-            self.tab_41), QCoreApplication.translate("Form", u"\u5feb\u6377\u952e[6]", None))
+        self.label_minenum6.setText(QCoreApplication.translate("Form", u"\u96f7\u6570\uff1a", None))
+        self.label_constraint6.setText(QCoreApplication.translate("Form", u"\u5c40\u9762\u7ea6\u675f\uff1a", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_41), QCoreApplication.translate("Form", u"\u5feb\u6377\u952e[6]", None))
         pass
     # retranslateUi
+
