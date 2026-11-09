@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#F8F3E8"/>
+      <stop offset="0.56" stop-color="#EFE6D5"/>
+      <stop offset="1" stop-color="#E3D7C3"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="16%" cy="10%" r="82%">
+      <stop offset="0" stop-color="#FFFDF7" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FFFDF7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="88%" cy="84%" r="74%">
+      <stop offset="0" stop-color="#C4A77C" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#C4A77C" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grain" width="44" height="44" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="8" r="0.85" fill="#FFFDF7" opacity="0.12"/>
+      <circle cx="31" cy="29" r="0.65" fill="#C4A77C" opacity="0.10"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="800" fill="url(#base)"/>
+  <rect width="1200" height="800" fill="url(#glowA)"/>
+  <rect width="1200" height="800" fill="url(#glowB)"/>
+  <g fill="none" stroke="#9C805A" stroke-width="2" opacity="0.12" stroke-linecap="round">
+    <path d="M82 750C105 660 93 580 52 505m34 131c-30-20-44-45-45-72m53 39c27-23 39-50 38-79m-74-22c-27-15-41-38-42-65m47 37c24-20 34-44 32-69"/>
+    <path d="M1110 310c-26-76-19-143 18-205m-23 163c-30-15-47-37-51-64m54 31c25-19 39-42 41-69m-51-7c-24-12-39-31-44-56m48 27c20-16 31-35 33-58"/>
+  </g>
+  <g fill="none" stroke="#B79D74" stroke-width="1" opacity="0.16">
+    <path d="M155 98h125m-125 9h78M900 706h150m-150 9h96"/>
+    <circle cx="340" cy="104" r="2"/><circle cx="870" cy="712" r="2"/>
+  </g>
+  <g fill="none" stroke="#96784F" stroke-width="4" opacity="0.20" stroke-linecap="round">
+    <path d="M160 800C198 680 190 563 132 452m31 152c-41-23-63-57-67-100m78 56c39-30 57-68 55-113m-88-7c-36-21-55-52-56-88m64 48c32-26 45-58 42-91m-84 12c-30-18-45-44-46-75m52 40c26-21 37-47 35-73"/>
+    <path d="M1040 0C1002 105 1011 204 1066 300m-30-129c41 20 63 50 68 88m-78-48c-38 27-55 61-52 102m86 2c35 18 53 46 54 78m-62-42c-31 23-43 52-40 81"/>
+  </g>
+  <g fill="#BDA277" opacity="0.18">
+    <ellipse cx="94" cy="393" rx="10" ry="28" transform="rotate(-42 94 393)"/>
+    <ellipse cx="224" cy="514" rx="10" ry="30" transform="rotate(42 224 514)"/>
+    <ellipse cx="1091" cy="347" rx="10" ry="28" transform="rotate(-38 1091 347)"/>
+    <ellipse cx="991" cy="226" rx="10" ry="27" transform="rotate(38 991 226)"/>
+  </g>
+</svg>

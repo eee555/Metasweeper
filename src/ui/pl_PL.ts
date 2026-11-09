@@ -95,6 +95,16 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
 <context>
     <name>Form</name>
     <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="789"/>
+        <source>左键双击重开（游戏结束后）</source>
+        <translation>Restart dwuklikiem lewym przyciskiem (po grze)</translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="786"/>
+        <source>胜利或失败后，在棋盘上双击鼠标左键重开新局</source>
+        <translation>Po wygranej lub przegranej kliknij dwukrotnie planszę lewym przyciskiem myszy, aby rozpocząć nową grę.</translation>
+    </message>
+    <message>
         <location filename="../dialogs/gameScores.py" line="121"/>
         <source>确定</source>
         <translation>Czy na pewno</translation>
@@ -173,6 +183,30 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../plugins/XianNiUpgrade/models.py" line="308"/>
         <source>弱可猜</source>
         <translation>Słabe do odgadnięcia</translation>
+    </message>
+    <message>
+        <source>双击递归</source>
+        <translation>Rekurencja chordów</translation>
+    </message>
+    <message>
+        <source>标雷递归</source>
+        <translation>Rekurencja flag</translation>
+    </message>
+    <message>
+        <source>双击标雷递归</source>
+        <translation>Rekurencja chordów i flag</translation>
+    </message>
+    <message>
+        <source>无猜双击递归</source>
+        <translation>Rekurencja chordów bez zgadywania</translation>
+    </message>
+    <message>
+        <source>无猜标雷递归</source>
+        <translation>Rekurencja flag bez zgadywania</translation>
+    </message>
+    <message>
+        <source>无猜双击标雷递归</source>
+        <translation>Rekurencja chordów i flag bez zgadywania</translation>
     </message>
     <message>
         <location filename="ui_gameSettingShortcuts.py" line="551"/>

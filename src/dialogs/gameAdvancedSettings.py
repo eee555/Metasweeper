@@ -9,6 +9,9 @@ _COMMAND_LABELS = {
     "mouse_click": QCoreApplication.translate("Form", "鼠标点击（MouseClickCommand）"),
     "new_random_game": QCoreApplication.translate("Form", "重开新局（NewGameCommand）"),
     "board_update": QCoreApplication.translate("Form", "棋盘更新（BoardUpdateEvent）"),
+    "new_preset_game": QCoreApplication.translate("Form", "预设局面（NewPresetGameCommand）"),
+    "init_open": QCoreApplication.translate("Form", "初始化翻开（InitOpenCommand）"),
+    "set_skin": QCoreApplication.translate("Form", "更换皮肤（SetSkinCommand）"),
 }
 
 

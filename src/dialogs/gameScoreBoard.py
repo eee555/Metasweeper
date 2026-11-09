@@ -6,15 +6,21 @@ from utils.safe_eval import safe_eval
 from config.constants import BOARD_READY, BOARD_PLAYING, BOARD_WIN, BOARD_LOSS, MIN_PIX_SIZE, MAX_PIX_SIZE
 from PySide6 import QtWidgets
 from PySide6.QtWidgets import QTableWidgetItem, QAbstractItemDelegate, QApplication
-from PySide6.QtGui import QShortcut
+from PySide6.QtGui import QBrush, QColor, QPixmap, QShortcut, QTransform
 from PySide6 import QtCore, QtGui
 from utils.path_utils import resource_path
 
 
 class ScoreBoardWidget(RoundQWidget):
+    shown = QtCore.Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._on_ctrl_wheel = None
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.shown.emit()
 
     def set_ctrl_wheel_handler(self, handler):
         self._on_ctrl_wheel = handler
@@ -42,10 +48,129 @@ class ui_Form(Ui_Form):
     def __init__(self, pix_size, parent):
         self.QWidget = ScoreBoardWidget(parent)
         self.setupUi(self.QWidget)
+        self._skin_colors: dict[str, str | None] = {}
+        self._frame_background_active = False
+        self._frame_background_source: QPixmap | None = None
+        self._frame_palette_snapshot = None
+        self._table_palette_default = self.tableWidget.palette()
+        self._viewport_palette_default = self.tableWidget.viewport().palette()
+        self._viewport_auto_fill_default = (
+            self.tableWidget.viewport().autoFillBackground())
+        self.QWidget.shown.connect(self._restore_frame_background_after_show)
 
         self.QWidget.setWindowIcon(QtGui.QIcon(
             str(resource_path('media') / 'cat.ico')))
         self.apply_scale(pix_size)
+
+    def _restore_frame_background_after_show(self) -> None:
+        """Qt 首次 show/polish 会重设 view palette，布局完成后重铺共享 SVG。"""
+        if self._frame_background_source is None:
+            return
+        QtCore.QTimer.singleShot(
+            0, lambda: self.apply_frame_background(self._frame_background_source)
+            if self._frame_background_source is not None else None)
+
+    def _style_item(self, item: QTableWidgetItem, row: int) -> None:
+        """对表格项直接设置 brush，确保 Qt 样式委托不会绘制回白底。"""
+        # 统一单元格底色，避免 QTableWidget 的行交替绘制覆盖 item brush。
+        bg = None if self._frame_background_active else self._skin_colors.get("sb_bg")
+        fg = self._skin_colors.get("sb_text")
+        item.setBackground(QBrush(QColor(bg)) if bg else QBrush())
+        item.setForeground(QBrush(QColor(fg)) if fg else QBrush())
+
+    def apply_frame_background(self, pixmap: QPixmap | None) -> None:
+        """让计数器用同一张完整 SVG 背景，不裁成窗口/单元格贴图。"""
+        active = pixmap is not None and not pixmap.isNull()
+        table = self.tableWidget
+        viewport = table.viewport()
+        if active:
+            if not self._frame_background_active:
+                self._frame_palette_snapshot = (
+                    table.palette(), viewport.palette(),
+                    table.autoFillBackground(), viewport.autoFillBackground(),
+                    table.styleSheet(), table.font(),
+                )
+            self._frame_background_active = True
+            self._frame_background_source = pixmap
+            # 圆角面板和 viewport 共用一张完整图的等比例区域，不创建局部裁切图。
+            inner_size = self.QWidget.size()
+            inner_size.setWidth(max(1, inner_size.width() - 9))
+            inner_size.setHeight(max(1, inner_size.height() - 9))
+            panel_pixmap = pixmap.scaled(
+                inner_size,
+                QtCore.Qt.AspectRatioMode.IgnoreAspectRatio,
+                QtCore.Qt.TransformationMode.SmoothTransformation,
+            )
+            self.QWidget.skin_bg_pixmap = panel_pixmap
+
+            # 移除表格 QSS 背景，让 Base texture 负责整幅 SVG；保留字号到 QFont。
+            self.tableWidget.setStyleSheet("")
+            table_font = self.tableWidget.font()
+            table_font.setPixelSize(max(1, int(15 * max(
+                self.pix_size / self.BASE_PIX, 10 / 12))))
+            self.tableWidget.setFont(table_font)
+
+            # viewport 使用同一整幅面板纹理，通过 brush transform 对齐到 panel
+            # 坐标，不裁成图片。Item 无背景 brush，只绘制文字。
+            viewport_origin = viewport.mapTo(self.QWidget, QtCore.QPoint(0, 0))
+            texture = QBrush(panel_pixmap)
+            transform = QTransform()
+            transform.translate(viewport_origin.x() - 9,
+                                viewport_origin.y() - 9)
+            texture.setTransform(transform)
+            palette = table.palette()
+            palette.setBrush(QtGui.QPalette.ColorRole.Base, texture)
+            palette.setBrush(QtGui.QPalette.ColorRole.AlternateBase, texture)
+            grid_color = self._skin_colors.get("sb_grid")
+            if grid_color:
+                palette.setColor(QtGui.QPalette.ColorRole.Mid,
+                                 QColor(grid_color))
+            table.setPalette(palette)
+            viewport.setPalette(palette)
+            table.setAutoFillBackground(True)
+            viewport.setAutoFillBackground(True)
+            for row in range(table.rowCount()):
+                for column in range(table.columnCount()):
+                    item = table.item(row, column)
+                    if item is not None:
+                        self._style_item(item, row)
+        else:
+            self._frame_background_active = False
+            self._frame_background_source = None
+            self.QWidget.skin_bg_pixmap = None
+            if self._frame_palette_snapshot is not None:
+                (table_palette, viewport_palette, table_fill, viewport_fill,
+                 table_stylesheet, table_font) = self._frame_palette_snapshot
+                table.setPalette(table_palette)
+                viewport.setPalette(viewport_palette)
+                table.setAutoFillBackground(table_fill)
+                viewport.setAutoFillBackground(viewport_fill)
+                table.setStyleSheet(table_stylesheet)
+                table.setFont(table_font)
+                self._frame_palette_snapshot = None
+            else:
+                table.setPalette(self._table_palette_default)
+                viewport.setPalette(self._viewport_palette_default)
+                viewport.setAutoFillBackground(self._viewport_auto_fill_default)
+            self.apply_skin_colors(self._skin_colors)
+
+        for row in range(table.rowCount()):
+            for column in range(table.columnCount()):
+                item = table.item(row, column)
+                if item is not None:
+                    self._style_item(item, row)
+        self.QWidget.update()
+        viewport.update()
+
+    def apply_skin_colors(self, colors: dict[str, str | None] | None) -> None:
+        """更新计数器配色，并立即应用到当前所有表格项。"""
+        self._skin_colors = dict(colors or {})
+        for row in range(self.tableWidget.rowCount()):
+            for column in range(self.tableWidget.columnCount()):
+                item = self.tableWidget.item(row, column)
+                if item is not None:
+                    self._style_item(item, row)
+        self.tableWidget.viewport().update()
 
     def apply_scale(self, pix_size):
         self.pix_size = pix_size
@@ -78,12 +203,24 @@ class ui_Form(Ui_Form):
         self.label_counter.setMinimumHeight(label_h)
         self.label_counter.setMaximumHeight(label_h)
 
-        self.tableWidget.setStyleSheet(f"font-size: {fs_table}px;")
+        # 皮肤配色：apply_scale 每次都会重设样式表，需把皮肤规则一起拼回来，
+        # 否则滚轮缩放后计数器会变回默认配色。
+        skin_table_qss = ""
+        try:
+            from app import skin_applier
+            skin_table_qss = skin_applier._SCORE_BOARD_QSS_EXTRA.get(
+                "sb_table_rules", "")
+        except Exception:
+            pass
+        self.tableWidget.setStyleSheet(
+            f"font-size: {fs_table}px; {skin_table_qss}".strip())
 
         self.pushButton_add.setMinimumHeight(btn_h)
         self.pushButton_add.setMaximumHeight(btn_h)
 
         self._fix_widget_size()
+        if self._frame_background_source is not None:
+            self.apply_frame_background(self._frame_background_source)
 
     def _fix_widget_size(self):
         self.QWidget.setMinimumSize(0, 0)
@@ -110,15 +247,18 @@ class ui_Form(Ui_Form):
     def show(self, index_value_list: list[str]):
         # 更新数值,指标数量不变
         for idx in range(self.tableWidget.rowCount()):
-            self.tableWidget.setItem(
-                idx, 1, QTableWidgetItem(index_value_list[idx]))
+            item = QTableWidgetItem(index_value_list[idx])
+            self._style_item(item, idx)
+            self.tableWidget.setItem(idx, 1, item)
 
     def reshow(self, index_name_list: list[str], index_value_list: list[str]):
         # 更新数值、指标。指标数量可能变
         self.tableWidget.setRowCount(len(index_name_list))
         self._fix_widget_size()
         for idx, i in enumerate(index_name_list):
-            self.tableWidget.setItem(idx, 0, QTableWidgetItem(i))
+            item = QTableWidgetItem(i)
+            self._style_item(item, idx)
+            self.tableWidget.setItem(idx, 0, item)
         self.show(index_value_list)
 
     def setSignal(self):
@@ -385,8 +525,9 @@ class gameScoreBoardManager():
             self.editing_row = r
             self.editing_column = 1
             self.ui.tableWidget.editItem(self.ui.tableWidget.item(r, 1))
-            self.ui.tableWidget.setItem(r, 1,
-                                        QTableWidgetItem(self.score_board_items[r][1]))
+            item = QTableWidgetItem(self.score_board_items[r][1])
+            self.ui._style_item(item, r)
+            self.ui.tableWidget.setItem(r, 1, item)
         elif e.column() == 0 and self.editing_row == -1:
             r = e.row()
             self.editing_row = r

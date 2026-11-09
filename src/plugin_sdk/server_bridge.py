@@ -19,6 +19,7 @@ ZMQ Server 集成模块
 """
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Callable, TypeVar
 import threading
 from concurrent.futures import Future
@@ -97,9 +98,10 @@ class GameServerBridge(QObject):
 
         super().__init__()
 
-        # 默认端点
+        # 默认端点（允许用环境变量覆盖，供测试等多实例场景隔离端口）
         if endpoint is None:
-            endpoint = "tcp://127.0.0.1:5555"
+            endpoint = os.environ.get(
+                "METASWEEPER_ZMQ_ENDPOINT", "tcp://127.0.0.1:5555")
 
         self._endpoint = endpoint
         self._server = ZMQServer(endpoint=endpoint, log_handler=log_handler)

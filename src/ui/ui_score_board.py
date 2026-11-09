@@ -1,26 +1,25 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Form generated from reading UI file 'ui_score_board.ui'
+## Form generated from reading UI file 'ui_score_board.ui'
 ##
-# Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.12.0
 ##
-# WARNING! All changes made in this file will be lost when recompiling UI file!
+## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-                            QMetaObject, QObject, QPoint, QRect,
-                            QSize, QTime, QUrl, Qt)
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
 from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-                           QFont, QFontDatabase, QGradient, QIcon,
-                           QImage, QKeySequence, QLinearGradient, QPainter,
-                           QPalette, QPixmap, QRadialGradient, QTransform)
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractItemView, QAbstractScrollArea, QApplication, QFrame,
-                               QHeaderView, QLabel, QLayout, QPushButton,
-                               QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget)
+    QHeaderView, QLabel, QLayout, QPushButton,
+    QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from ui.uiComponents import ScoreTable
-
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -32,8 +31,7 @@ class Ui_Form(object):
         Form.setSizeIncrement(QSize(0, 0))
         Form.setWindowTitle(u"")
         icon = QIcon()
-        icon.addFile(u"media/cat.ico", QSize(),
-                     QIcon.Mode.Normal, QIcon.State.Off)
+        icon.addFile(u"media/cat.ico", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         Form.setWindowIcon(icon)
         Form.setWindowOpacity(10.000000000000000)
         Form.setStyleSheet(u"")
@@ -51,8 +49,7 @@ class Ui_Form(object):
         font.setPointSize(12)
         self.label_counter.setFont(font)
         self.label_counter.setScaledContents(False)
-        self.label_counter.setAlignment(
-            Qt.AlignBottom | Qt.AlignLeading | Qt.AlignLeft)
+        self.label_counter.setAlignment(Qt.AlignBottom|Qt.AlignLeading|Qt.AlignLeft)
         self.label_counter.setWordWrap(False)
 
         self.verticalLayout.addWidget(self.label_counter, 0, Qt.AlignHCenter)
@@ -69,32 +66,30 @@ class Ui_Form(object):
         __qtablewidgetitem1.setFont(font1)
         self.tableWidget.setHorizontalHeaderItem(1, __qtablewidgetitem1)
         self.tableWidget.setObjectName(u"tableWidget")
-        sizePolicy = QSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.tableWidget.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(self.tableWidget.sizePolicy().hasHeightForWidth())
         self.tableWidget.setSizePolicy(sizePolicy)
         self.tableWidget.setMinimumSize(QSize(202, 0))
         self.tableWidget.setMaximumSize(QSize(232, 16777215))
         self.tableWidget.setSizeIncrement(QSize(232, 0))
         self.tableWidget.setBaseSize(QSize(232, 0))
-# if QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
         self.tableWidget.setToolTip(u"")
-# endif // QT_CONFIG(tooltip)
-# if QT_CONFIG(statustip)
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(statustip)
         self.tableWidget.setStatusTip(u"")
-# endif // QT_CONFIG(statustip)
-# if QT_CONFIG(whatsthis)
+#endif // QT_CONFIG(statustip)
+#if QT_CONFIG(whatsthis)
         self.tableWidget.setWhatsThis(u"")
-# endif // QT_CONFIG(whatsthis)
-# if QT_CONFIG(accessibility)
+#endif // QT_CONFIG(whatsthis)
+#if QT_CONFIG(accessibility)
         self.tableWidget.setAccessibleName(u"")
-# endif // QT_CONFIG(accessibility)
-# if QT_CONFIG(accessibility)
+#endif // QT_CONFIG(accessibility)
+#if QT_CONFIG(accessibility)
         self.tableWidget.setAccessibleDescription(u"")
-# endif // QT_CONFIG(accessibility)
+#endif // QT_CONFIG(accessibility)
         self.tableWidget.setStyleSheet(u"font-size: 15px;")
         self.tableWidget.setFrameShape(QFrame.StyledPanel)
         self.tableWidget.setFrameShadow(QFrame.Plain)
@@ -129,20 +124,21 @@ class Ui_Form(object):
         font2.setBold(True)
         self.pushButton_add.setFont(font2)
         self.pushButton_add.setStyleSheet(u"QPushButton{\n"
-                                          "    background-color:rgba(0,0,0,0);\n"
-                                          "    color:rgba(0,0,0,0);\n"
-                                          "}\n"
-                                          "QPushButton:hover{\n"
-                                          "    background-color:#00a2e8;\n"
-                                          "    border-radius:3px;\n"
-                                          "    color:white;\n"
-                                          "}")
+"    background-color:rgba(0,0,0,0);\n"
+"    color:rgba(0,0,0,0);\n"
+"}\n"
+"QPushButton:hover{\n"
+"    background-color:#00a2e8;\n"
+"    border-radius:3px;\n"
+"    color:white;\n"
+"}")
         self.pushButton_add.setText(u"+")
-# if QT_CONFIG(shortcut)
+#if QT_CONFIG(shortcut)
         self.pushButton_add.setShortcut(u"")
-# endif // QT_CONFIG(shortcut)
+#endif // QT_CONFIG(shortcut)
 
         self.verticalLayout.addWidget(self.pushButton_add)
+
 
         self.retranslateUi(Form)
 
@@ -150,7 +146,7 @@ class Ui_Form(object):
     # setupUi
 
     def retranslateUi(self, Form):
-        self.label_counter.setText(QCoreApplication.translate(
-            "Form", u"\u8ba1\u6570\u5668", None))
+        self.label_counter.setText(QCoreApplication.translate("Form", u"\u8ba1\u6570\u5668", None))
         pass
     # retranslateUi
+

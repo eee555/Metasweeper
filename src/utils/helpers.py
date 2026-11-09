@@ -43,3 +43,15 @@ def trans_game_mode(mode: int) -> str:
         return _translate("Form", "强可猜")
     elif mode == 10:
         return _translate("Form", "弱可猜")
+    elif mode == 11:
+        return _translate("Form", "双击递归")
+    elif mode == 12:
+        return _translate("Form", "标雷递归")
+    elif mode == 13:
+        return _translate("Form", "双击标雷递归")
+    elif mode == 14:
+        return _translate("Form", "无猜双击递归")
+    elif mode == 15:
+        return _translate("Form", "无猜标雷递归")
+    elif mode == 16:
+        return _translate("Form", "无猜双击标雷递归")

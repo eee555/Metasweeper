@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 import superGUI
 from config.constants import (
-    READY, PLAYING, JOKING, SHOW, STUDY, SHOW_DISPLAY,
+    READY, PLAYING, JOKING, WIN, FAIL, JOWIN, JOFAIL, SHOW, STUDY, SHOW_DISPLAY,
     FACE_SMILE, FACE_CLICK, BOARD_READY, BOARD_WIN, BOARD_LOSS,
     CELL_UNOPENED, CELL_FLAGGED,
 )
@@ -34,9 +34,21 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
 
     def _step_and_send(self, mouse_event: str, i: int, j: int):
         old = MouseState(self.label.ms_board.mouse_state)
+        logger.debug(f"step {mouse_event} @({i},{j}) mouse_state={old.name}")
         self.label.ms_board.step(mouse_event, (i, j))
         self._send_button_event(ButtonEventType.from_display_name(mouse_event), i, j, old,
                                 MouseState(self.label.ms_board.mouse_state))
+
+    def _opened_cell_count(self) -> int:
+        # 统计局面中已开格（数值 0~8）的数量，用于 step 前后做差
+        return sum(1 for row in self.label.ms_board.game_board for v in row
+                   if 0 <= v <= 8)
+
+    def _shake_if_opened(self, before_count: int):
+        # step 后开格数增加才触发弱档抖动；
+        # 标旗、点已开格、无效点击时开格数不变，自然不触发
+        if self._opened_cell_count() > before_count:
+            self.label.start_shake()
 
     def mineAreaLeftPressed(self, i, j):
         # print("lc", i, j)
@@ -88,7 +100,9 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                 if self.engine.use_pending_boards_flag:
                     self.ai(i // self.pixSize, j // self.pixSize)
 
+                before_opened = self._opened_cell_count()
                 self._step_and_send('lr', i, j)
+                self._shake_if_opened(before_opened)
 
                 if self.label.ms_board.game_board_state == BOARD_WIN:
                     # 点一下可能获胜
@@ -105,13 +119,10 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                     self._send_board_update_event()
             self.set_face(FACE_SMILE)
         elif self.game_state == PLAYING or self.game_state == JOKING:
-            # 如果是游戏中，且是左键抬起（不是双击），且是在10上，且在局面内，则用ai劫持、处理下
-            if self.pos_is_in_board(i, j):
-                if self.label.ms_board.game_board[i // self.pixSize][j // self.pixSize] == CELL_UNOPENED \
-                        and self.label.ms_board.mouse_state == MouseState.DownUp.value:
-                    self.ai(i // self.pixSize, j // self.pixSize)
-                self.chording_ai(i // self.pixSize, j // self.pixSize)
+            # 游戏进行中的左键/双击：无猜、可猜等模式的重排与判负由局面状态机自行处理
+            before_opened = self._opened_cell_count()
             self._step_and_send('lr', i, j)
+            self._shake_if_opened(before_opened)
 
             if self.label.ms_board.game_board_state == BOARD_WIN:
                 self.gameWin()
@@ -131,6 +142,14 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                                 self.column * self.pixSize)
             self.set_face(FACE_SMILE)
 
+    def mineAreaLeftDoubleRelease(self, i, j):
+        if self.double_click_restart and self.game_state in (WIN, FAIL, JOWIN, JOFAIL) \
+                and self.pos_is_in_board(i, j):
+            # 在第二次抬起时重开，避免此次抬起继续操作新棋盘。
+            self.gameRestart()
+        else:
+            self.mineAreaLeftRelease(i, j)
+
     def mineAreaRightPressed(self, i, j):
         # print("rc", i, j)
         if self.game_state == READY or self.game_state == PLAYING or self.game_state == JOKING:
@@ -147,14 +166,25 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                     self.mineUnFlagedNum -= 1
                     self.showMineNum(self.mineUnFlagedNum)
             self._step_and_send('rc', i, j)
+            # 标雷递归模式（12/13/15/16）下，一次标雷可能经级联直接获胜或踩雷，
+            # 必须像 lr 一样检查结局，否则计时器继续走，会被防变速齿轮守卫误判重开
+            if self.label.ms_board.game_board_state == BOARD_WIN:
+                self.gameWin()
+                self.label.update()
+                return
+            elif self.label.ms_board.game_board_state == BOARD_LOSS:
+                self.gameFailed()
+                self.label.update()
+                return
             self.label.update()
             self.set_face(FACE_CLICK)
 
     def mineAreaRightRelease(self, i, j):
         # print("rr", i, j)
         if self.game_state == READY or self.game_state == PLAYING or self.game_state == JOKING:
-            self.chording_ai(i // self.pixSize, j // self.pixSize)
+            before_opened = self._opened_cell_count()
             self._step_and_send('rr', i, j)
+            self._shake_if_opened(before_opened)
             self.label.update()
             self._send_board_update_event()
             self.set_face(FACE_SMILE)
@@ -165,12 +195,10 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(FACE_SMILE)
 
     def mineAreaLeftAndRightPressed(self, i, j):
-        # print("cc", i, j)
-        if self.game_state == READY or self.game_state == PLAYING or\
-                self.game_state == JOKING:
-            self._step_and_send('cc', i, j)
-            self.label.update()
-            self.set_face(FACE_CLICK)
+        # 2026-11-09 与上游作者确认：不再记录 'cc' 事件，双键按下按 Qt 报告的
+        # 实际按键（e.button()）忠实转发为 lc/rc，双击由状态机在解析时合成。
+        # 此槽保留仅为兼容旧信号连接，正常路径不会再被触发。
+        logger.debug(f"leftAndRightPressed legacy path hit @({i},{j}), ignored")
 
     def mineMouseMove(self, i, j):
         # 正常情况的鼠标移动事件，与高亮的显示有关

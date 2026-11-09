@@ -45,7 +45,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Solvable-Minesweeper 插件管理器")
     parser.add_argument(
         "--endpoint",
-        default="tcp://127.0.0.1:5555",
+        default=os.environ.get(
+            "METASWEEPER_ZMQ_ENDPOINT", "tcp://127.0.0.1:5555"),
         help="ZMQ Server 地址 (默认: tcp://127.0.0.1:5555)",
     )
     parser.add_argument(

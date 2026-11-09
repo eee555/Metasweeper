@@ -1,8 +1,12 @@
 import ctypes
+import sys
+
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
-import win32con
-import win32gui
+
+if sys.platform == "win32":
+    import win32con
+    import win32gui
 
 
 class BoardRenderer:
@@ -44,6 +48,8 @@ class BoardRenderer:
             self.label_33.setPixmap(self.pixmapLEDNum[t % 10])
 
     def limit_cursor(self, label, mainWindow) -> None:
+        if sys.platform != "win32":
+            return  # 鼠标裁剪与窗口置顶依赖 Win32 API，其他平台暂不支持
         widget_pos = label.mapToGlobal(label.rect().topLeft())
         widget_size = label.size()
         rect = QRect(widget_pos, widget_size)
@@ -53,6 +59,8 @@ class BoardRenderer:
                               win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
 
     def unlimit_cursor(self, mainWindow) -> None:
+        if sys.platform != "win32":
+            return
         ctypes.windll.user32.ClipCursor(None)
         hwnd = mainWindow.winId()
         win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0,
@@ -60,6 +68,8 @@ class BoardRenderer:
 
     @staticmethod
     def _clip_mouse(rect: QRect) -> None:
+        if sys.platform != "win32":
+            return
         class RECT(ctypes.Structure):
             _fields_ = [("left", ctypes.c_long),
                         ("top", ctypes.c_long),

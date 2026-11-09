@@ -95,6 +95,16 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
 <context>
     <name>Form</name>
     <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="789"/>
+        <source>左键双击重开（游戏结束后）</source>
+        <translation>Neustart per Doppelklick mit links (nach Spielende)</translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="786"/>
+        <source>胜利或失败后，在棋盘上双击鼠标左键重开新局</source>
+        <translation>Nach einem Sieg oder einer Niederlage mit der linken Maustaste auf das Spielfeld doppelklicken, um ein neues Spiel zu starten.</translation>
+    </message>
+    <message>
         <location filename="../dialogs/gameScores.py" line="121"/>
         <source>确定</source>
         <translation>OK</translation>
@@ -173,6 +183,30 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
         <location filename="../plugins/XianNiUpgrade/models.py" line="308"/>
         <source>弱可猜</source>
         <translation>Schwach erratbar</translation>
+    </message>
+    <message>
+        <source>双击递归</source>
+        <translation>Chord-Rekursion</translation>
+    </message>
+    <message>
+        <source>标雷递归</source>
+        <translation>Flaggen-Rekursion</translation>
+    </message>
+    <message>
+        <source>双击标雷递归</source>
+        <translation>Chord-Flaggen-Rekursion</translation>
+    </message>
+    <message>
+        <source>无猜双击递归</source>
+        <translation>Chord-Rekursion ohne Raten</translation>
+    </message>
+    <message>
+        <source>无猜标雷递归</source>
+        <translation>Flaggen-Rekursion ohne Raten</translation>
+    </message>
+    <message>
+        <source>无猜双击标雷递归</source>
+        <translation>Chord-Flaggen-Rekursion ohne Raten</translation>
     </message>
     <message>
         <location filename="ui_gameSettingShortcuts.py" line="551"/>

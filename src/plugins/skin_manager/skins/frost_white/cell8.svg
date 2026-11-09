@@ -1,0 +1,7 @@
+<?xml version="1.0" standalone="yes"?>
+<svg width="160" height="160" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="160" height="160" fill="#A7B9C8" />
+  <rect x="6" y="6" width="148" height="148" fill="#E7EEF3" />
+  <rect x="6" y="6" width="148" height="148" fill="none" stroke="#B9C8D4" stroke-width="2" />
+  <text x="80" y="118" font-family="Arial, sans-serif" font-size="112" font-weight="bold" text-anchor="middle" fill="#374653">8</text>
+</svg>

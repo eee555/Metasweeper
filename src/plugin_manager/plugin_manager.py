@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import atexit
+import os
 import signal
+import sys
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -187,6 +189,11 @@ class PluginManager:
             sig_name = signal.Signals(signum).name
             logger.info(f"收到信号 {sig_name}，开始优雅关闭...")
             self._graceful_shutdown()
+            if sys.platform != "win32":
+                # 主线程可能停在 Qt 事件循环可中断点：处理器返回后事件循环
+                # 会继续运行，进程永远无法自然退出，父进程只能等满超时后
+                # 强杀（表现为关闭卡顿）。优雅关闭已完成，直接结束进程。
+                os._exit(0)
 
         # 注册 SIGTERM 信号处理（父进程 terminate() 会发送此信号）
         signal.signal(signal.SIGTERM, handle_signal)
@@ -196,6 +203,30 @@ class PluginManager:
 
         # 注册 atexit 回调作为兜底
         atexit.register(self._graceful_shutdown)
+
+        if sys.platform == "win32":
+            return  # Windows 上 terminate() 为强制结束，无需以下机制
+
+        # 非 Windows：主线程阻塞在 Qt(Cocoa) 事件循环的 C 代码里时，
+        # Python 层信号处理器不会被执行，SIGTERM 将永远无法触发关闭。
+        # set_wakeup_fd 的写入发生在 C 层、不受阻塞影响，由看门狗线程
+        # 读取后代为执行优雅关闭并退出进程。
+        wakeup_read_fd, wakeup_write_fd = os.pipe()
+        os.set_blocking(wakeup_write_fd, False)
+        signal.set_wakeup_fd(wakeup_write_fd)
+
+        def _signal_watchdog() -> None:
+            try:
+                os.read(wakeup_read_fd, 1)
+            except OSError:
+                return
+            logger.info("信号触发优雅关闭（看门狗线程）...")
+            self._graceful_shutdown()
+            os._exit(0)  # 主线程仍在事件循环中，直接结束进程
+
+        threading.Thread(
+            target=_signal_watchdog, name="SignalWatchdog", daemon=True,
+        ).start()
 
     def _graceful_shutdown(self) -> None:
         """优雅关闭：调用所有插件的 shutdown 方法，然后清理资源"""

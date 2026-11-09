@@ -4,10 +4,12 @@ from PySide6.QtCore import QTranslator
 
 from PySide6.QtWidgets import QApplication
 import configparser
+import shutil
 from PySide6.QtGui import QPalette, QPixmap, QIcon
 from ui.ui_main_board import Ui_MainWindow
 from pathlib import Path
 from utils.path_utils import resource_path
+from utils.pixmap_utils import render_svg_pixmap, scale_bitmap_pixmap
 from dialogs.gameScoreBoard import gameScoreBoardManager
 from country_name import country_name
 import os
@@ -15,10 +17,12 @@ import sys
 from typing import List, Tuple
 
 from shared_types.events import LanguageChangeEvent
+from shared_types.commands import SKIN_LED_KEYS, SKIN_FACE_KEYS
 from config.constants import (
     BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT,
     FACE_SMILE, FACE_CLICK, FACE_LOST, FACE_WIN, FACE_SMILE_DOWN,
     LEVEL_NAME_BEGINNER, LEVEL_NAME_INTERMEDIATE, LEVEL_NAME_EXPERT, LEVEL_NAME_CUSTOM,
+    READY, BOARD_READY, MIN_PIX_SIZE, MAX_PIX_SIZE,
 )
 from utils.app_logger import logger
 from plugin_sdk import GameServerBridge
@@ -186,13 +190,28 @@ class Ui_MainWindow(Ui_MainWindow):
         # 设置全局路径，需要读写权限
         # WindowsPath('f:/path/solvable-minesweeper/src/main.py')
         r_path = Path(args[0])
-        # 检查是否有写入权限
-        if self._can_write_to(r_path.with_name('gameSetting.ini')):
+        if sys.platform == 'darwin':
+            # macOS：可写数据统一放 ~/Library/Application Support，
+            # 避免写入 .app 包内破坏代码签名封印
+            appdata_dir = Path.home() / 'Library' / 'Application Support'
+            self.setting_path = appdata_dir / ('Metasweeper' + version[1:])
+            self.setting_path.mkdir(parents=True, exist_ok=True)
+            # 一次性迁移旧版本写在 .app 包内的设置与录像
+            for _name in ('gameSetting.ini', 'record.ini', 'scoreBoardSetting.ini'):
+                _src, _dst = r_path.with_name(_name), self.setting_path / _name
+                if _src.is_file() and not _dst.exists():
+                    shutil.copy2(_src, _dst)
+            _old_replay = r_path.with_name('replay')
+            _new_replay = self.setting_path / 'replay'
+            _new_replay.mkdir(parents=True, exist_ok=True)
+            if _old_replay.is_dir() and not any(_new_replay.iterdir()):
+                shutil.copytree(_old_replay, _new_replay, dirs_exist_ok=True)
+        elif self._can_write_to(r_path.with_name('gameSetting.ini')):
             self.setting_path = r_path.parent
         else:
-            # 没权限，改用 %APPDATA%\你的程序名\
-            self.setting_path = Path(
-                os.environ['APPDATA']) / ('Metasweeper' + version[1:])
+            # 没权限，改用系统应用数据目录（Windows: %APPDATA%）
+            appdata_dir = Path(os.environ['APPDATA'])
+            self.setting_path = appdata_dir / ('Metasweeper' + version[1:])
             self.setting_path.mkdir(parents=True, exist_ok=True)
         # r_path是打包后_internal外面那一层，和exe同一级
         self.r_path = r_path
@@ -225,6 +244,24 @@ class Ui_MainWindow(Ui_MainWindow):
         self.LED7_path = str(resource_path('media') / 'LED7.png')
         self.LED8_path = str(resource_path('media') / 'LED8.png')
         self.LED9_path = str(resource_path('media') / 'LED9.png')
+
+        # ── 皮肤内存源（纯内存热替换，由 app.skin_applier 写入）──
+        # skin_faces: {FACE_*: 原始 QPixmap}，skin_leds: {0..9: 原始 QPixmap}
+        # 这些字段不落盘，主进程退出即还原。国旗图案按需求不纳入换肤。
+        self.skin_faces: dict[int, QPixmap] | None = None
+        self.skin_leds: dict[int, QPixmap] | None = None
+        # key -> 默认磁盘路径，供未覆盖的 key 逐项回退
+        self.face_path_map = {
+            FACE_SMILE: self.smileface_path, FACE_CLICK: self.clickface_path,
+            FACE_LOST: self.lostface_path, FACE_WIN: self.winface_path,
+            FACE_SMILE_DOWN: self.smilefacedown_path,
+        }
+        self.led_path_map = {
+            0: self.LED0_path, 1: self.LED1_path, 2: self.LED2_path,
+            3: self.LED3_path, 4: self.LED4_path, 5: self.LED5_path,
+            6: self.LED6_path, 7: self.LED7_path, 8: self.LED8_path,
+            9: self.LED9_path,
+        }
 
         self.mainWindow.setWindowIcon(QIcon(self.ico_path))
 
@@ -284,6 +321,14 @@ class Ui_MainWindow(Ui_MainWindow):
         self.frameShortcut8.setAutoRepeat(False)
         self.frameShortcut9 = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+Space"), MainWindow)
+        if sys.platform == "darwin":
+            # macOS 上 Qt 把 "Ctrl" 映射为 ⌘，故原快捷键实际是 ⌘Space，
+            # 被系统 Spotlight 占用；⌃Space 又被输入源切换热键占用——
+            # 该按键组合在 mac 上永远到不了应用，内置截图无法触发。
+            # 补充 ⌘⇧A（Qt 写作 "Ctrl+Shift+A"，与微信截图一致，系统未占用）。
+            # ⌘Space 保留，供已在系统设置改键的用户使用。
+            self.frameShortcut9_mac = QtGui.QShortcut(
+                QtGui.QKeySequence("Ctrl+Shift+A"), MainWindow)
         self.shortcut_hidden_score_board = QtGui.QShortcut(
             QtGui.QKeySequence(QtCore.Qt.Key_Slash), MainWindow)  # /键隐藏计数器
 
@@ -306,6 +351,7 @@ class Ui_MainWindow(Ui_MainWindow):
             QSize(self.pixSize*self.column + 8, self.pixSize*self.row + 8))
         self.label.leftPressed.connect(self.mineAreaLeftPressed)
         self.label.leftRelease.connect(self.mineAreaLeftRelease)
+        self.label.leftDoubleRelease.connect(self.mineAreaLeftDoubleRelease)
         self.label.leftAndRightPressed.connect(
             self.mineAreaLeftAndRightPressed)
         # self.label.leftAndRightRelease.connect(self.mineAreaLeftAndRightRelease)
@@ -318,73 +364,56 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label_12.mousewheelEvent.connect(self.mineNumWheel)
         self.label_13.mousewheelEvent.connect(self.mineNumWheel)
 
+        # 拖拽窗口边缘调整大小：棋盘区域优先吃掉多余空间，界面比例随之缩放
+        self.mainWindow.dragResize.connect(self.apply_drag_scale)
+        self.mainWindow.dragResizeFinished.connect(self.finish_drag_scale)
+        self.frame.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
+                                 QtWidgets.QSizePolicy.Policy.Expanding)
+        self.verticalLayout_2.setStretch(0, 1)    # frame_1 优先于底部信息行伸展
+        self.verticalLayout.setStretch(1, 1)      # 板区行优先于 LED 计数条伸展
+        self.horizontalLayout_2.setStretch(1, 1)  # 棋盘框优先于两侧弹簧伸展
+
         self.mainWindow.keyRelease.connect(self.mineKeyReleaseEvent)
 
         self.label.setObjectName("label")
 
     def importLEDPic(self, pixSize):
-        # 从磁盘导入资源，并缩放到希望的尺寸、比例
-        pixmap14 = QPixmap(self.smileface_path)
-        pixmap15 = QPixmap(self.clickface_path)
-        pixmap16 = QPixmap(self.lostface_path)
-        pixmap17 = QPixmap(self.winface_path)
-        pixmap18 = QPixmap(self.smilefacedown_path)
-        self.pixmapNumPix = {FACE_SMILE: pixmap14, FACE_CLICK: pixmap15,
-                             FACE_LOST: pixmap16, FACE_WIN: pixmap17, FACE_SMILE_DOWN: pixmap18}
-        pixmap14_ = pixmap14.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap15_ = pixmap15.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap16_ = pixmap16.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap17_ = pixmap17.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        pixmap18_ = pixmap18.scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-        self.pixmapNum = {FACE_SMILE: pixmap14_, FACE_CLICK: pixmap15_,
-                          FACE_LOST: pixmap16_, FACE_WIN: pixmap17_, FACE_SMILE_DOWN: pixmap18_}
-        # 以上是读取数字的图片，局面中的数字；以下是上方LED数字的图片
-        pixLEDmap0 = QPixmap(self.LED0_path)
-        pixLEDmap1 = QPixmap(self.LED1_path)
-        pixLEDmap2 = QPixmap(self.LED2_path)
-        pixLEDmap3 = QPixmap(self.LED3_path)
-        pixLEDmap4 = QPixmap(self.LED4_path)
-        pixLEDmap5 = QPixmap(self.LED5_path)
-        pixLEDmap6 = QPixmap(self.LED6_path)
-        pixLEDmap7 = QPixmap(self.LED7_path)
-        pixLEDmap8 = QPixmap(self.LED8_path)
-        pixLEDmap9 = QPixmap(self.LED9_path)
-        self.pixmapLEDNumPix = {0: pixLEDmap0, 1: pixLEDmap1, 2: pixLEDmap2, 3: pixLEDmap3,
-                                4: pixLEDmap4, 5: pixLEDmap5, 6: pixLEDmap6, 7: pixLEDmap7,
-                                8: pixLEDmap8, 9: pixLEDmap9}
-        pixLEDmap0_ = pixLEDmap0.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap1_ = pixLEDmap1.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap2_ = pixLEDmap2.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap3_ = pixLEDmap3.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap4_ = pixLEDmap4.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap5_ = pixLEDmap5.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap6_ = pixLEDmap6.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap7_ = pixLEDmap7.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap8_ = pixLEDmap8.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        pixLEDmap9_ = pixLEDmap9.copy().scaled(
-            int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-        self.pixmapLEDNum = {0: pixLEDmap0_, 1: pixLEDmap1_, 2: pixLEDmap2_, 3: pixLEDmap3_,
-                             4: pixLEDmap4_, 5: pixLEDmap5_, 6: pixLEDmap6_, 7: pixLEDmap7_,
-                             8: pixLEDmap8_, 9: pixLEDmap9_}
+        # 导入原始资源到 pixmapNumPix / pixmapLEDNumPix，再统一缩放。
+        # 有内存皮肤源时优先取内存（可逐 key 回退到磁盘默认资源）。
+        faces = self.skin_faces
+        leds = self.skin_leds
+        self.pixmapNumPix = {
+            key: (faces[key] if faces and key in faces
+                  else QPixmap(self.face_path_map[key]))
+            for key in SKIN_FACE_KEYS
+        }
+        self.pixmapLEDNumPix = {
+            key: (leds[key] if leds and key in leds
+                  else QPixmap(self.led_path_map[key]))
+            for key in SKIN_LED_KEYS
+        }
+        # 统一按「目标尺寸 × 屏幕 DPR」出图，避免 Retina 屏上位图 DPR=1
+        # 被整体拉伸导致的发糊：磁盘默认表情是 SVG，矢量重栅格化；
+        # 内存皮肤位图与 LED PNG（无论皮肤或磁盘）走物理分辨率平滑缩放。
+        dpr = self.mainWindow.devicePixelRatioF()
+        face_size = int(pixSize * 1.5)
+        self.pixmapNum = {
+            key: (scale_bitmap_pixmap(source, face_size, face_size, dpr)
+                  if faces and key in faces
+                  else render_svg_pixmap(self.face_path_map[key],
+                                         face_size, face_size, dpr))
+            for key, source in self.pixmapNumPix.items()
+        }
+        # 以上是笑脸；以下是上方LED数字的图片（比例 208/368 沿用原逻辑）
+        led_width = int(pixSize * 1.5 * 208 / 368)
+        self.pixmapLEDNum = {
+            key: scale_bitmap_pixmap(value, led_width, face_size, dpr)
+            for key, value in self.pixmapLEDNumPix.items()
+        }
 
     def reimportLEDPic(self, pixSize):
-        # 重新将资源的尺寸缩放到希望的尺寸、比例
-        if hasattr(self, "pixmapNumPix"):
-            self.pixmapNum = {key: value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-                              for key, value in self.pixmapNumPix.items()}
-            self.pixmapLEDNum = {key: value.copy().scaled(int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
-                                 for key, value in self.pixmapLEDNumPix.items()}
-        else:
-            self.importLEDPic(pixSize)
+        # 重新从磁盘/内存皮肤源导入并缩放到希望的尺寸、比例
+        self.importLEDPic(pixSize)
 
     def readPredefinedBoardPara(self):
         # 从配置中更新出快捷键1, 2, 3, 4、5、6的定义(0是自定义)
@@ -474,20 +503,84 @@ class Ui_MainWindow(Ui_MainWindow):
             v, str) and v.isdigit() else v for (k, v) in s}
 
     def minimumWindow(self):
-        # 最小化展示窗口，并固定尺寸
+        # 收缩窗口至与界面精确贴合；不再锁定窗口尺寸，允许拖拽边缘缩放
         self.label.setFixedSize(QtCore.QSize(self.pixSize*self.column,
                                              self.pixSize*self.row))
         self.windowSizeState = 'tight'
+        # 允许窗口向缩小方向拖拽到格子为最小尺寸(MIN_PIX_SIZE)为止
+        mw = self.mainWindow
+        # 吸附/布局自适应期间抑制拖拽判定，避免滚轮缩放引发的
+        # 程序化窗口变化被误判为用户拖拽
+        mw._suppress_drag = True
+        # 停掉上一轮吸附 timer：每次调用都新建而不停旧的话，旧 timer
+        # 泄漏且所有 timer 共享 minimum_counter，互相干扰吸附与状态清除
+        if getattr(self, "timer_", None) is not None:
+            self.timer_.stop()
         self.timer_ = QTimer()
         self.timer_.timeout.connect(self.__minimumWindow)
         self.timer_.start(1)
 
     def __minimumWindow(self):
-        self.mainWindow.setFixedSize(self.mainWindow.minimumSize())
+        # 拖拽边缘期间不打断用户调整，松手后由 dragResizeFinished 吸附
+        if self.mainWindow.flag_drag_border:
+            return
+        # minimumSizeHint 依赖布局缓存：棋盘刚 setFixedSize 过时直接取值
+        # 会拿到旧棋盘（如高级）的滞后尺寸，据此抬高窗口 minimumSize 会把
+        # 后续吸附 resize(新 hint) 卡死（窗口不贴合、拖拽失效）。先强制
+        # 同步重算布局再测量
+        mw = self.mainWindow
+        layout = mw.layout()
+        if layout is not None:
+            layout.invalidate()
+            layout.activate()
+        hint = mw.minimumSizeHint()
+        if hint.isValid():
+            delta_w = (self.pixSize - MIN_PIX_SIZE) * self.column
+            delta_h = (self.pixSize - MIN_PIX_SIZE) * self.row
+            mw.setMinimumSize(max(1, hint.width() - delta_w),
+                              max(1, hint.height() - delta_h))
+            # 让窗口管理器按界面固有比例约束拖拽（macOS 原生等比锁）
+            mw.set_interface_aspect(hint.width(), hint.height())
+            # 程序化吸附打标记，避免被误判为用户拖拽
+            mw._programmatic = True
+            mw.resize(hint)
+            mw._programmatic = False
         self.minimum_counter += 1
         if self.minimum_counter >= 100:
             self.minimum_counter = 0
             self.timer_.stop()
+            mw._suppress_drag = False
+
+    def __drag_scale_target(self):
+        # 按棋盘框当前可容纳的空间，换算出整数格子边长
+        layout = self.mainWindow.layout()
+        if layout is not None:
+            layout.activate()  # 立即重算布局，避免测量到滞后的棋盘框尺寸
+        border = 2 * self.frame.lineWidth()
+        avail_w = self.frame.width() - border
+        avail_h = self.frame.height() - border
+        if avail_w <= 0 or avail_h <= 0:
+            return None
+        pix = min(avail_w // self.column, avail_h // self.row)
+        return max(MIN_PIX_SIZE, min(MAX_PIX_SIZE, pix))
+
+    def apply_drag_scale(self):
+        # 拖拽边缘调整窗口大小：界面比例实时跟随（仅未开局时生效，防止局面被重置）
+        if self.game_state != READY or\
+                self.label.ms_board.game_board_state != BOARD_READY:
+            return
+        pix = self.__drag_scale_target()
+        if pix and pix != self.pixSize:
+            self.pixSize = pix
+
+    def finish_drag_scale(self):
+        # 松手：把比例调整到位，并让窗口吸附到与界面精确贴合的大小
+        if self.game_state == READY and\
+                self.label.ms_board.game_board_state == BOARD_READY:
+            pix = self.__drag_scale_target()
+            if pix and pix != self.pixSize:
+                self.pixSize = pix
+        self.minimumWindow()
 
     def trans_language(self, language=""):
         if not language:
@@ -588,6 +681,12 @@ class Ui_MainWindow(Ui_MainWindow):
             "DEFAULT/end_then_flag", True, bool)
         self.cursor_limit = self.game_setting.get_or_set_value(
             "DEFAULT/cursor_limit", False, bool)
+        self.double_click_restart = self.game_setting.get_or_set_value(
+            'DEFAULT/double_click_restart', False, bool)
+        # 开格打击感：棋盘抖动特效，默认开启
+        self.board_shake = self.game_setting.get_or_set_value(
+            "DEFAULT/board_shake", True, bool)
+        self.label.shake_enabled = self.board_shake
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:
@@ -611,7 +710,12 @@ class Ui_MainWindow(Ui_MainWindow):
         record_key_name_list = ["BFLAG", "BNF", "BWIN7", "BSS", "BWS", "BCS", "BTBS", "BSG",
                                 "BWG", "IFLAG", "INF", "IWIN7", "ISS", "IWS", "ICS", "ITBS",
                                 "ISG", "IWG", "EFLAG", "ENF", "EWIN7", "ESS", "EWS", "ECS",
-                                "ETBS", "ESG", "EWG"]
+                                "ETBS", "ESG", "EWG",
+                                # 递归模式（evf 11-16）：双击递归、标雷递归、双击标雷递归、
+                                # 无猜双击递归、无猜标雷递归、无猜双击标雷递归
+                                "BCR", "BFR", "BCFR", "BNCR", "BNFR", "BNCFR",
+                                "ICR", "IFR", "ICFR", "INCR", "INFR", "INCFR",
+                                "ECR", "EFR", "ECFR", "ENCR", "ENFR", "ENCFR"]
         self.record_key_name_list = record_key_name_list + \
             ["BEGINNER", "INTERMEDIATE", "EXPERT"]
         # self.record = {}

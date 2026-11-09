@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+    <defs>
+        <linearGradient id="base" x1="0" y1="0" x2="0.9" y2="1">
+            <stop offset="0" stop-color="#163653"/>
+            <stop offset="0.55" stop-color="#102b45"/>
+            <stop offset="1" stop-color="#0d2238"/>
+        </linearGradient>
+        <radialGradient id="glowA" cx="15%" cy="8%" r="80%">
+            <stop offset="0" stop-color="#55a9d7" stop-opacity="0.20"/>
+            <stop offset="1" stop-color="#55a9d7" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="glowB" cx="92%" cy="86%" r="72%">
+            <stop offset="0" stop-color="#28628c" stop-opacity="0.17"/>
+            <stop offset="1" stop-color="#28628c" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="glowC" cx="72%" cy="24%" r="48%">
+            <stop offset="0" stop-color="#2b83ae" stop-opacity="0.10"/>
+            <stop offset="1" stop-color="#2b83ae" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="wash" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#8bd8f0" stop-opacity="0"/>
+            <stop offset="0.5" stop-color="#8bd8f0" stop-opacity="0.055"/>
+            <stop offset="1" stop-color="#8bd8f0" stop-opacity="0"/>
+        </linearGradient>
+        <pattern id="grain" width="48" height="48" patternUnits="userSpaceOnUse">
+            <circle cx="5" cy="8" r="1.1" fill="#b8e3f5" opacity="0.085"/>
+            <circle cx="29" cy="27" r="0.8" fill="#b8e3f5" opacity="0.065"/>
+            <circle cx="42" cy="4" r="0.55" fill="#b8e3f5" opacity="0.05"/>
+        </pattern>
+        <pattern id="microgrid" width="96" height="96" patternUnits="userSpaceOnUse">
+            <path d="M0 48H96M48 0V96" fill="none" stroke="#8bd8f0"
+                  stroke-opacity="0.022" stroke-width="1"/>
+            <circle cx="48" cy="48" r="1.5" fill="#9bdcf0" opacity="0.08"/>
+        </pattern>
+    </defs>
+    <rect width="1200" height="800" fill="url(#base)"/>
+    <rect width="1200" height="800" fill="url(#glowA)"/>
+    <rect width="1200" height="800" fill="url(#glowB)"/>
+    <rect width="1200" height="800" fill="url(#glowC)"/>
+    <rect width="1200" height="800" fill="url(#wash)"/>
+    <rect width="1200" height="800" fill="url(#grain)"/>
+    <rect width="1200" height="800" fill="url(#microgrid)"/>
+    <!-- Low-contrast bathymetry contours and current paths; no control-aligned edges. -->
+    <g fill="none" stroke="#78c9e8" stroke-width="1.5" opacity="0.075">
+        <path d="M-80 145 C90 60 240 70 340 132 S520 218 680 143 S970 43 1280 116"/>
+        <path d="M-90 165 C80 82 235 91 330 150 S522 238 690 163 S978 65 1290 139"/>
+        <path d="M-95 188 C72 108 225 115 320 172 S530 260 702 187 S992 91 1300 163"/>
+        <path d="M-100 212 C65 135 215 140 310 196 S535 282 712 211 S1005 117 1310 188"/>
+    </g>
+    <g fill="none" stroke="#69b8dc" stroke-width="2" opacity="0.055">
+        <path d="M-70 330 C130 250 250 286 390 326 C535 368 640 360 770 302 C900 245 1045 254 1280 332"/>
+        <path d="M-80 349 C118 273 250 306 386 346 C532 389 650 380 782 322 C914 265 1055 274 1290 352"/>
+        <path d="M-90 368 C108 296 248 327 380 366 C530 411 660 400 794 342 C928 285 1068 295 1300 372"/>
+        <path d="M-90 570 C100 505 260 512 390 557 C520 602 670 625 820 566 C970 507 1090 512 1290 578"/>
+        <path d="M-90 590 C100 526 260 534 390 578 C525 624 680 647 830 587 C980 529 1100 533 1290 598"/>
+        <path d="M-90 611 C100 547 260 556 390 600 C530 646 690 669 840 609 C990 551 1110 555 1290 619"/>
+    </g>
+    <!-- Soft, unaligned current ribbons and sonar rings add depth without framing controls. -->
+    <path d="M-80 260 C150 160 250 340 480 260 S850 155 1280 265"
+          fill="none" stroke="#7ed2ed" stroke-opacity="0.035" stroke-width="64"/>
+    <path d="M-60 720 C200 610 410 775 650 700 S1030 620 1280 735"
+          fill="none" stroke="#3b86b1" stroke-opacity="0.045" stroke-width="88"/>
+    <g fill="none" stroke="#8bd8f0" stroke-width="1.5" opacity="0.045">
+        <circle cx="930" cy="270" r="54"/>
+        <circle cx="930" cy="270" r="82"/>
+        <circle cx="930" cy="270" r="110"/>
+        <circle cx="242" cy="586" r="38"/>
+        <circle cx="242" cy="586" r="64"/>
+    </g>
+    <g fill="#b8e3f5" opacity="0.20">
+        <circle cx="930" cy="270" r="2.5"/>
+        <circle cx="242" cy="586" r="2"/>
+        <circle cx="703" cy="484" r="1.6"/>
+        <circle cx="1080" cy="640" r="1.8"/>
+        <circle cx="340" cy="240" r="1.5"/>
+    </g>
+</svg>

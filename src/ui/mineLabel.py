@@ -1,16 +1,19 @@
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtGui import QPolygonF, QPainter, QPixmap, QPainterPath, QColor, QPen, QFont
 import ms_toollib as ms
-from PySide6.QtCore import QPoint, Qt, QRect
+from PySide6.QtCore import QPoint, QPointF, Qt, QRect, QPropertyAnimation, QEasingCurve
 from config.constants import BOARD_READY, BOARD_PLAYING, CELL_UNOPENED
 from shared_types.enums import MouseState
+from shared_types.commands import SKIN_CELL_KEYS
 import utils
 from utils.path_utils import resource_path
+from utils.pixmap_utils import render_svg_pixmap, scale_bitmap_pixmap
 
 
 class mineLabel(QtWidgets.QLabel):
     # 一整个局面的控件，而不是一个格子
     leftRelease = QtCore.Signal(int, int)  # 定义信号
+    leftDoubleRelease = QtCore.Signal(int, int)
     rightRelease = QtCore.Signal(int, int)
     leftPressed = QtCore.Signal(int, int)
     rightPressed = QtCore.Signal(int, int)
@@ -47,6 +50,92 @@ class mineLabel(QtWidgets.QLabel):
         self.opening_ops2 = []
         self.opening_count = 0
         self.hover_highlight_cells = ()
+        self._left_double_click = False
+        # 开格打击感：抖动偏移（绘制时整体平移）与单个动画对象（打断重启）
+        self._shake_offset = QPointF(0.0, 0.0)
+        self._shake_anim = None
+        self.shake_enabled = True
+        # 皮肤内存源：{key: 原始 QPixmap}。None 表示使用磁盘默认资源。
+        # 由 app.skin_applier 在运行时写入；不落盘、重启即还原。
+        # 同时保存原始字节，供 _copy_board_svg 用 QSvgRenderer 渲染。
+        self.skin_source: dict[int, QPixmap] | None = None
+        self.skin_source_bytes: dict[int, bytes] | None = None
+
+    def _get_shake_offset(self):
+        return self._shake_offset
+
+    def _set_shake_offset(self, offset):
+        self._shake_offset = offset
+        self.update()
+
+    shakeOffset = QtCore.Property(
+        QPointF, _get_shake_offset, _set_shake_offset)
+
+    @staticmethod
+    def _reduced_motion():
+        # Windows“显示动画”偏好（SPI_GETCLIENTAREAANIMATION）；取不到则视为未减少
+        try:
+            import ctypes
+            val = ctypes.c_int(1)
+            ok = ctypes.windll.user32.SystemParametersInfoW(
+                0x1042, 0, ctypes.byref(val), 0)
+            return bool(ok) and val.value == 0
+        except Exception:
+            return False
+
+    # ── 抖动参数（表现层审美常量，集中调参）──
+    SHAKE_AMP_RATIO = 0.2           # 弱档振幅相对格子边长的比例
+    SHAKE_AMP_MAX_PX = 4.0          # 弱档振幅的物理像素上限（按 devicePixelRatio 换算）
+    SHAKE_DURATION_MS = 130         # 弱档时长（ms）
+    SHAKE_STRONG_SCALE = 2.0        # 踩雷强档振幅 = 弱档 × 该倍率
+    SHAKE_STRONG_DURATION_MS = 280  # 踩雷强档时长（ms）
+
+    def start_shake(self, *, strong=False):
+        # 是否触发由调用方判断（开格数增加才调用弱档）。
+        # 弱档：固定振幅 min(格边长×SHAKE_AMP_RATIO, SHAKE_AMP_MAX_PX/dpr)，
+        # 与本次开格数无关；SHAKE_DURATION_MS、OutQuad、末帧归零。
+        # strong=True：踩雷强档（振幅 ×SHAKE_STRONG_SCALE、
+        # SHAKE_STRONG_DURATION_MS、独立节奏）
+        if not self.shake_enabled or self.pixSize <= 0:
+            return
+        if self._reduced_motion():
+            return
+        dpr = self.devicePixelRatioF() or 1.0
+        amp = min(self.pixSize * self.SHAKE_AMP_RATIO,
+                  self.SHAKE_AMP_MAX_PX / dpr)
+        if self._shake_anim is None:
+            self._shake_anim = QPropertyAnimation(self, b"shakeOffset", self)
+            self._shake_anim.finished.connect(self._on_shake_finished)
+        anim = self._shake_anim
+        anim.stop()
+        if strong:
+            amp *= self.SHAKE_STRONG_SCALE
+            anim.setDuration(self.SHAKE_STRONG_DURATION_MS)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            anim.setKeyValues([
+                (0.0, QPointF(0.0, 0.0)),
+                (0.2, QPointF(amp, -0.5 * amp)),
+                (0.45, QPointF(-0.7 * amp, 0.4 * amp)),
+                (0.7, QPointF(0.5 * amp, -0.25 * amp)),
+                (1.0, QPointF(0.0, 0.0)),
+            ])
+        else:
+            anim.setDuration(self.SHAKE_DURATION_MS)
+            anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+            anim.setKeyValues([
+                (0.0, QPointF(0.0, 0.0)),
+                (0.25, QPointF(amp, -0.6 * amp)),
+                (0.55, QPointF(-0.7 * amp, 0.5 * amp)),
+                (0.8, QPointF(0.4 * amp, -0.3 * amp)),
+                (1.0, QPointF(0.0, 0.0)),
+            ])
+        # 打断重启时先归零，避免上一段动画的残移成为新起点
+        self._set_shake_offset(QPointF(0.0, 0.0))
+        anim.start()
+
+    def _on_shake_finished(self):
+        # 结束精确归位
+        self._set_shake_offset(QPointF(0.0, 0.0))
 
     def setPath(self):
         m = resource_path('media')
@@ -62,9 +151,20 @@ class mineLabel(QtWidgets.QLabel):
         self.cellup_path = str(m.joinpath('cellup.svg'))
         self.cellmine_path = str(m.joinpath('cellmine.svg'))
         self.cellflag_path = str(m.joinpath('cellflag.svg'))
+        self.cellquestion_path = str(m.joinpath('cellquestion.svg'))
         self.blast_path = str(m.joinpath('blast.svg'))
         self.falsemine_path = str(m.joinpath('falsemine.svg'))
         self.mine_path = str(m.joinpath('mine.svg'))
+        # key -> 默认磁盘路径，供皮肤未覆盖的格子回退使用
+        self.cell_path_map: dict[int, str] = {
+            0: self.celldown_path, 1: self.cell1_path, 2: self.cell2_path,
+            3: self.cell3_path, 4: self.cell4_path, 5: self.cell5_path,
+            6: self.cell6_path, 7: self.cell7_path, 8: self.cell8_path,
+            10: self.cellup_path, 11: self.cellflag_path,
+            14: self.falsemine_path, 15: self.blast_path,
+            16: self.cellmine_path, 17: self.cellquestion_path,
+            100: self.mine_path,
+        }
 
     def set_rcp(self, row, column, pixSize):
         '''
@@ -115,6 +215,7 @@ class mineLabel(QtWidgets.QLabel):
 
     def mousePressEvent(self, e):
         # 重载一下鼠标点击事件
+        self._left_double_click = False
         xx = int(e.localPos().x())
         yy = int(e.localPos().y())
         # print("press: ", xx, yy)
@@ -127,13 +228,20 @@ class mineLabel(QtWidgets.QLabel):
             self.current_y = xx
 
         # xx和yy是反的，列、行
-        if e.buttons() == QtCore.Qt.LeftButton | QtCore.Qt.RightButton:
-            self.leftAndRightPressed.emit(self.current_x, self.current_y)
-        else:
-            if e.buttons() == QtCore.Qt.LeftButton:
-                self.leftPressed.emit(self.current_x, self.current_y)
-            elif e.buttons() == QtCore.Qt.RightButton:
-                self.rightPressed.emit(self.current_x, self.current_y)
+        # 忠实记录左/右键按下：双键时 e.button() 即后按下的键，按原样转发，
+        # 状态机会自然合成双击（UpUp+rc 或 UpDown+lc 都进入 Chording）。
+        # 不再合并发 'cc'：状态机对 (残留 MouseState, 'cc') 有硬 Err 分支，
+        # wheel 以 panic=abort 编译，一旦命中进程直接崩溃（2026-11-09 crash）。
+        if e.button() == QtCore.Qt.LeftButton:
+            self.leftPressed.emit(self.current_x, self.current_y)
+        elif e.button() == QtCore.Qt.RightButton:
+            self.rightPressed.emit(self.current_x, self.current_y)
+
+    def mouseDoubleClickEvent(self, e):
+        # 保留第二次按下的正常行为，由控制器在抬起时决定是否重开。
+        self.mousePressEvent(e)
+        self._left_double_click = (e.button() == QtCore.Qt.LeftButton
+                                   and e.buttons() == QtCore.Qt.LeftButton)
 
     def mouseReleaseEvent(self, e):
         # 每个标签的鼠标事件发射给槽的都是自身的坐标
@@ -150,8 +258,13 @@ class mineLabel(QtWidgets.QLabel):
             self.current_x = yy
             self.current_y = xx
 
+        left_double_click = self._left_double_click
+        self._left_double_click = False
         if e.button() == QtCore.Qt.LeftButton:
-            self.leftRelease.emit(self.current_x, self.current_y)
+            if left_double_click and e.buttons() == QtCore.Qt.NoButton:
+                self.leftDoubleRelease.emit(self.current_x, self.current_y)
+            else:
+                self.leftRelease.emit(self.current_x, self.current_y)
         elif e.button() == QtCore.Qt.RightButton:
             self.rightRelease.emit(self.current_x, self.current_y)
 
@@ -351,6 +464,13 @@ class mineLabel(QtWidgets.QLabel):
     def paintEvent(self, event):
         super().paintEvent(event)
         pix_size = self.pixSize
+        # 格子间距取整到整数物理像素（再转回逻辑单位）。DPR 为非整数
+        # （如 4K 缩放模式的 8/3）时，pixSize × DPR 会带小数，格子原点
+        # 落在不同的小数物理像素位置上，整张位图被双线性重采样——表现为
+        # 以小数周期（如每 3 列）出现的细线。取整后绘制坐标 × DPR 恒为
+        # 整数，位图严格 1:1 直出，任何缩放档位都无重采样。
+        dpr = self.devicePixelRatioF()
+        cell_pitch = round(pix_size * dpr) / dpr if dpr > 0 else pix_size
         painter = QPainter()
         game_board = self.ms_board.game_board
         mouse_state = self.ms_board.mouse_state
@@ -366,14 +486,22 @@ class mineLabel(QtWidgets.QLabel):
             current_y = self.current_y // self.pixSize
             # poss = self.boardProbability
         painter.begin(self)
+        # 经典扫雷面板底色，垫在所有格子 SVG 之下。
+        # cellup 等素材由高光/阴影两个 polygon 拼成、无背景 rect，斜边抗锯齿
+        # 会产生半透明像素（实测每格右上/左下对角线各约 30 个，alpha≈192）；
+        # 不垫底时这些像素透出窗口背景，形成格子附近的亮灰细线。
+        # 数字等已翻开格子的抗锯齿边缘也同样正确混到面板色上。
+        painter.fillRect(self.rect(), QColor("#c0c0c0"))
+        if not self._shake_offset.isNull():
+            painter.translate(self._shake_offset)
         # 画游戏局面
         row = len(game_board)
         column = len(game_board[0])
         for i in range(row):
             for j in range(column):
                 if game_board[i][j] == CELL_UNOPENED:
-                    painter.drawPixmap(j * pix_size, i *
-                                       pix_size, QPixmap(self.pixmapNum[10]))
+                    painter.drawPixmap(QPointF(j * cell_pitch, i * cell_pitch),
+                                       QPixmap(self.pixmapNum[10]))
                     if self.paintProbability:  # 画概率
                         if self.paint_cursor:
                             painter.setOpacity(
@@ -381,11 +509,11 @@ class mineLabel(QtWidgets.QLabel):
                         else:
                             painter.setOpacity(self.boardProbability[i][j])
                         painter.drawPixmap(
-                            j * pix_size, i * pix_size, QPixmap(self.pixmapNum[100]))
+                            QPointF(j * cell_pitch, i * cell_pitch), QPixmap(self.pixmapNum[100]))
                         painter.setOpacity(1.0)
                 else:
                     painter.drawPixmap(
-                        j * pix_size, i * pix_size, QPixmap(self.pixmapNum[game_board[i][j]]))
+                        QPointF(j * cell_pitch, i * cell_pitch), QPixmap(self.pixmapNum[game_board[i][j]]))
 
         # 画 openings 黄色边框和编号
         if self.show_opening:
@@ -400,10 +528,10 @@ class mineLabel(QtWidgets.QLabel):
                     for c in range(max(current_y - 1, 0), min(current_y + 2, column)):
                         if game_board[r][c] == CELL_UNOPENED:
                             painter.drawPixmap(
-                                c * pix_size, r * pix_size, QPixmap(self.pixmapNum[0]))
+                                QPointF(c * cell_pitch, r * cell_pitch), QPixmap(self.pixmapNum[0]))
             elif mouse_state == MouseState.DownUp.value and game_board[current_x][current_y] == CELL_UNOPENED:
                 painter.drawPixmap(
-                    current_y * pix_size, current_x * pix_size, QPixmap(self.pixmapNum[0]))
+                    QPointF(current_y * cell_pitch, current_x * cell_pitch), QPixmap(self.pixmapNum[0]))
         # 画鼠标路径轨迹
         if self.path_trace_enabled and self.path_trace_points:
             n = min(self.current_trace_event_id, len(self.path_trace_points))
@@ -441,47 +569,33 @@ class mineLabel(QtWidgets.QLabel):
         painter.end()
 
     def importCellPic(self, pixSize):
-        # 从磁盘导入资源，并缩放到希望的尺寸、比例
-        celldown = QPixmap(self.celldown_path)
-        cell1 = QPixmap(self.cell1_path)
-        cell2 = QPixmap(self.cell2_path)
-        cell3 = QPixmap(self.cell3_path)
-        cell4 = QPixmap(self.cell4_path)
-        cell5 = QPixmap(self.cell5_path)
-        cell6 = QPixmap(self.cell6_path)
-        cell7 = QPixmap(self.cell7_path)
-        cell8 = QPixmap(self.cell8_path)
-        cellup = QPixmap(self.cellup_path)
-        cellmine = QPixmap(self.cellmine_path)  # 白雷
-        cellflag = QPixmap(self.cellflag_path)  # 标雷
-        blast = QPixmap(self.blast_path)  # 红雷
-        falsemine = QPixmap(self.falsemine_path)  # 叉雷
-        mine = QPixmap(self.mine_path)  # 透明雷
-        self.pixmapNumBack = {0: celldown, 1: cell1, 2: cell2, 3: cell3, 4: cell4,
-                              5: cell5, 6: cell6, 7: cell7, 8: cell8,
-                              10: cellup, 11: cellflag, 14: falsemine,
-                              15: blast, 16: cellmine, 100: mine}
-        celldown_ = celldown.copy().scaled(pixSize, pixSize)
-        cell1_ = cell1.copy().scaled(pixSize, pixSize)
-        cell2_ = cell2.copy().scaled(pixSize, pixSize)
-        cell3_ = cell3.copy().scaled(pixSize, pixSize)
-        cell4_ = cell4.copy().scaled(pixSize, pixSize)
-        cell5_ = cell5.copy().scaled(pixSize, pixSize)
-        cell6_ = cell6.copy().scaled(pixSize, pixSize)
-        cell7_ = cell7.copy().scaled(pixSize, pixSize)
-        cell8_ = cell8.copy().scaled(pixSize, pixSize)
-        cellup_ = cellup.copy().scaled(pixSize, pixSize)
-        cellmine_ = cellmine.copy().scaled(pixSize, pixSize)
-        cellflag_ = cellflag.copy().scaled(pixSize, pixSize)
-        blast_ = blast.copy().scaled(pixSize, pixSize)
-        falsemine_ = falsemine.copy().scaled(pixSize, pixSize)
-        mine_ = mine.copy().scaled(pixSize, pixSize)
-        self.pixmapNum = {0: celldown_, 1: cell1_, 2: cell2_, 3: cell3_, 4: cell4_,
-                          5: cell5_, 6: cell6_, 7: cell7_, 8: cell8_,
-                          10: cellup_, 11: cellflag_, 14: falsemine_,
-                          15: blast_, 16: cellmine_, 100: mine_}
+        # 导入原始资源到 pixmapNumBack：有内存皮肤源时优先取内存（可逐 key
+        # 回退到磁盘默认资源），再统一按「目标尺寸 × 屏幕 DPR」出图。
+        # 磁盘默认格子是 SVG，矢量重栅格化；内存皮肤位图（无法矢量化）走
+        # 物理分辨率平滑缩放。取代老的「QPixmap(svg) 先 160px 位图化、
+        # 再 scaled() 插值」管线：放大不再发糊，Retina 屏不再被 DPR 拉伸
+        # 二次重采样。
+        skin = self.skin_source
+        dpr = self.devicePixelRatioF()
+        self.pixmapNumBack = {
+            key: (skin[key] if skin and key in skin
+                  else QPixmap(self.cell_path_map[key]))
+            for key in SKIN_CELL_KEYS
+        }
+        self.pixmapNum = {
+            key: (scale_bitmap_pixmap(source, pixSize, pixSize, dpr)
+                  if skin and key in skin
+                  else render_svg_pixmap(self.cell_path_map[key],
+                                         pixSize, pixSize, dpr))
+            for key, source in self.pixmapNumBack.items()
+        }
 
     def reloadCellPic(self, pixSize):
-        # 从内存导入资源，并缩放到希望的尺寸、比例。
-        self.pixmapNum = {key: value.copy().scaled(pixSize, pixSize)
-                          for key, value in self.pixmapNumBack.items()}
+        # 重新渲染资源：一律按当前皮肤/磁盘源以目标尺寸（× DPR）重出图，
+        # 不基于旧位图二次插值；setPath 尚未调用时退回位图缩放。
+        if hasattr(self, "cell_path_map"):
+            self.importCellPic(pixSize)
+        else:
+            dpr = self.devicePixelRatioF()
+            self.pixmapNum = {key: scale_bitmap_pixmap(value, pixSize, pixSize, dpr)
+                              for key, value in self.pixmapNumBack.items()}

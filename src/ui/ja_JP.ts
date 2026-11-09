@@ -95,6 +95,16 @@
 <context>
     <name>Form</name>
     <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="789"/>
+        <source>左键双击重开（游戏结束后）</source>
+        <translation>左ダブルクリックで新規ゲーム（終了後）</translation>
+    </message>
+    <message>
+        <location filename="../../uiFiles/ui_gs.ui" line="786"/>
+        <source>胜利或失败后，在棋盘上双击鼠标左键重开新局</source>
+        <translation>勝利または敗北後、盤面をマウスの左ボタンでダブルクリックすると、新しいゲームを開始します。</translation>
+    </message>
+    <message>
         <location filename="ui_gameSettings.py" line="444"/>
         <source>游戏模式：</source>
         <translation>ゲームモード：</translation>
@@ -138,6 +148,30 @@
         <location filename="../plugins/XianNiUpgrade/models.py" line="308"/>
         <source>弱可猜</source>
         <translation>弱推測可</translation>
+    </message>
+    <message>
+        <source>双击递归</source>
+        <translation>ダブルクリック再帰</translation>
+    </message>
+    <message>
+        <source>标雷递归</source>
+        <translation>旗立て再帰</translation>
+    </message>
+    <message>
+        <source>双击标雷递归</source>
+        <translation>ダブルクリック旗立て再帰</translation>
+    </message>
+    <message>
+        <source>无猜双击递归</source>
+        <translation>ノーゲス・ダブルクリック再帰</translation>
+    </message>
+    <message>
+        <source>无猜标雷递归</source>
+        <translation>ノーゲス旗立て再帰</translation>
+    </message>
+    <message>
+        <source>无猜双击标雷递归</source>
+        <translation>ノーゲス・ダブルクリック旗立て再帰</translation>
     </message>
     <message>
         <location filename="ui_gameSettings.py" line="453"/>

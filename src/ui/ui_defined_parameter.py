@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Form generated from reading UI file 'ui_defined_parameter.ui'
+## Form generated from reading UI file 'ui_defined_parameter.ui'
 ##
-# Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.12.0
 ##
-# WARNING! All changes made in this file will be lost when recompiling UI file!
+## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-                            QMetaObject, QObject, QPoint, QRect,
-                            QSize, QTime, QUrl, Qt)
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
 from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-                           QFont, QFontDatabase, QGradient, QIcon,
-                           QImage, QKeySequence, QLinearGradient, QPainter,
-                           QPalette, QPixmap, QRadialGradient, QTransform)
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QGridLayout, QLabel, QPushButton,
-                               QSizePolicy, QSpinBox, QWidget)
-
+    QSizePolicy, QSpinBox, QWidget)
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -28,8 +27,7 @@ class Ui_Form(object):
         Form.setMaximumSize(QSize(600, 220))
         Form.setSizeIncrement(QSize(0, 0))
         icon = QIcon()
-        icon.addFile(u"media/cat.ico", QSize(),
-                     QIcon.Mode.Normal, QIcon.State.Off)
+        icon.addFile(u"media/cat.ico", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         Form.setWindowIcon(icon)
         Form.setWindowOpacity(10.000000000000000)
         self.pushButton_2 = QPushButton(Form)
@@ -59,7 +57,7 @@ class Ui_Form(object):
         font.setItalic(False)
         self.label.setFont(font)
         self.label.setStyleSheet(u"font: 16pt \"\u9ed1\u4f53\";\n"
-                                 "color:black;")
+"color:black;")
 
         self.gridLayout.addWidget(self.label, 0, 0, 1, 1)
 
@@ -67,7 +65,7 @@ class Ui_Form(object):
         self.spinBox.setObjectName(u"spinBox")
         self.spinBox.setFont(font)
         self.spinBox.setStyleSheet(u"font: 16pt \"\u9ed1\u4f53\";\n"
-                                   "color:black;")
+"color:black;")
         self.spinBox.setAlignment(Qt.AlignCenter)
         self.spinBox.setMinimum(6)
         self.spinBox.setMaximum(255)
@@ -79,7 +77,7 @@ class Ui_Form(object):
         self.label_2.setObjectName(u"label_2")
         self.label_2.setFont(font)
         self.label_2.setStyleSheet(u"font: 16pt \"\u9ed1\u4f53\";\n"
-                                   "color:black;")
+"color:black;")
 
         self.gridLayout.addWidget(self.label_2, 1, 0, 1, 1)
 
@@ -87,7 +85,7 @@ class Ui_Form(object):
         self.spinBox_2.setObjectName(u"spinBox_2")
         self.spinBox_2.setFont(font)
         self.spinBox_2.setStyleSheet(u"font: 16pt \"\u9ed1\u4f53\";\n"
-                                     "color:black;")
+"color:black;")
         self.spinBox_2.setAlignment(Qt.AlignCenter)
         self.spinBox_2.setMinimum(6)
         self.spinBox_2.setMaximum(255)
@@ -99,7 +97,7 @@ class Ui_Form(object):
         self.label_3.setObjectName(u"label_3")
         self.label_3.setFont(font)
         self.label_3.setStyleSheet(u"font: 16pt \"\u9ed1\u4f53\";\n"
-                                   "color:black;")
+"color:black;")
 
         self.gridLayout.addWidget(self.label_3, 2, 0, 1, 1)
 
@@ -107,13 +105,14 @@ class Ui_Form(object):
         self.spinBox_3.setObjectName(u"spinBox_3")
         self.spinBox_3.setFont(font)
         self.spinBox_3.setStyleSheet(u"font: 16pt \"\u9ed1\u4f53\";\n"
-                                     "color:black;")
+"color:black;")
         self.spinBox_3.setAlignment(Qt.AlignCenter)
         self.spinBox_3.setMinimum(1)
         self.spinBox_3.setMaximum(1000000)
         self.spinBox_3.setDisplayIntegerBase(10)
 
         self.gridLayout.addWidget(self.spinBox_3, 2, 1, 1, 2)
+
 
         self.retranslateUi(Form)
         self.pushButton_2.clicked.connect(Form.close)
@@ -122,20 +121,14 @@ class Ui_Form(object):
     # setupUi
 
     def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate(
-            "Form", u"\u81ea\u5b9a\u4e49\u8bbe\u7f6e", None))
-        self.pushButton_2.setText(
-            QCoreApplication.translate("Form", u"\u53d6\u6d88", None))
-        self.pushButton_3.setText(
-            QCoreApplication.translate("Form", u"\u786e\u5b9a", None))
-# if QT_CONFIG(shortcut)
-        self.pushButton_3.setShortcut(
-            QCoreApplication.translate("Form", u"Return", None))
-# endif // QT_CONFIG(shortcut)
-        self.label.setText(QCoreApplication.translate(
-            "Form", u"\u884c\u6570(row)", None))
-        self.label_2.setText(QCoreApplication.translate(
-            "Form", u"\u5217\u6570(column)", None))
-        self.label_3.setText(QCoreApplication.translate(
-            "Form", u"\u96f7\u6570(number)", None))
+        Form.setWindowTitle(QCoreApplication.translate("Form", u"\u81ea\u5b9a\u4e49\u8bbe\u7f6e", None))
+        self.pushButton_2.setText(QCoreApplication.translate("Form", u"\u53d6\u6d88", None))
+        self.pushButton_3.setText(QCoreApplication.translate("Form", u"\u786e\u5b9a", None))
+#if QT_CONFIG(shortcut)
+        self.pushButton_3.setShortcut(QCoreApplication.translate("Form", u"Return", None))
+#endif // QT_CONFIG(shortcut)
+        self.label.setText(QCoreApplication.translate("Form", u"\u884c\u6570(row)", None))
+        self.label_2.setText(QCoreApplication.translate("Form", u"\u5217\u6570(column)", None))
+        self.label_3.setText(QCoreApplication.translate("Form", u"\u96f7\u6570(number)", None))
     # retranslateUi
+
