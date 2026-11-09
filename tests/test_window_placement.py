@@ -21,12 +21,15 @@ def _make_panel(qtbot, width=200, height=400):
     return panel
 
 
-def test_clamp_pulls_offscreen_widget_back(qtbot, screen_rect):
-    # 模拟记忆位置留在已断开的扩展屏上（远超单屏右边界）
+def test_clamp_pulls_offscreen_widget_back(qtbot):
+    # 模拟记忆位置留在已断开的扩展屏上（远超屏幕右边界）。
+    # 断言以 widget 自己的屏幕为准（多显示器环境下 widget.screen() 可能
+    # 归属外接屏，位置在该屏内则本就不越界；环境无关）
     panel = _make_panel(qtbot)
-    panel.move(screen_rect.right() + 800, 100)
+    avail = panel.screen().availableGeometry()
+    panel.move(avail.right() + 800, 100)
     clamp_widget_to_screen(panel)
-    assert screen_rect.contains(panel.geometry())
+    assert avail.contains(panel.geometry())
 
 
 def test_clamp_pulls_below_bottom_back(qtbot, screen_rect):
@@ -82,7 +85,9 @@ def test_saved_offscreen_position_is_clamped(qtbot, screen_rect):
 
     place_detached_panel(panel, anchor,
                          screen_rect.right() + 900, screen_rect.top() + 10)
-    assert screen_rect.contains(panel.geometry())
+    # 生产路径按主窗口所在屏钳制（place_detached_panel 传 anchor.screen()），
+    # 断言同样以该屏为准，环境无关
+    assert anchor.screen().availableGeometry().contains(panel.geometry())
 
 
 def test_saved_position_partly_on_screen_is_kept(qtbot, screen_rect):
