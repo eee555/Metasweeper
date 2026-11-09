@@ -136,6 +136,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.frameShortcut7.activated.connect(lambda: self.predefined_Board(6))
         self.frameShortcut8.activated.connect(self.showScores)
         self.frameShortcut9.activated.connect(self.screenShot)
+        # macOS 补充的 Cmd+Shift+A 截图快捷键（见 superGUI 中 frameShortcut9_mac）
+        if hasattr(self, "frameShortcut9_mac"):
+            self.frameShortcut9_mac.activated.connect(self.screenShot)
         self.frameShortcutF3.activated.connect(self.replay_current_board)
         self.shortcut_hidden_score_board.activated.connect(
             self.hidden_score_board)
@@ -1115,8 +1118,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         row = self.predefinedBoardPara[k]['row']
         column = self.predefinedBoardPara[k]['column']
         mine_num = self.predefinedBoardPara[k]['mine_num']
-        self.setBoard_and_start(row, column, mine_num)
-        self.pixSize = self.predefinedBoardPara[k]['pixsize']
+        # 切换级别时保持当前缩放比例：沿用切换前的格子尺寸，
+        # 而不是恢复目标级别各自存档的 pixsize
+        self.setBoard_and_start(row, column, mine_num, self.pixSize)
         if isinstance(self.label.ms_board, ms.BaseVideo):
             self.label.ms_board.reset(row, column, self.pixSize)
         else:
@@ -1165,7 +1169,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             #     "minenum": self.minenum,
             # })
 
-    def set_board_params(self, row, column, minenum):
+    def set_board_params(self, row, column, minenum, pixsize=None):
         self.row = row
         self.column = column
         self.minenum = minenum
@@ -1179,18 +1183,20 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
         params = self.predefinedBoardPara[0] if isinstance(
             board_key, tuple) else self.predefinedBoardPara[board_key]
-        self.pixSize = params['pixsize']
+        # pixsize 为 None 时沿用该级别存档的格子尺寸；调用方也可显式指定
+        # （例如快捷键切换级别时传入当前 pixSize，以保持缩放比例不变）
+        self.pixSize = params['pixsize'] if pixsize is None else pixsize
         self.gameMode = params['gamemode']
         self.board_constraint = params['board_constraint']
         self.attempt_times_limit = params['attempt_times_limit']
 
-    def setBoard_and_start(self, row, column, minenum):
+    def setBoard_and_start(self, row, column, minenum, pixsize=None):
         # 把局面设置成(row, column, minenum)，把3BV的限制设置成min3BV, max3BV
         # 比gameStart更高级
         # if self.game_state == 'display' or self.game_state == 'showdisplay':
         #     self.label.paintProbability = False
         if (self.row, self.column, self.minenum) != (row, column, minenum):
-            self.set_board_params(row, column, minenum)
+            self.set_board_params(row, column, minenum, pixsize)
             self.label.set_rcp(row, column, self.pixSize)
             self.gameStart()
         else:
