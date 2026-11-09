@@ -57,7 +57,7 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --hidden-import xmlrpc --hidden-import xmlrpc.server --hidden-import xmlrpc.client ^
     --hidden-import http.server --hidden-import socketserver ^
     --hidden-import email --hidden-import email.utils ^
-    --hidden-import requests --hidden-import Crypto.Cipher.AES --hidden-import Crypto.Random ^
+    --hidden-import requests ^
     --hidden-import win32api --hidden-import win32event --hidden-import winerror ^
     --hidden-import ms_toollib --hidden-import PySide6.QtQuickWidgets ^
     --hidden-import PySide6.QtQuick --hidden-import PySide6.QtQml ^

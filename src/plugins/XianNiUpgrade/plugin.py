@@ -19,8 +19,7 @@ from plugins.services.saolei_website import SaoleiWebsiteService
 from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
 import ms_toollib as ms
-from Crypto.Random import get_random_bytes
-from Crypto.Cipher import AES
+from shared_types.aes_gcm import encrypt_gcm, decrypt_gcm
 
 import math
 import json
@@ -107,19 +106,11 @@ _ENCRYPT_KEY = b"f[{gr!%$%^65sr60"
 
 
 def _encrypt(data: bytes) -> bytes:
-    nonce = get_random_bytes(12)
-    cipher = AES.new(_ENCRYPT_KEY, AES.MODE_GCM, nonce=nonce)
-    ciphertext, tag = cipher.encrypt_and_digest(data)
-    return base64.b64encode(nonce + tag + ciphertext)
+    return base64.b64encode(encrypt_gcm(_ENCRYPT_KEY, data))
 
 
 def _decrypt(data: bytes) -> bytes:
-    raw = base64.b64decode(data)
-    nonce = raw[:12]
-    tag = raw[12:28]
-    ciphertext = raw[28:]
-    cipher = AES.new(_ENCRYPT_KEY, AES.MODE_GCM, nonce=nonce)
-    return cipher.decrypt_and_verify(ciphertext, tag)
+    return decrypt_gcm(_ENCRYPT_KEY, base64.b64decode(data))
 
 
 def _total_xp(level: int) -> int:

@@ -98,8 +98,6 @@ jobs:
             --hidden-import email `
             --hidden-import email.utils `
             --hidden-import requests `
-            --hidden-import Crypto.Cipher.AES `
-            --hidden-import Crypto.Random `
             --hidden-import win32api `
             --hidden-import win32event `
             --hidden-import winerror `

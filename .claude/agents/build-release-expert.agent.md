@@ -50,7 +50,7 @@ build.bat 执行：
 | loguru>=0.7.3 | 日志 |
 | debugpy>=1.8.20 | 调试 |
 | requests>=2.33.1 | HTTP 请求 |
-| pycryptodome>=3.20.0 | AES 加密 |
+| cryptography>=50.0.2 | AES-GCM 加密 |
 | setuptools==83.0.0 | 打包工具 |
 | PyQt5-stubs>=5.15.6.0 | PyQt5 类型存根 |
 | textdistance | 文本距离计算 |

@@ -106,8 +106,6 @@ if errorlevel 1 (
     --include-module=xmlrpc.client ^
     --include-module=http.server ^
     --include-module=socketserver ^
-    --include-module=Crypto.Cipher.AES ^
-    --include-module=Crypto.Random ^
     --include-module=PySide6.QtQuickWidgets ^
     --include-module=PySide6.QtQuick ^
     --include-module=PySide6.QtQml ^

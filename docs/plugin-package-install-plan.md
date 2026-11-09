@@ -15,7 +15,7 @@
 | 打包格式 | **无**（裸目录） | 既无 `.zip` 也无 `.metaplugin` |
 | 安装入口 | **无 UI**（手动复制目录 + 点刷新） | `main_window.py:1255-1270` 工具栏 |
 | 卸载 | **无** | 状态文件会有"幽灵条目" |
-| 依赖管理 | **无**（插件共享主程序 `requirements.txt`） | `pycryptodome` 等被全量安装 |
+| 依赖管理 | **无**（插件共享主程序 `requirements.txt`） | `cryptography` 等被全量安装 |
 | 主程序版本 | 硬编码 `src/superGUI.py:25 = "元3.3.4"` | 兼容性基线 |
 | 数据目录 | `get_data_dir()` / `get_plugin_data_dir()` 已规范化 | `app_paths.py:160-220` |
 | 已安装列表 | 散落在 `plugin_states.json` | 无来源 / 安装时间 / 启用历史 |
@@ -56,7 +56,7 @@ PluginInfo 扩展    注册表 JSON
   "description": "挑战模式插件",
   "min_app_version": "元3.3.0",
   "homepage": "https://github.com/eee555/Metasweeper-plugins",
-  "dependencies": ["pycryptodome>=3.10"],
+  "dependencies": ["cryptography>=50.0.2"],
   "sha256": "a1b2c3d4...",
   "entry": "challenge_mode/__init__.py"
 }

@@ -8,7 +8,6 @@ loguru>=0.7.3
 debugpy>=1.8.20
 requests>=2.33.1
 textdistance
-pycryptodome>=3.20.0
 cryptography>=50.0.2
 PyMCUlib>=1.0.3
 pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"

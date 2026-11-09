@@ -9,7 +9,7 @@ from datetime import datetime
 from time import perf_counter
 
 import ms_toollib as ms
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from shared_types.aes_gcm import GCMCipher
 from PySide6.QtCore import QThread, Signal, Qt, Slot
 from PySide6.QtWidgets import QProgressDialog
 
@@ -212,7 +212,7 @@ def export_csv(dat_path, save_path, key, all=False, progress=None, *, threads=No
 
     try:
         with measure("AES 初始化、解密与校验"):
-            cipher = AESGCM(key)
+            cipher = GCMCipher(key)
         with measure("读取并解析 stats.dat（含解密、解码）"):
             with open(dat_path, 'rb') as f:
                 file_size = dat_path.stat().st_size
@@ -227,14 +227,11 @@ def export_csv(dat_path, save_path, key, all=False, progress=None, *, threads=No
                         break
 
                     report("read", f.tell(), file_size)
-                    nonce = blob[:12]
-                    tag = blob[12:28]
-                    ciphertext = blob[28:]
 
                     try:
                         with measure("AES 初始化、解密与校验"):
-                            # stats.dat 存储 nonce + tag + ciphertext；AESGCM 接收 ciphertext + tag。
-                            plaintext = cipher.decrypt(nonce, ciphertext + tag, None)
+                            # stats.dat 存储 nonce + tag + ciphertext，由 GCMCipher 统一解析。
+                            plaintext = cipher.decrypt(blob)
                         with measure("StatsRecord.decode"):
                             records.append(utils.StatsRecord.decode(plaintext))
                     except Exception:

@@ -10,8 +10,7 @@ import subprocess
 import json
 import re
 from pathlib import Path
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
+from shared_types.aes_gcm import encrypt_gcm, decrypt_gcm, GCMCipher
 from time import perf_counter
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QApplication
 from mainWindowGUI import MainWindow
@@ -350,16 +349,13 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 progress_callback(i + 1, len(entries))
             record = entry["record"]
             binary_data = record.encode()
-            nonce = get_random_bytes(12)
-            cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
-            ciphertext, tag = cipher.encrypt_and_digest(binary_data)
+            blob = encrypt_gcm(superGUI.STATS_DAT_KEY, binary_data)
 
             if (not dat_path.exists()) or dat_path.stat().st_size == 0:
                 with open(dat_path, "wb") as f:
                     f.write((0).to_bytes(1, byteorder="big"))
 
             with open(dat_path, "ab") as f:
-                blob = nonce + tag + ciphertext
                 f.write(len(blob).to_bytes(2, byteorder="big", signed=False))
                 f.write(blob)
 
@@ -438,6 +434,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
     def _read_dat_records_v0(self, path: Path, key) -> list:
         """读取 v0 格式 stats.dat"""
         records = []
+        cipher = GCMCipher(key)
         with open(path, "rb") as f:
             f.read(1)
             while True:
@@ -449,13 +446,8 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 if not blob or len(blob) < blob_length:
                     break
 
-                nonce = blob[:12]
-                tag = blob[12:28]
-                ciphertext = blob[28:]
-
                 try:
-                    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-                    plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+                    plaintext = cipher.decrypt(blob)
                     records.append(utils.StatsRecord.decode(plaintext))
                 except Exception:
                     continue
@@ -467,16 +459,13 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         count = 0
         for rec in records:
             binary_data = rec.encode()
-            nonce = get_random_bytes(12)
-            cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
-            ciphertext, tag = cipher.encrypt_and_digest(binary_data)
+            blob = encrypt_gcm(superGUI.STATS_DAT_KEY, binary_data)
 
             if (not dat_path.exists()) or dat_path.stat().st_size == 0:
                 with open(dat_path, "wb") as f:
                     f.write((0).to_bytes(1, byteorder="big"))
 
             with open(dat_path, "ab") as f:
-                blob = nonce + tag + ciphertext
                 f.write(len(blob).to_bytes(2, byteorder="big", signed=False))
                 f.write(blob)
 
@@ -563,6 +552,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             return
 
         records = []
+        cipher = GCMCipher(superGUI.STATS_DAT_KEY)
         with open(dat_path, 'rb') as f:
             f.read(1)  # version byte
             while True:
@@ -574,14 +564,8 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 if not blob or len(blob) < blob_length:
                     break
 
-                nonce = blob[:12]
-                tag = blob[12:28]
-                ciphertext = blob[28:]
-
                 try:
-                    cipher = AES.new(superGUI.STATS_DAT_KEY,
-                                     AES.MODE_GCM, nonce=nonce)
-                    plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+                    plaintext = cipher.decrypt(blob)
                     records.append(utils.StatsRecord.decode(plaintext))
                 except Exception:
                     continue
@@ -603,11 +587,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         with open(save_path, 'wb') as f:
             for record in export_records:
                 binary_data = record.encode()
-                nonce = get_random_bytes(12)
-                cipher = AES.new(superGUI.STATS_DAT_KEY,
-                                 AES.MODE_GCM, nonce=nonce)
-                ciphertext, tag = cipher.encrypt_and_digest(binary_data)
-                blob = nonce + tag + ciphertext
+                blob = encrypt_gcm(superGUI.STATS_DAT_KEY, binary_data)
                 blob_length = len(blob)
                 len_bytes = blob_length.to_bytes(
                     2, byteorder="big", signed=False)

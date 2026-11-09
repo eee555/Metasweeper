@@ -2,7 +2,7 @@ from dataclasses import replace
 import csv
 import time
 
-from Crypto.Cipher import AES
+from shared_types.aes_gcm import encrypt_gcm
 import ms_toollib as ms
 import pytest
 from PySide6.QtCore import QThread, QTimer
@@ -34,9 +34,7 @@ def write_dat(path, records):
     with path.open("wb") as f:
         f.write(b"\0")
         for record in records:
-            cipher = AES.new(KEY, AES.MODE_GCM, nonce=bytes(12))
-            ciphertext, tag = cipher.encrypt_and_digest(record.encode())
-            blob = cipher.nonce + tag + ciphertext
+            blob = encrypt_gcm(KEY, record.encode())
             f.write(len(blob).to_bytes(2, "big") + blob)
 
 

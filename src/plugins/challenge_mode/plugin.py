@@ -9,8 +9,7 @@ from shared_types.commands import NewPresetGameCommand, InitOpenCommand
 from shared_types.enums import GameMode
 from shared_types.events import CloseEvent, GameFinishedEvent, LanguageChangeEvent
 from plugin_sdk import BasePlugin, PluginInfo, make_plugin_icon, WindowMode
-from Crypto.Random import get_random_bytes
-from Crypto.Cipher import AES
+from shared_types.aes_gcm import encrypt_gcm, decrypt_gcm
 
 import json
 import base64
@@ -26,19 +25,11 @@ _LEVELS_KEY = b"Ch4ll3ng3M0deK3y!2026SecureKey!!"
 
 
 def _encrypt(data: bytes) -> bytes:
-    nonce = get_random_bytes(12)
-    cipher = AES.new(_LEVELS_KEY, AES.MODE_GCM, nonce=nonce)
-    ciphertext, tag = cipher.encrypt_and_digest(data)
-    return base64.b64encode(nonce + tag + ciphertext)
+    return base64.b64encode(encrypt_gcm(_LEVELS_KEY, data))
 
 
 def _decrypt(data: bytes) -> bytes:
-    raw = base64.b64decode(data)
-    nonce = raw[:12]
-    tag = raw[12:28]
-    ciphertext = raw[28:]
-    cipher = AES.new(_LEVELS_KEY, AES.MODE_GCM, nonce=nonce)
-    return cipher.decrypt_and_verify(ciphertext, tag)
+    return decrypt_gcm(_LEVELS_KEY, base64.b64decode(data))
 
 
 def _find_center_click(board: list[list[int]]) -> tuple[int, int]:

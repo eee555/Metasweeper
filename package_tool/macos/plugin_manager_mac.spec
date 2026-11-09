@@ -24,7 +24,6 @@ a = Analysis(
         # 对齐 Windows 版 Nuitka 打包的显式包含清单（动态导入无法被静态分析发现）
         "sqlite3", "code", "xmlrpc.server", "xmlrpc.client",
         "http.server", "socketserver",
-        "Crypto.Cipher.AES", "Crypto.Random",
         "PySide6.QtQuickWidgets", "PySide6.QtQuick", "PySide6.QtQml", "PySide6.QtCharts",
         "zmq", "msgspec", "loguru", "requests", "textdistance",
         "cryptography", "PyMCUlib", "ms_toollib",

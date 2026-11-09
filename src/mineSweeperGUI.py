@@ -26,8 +26,7 @@ import os
 import hashlib
 import uuid
 from pathlib import Path
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
+from shared_types.aes_gcm import encrypt_gcm, GCMCipher
 import csv
 import math
 import time
@@ -506,11 +505,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
     def _save_finished_record(self, event, record):
         GameServerBridge.instance().send_event(event)
         binary_data = record.encode()
-        # GCM 推荐 12 字节 nonce
-        nonce = get_random_bytes(12)
-        cipher = AES.new(superGUI.STATS_DAT_KEY, AES.MODE_GCM, nonce=nonce)
-        # 加密并生成认证 tag
-        ciphertext, tag = cipher.encrypt_and_digest(binary_data)
+        # 密文布局：[12字节nonce][16字节tag][ciphertext]
+        blob = encrypt_gcm(superGUI.STATS_DAT_KEY, binary_data)
         dat_file_path = self.setting_path / 'stats.dat'
         if (not dat_file_path.exists()) or dat_file_path.stat().st_size == 0:
             with open(dat_file_path, 'wb') as f:
@@ -519,7 +515,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # 写入：
         # [2字节长度][12字节nonce][16字节tag][ciphertext]
         with open(dat_file_path, 'ab') as f:
-            blob = nonce + tag + ciphertext
             blob_length = len(blob)
             len_bytes = blob_length.to_bytes(2, byteorder="big", signed=False)
             f.write(len_bytes)
@@ -1720,6 +1715,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         if not dat_path.exists() or dat_path.stat().st_size == 0:
             return set()
         md5s = set()
+        cipher = GCMCipher(superGUI.STATS_DAT_KEY)
         try:
             with open(dat_path, "rb") as f:
                 f.read(1)
@@ -1731,13 +1727,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                     blob = f.read(bl)
                     if not blob or len(blob) < bl:
                         break
-                    nonce = blob[:12]
-                    tag = blob[12:28]
-                    ct = blob[28:]
                     try:
-                        cipher = AES.new(superGUI.STATS_DAT_KEY,
-                                         AES.MODE_GCM, nonce=nonce)
-                        pt = cipher.decrypt_and_verify(ct, tag)
+                        pt = cipher.decrypt(blob)
                         md5s.add(utils.StatsRecord.decode(pt).short_md5)
                     except Exception:
                         continue

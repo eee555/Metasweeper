@@ -32,7 +32,7 @@ if [ ! -x "$PY" ]; then
     "$PY" -m pip install \
         "PySide6>=6.8.0" "ms-toollib>=1.5.17" "msgspec>=0.20.0" "pyzmq" \
         "loguru>=0.7.3" "requests>=2.33.1" "textdistance" \
-        "pycryptodome>=3.20.0" "cryptography>=50.0.2" "PyMCUlib>=1.0.3" \
+        "cryptography>=50.0.2" "PyMCUlib>=1.0.3" \
         "setuptools" "pyinstaller>=6.10" \
         "pyobjc-core>=10.0" "pyobjc-framework-Cocoa>=10.0"
 fi
