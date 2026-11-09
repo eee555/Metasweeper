@@ -9,6 +9,7 @@ from PySide6.QtGui import QPalette, QPixmap, QIcon
 from ui.ui_main_board import Ui_MainWindow
 from pathlib import Path
 from utils.path_utils import resource_path
+from utils.pixmap_utils import render_svg_pixmap, scale_bitmap_pixmap
 from dialogs.gameScoreBoard import gameScoreBoardManager
 from country_name import country_name
 import os
@@ -391,14 +392,22 @@ class Ui_MainWindow(Ui_MainWindow):
                   else QPixmap(self.led_path_map[key]))
             for key in SKIN_LED_KEYS
         }
+        # 统一按「目标尺寸 × 屏幕 DPR」出图，避免 Retina 屏上位图 DPR=1
+        # 被整体拉伸导致的发糊：磁盘默认表情是 SVG，矢量重栅格化；
+        # 内存皮肤位图与 LED PNG（无论皮肤或磁盘）走物理分辨率平滑缩放。
+        dpr = self.mainWindow.devicePixelRatioF()
+        face_size = int(pixSize * 1.5)
         self.pixmapNum = {
-            key: value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-            for key, value in self.pixmapNumPix.items()
+            key: (scale_bitmap_pixmap(source, face_size, face_size, dpr)
+                  if faces and key in faces
+                  else render_svg_pixmap(self.face_path_map[key],
+                                         face_size, face_size, dpr))
+            for key, source in self.pixmapNumPix.items()
         }
         # 以上是笑脸；以下是上方LED数字的图片（比例 208/368 沿用原逻辑）
+        led_width = int(pixSize * 1.5 * 208 / 368)
         self.pixmapLEDNum = {
-            key: value.copy().scaled(
-                int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+            key: scale_bitmap_pixmap(value, led_width, face_size, dpr)
             for key, value in self.pixmapLEDNumPix.items()
         }
 
