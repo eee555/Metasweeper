@@ -33,7 +33,8 @@ if [ ! -x "$PY" ]; then
         "PySide6>=6.8.0" "ms-toollib>=1.5.17" "msgspec>=0.20.0" "pyzmq" \
         "loguru>=0.7.3" "requests>=2.33.1" "textdistance" \
         "pycryptodome>=3.20.0" "cryptography>=50.0.2" "PyMCUlib>=1.0.3" \
-        "setuptools" "pyinstaller>=6.10"
+        "setuptools" "pyinstaller>=6.10" \
+        "pyobjc-core>=10.0" "pyobjc-framework-Cocoa>=10.0"
 fi
 
 "$PY" - <<'EOF'
@@ -50,22 +51,31 @@ if [ ! -f "$BUILD/Metasweeper.icns" ]; then
 fi
 
 # ── 3. PyInstaller 两段打包 ─────────────────────────────
-rm -rf "$DIST" "$BUILD/work_main" "$BUILD/work_pm"
+# 清理旧构建产物：移入废纸篓（可恢复）而非直接 rm -rf，
+# 避免批量删除误伤 + 兼容 WorkBuddy 安全删除护栏
+trash_dir() {
+    [ -e "$1" ] || return 0
+    local dest="$HOME/.Trash/$(basename "$1")_$(date +%Y%m%d_%H%M%S)"
+    mv "$1" "$dest"
+}
+trash_dir "$DIST"
+trash_dir "$BUILD/work_main"
+trash_dir "$BUILD/work_pm"
 
 echo "[mac] 打包主程序 Metasweeper.app ..."
-"$PY" -m PyInstaller --noconfirm --clean \
+"$PY" -m PyInstaller --noconfirm \
     --distpath "$DIST" --workpath "$BUILD/work_main" \
     "$MACOS_DIR/metasweeper_mac.spec"
 
 echo "[mac] 打包插件管理器 plugin_manager.app ..."
-"$PY" -m PyInstaller --noconfirm --clean \
+"$PY" -m PyInstaller --noconfirm \
     --distpath "$DIST" --workpath "$BUILD/work_pm" \
     "$MACOS_DIR/plugin_manager_mac.spec"
 
 # ── 4. 组装最终 .app ────────────────────────────────────
 APP="$DIST/Metasweeper.app"
 echo "[mac] 内嵌插件管理器到 Resources ..."
-rm -rf "$APP/Contents/Resources/plugin_manager.app"
+trash_dir "$APP/Contents/Resources/plugin_manager.app"
 # 用移动而非复制，保证 dist 下只剩一个 .app（运行时只使用内嵌这份）
 mv "$DIST/plugin_manager.app" "$APP/Contents/Resources/plugin_manager.app"
 
@@ -79,7 +89,8 @@ echo "[mac] ad-hoc 签名 ..."
 codesign --force --deep --sign - "$APP"
 
 # 清理 PyInstaller COLLECT 阶段的中间目录，dist 下只保留最终 .app
-rm -rf "$DIST/Metasweeper" "$DIST/plugin_manager"
+trash_dir "$DIST/Metasweeper"
+trash_dir "$DIST/plugin_manager"
 
 # ── 5. 打包 DMG（文件名带版本号） ───────────────────────
 VERSION=$("$PY" - "$SRC/superGUI.py" <<'PYEOF'
@@ -98,7 +109,8 @@ fi
 
 DMG="$DIST/Metasweeper-$VERSION-arm64.dmg"
 DMG_STAGING="$BUILD/dmg_staging"
-rm -rf "$DMG_STAGING" "$DMG"
+trash_dir "$DMG_STAGING"
+[ -f "$DMG" ] && trash_dir "$DMG"
 mkdir -p "$DMG_STAGING"
 cp -R "$APP" "$DMG_STAGING/Metasweeper.app"
 # 标准拖拽安装布局
@@ -107,7 +119,7 @@ ln -s /Applications "$DMG_STAGING/Applications"
 echo "[mac] 生成 DMG: $(basename "$DMG") ..."
 hdiutil create -volname "Metasweeper $VERSION" -srcfolder "$DMG_STAGING" \
     -ov -format UDZO -fs HFS+ "$DMG"
-rm -rf "$DMG_STAGING"
+trash_dir "$DMG_STAGING"
 
 echo
 echo "[mac] 打包完成: $APP"

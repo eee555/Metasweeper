@@ -34,6 +34,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
 
     def _step_and_send(self, mouse_event: str, i: int, j: int):
         old = MouseState(self.label.ms_board.mouse_state)
+        logger.debug(f"step {mouse_event} @({i},{j}) mouse_state={old.name}")
         self.label.ms_board.step(mouse_event, (i, j))
         self._send_button_event(ButtonEventType.from_display_name(mouse_event), i, j, old,
                                 MouseState(self.label.ms_board.mouse_state))
@@ -194,12 +195,10 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(FACE_SMILE)
 
     def mineAreaLeftAndRightPressed(self, i, j):
-        # print("cc", i, j)
-        if self.game_state == READY or self.game_state == PLAYING or\
-                self.game_state == JOKING:
-            self._step_and_send('cc', i, j)
-            self.label.update()
-            self.set_face(FACE_CLICK)
+        # 2026-11-09 与上游作者确认：不再记录 'cc' 事件，双键按下按 Qt 报告的
+        # 实际按键（e.button()）忠实转发为 lc/rc，双击由状态机在解析时合成。
+        # 此槽保留仅为兼容旧信号连接，正常路径不会再被触发。
+        logger.debug(f"leftAndRightPressed legacy path hit @({i},{j}), ignored")
 
     def mineMouseMove(self, i, j):
         # 正常情况的鼠标移动事件，与高亮的显示有关

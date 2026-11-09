@@ -21,6 +21,7 @@ from config.constants import (
     BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT,
     FACE_SMILE, FACE_CLICK, FACE_LOST, FACE_WIN, FACE_SMILE_DOWN,
     LEVEL_NAME_BEGINNER, LEVEL_NAME_INTERMEDIATE, LEVEL_NAME_EXPERT, LEVEL_NAME_CUSTOM,
+    READY, BOARD_READY, MIN_PIX_SIZE, MAX_PIX_SIZE,
 )
 from utils.app_logger import logger
 from plugin_sdk import GameServerBridge
@@ -319,6 +320,14 @@ class Ui_MainWindow(Ui_MainWindow):
         self.frameShortcut8.setAutoRepeat(False)
         self.frameShortcut9 = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+Space"), MainWindow)
+        if sys.platform == "darwin":
+            # macOS 上 Qt 把 "Ctrl" 映射为 ⌘，故原快捷键实际是 ⌘Space，
+            # 被系统 Spotlight 占用；⌃Space 又被输入源切换热键占用——
+            # 该按键组合在 mac 上永远到不了应用，内置截图无法触发。
+            # 补充 ⌘⇧A（Qt 写作 "Ctrl+Shift+A"，与微信截图一致，系统未占用）。
+            # ⌘Space 保留，供已在系统设置改键的用户使用。
+            self.frameShortcut9_mac = QtGui.QShortcut(
+                QtGui.QKeySequence("Ctrl+Shift+A"), MainWindow)
         self.shortcut_hidden_score_board = QtGui.QShortcut(
             QtGui.QKeySequence(QtCore.Qt.Key_Slash), MainWindow)  # /键隐藏计数器
 
@@ -353,6 +362,15 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label_11.mousewheelEvent.connect(self.mineNumWheel)
         self.label_12.mousewheelEvent.connect(self.mineNumWheel)
         self.label_13.mousewheelEvent.connect(self.mineNumWheel)
+
+        # 拖拽窗口边缘调整大小：棋盘区域优先吃掉多余空间，界面比例随之缩放
+        self.mainWindow.dragResize.connect(self.apply_drag_scale)
+        self.mainWindow.dragResizeFinished.connect(self.finish_drag_scale)
+        self.frame.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
+                                 QtWidgets.QSizePolicy.Policy.Expanding)
+        self.verticalLayout_2.setStretch(0, 1)    # frame_1 优先于底部信息行伸展
+        self.verticalLayout.setStretch(1, 1)      # 板区行优先于 LED 计数条伸展
+        self.horizontalLayout_2.setStretch(1, 1)  # 棋盘框优先于两侧弹簧伸展
 
         self.mainWindow.keyRelease.connect(self.mineKeyReleaseEvent)
 
@@ -476,20 +494,84 @@ class Ui_MainWindow(Ui_MainWindow):
             v, str) and v.isdigit() else v for (k, v) in s}
 
     def minimumWindow(self):
-        # 最小化展示窗口，并固定尺寸
+        # 收缩窗口至与界面精确贴合；不再锁定窗口尺寸，允许拖拽边缘缩放
         self.label.setFixedSize(QtCore.QSize(self.pixSize*self.column,
                                              self.pixSize*self.row))
         self.windowSizeState = 'tight'
+        # 允许窗口向缩小方向拖拽到格子为最小尺寸(MIN_PIX_SIZE)为止
+        mw = self.mainWindow
+        # 吸附/布局自适应期间抑制拖拽判定，避免滚轮缩放引发的
+        # 程序化窗口变化被误判为用户拖拽
+        mw._suppress_drag = True
+        # 停掉上一轮吸附 timer：每次调用都新建而不停旧的话，旧 timer
+        # 泄漏且所有 timer 共享 minimum_counter，互相干扰吸附与状态清除
+        if getattr(self, "timer_", None) is not None:
+            self.timer_.stop()
         self.timer_ = QTimer()
         self.timer_.timeout.connect(self.__minimumWindow)
         self.timer_.start(1)
 
     def __minimumWindow(self):
-        self.mainWindow.setFixedSize(self.mainWindow.minimumSize())
+        # 拖拽边缘期间不打断用户调整，松手后由 dragResizeFinished 吸附
+        if self.mainWindow.flag_drag_border:
+            return
+        # minimumSizeHint 依赖布局缓存：棋盘刚 setFixedSize 过时直接取值
+        # 会拿到旧棋盘（如高级）的滞后尺寸，据此抬高窗口 minimumSize 会把
+        # 后续吸附 resize(新 hint) 卡死（窗口不贴合、拖拽失效）。先强制
+        # 同步重算布局再测量
+        mw = self.mainWindow
+        layout = mw.layout()
+        if layout is not None:
+            layout.invalidate()
+            layout.activate()
+        hint = mw.minimumSizeHint()
+        if hint.isValid():
+            delta_w = (self.pixSize - MIN_PIX_SIZE) * self.column
+            delta_h = (self.pixSize - MIN_PIX_SIZE) * self.row
+            mw.setMinimumSize(max(1, hint.width() - delta_w),
+                              max(1, hint.height() - delta_h))
+            # 让窗口管理器按界面固有比例约束拖拽（macOS 原生等比锁）
+            mw.set_interface_aspect(hint.width(), hint.height())
+            # 程序化吸附打标记，避免被误判为用户拖拽
+            mw._programmatic = True
+            mw.resize(hint)
+            mw._programmatic = False
         self.minimum_counter += 1
         if self.minimum_counter >= 100:
             self.minimum_counter = 0
             self.timer_.stop()
+            mw._suppress_drag = False
+
+    def __drag_scale_target(self):
+        # 按棋盘框当前可容纳的空间，换算出整数格子边长
+        layout = self.mainWindow.layout()
+        if layout is not None:
+            layout.activate()  # 立即重算布局，避免测量到滞后的棋盘框尺寸
+        border = 2 * self.frame.lineWidth()
+        avail_w = self.frame.width() - border
+        avail_h = self.frame.height() - border
+        if avail_w <= 0 or avail_h <= 0:
+            return None
+        pix = min(avail_w // self.column, avail_h // self.row)
+        return max(MIN_PIX_SIZE, min(MAX_PIX_SIZE, pix))
+
+    def apply_drag_scale(self):
+        # 拖拽边缘调整窗口大小：界面比例实时跟随（仅未开局时生效，防止局面被重置）
+        if self.game_state != READY or\
+                self.label.ms_board.game_board_state != BOARD_READY:
+            return
+        pix = self.__drag_scale_target()
+        if pix and pix != self.pixSize:
+            self.pixSize = pix
+
+    def finish_drag_scale(self):
+        # 松手：把比例调整到位，并让窗口吸附到与界面精确贴合的大小
+        if self.game_state == READY and\
+                self.label.ms_board.game_board_state == BOARD_READY:
+            pix = self.__drag_scale_target()
+            if pix and pix != self.pixSize:
+                self.pixSize = pix
+        self.minimumWindow()
 
     def trans_language(self, language=""):
         if not language:

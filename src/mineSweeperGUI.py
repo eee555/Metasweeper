@@ -175,6 +175,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.frameShortcut7.activated.connect(lambda: self.predefined_Board(6))
         self.frameShortcut8.activated.connect(self.showScores)
         self.frameShortcut9.activated.connect(self.screenShot)
+        # macOS 补充的 Cmd+Shift+A 截图快捷键（见 superGUI 中 frameShortcut9_mac）
+        if hasattr(self, "frameShortcut9_mac"):
+            self.frameShortcut9_mac.activated.connect(self.screenShot)
         self.frameShortcutF3.activated.connect(self.replay_current_board)
         self.shortcut_hidden_score_board.activated.connect(
             self.hidden_score_board)
@@ -268,14 +271,22 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
         self.reimportLEDPic(pixSize)
         self.label_2.reloadFace(pixSize)
+        # 窗口凹凸边框（阴影/高亮）跟随格子缩放，否则放大后边框过细而失真。
+        # 以启动时的格子尺寸为基准，保证默认外观与设计一致
+        if not hasattr(self, "_bevel_base_pix_size"):
+            self._bevel_base_pix_size = pixSize
+        bevel_scale = pixSize / self._bevel_base_pix_size
+        if hasattr(self, "frame_1"):
+            self.frame_1.setLineWidth(max(1, round(6 * bevel_scale)))
+            self.frame.setLineWidth(max(1, round(4 * bevel_scale)))
+            self.MinenumTimeWigdet.setLineWidth(
+                max(1, round(4 * bevel_scale)))
         self.set_face(FACE_SMILE)
         self.showMineNum(self.mineUnFlagedNum)
         self.showTime(0)
-        if hasattr(self, "_pixSize") and pixSize < self._pixSize:
-            self._pixSize = pixSize
-            self.minimumWindow()
-            return
+        # 放大和缩小都要让窗口贴合界面，否则放大后格子会被窗口裁剪
         self._pixSize = pixSize
+        self.minimumWindow()
 
     @property
     def gameMode(self):
@@ -1183,8 +1194,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         row = self.predefinedBoardPara[k]['row']
         column = self.predefinedBoardPara[k]['column']
         mine_num = self.predefinedBoardPara[k]['mine_num']
-        self.setBoard_and_start(row, column, mine_num)
-        self.pixSize = self.predefinedBoardPara[k]['pixsize']
+        # 切换级别时保持当前缩放比例：沿用切换前的格子尺寸，
+        # 而不是恢复目标级别各自存档的 pixsize
+        self.setBoard_and_start(row, column, mine_num, self.pixSize)
         if isinstance(self.label.ms_board, ms.BaseVideo):
             self.label.ms_board.reset(row, column, self.pixSize)
         else:
@@ -1234,7 +1246,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             #     "minenum": self.minenum,
             # })
 
-    def set_board_params(self, row, column, minenum):
+    def set_board_params(self, row, column, minenum, pixsize=None):
         self.row = row
         self.column = column
         self.minenum = minenum
@@ -1248,18 +1260,20 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
         params = self.predefinedBoardPara[0] if isinstance(
             board_key, tuple) else self.predefinedBoardPara[board_key]
-        self.pixSize = params['pixsize']
+        # pixsize 为 None 时沿用该级别存档的格子尺寸；调用方也可显式指定
+        # （例如快捷键切换级别时传入当前 pixSize，以保持缩放比例不变）
+        self.pixSize = params['pixsize'] if pixsize is None else pixsize
         self.gameMode = params['gamemode']
         self.board_constraint = params['board_constraint']
         self.attempt_times_limit = params['attempt_times_limit']
 
-    def setBoard_and_start(self, row, column, minenum):
+    def setBoard_and_start(self, row, column, minenum, pixsize=None):
         # 把局面设置成(row, column, minenum)，把3BV的限制设置成min3BV, max3BV
         # 比gameStart更高级
         # if self.game_state == 'display' or self.game_state == 'showdisplay':
         #     self.label.paintProbability = False
         if (self.row, self.column, self.minenum) != (row, column, minenum):
-            self.set_board_params(row, column, minenum)
+            self.set_board_params(row, column, minenum, pixsize)
             self.label.set_rcp(row, column, self.pixSize)
             self.gameStart()
         else:

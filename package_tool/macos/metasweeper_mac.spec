@@ -57,9 +57,35 @@ coll = COLLECT(
     upx=False,
     name="Metasweeper",
 )
+# 录像文件类型声明：让 macOS 的"打开方式"和 Finder 双击关联到 Metasweeper。
+# 这些扩展名没有系统内置 UTI，需同时声明 UTImportedTypeDeclarations。
+_VIDEO_EXTENSIONS = ["avf", "evf", "rmv", "mvf", "evfs"]
+
+info_plist = {
+    "CFBundleDocumentTypes": [
+        {
+            "CFBundleTypeName": f"Metasweeper video ({ext})",
+            "CFBundleTypeRole": "Viewer",
+            "LSItemContentTypes": [f"top.openms.metasweeper.{ext}"],
+            "CFBundleTypeIconFile": "Metasweeper.icns",
+        }
+        for ext in _VIDEO_EXTENSIONS
+    ],
+    "UTImportedTypeDeclarations": [
+        {
+            "UTTypeIdentifier": f"top.openms.metasweeper.{ext}",
+            "UTTypeDescription": f"Metasweeper video ({ext})",
+            "UTTypeConformsTo": ["public.data"],
+            "UTTypeTagSpecification": {"public.filename-extension": [ext]},
+        }
+        for ext in _VIDEO_EXTENSIONS
+    ],
+}
+
 app = BUNDLE(
     coll,
     name="Metasweeper.app",
     icon=os.path.join(SPECPATH, "build", "Metasweeper.icns"),
     bundle_identifier="top.openms.metasweeper",
+    info_plist=info_plist,
 )
