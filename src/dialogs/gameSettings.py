@@ -53,6 +53,26 @@ class ui_Form(Ui_Form):
 
         self.Dialog = RoundQDialog(mainWindow.mainWindow)
         self.setupUi(self.Dialog)
+        # macOS（Fusion 样式 + 全局圆角边框 QSS + 高 DPR）下，QSpinBox 的
+        # 内部 QLineEdit 会被布局坍缩成 1px 宽：数字渲染不出来（看起来
+        # 「不显示」），键入的内容也进不去（看起来「无法输入」）。
+        # 实测 sizeHint=39 而 spinBox 被拉宽到 130，多余宽度全被边框吃掉。
+        # 给内部 QLineEdit 设最小宽度即可根治，两个数字框一并处理。
+        self.spinBox_pixsize.lineEdit().setMinimumWidth(100)
+        self.spinBox_auto_replay.lineEdit().setMinimumWidth(100)
+        # 数字直通模式：中文输入法激活时数字键不被候选词拦截
+        self.spinBox_pixsize.setInputMethodHints(Qt.ImhDigitsOnly)
+        # ClickFocus 下 Tab 键进不来；StrongFocus 同时支持点击与 Tab 聚焦
+        self.spinBox_pixsize.setFocusPolicy(Qt.StrongFocus)
+        # 无边框窗口在 macOS 上可能不成为 key window（键盘事件全被丢弃），
+        # show 时强制激活窗口
+        orig_show = self.Dialog.show
+
+        def _show_and_activate():
+            orig_show()
+            self.Dialog.activateWindow()
+
+        self.Dialog.show = _show_and_activate
         for combo_box in self.Dialog.findChildren(QComboBox):
             combo_box.view().setStyleSheet("""
                 QListView {
@@ -81,6 +101,20 @@ class ui_Form(Ui_Form):
         self.comboBox_country.addItems(self.country_name)
 
         self.setParameter()
+
+        # 主界面缩放（拖拽边缘/Ctrl+滚轮/换级别）时，实时同步「方格边长」
+        # 显示；对话框自身正被编辑时不覆盖用户输入。
+        # 对话框每次打开都新建、关闭即废弃，关闭时必须退订，防止回调悬挂。
+        self._on_pix_size = None
+        subscribe = getattr(mainWindow, "on_pix_size_changed", None)
+        if subscribe is not None:
+            self._on_pix_size = self.on_pix_size_changed
+            subscribe(self._on_pix_size)
+
+    def on_pix_size_changed(self, pix_size: int):
+        # 只有数值真的变了才回写，避免打断正在输入的用户
+        if self.spinBox_pixsize.value() != pix_size:
+            self.spinBox_pixsize.setValue(pix_size)
 
     def set_country_flag(self, flag_name):
         # 设置国旗图案
