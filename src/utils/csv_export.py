@@ -5,6 +5,7 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import os
 import csv
+import tempfile
 from datetime import datetime
 from time import perf_counter
 
@@ -352,6 +353,47 @@ class CsvExportWorker(QThread):
             self.error = str(exc)
 
 
+class CsvBatchExportWorker(QThread):
+    progress = Signal(int, str, object, object)
+
+    def __init__(self, dat_path, targets, key, parent=None):
+        super().__init__(parent)
+        self.dat_path = dat_path
+        self.targets = targets
+        self.key = key
+        self.results = []
+        self.error = None
+
+    def run(self):
+        temporary = []
+        try:
+            for index, (target, export_all) in enumerate(self.targets):
+                fd, name = tempfile.mkstemp(prefix='.csv-export-', suffix='.tmp',
+                                            dir=str(target.parent))
+                temporary.append(name)
+                os.close(fd)
+                count = export_csv(
+                    self.dat_path, name, self.key, export_all,
+                    lambda phase, current, total: self.progress.emit(
+                        index, phase, current, total),
+                )
+                self.results.append((target, count, False))
+            for index, (target, count, _) in enumerate(self.results):
+                os.replace(temporary[index], target)
+                self.results[index] = (target, count, True)
+            self.progress.emit(1, "done", 1, 1)
+        except Exception as exc:
+            self.error = str(exc)
+        finally:
+            for name in temporary:
+                try:
+                    os.unlink(name)
+                except FileNotFoundError:
+                    pass
+                except OSError:
+                    pass
+
+
 class CsvExportProgressDialog(QProgressDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -382,3 +424,17 @@ class CsvExportProgressDialog(QProgressDialog):
                               .replace("{cur}", str(current))
                               .replace("{total}", str(total)))
             self.setValue(300 + int(fraction * 700))
+
+    @Slot(int, str, object, object)
+    def update_batch_progress(self, index, phase, current, total):
+        if phase == "done":
+            self.setValue(1000)
+            return
+        fraction = min(1.0, current / max(total, 1))
+        part = fraction * 0.3 if phase == "read" else 0.3 + fraction * 0.7
+        name = "Stats" if index == 0 else "Textstats"
+        self.setLabelText(self.tr("正在导出 {name}（{stage}/2）... {percent}%")
+                          .replace("{name}", name)
+                          .replace("{stage}", str(index + 1))
+                          .replace("{percent}", str(min(99, int((index + part) * 50)))))
+        self.setValue(min(999, int((index + part) * 500)))

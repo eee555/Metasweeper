@@ -9,7 +9,8 @@ from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QApplication
 
 from utils import StatsRecord, board_list_to_bytes
-from utils.csv_export import export_csv, CsvExportWorker, CsvExportProgressDialog
+from utils.csv_export import (export_csv, CsvExportWorker, CsvExportProgressDialog,
+                              CsvBatchExportWorker)
 
 
 KEY = bytes(range(16))
@@ -69,6 +70,72 @@ def test_invalid_record_skipped_and_empty_input(tmp_path):
     dat.write_bytes(b"\0")
     with pytest.raises(ValueError, match="未找到有效的记录"):
         export_csv(dat, target, KEY)
+
+
+def test_batch_export_matches_individual_files(tmp_path):
+    dat = tmp_path / "stats.dat"
+    write_dat(dat, [make_record(), make_record(game_state=2)])
+    targets = [(tmp_path / "stats.csv", False), (tmp_path / "textstats.csv", True)]
+    worker = CsvBatchExportWorker(dat, targets, KEY)
+    worker.run()
+    assert worker.error is None
+    assert [count for _, count, _ in worker.results] == [1, 2]
+    assert all(published for _, _, published in worker.results)
+    for path, export_all in targets:
+        reference = tmp_path / (path.stem + "-reference.csv")
+        export_csv(dat, reference, KEY, export_all)
+        assert path.read_bytes() == reference.read_bytes()
+
+
+def test_batch_export_failure_preserves_existing_files(tmp_path, monkeypatch):
+    import utils.csv_export as module
+
+    targets = [(tmp_path / "stats.csv", False), (tmp_path / "textstats.csv", True)]
+    for path, _ in targets:
+        path.write_text("original", encoding="utf-8")
+    def fail_second(dat, target, key, export_all, progress):
+        if export_all:
+            raise OSError("write failed")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("new")
+        return 1
+
+    monkeypatch.setattr(module, "export_csv", fail_second)
+    worker = CsvBatchExportWorker(tmp_path / "stats.dat", targets, KEY)
+    worker.run()
+    assert worker.error == "write failed"
+    assert all(path.read_text(encoding="utf-8") == "original" for path, _ in targets)
+    assert not list(tmp_path.glob(".csv-export-*.tmp"))
+
+
+def test_batch_export_reports_partial_publish_failure(tmp_path, monkeypatch):
+    import utils.csv_export as module
+
+    targets = [(tmp_path / "stats.csv", False), (tmp_path / "textstats.csv", True)]
+    for path, _ in targets:
+        path.write_text("original", encoding="utf-8")
+
+    def fake_export(dat, target, key, export_all, progress):
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("new")
+        return 1
+
+    replace_file = module.os.replace
+
+    def fail_second(source, target):
+        if target == targets[1][0]:
+            raise OSError("replace failed")
+        replace_file(source, target)
+
+    monkeypatch.setattr(module, "export_csv", fake_export)
+    monkeypatch.setattr(module.os, "replace", fail_second)
+    worker = CsvBatchExportWorker(tmp_path / "stats.dat", targets, KEY)
+    worker.run()
+    assert worker.error == "replace failed"
+    assert [published for _, _, published in worker.results] == [True, False]
+    assert targets[0][0].read_text(encoding="utf-8") == "new"
+    assert targets[1][0].read_text(encoding="utf-8") == "original"
+    assert not list(tmp_path.glob(".csv-export-*.tmp"))
 
 
 @pytest.mark.parametrize("fail", [False, True])

@@ -13,6 +13,7 @@ from pathlib import Path
 from shared_types.aes_gcm import encrypt_gcm, decrypt_gcm, GCMCipher
 from time import perf_counter
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QApplication
+from PySide6.QtGui import QAction
 from mainWindowGUI import MainWindow
 from ui.ui_import import Ui_Form as Ui_Import
 from ui.uiComponents import RoundQDialog
@@ -35,6 +36,10 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         self.action_stats_csv.triggered.connect(lambda: self._export_csv())
         self.action_textstats_csv.triggered.connect(
             lambda: self._export_csv(True))
+        self.action_export_all_csv = QAction(
+            _translate("MainWindow", "导出全部 CSV"), self.mainWindow)
+        self.menu_8.insertAction(self.action_meta_dat, self.action_export_all_csv)
+        self.action_export_all_csv.triggered.connect(self._export_all_csv)
         self.action_meta_dat.triggered.connect(lambda: self._export_meta_dat())
         self.action_meta_all_dat.triggered.connect(
             lambda: self._export_meta_dat(True))
@@ -48,6 +53,11 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             lambda: self._copy_board(2, "emoji"))
         self.action_copy_image_png.triggered.connect(self._copy_board_image)
         self.action_copy_image_svg.triggered.connect(self._copy_board_svg)
+
+    def retranslateUi(self, MainWindow):
+        super().retranslateUi(MainWindow)
+        if hasattr(self, "action_export_all_csv"):
+            self.action_export_all_csv.setText(_translate("MainWindow", "导出全部 CSV"))
 
     # ═══════════════════════════════════════════════════════════
     # 复制局面到剪贴板
@@ -525,6 +535,56 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
 
         QMessageBox.information(self.mainWindow, _translate("MainWindow", "导出成功"),
                                 _translate("MainWindow", "已导出 {n} 条记录到\n{path}").replace("{n}", str(record_num)).replace("{path}", save_path))
+
+    def _export_all_csv(self):
+        """选择目录后一次导出两种现有 CSV 格式。"""
+        from utils.csv_export import CsvBatchExportWorker, CsvExportProgressDialog
+
+        dat_path = self.setting_path / 'stats.dat'
+        if not dat_path.exists() or dat_path.stat().st_size == 0:
+            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导出失败"),
+                                _translate("MainWindow", "stats.dat 不存在或为空"))
+            return
+        directory = QFileDialog.getExistingDirectory(
+            self.mainWindow, _translate("MainWindow", "选择 CSV 导出目录"),
+            str(self.setting_path))
+        if not directory:
+            return
+        safe_name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', '_', self.player_identifier).strip(' .') or 'player'
+        targets = [(Path(directory) / f"{safe_name}_stats.csv", False),
+                   (Path(directory) / f"{safe_name}_textstats.csv", True)]
+        existing = [str(path) for path, _ in targets if path.exists()]
+        if existing and QMessageBox.question(
+                self.mainWindow, _translate("MainWindow", "确认覆盖"),
+                _translate("MainWindow", "以下文件已存在，是否覆盖？\n{paths}")
+                .replace("{paths}", "\n".join(existing)),
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return
+
+        dialog = CsvExportProgressDialog(self.mainWindow)
+        worker = CsvBatchExportWorker(dat_path, targets, superGUI.STATS_DAT_KEY, dialog)
+        worker.progress.connect(dialog.update_batch_progress)
+        worker.finished.connect(dialog.accept)
+        QTimer.singleShot(0, worker.start)
+        dialog.exec()
+        worker.wait()
+        dialog.deleteLater()
+        completed = [(path, count) for path, count, published in worker.results if published]
+        details = "\n".join(
+            _translate("MainWindow", "{path}：{n} 条记录")
+            .replace("{path}", str(path)).replace("{n}", str(count))
+            for path, count in completed)
+        if worker.error is not None:
+            pending = "\n".join(str(path) for path, _ in targets
+                                if not any(path == done for done, _ in completed))
+            message = _translate("MainWindow", "导出 CSV 失败：{error}").replace("{error}", worker.error)
+            if details:
+                message += "\n" + _translate("MainWindow", "已导出：") + "\n" + details
+            if pending:
+                message += "\n" + _translate("MainWindow", "未导出：") + "\n" + pending
+            QMessageBox.warning(self.mainWindow, _translate("MainWindow", "导出失败"), message)
+        else:
+            QMessageBox.information(self.mainWindow, _translate("MainWindow", "导出成功"), details)
 
     def _export_meta_dat(self, all=False):
         dat_path = self.setting_path / 'stats.dat'
