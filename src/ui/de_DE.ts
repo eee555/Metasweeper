@@ -232,8 +232,8 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
     <name>DetachedPluginWindow</name>
     <message>
         <location filename="../plugin_manager/main_window.py" line="116"/>
-        <source>📎  关闭此窗口可自动嵌回到标签页</source>
-        <translation>📎  Schließen zum Andocken</translation>
+        <source>关闭此窗口将释放插件界面</source>
+        <translation>Beim Schließen wird die Plugin-Oberfläche freigegeben</translation>
     </message>
 </context>
 <context>
@@ -3590,6 +3590,11 @@ Bild</translation>
         <location filename="../plugin_manager/main_window.py" line="452"/>
         <source>启动时显示窗口:</source>
         <translation>Fenster beim Start:</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="453"/>
+        <source>仅影响下次启动；打开/关闭当前窗口不会更改此设置</source>
+        <translation>Gilt nur für den nächsten Start; Öffnen oder Schließen des aktuellen Fensters ändert diese Einstellung nicht</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="456"/>

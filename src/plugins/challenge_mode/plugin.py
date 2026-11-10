@@ -52,6 +52,9 @@ def _find_center_click(board: list[list[int]]) -> tuple[int, int]:
 class ChallengeModePlugin(BasePlugin):
     """无猜闯关插件"""
 
+    # _create_widget() 早于 on_initialized() 执行，需提供窗口创建期的默认值。
+    _auto_next: bool = False
+
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(

@@ -232,8 +232,8 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     <name>DetachedPluginWindow</name>
     <message>
         <location filename="../plugin_manager/main_window.py" line="116"/>
-        <source>📎  关闭此窗口可自动嵌回到标签页</source>
-        <translation>📎  Zamknij, aby wrócić do zakładki</translation>
+        <source>关闭此窗口将释放插件界面</source>
+        <translation>Zamknięcie tego okna zwalnia widok wtyczki</translation>
     </message>
 </context>
 <context>
@@ -3590,6 +3590,11 @@ nieśmiertelnego ciała</translation>
         <location filename="../plugin_manager/main_window.py" line="452"/>
         <source>启动时显示窗口:</source>
         <translation>Pokaż przy starcie:</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="453"/>
+        <source>仅影响下次启动；打开/关闭当前窗口不会更改此设置</source>
+        <translation>Dotyczy tylko następnego uruchomienia; otwarcie lub zamknięcie bieżącego okna nie zmienia tego ustawienia</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="456"/>

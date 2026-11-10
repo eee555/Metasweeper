@@ -58,6 +58,9 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
             name="剪贴板助手",
             version="1.0.0",
             description="监听剪贴板内容，识别后交给对应处理器执行",
+            # 默认不自动开启界面；该开关只在启动时读取一次，
+            # 不控制运行期间窗口实例的生命周期，也不被打开/关闭窗口反向写入。
+            show_window=False,
             window_mode=WindowMode.TAB,
             other_info=ClipboardReplayConfig,
         )

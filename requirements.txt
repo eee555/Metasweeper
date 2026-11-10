@@ -15,4 +15,5 @@ pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
 # 开发/测试/打包依赖
 pytest>=7.4.0
 pytest-qt>=4.2.0
+pytest-cov>=7.1.0
 mypy>=1.8.0

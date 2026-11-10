@@ -232,8 +232,8 @@
     <name>DetachedPluginWindow</name>
     <message>
         <location filename="../plugin_manager/main_window.py" line="116"/>
-        <source>📎  关闭此窗口可自动嵌回到标签页</source>
-        <translation>📎  閉じるとタブに戻ります</translation>
+        <source>关闭此窗口将释放插件界面</source>
+        <translation>このウィンドウを閉じるとプラグイン画面が解放されます</translation>
     </message>
 </context>
 <context>
@@ -3590,6 +3590,11 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <location filename="../plugin_manager/main_window.py" line="452"/>
         <source>启动时显示窗口:</source>
         <translation>起動時に表示:</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="453"/>
+        <source>仅影响下次启动；打开/关闭当前窗口不会更改此设置</source>
+        <translation>次回起動時のみ有効です。現在のウィンドウを開閉してもこの設定は変更されません</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="456"/>

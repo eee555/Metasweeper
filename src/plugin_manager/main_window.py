@@ -3,7 +3,7 @@
 
 独立进程的主界面，用于管理和展示插件
 - 支持标签页双击/拖拽弹出为独立窗口
-- 支持关闭独立窗口自动嵌回标签页
+- 关闭独立窗口时释放插件界面（析构 widget）；程序化嵌回入口仍保留
 - 增强型连接状态显示（含 endpoint、重连次数、实时心跳检测）
 """
 from __future__ import annotations
@@ -91,12 +91,13 @@ class DetachedPluginWindow(QDialog):
     弹出的独立插件窗口
 
     特性：
-    - 关闭时自动将 widget 嵌回主窗口标签页
-    - 标题栏显示"📎 嵌回"提示
+    - 用户点击窗口 X 关闭时，走 close_requested 请求析构插件 widget（不嵌回标签页）
+    - 程序化把独立窗口切回标签页由 _open_tab_window 直接调用 _attach_tab
+    - 标题栏显示"关闭即释放窗口"提示
     """
 
-    # 信号：窗口被用户关闭，请求将 widget 嵌回标签页
-    embed_requested = Signal(str)
+    # 用户主动关闭窗口：请求释放插件视图（不嵌回、不回写配置）
+    close_requested = Signal(str)
 
     def __init__(self, plugin_name: str, widget: QWidget, parent=None):
         super().__init__(parent)
@@ -112,8 +113,8 @@ class DetachedPluginWindow(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-       # 顶部提示栏
-        hint_bar = QLabel(self.tr("📎  关闭此窗口可自动嵌回到标签页"))
+        # 顶部提示栏（保留此栏：_attach_tab 依赖 layout 第 1 项为插件 widget）
+        hint_bar = QLabel(self.tr("关闭此窗口将释放插件界面"))
         hint_bar.setFixedHeight(25)
         hint_bar.setAlignment(Qt.AlignCenter)
         hint_bar.setStyleSheet("""
@@ -158,10 +159,17 @@ class DetachedPluginWindow(QDialog):
         super().mouseReleaseEvent(event)
 
     def closeEvent(self, event) -> None:
-        """关闭时发出嵌入请求信号，不销毁 widget"""
-        self.embed_requested.emit(self._plugin_name)
-        self.hide()
-        event.ignore()
+        """用户点 X：请求析构插件视图；程序化 close() 不触发该请求。
+
+        ``_cleanup_detached`` / ``_remove_plugin_window`` 会先 blockSignals(True)
+        再 close()，此时 signalsBlocked() 为真，直接走默认关闭，不 emit
+        close_requested，从而避免信号重入与二次析构。
+        """
+        if self.signalsBlocked():
+            super().closeEvent(event)
+            return
+        self.close_requested.emit(self._plugin_name)
+        super().closeEvent(event)
 
 
 class _DetachableTabBar(QTabBar):
@@ -214,12 +222,14 @@ class DetachableTabWidget(QTabWidget):
     操作方式：
     - 双击标签页 → 弹出为独立窗口
     - 向下拖拽标签页 → 弹出为独立窗口
-    - 关闭独立窗口 → 自动嵌回
+    - 关闭独立窗口 → 析构插件视图（不嵌回）
+    - 程序化 _open_tab_window → 可把独立窗口嵌回标签页
     """
 
-    tab_detached = Signal(str)           # 标签页被弹出 (plugin_name)
-    tab_attach_requested = Signal(str)    # 请求嵌回 (plugin_name)
-    tab_close_requested = Signal(str)     # 请求关闭标签页 (plugin_name)
+    tab_detached = Signal(str)             # 标签页被弹出 (plugin_name)
+    tab_attach_requested = Signal(str)      # 请求嵌回 (plugin_name)
+    tab_close_requested = Signal(str)       # 请求关闭标签页 (plugin_name)
+    window_close_requested = Signal(str)    # 独立窗口被用户关闭 (plugin_name)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -264,7 +274,9 @@ class DetachableTabWidget(QTabWidget):
         window._icon = icon
         if icon and not icon.isNull():
             window.setWindowIcon(icon)
-        window.embed_requested.connect(self._attach_tab)
+        # 用户点独立窗口 X → 转发给管理器走析构路径。
+        # 程序化嵌回由 _open_tab_window 直接调用 _attach_tab，无需信号连线。
+        window.close_requested.connect(self.window_close_requested)
         self._detached_windows[name] = window
 
         if pos is not None:
@@ -440,12 +452,22 @@ class PluginSettingsDialog(QDialog):
         form = QFormLayout(grp)
 
         self._chk_enabled = ToggleSwitch()
+        self._chk_enabled.blockSignals(True)
         self._chk_enabled.setChecked(state.enabled)
+        self._chk_enabled.blockSignals(False)
         form.addRow(self.tr("启用插件:"), self._chk_enabled)
 
         self._chk_show = ToggleSwitch()
+        self._chk_show.blockSignals(True)
         self._chk_show.setChecked(state.show_window)
+        self._chk_show.blockSignals(False)
+        show_hint = QLabel(self.tr("仅影响下次启动；打开/关闭当前窗口不会更改此设置"))
+        show_hint.setWordWrap(True)
+        show_hint.setStyleSheet("color: #666; font-size: 11px;")
+        self._chk_show.setToolTip(
+            self.tr("仅影响下次启动；打开/关闭当前窗口不会更改此设置"))
         form.addRow(self.tr("启动时显示窗口:"), self._chk_show)
+        form.addRow("", show_hint)
         layout.addWidget(grp)
 
         # ── 窗口模式 ──
@@ -1315,6 +1337,7 @@ class PluginManagerWindow(QMainWindow):
         self._tab_widget.tab_detached.connect(self._on_tab_detached)
         self._tab_widget.tab_attach_requested.connect(self._on_tab_attached)
         self._tab_widget.tab_close_requested.connect(self._on_tab_closed)
+        self._tab_widget.window_close_requested.connect(self._on_detached_window_closed)
         main_layout.addWidget(self._tab_widget, stretch=1)
 
         self.setCentralWidget(main_splitter)
@@ -1849,20 +1872,29 @@ class PluginManagerWindow(QMainWindow):
                 t.setCurrentIndex(i)
                 return
 
-        # 从关闭列表中移除并重新打开
+        # 从关闭列表中移除并重新打开；show_window 只影响启动，不在此回写。
+        # 手动打开窗口属于当前会话的视图状态，绝不更改启动开关或启动配置。
         self._closed_plugins.discard(name)
         st = self._effective_state(name)
         if st.window_mode == WindowMode.DETACHED:
             self._open_detached_window(name)
         else:
             t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
-            self._sync_state(name, window_mode=WindowMode.TAB)
 
     def _remove_plugin_window(self, name: str) -> None:
-        """从当前容器中移除视图，并交给插件统一销毁。"""
+        """从 Tab / 独立窗口容器移除视图，并真正析构 widget 实例。
+
+        关闭 Tab、关闭独立窗口、禁用插件等运行期关闭路径都走到这里；
+        ``plugin.close_widget()`` 会置空实例缓存并 deleteLater，之后再次打开
+        由 ``ensure_widget()`` 重新 ``_create_widget()``，不会复用已析构的
+        C++ 对象。启动期隐藏路径由 ``_apply_saved_states`` 直接 close_widget
+        （那时视图尚未挂入容器）。本函数只负责实例生命周期，绝不回写配置。
+        """
         t = self._tab_widget
         plugin = self._manager.plugins.get(name)
         if name in t._detached_windows:
+            # blockSignals 让 closeEvent 走默认关闭，不再 emit close_requested，
+            # 避免程序化清理触发析构重入或重复信号。
             window = t._detached_windows.pop(name)
             window.blockSignals(True)
             window.close()
@@ -1872,6 +1904,7 @@ class PluginManagerWindow(QMainWindow):
                 t.removeTab(i)
                 break
         if plugin is not None and plugin.widget is not None:
+            # 先把 widget 从任何容器摘下，再由插件统一析构，避免野指针/重复析构。
             widget = plugin.widget
             widget.hide()
             widget.setParent(None)
@@ -1879,9 +1912,8 @@ class PluginManagerWindow(QMainWindow):
         self._closed_plugins.add(name)
 
     def _close_plugin_window(self, name: str) -> None:
-        """关闭窗口并销毁视图；插件后台继续运行。"""
+        """关闭独立窗口并析构视图；插件后台继续运行，不回写启动开关。"""
         self._remove_plugin_window(name)
-        self._sync_state(name, window_mode=WindowMode.CLOSED)
 
     def _open_plugin_log(self, name: str) -> None:
         """打开插件日志查看对话框"""
@@ -1944,16 +1976,9 @@ class PluginManagerWindow(QMainWindow):
                     self._remove_plugin_window(name)
                     self._manager.disable_plugin(name)
 
-            # 立即应用窗口模式变化
-            if current.window_mode != new_state.window_mode:
-                if new_state.window_mode == WindowMode.CLOSED:
-                    self._close_plugin_window(name)
-                elif new_state.window_mode == WindowMode.DETACHED:
-                    self._closed_plugins.discard(name)
-                    self._open_detached_window(name)
-                else:  # TAB
-                    self._closed_plugins.discard(name)
-                    self._open_tab_window(name)
+            # show_window 仅决定下次启动是否自动显示窗口。
+            # 在此勾选/取消勾选都不隐藏、关闭或重建任何当前窗口实例；
+            # 窗口模式变化同样只作为启动偏好保存，不驱动当前窗口生命周期。
 
             # 立即应用日志级别
             if plugin and current.log_level != new_state.log_level:
@@ -1992,7 +2017,9 @@ class PluginManagerWindow(QMainWindow):
             if not st.enabled and p.is_enabled:
                 self._manager.disable_plugin(name)
 
-            # 启动状态已由管理器在初始化前应用；窗口需要关闭时释放视图。
+            # 启动状态已由管理器在初始化前应用；show_window=False / CLOSED 时
+            # 不自动显示窗口，并释放已创建的 widget 实例（不长期持有隐藏实例）。
+            # 此处只读配置，不回写；之后手动打开窗口会重建新实例。
             mode = st.window_mode
             if p.is_enabled and (not st.show_window or mode == WindowMode.CLOSED):
                 self._closed_plugins.add(name)
@@ -2071,8 +2098,14 @@ class PluginManagerWindow(QMainWindow):
 
     def _on_tab_closed(self, name: str) -> None:
         logger.debug(f"Tab closed: {name}")
+        # 关闭标签页只影响本次会话的视图，不回写启动偏好。
         self._remove_plugin_window(name)
-        self._sync_state(name, window_mode=WindowMode.CLOSED)
+
+    @Slot(str)
+    def _on_detached_window_closed(self, name: str) -> None:
+        """用户点独立窗口 X：与关闭 Tab 同样析构实例，不回写配置、不嵌回。"""
+        logger.debug(f"Detached window closed: {name}")
+        self._remove_plugin_window(name)
 
     # ── 窗口事件 ────────────────────────────────────────
 

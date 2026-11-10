@@ -232,8 +232,8 @@ The dropdown only shows plugins that declare the permission.</translation>
     <name>DetachedPluginWindow</name>
     <message>
         <location filename="../plugin_manager/main_window.py" line="116"/>
-        <source>📎  关闭此窗口可自动嵌回到标签页</source>
-        <translation>📎  Close to reattach to tab</translation>
+        <source>关闭此窗口将释放插件界面</source>
+        <translation>Closing this window releases the plugin view</translation>
     </message>
 </context>
 <context>
@@ -3587,6 +3587,11 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <location filename="../plugin_manager/main_window.py" line="452"/>
         <source>启动时显示窗口:</source>
         <translation>Show on start:</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="453"/>
+        <source>仅影响下次启动；打开/关闭当前窗口不会更改此设置</source>
+        <translation>Affects the next startup only; opening or closing the current window does not change this setting</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="456"/>

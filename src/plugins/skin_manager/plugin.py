@@ -66,6 +66,8 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
                 "两者为相互独立的功能与授权"
             ),
             icon=QIcon(str(Path(__file__).resolve().with_name("icon.svg"))),
+            # 默认不自动开启界面；只在启动时读取，不与窗口生命周期联动。
+            show_window=False,
             window_mode=WindowMode.TAB,
             other_info=SkinManagerConfig,
             # 两条独立授权：只授权其中一个也能正常使用对应功能
