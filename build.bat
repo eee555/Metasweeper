@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 
 set OUT=dist\app
 set DEST=%OUT%\metaminsweeper
-set EXCLUDES=--exclude-module numpy --exclude-module PIL --exclude-module Pillow --exclude-module Cython --exclude-module setuptools --exclude-module pkg_resources --exclude-module psutil --exclude-module pytest --exclude-module _pytest
+set EXCLUDES=--exclude-module numpy --exclude-module PIL --exclude-module Pillow --exclude-module Cython --exclude-module setuptools --exclude-module pkg_resources --exclude-module psutil --exclude-module pytest --exclude-module _pytest --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts
 
 if not exist "src\media\cat.ico" (
     pushd package_tool
@@ -46,6 +46,7 @@ if errorlevel 1 exit /b 1
 
 pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/media/cat.ico ^
     %EXCLUDES% ^
+    --paths src ^
     --runtime-hook package_tool\hook-debugpy-pyinstaller.py ^
     --add-data "src/plugins;plugins" ^
     --add-data "src/shared_types;shared_types" ^
@@ -59,9 +60,8 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --hidden-import email --hidden-import email.utils ^
     --hidden-import requests ^
     --hidden-import win32api --hidden-import win32event --hidden-import winerror ^
-    --hidden-import ms_toollib --hidden-import PySide6.QtQuickWidgets ^
-    --hidden-import PySide6.QtQuick --hidden-import PySide6.QtQml ^
-    --hidden-import PySide6.QtCharts ^
+    --hidden-import ms_toollib ^
+    --hidden-import shared_types.aes_gcm --hidden-import config.constants --hidden-import utils.app_logger ^
     --distpath "%OUT%" src\plugin_manager\_run.py
 if errorlevel 1 exit /b 1
 

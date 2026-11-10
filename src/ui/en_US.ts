@@ -2766,56 +2766,6 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugins/stats/plugin.py" line="29"/>
-        <source>前N名平均（0=全部平均）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="33"/>
-        <source>设置0则显示全部平均，设置N则显示前N名的平均值</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="37"/>
-        <source>初级BV最小值</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="44"/>
-        <source>初级BV最大值</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="51"/>
-        <source>中级BV最小值</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="58"/>
-        <source>中级BV最大值</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="65"/>
-        <source>高级BV最小值</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="72"/>
-        <source>高级BV最大值</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="91"/>
-        <source>统计</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/stats/plugin.py" line="92"/>
-        <source>游戏数据统计与可视化</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../dialogs/gameAdvancedSettings.py" line="62"/>
         <location filename="../dialogs/gameAdvancedSettings.py" line="74"/>
         <source>允许 %1</source>

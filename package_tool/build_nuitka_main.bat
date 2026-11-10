@@ -6,9 +6,7 @@ pushd "%~dp0\.."
 set "PYTHON=.venv\Scripts\python.exe"
 if not defined NUITKA_CONSOLE_MODE set "NUITKA_CONSOLE_MODE=disable"
 if not defined NUITKA_OUTPUT_DIR set "NUITKA_OUTPUT_DIR=dist\metasweeper-nuitka"
-set "EXCLUDE_OPTIONS=--nofollow-import-to=numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests"
-set "QML_EXCLUDE_OPTIONS="
-for %%M in (QtQuick3D Qt3D QtGraphs QtDataVisualization QtLocation QtMultimedia QtPositioning QtTest QtTextToSpeech QtSensors QtRemoteObjects QtScxml QtWebEngine QtWebChannel QtWebSockets QtWebView) do call set "QML_EXCLUDE_OPTIONS=%%QML_EXCLUDE_OPTIONS%% --noinclude-data-files=PySide6/qml/%%M/* --noinclude-dlls=PySide6/qml/%%M/*"
+set "EXCLUDE_OPTIONS=--nofollow-import-to=numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests,PySide6.QtQuickWidgets,PySide6.QtQuick,PySide6.QtQml,PySide6.QtCharts"
 set "MANAGER_DEBUGPY_OPTION=--nofollow-import-to=debugpy"
 if /i "%NUITKA_INCLUDE_DEBUGPY%"=="1" set "MANAGER_DEBUGPY_OPTION=--include-package=debugpy"
 if defined PYTHONPATH (
@@ -78,9 +76,7 @@ if errorlevel 1 (
 "%PYTHON%" -m nuitka ^
     --mode=standalone ^
     --enable-plugin=pyside6 ^
-    --include-qt-plugins=qml ^
     %EXCLUDE_OPTIONS% ^
-    %QML_EXCLUDE_OPTIONS% ^
     --windows-console-mode=%NUITKA_CONSOLE_MODE% ^
     --output-dir="%MANAGER_STAGE%" ^
     --output-filename=plugin_manager.exe ^
@@ -106,10 +102,6 @@ if errorlevel 1 (
     --include-module=xmlrpc.client ^
     --include-module=http.server ^
     --include-module=socketserver ^
-    --include-module=PySide6.QtQuickWidgets ^
-    --include-module=PySide6.QtQuick ^
-    --include-module=PySide6.QtQml ^
-    --include-module=PySide6.QtCharts ^
     --include-module=win32api ^
     --include-module=win32event ^
     --include-module=winerror ^
@@ -161,22 +153,6 @@ if errorlevel 1 (
 )
 xcopy /e /i /y /h "src\plugins\*" "%PACKAGE_DIR%\internal\plugins\" >nul
 if errorlevel 1 (
-    popd
-    exit /b 1
-)
-for %%F in (qt6webenginecore.dll qt6webenginequick.dll qt6webenginequickdelegatesqml.dll qt6webchannel.dll qt6webchannelquick.dll qt6websockets.dll qt6webview.dll qt6webviewquick.dll) do (
-    if exist "%PACKAGE_DIR%\%%F" del /q "%PACKAGE_DIR%\%%F"
-)
-for /d %%D in ("%PACKAGE_DIR%\PySide6\qml\QtWebEngine*" "%PACKAGE_DIR%\PySide6\qml\QtWebChannel" "%PACKAGE_DIR%\PySide6\qml\QtWebSockets" "%PACKAGE_DIR%\PySide6\qml\QtWebView") do (
-    if exist "%%~fD" rmdir /s /q "%%~fD"
-)
-if exist "%PACKAGE_DIR%\qt6webenginecore.dll" (
-    echo Could not remove unused Qt WebEngine runtime from package.
-    popd
-    exit /b 1
-)
-if exist "%PACKAGE_DIR%\PySide6\qml\QtWebEngine" (
-    echo Could not remove unused Qt WebEngine QML module from package.
     popd
     exit /b 1
 )

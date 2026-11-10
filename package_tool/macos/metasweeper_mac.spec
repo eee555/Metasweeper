@@ -32,6 +32,7 @@ a = Analysis(
         "pywin32", "win32api", "win32con", "win32gui", "win32event",
         "winerror", "pythoncom", "pywintypes", "debugpy",
         "pytest", "_pytest", "tkinter",
+        "PySide6.QtQuickWidgets", "PySide6.QtQuick", "PySide6.QtQml", "PySide6.QtCharts",
     ],
     noarchive=False,
 )

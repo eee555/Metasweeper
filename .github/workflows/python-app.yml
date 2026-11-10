@@ -72,6 +72,8 @@ jobs:
             --exclude setuptools --exclude pkg_resources `
             --exclude psutil --exclude numpy `
             --exclude pytest --exclude _pytest `
+            --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
+            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
             --runtime-hook package_tool/hook-debugpy-pyinstaller.py `
             src/main.py
 
@@ -81,6 +83,7 @@ jobs:
             --noconfirm `
             --name plugin_manager `
             --windowed `
+            --paths src `
             --icon src/media/cat.ico `
             --add-data "src/plugins;plugins" `
             --add-data "src/shared_types;shared_types" `
@@ -102,14 +105,15 @@ jobs:
             --hidden-import win32event `
             --hidden-import winerror `
             --hidden-import ms_toollib `
-            --hidden-import PySide6.QtQuickWidgets `
-            --hidden-import PySide6.QtQuick `
-            --hidden-import PySide6.QtQml `
-            --hidden-import PySide6.QtCharts `
+            --hidden-import shared_types.aes_gcm `
+            --hidden-import config.constants `
+            --hidden-import utils.app_logger `
             --exclude PIL --exclude Pillow --exclude Cython `
             --exclude setuptools --exclude pkg_resources `
             --exclude psutil --exclude numpy `
             --exclude pytest --exclude _pytest `
+            --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
+            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
             --runtime-hook package_tool/hook-debugpy-pyinstaller.py `
             --distpath dist\plugin_manager_out `
             src\plugin_manager\_run.py

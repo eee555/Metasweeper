@@ -103,7 +103,6 @@ The **Plugin Manager** runs on a ZMQ event bus, fully decoupled from the main pr
 * **History plugin**: automatically records every game session; right-click to copy any record as JSON; import/export in stats.dat / meta.dat / textstats.csv formats; supports "calculated columns".
 * **LLM Controller plugin**: control the game via natural language through a large language model ("open intermediate", "flag this tile", etc.).
 * **XianNiUpgrade plugin**: XP / level-up / lottery system that gamifies Minesweeper practice, with intelligent replay absorption.
-* **Stats plugin v1.0.0**: provides game data statistics and analysis.
 * **Challenge Mode plugin v1.0.0-beta**: provides guess-free mode level challenges.
 * **Advanced settings panel**: central management for plugin authorization, event subscriptions, board update security toggles, and more.
 * The plugin SDK is fully open — anyone can write custom plugins and hook into the event bus.
