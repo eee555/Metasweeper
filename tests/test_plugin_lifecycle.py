@@ -189,6 +189,66 @@ def test_previous_generation_events_do_not_run_after_restart(app):
         plugin.shutdown()
 
 
+@pytest.mark.parametrize("worker_shutdown", [False, True])
+def test_shutdown_drains_accepted_events_and_keeps_other_plugin_running(app, worker_shutdown):
+    dispatcher = EventDispatcher()
+    plugin = ProbePlugin()
+    other = ProbePlugin()
+    plugin.set_event_dispatcher(dispatcher)
+    other.set_event_dispatcher(dispatcher)
+    entered = threading.Event()
+    release = threading.Event()
+    received = []
+    other_received = []
+    plugin.on_shutdown = lambda: received.append("shutdown")
+    try:
+        plugin.initialize()
+        other.initialize()
+        wait_until(lambda: plugin.is_ready and other.is_ready)
+        dispatcher.subscribe("test", received.append, plugin=plugin)
+        dispatcher.subscribe("test", other_received.append, plugin=other)
+
+        def block(_):
+            entered.set()
+            release.wait(5)
+            if worker_shutdown:
+                plugin.shutdown()
+
+        assert plugin._enqueue_event(block, None)
+        assert entered.wait(3)
+        dispatcher.dispatch("test", "queued")
+        if worker_shutdown:
+            release.set()
+            wait_until(lambda: plugin.lifecycle == PluginLifecycle.STOPPED)
+        else:
+            rejected = []
+
+            def release_after_shutdown_starts():
+                while plugin.lifecycle != PluginLifecycle.SHUTTING_DOWN:
+                    if release.wait(0.005):
+                        return
+                rejected.append(plugin._enqueue_event(received.append, "late"))
+                release.set()
+
+            thread = threading.Thread(target=release_after_shutdown_starts)
+            thread.start()
+            plugin.disable()
+            thread.join(3)
+            assert not thread.is_alive()
+            assert rejected == [False]
+        wait_until(lambda: other_received == ["queued"])
+        assert received == ["queued", "shutdown"]
+        dispatcher.dispatch("test", "other-only")
+        wait_until(lambda: other_received == ["queued", "other-only"])
+        assert received == ["queued", "shutdown"]
+    finally:
+        release.set()
+        plugin._thread.wait(3000)
+        plugin.shutdown()
+        other.shutdown()
+        QCoreApplication.processEvents()
+
+
 def test_blocked_callback_does_not_prevent_shutdown_timeout(app):
     plugin = ProbePlugin()
     entered = threading.Event()

@@ -583,7 +583,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
         由 _event_dispatch 信号触发，QueuedConnection 保证跨线程安全。
         """
         try:
-            if self.is_ready and self.is_enabled:
+            if ((self.is_ready and self.is_enabled)
+                    or self._lifecycle == PluginLifecycle.SHUTTING_DOWN):
                 handler(event)
         except Exception as e:
             self.logger.error(
@@ -660,11 +661,11 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
         self._unsubscribe_resources()
         if self._thread.isRunning():
-            if QThread.currentThread() == self._thread:
-                self._do_shutdown()
-                return
+            # 即使由插件线程发起，也必须排在已接收的事件之后。
             QMetaObject.invokeMethod(
                 self, "_do_shutdown", Qt.ConnectionType.QueuedConnection)
+            if QThread.currentThread() == self._thread:
+                return
             if not self._thread.wait(2000):
                 self.logger.warning(
                     f"Plugin is still stopping: {self.name}")
@@ -737,16 +738,20 @@ class BasePlugin(QObject, Generic[ConfigT]):
         - 非阻塞，立即返回
 
         Returns:
-            True（始终成功，Qt 信号无内置背压）
+            已接收返回 True；插件正在关闭或已停止返回 False。
         """
-        generation = self._generation
+        with self._resource_lock:
+            if self._lifecycle in (PluginLifecycle.SHUTTING_DOWN, PluginLifecycle.STOPPED):
+                return False
+            generation = self._generation
 
-        def deliver(current_event):
-            if generation == self._generation:
-                handler(current_event)
+            def deliver(current_event):
+                if generation == self._generation:
+                    handler(current_event)
 
-        self._event_dispatch.emit(deliver, event)
-        return True
+            # 与 shutdown 的状态切换互斥，保证已接收事件先于清理回调入队。
+            self._event_dispatch.emit(deliver, event)
+            return True
 
     # ═══════════════════════════════════════════════════════════════════
     # 抽象方法
@@ -809,7 +814,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
             except Exception as e:
                 future.set_exception(e)
 
-        self._enqueue_event(_run, None)
+        if self._enqueue_event(_run, None) is False:
+            return {"_plugin": f"Plugin is stopping: {self.name}"}
         try:
             return future.result(timeout=timeout)
         except Exception as e:
@@ -1150,7 +1156,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
                 future.set_exception(e)
 
         # 投递到服务提供者的线程
-        provider._enqueue_event(_execute_in_provider_thread, None)
+        if provider._enqueue_event(_execute_in_provider_thread, None) is False:
+            raise RuntimeError(f"Service provider is stopping: {protocol.__name__}")
 
         # 等待结果
         return future.result(timeout=timeout)
@@ -1199,7 +1206,10 @@ class BasePlugin(QObject, Generic[ConfigT]):
             except Exception as e:
                 future.set_exception(e)
 
-        provider._enqueue_event(_execute_in_provider_thread, None)
+        if provider._enqueue_event(_execute_in_provider_thread, None) is False:
+            future.set_exception(
+                RuntimeError(f"Service provider is stopping: {protocol.__name__}")
+            )
 
         return future
 
@@ -1245,9 +1255,9 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
     def disable(self) -> None:
         """禁用插件"""
-        self._info.enabled = False
         if self._lifecycle != PluginLifecycle.STOPPED:
             self.shutdown()
+        self._info.enabled = False
 
     def __repr__(self) -> str:
         return f"<Plugin {self._info.name} v{self._info.version} [{self._lifecycle.value}]>"

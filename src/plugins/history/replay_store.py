@@ -143,23 +143,26 @@ def seal_staging(conn: sqlite3.Connection, limit: int = BLOCK_SIZE) -> int:
         成功封入块的条数。
     """
     cursor = conn.cursor()
-    rows = cursor.execute(
-        "SELECT replay_id, raw_data, codec FROM replay_staging "
-        "ORDER BY replay_id LIMIT ?", (limit,),
-    ).fetchall()
-    if not rows:
+    if limit <= 0:
         return 0
+    rows = conn.execute(
+        "SELECT replay_id, raw_data, codec FROM replay_staging ORDER BY replay_id"
+    )
 
-    # 解压成原始字节；结构异常者单独降级，不参与本块
+    # limit 限制可封块条数，而不是扫描条数；降级记录不能阻塞后续录像。
     usable: list[tuple[int, bytes]] = []
     for replay_id, staged, codec in rows:
         try:
+            if codec not in (CODEC_ZLIB, CODEC_RAW):
+                raise ValueError(f"未知 staging codec={codec}")
             raw = zlib.decompress(staged) if codec == CODEC_ZLIB else staged
-            split_evf(raw)              # 只验证可安全定位，不修改字节
+            split_evf(raw)
             usable.append((replay_id, raw))
-        except (zlib.error, UnsupportedReplayError, ValueError):
-            logger.warning("录像 %s 结构不支持列式，降级为逐条 zlib", replay_id)
-            continue
+            if len(usable) >= limit:
+                break
+        except (zlib.error, UnsupportedReplayError, ValueError, TypeError):
+            logger.warning("录像 %s 结构不支持列式，保留在 staging", replay_id)
+    rows.close()
     if not usable:
         return 0
 
@@ -217,27 +220,38 @@ def _read_from_segment(conn: sqlite3.Connection, replay_id: int) -> bytes | None
             (replay_id,),
         ).fetchone()
         if s is None:
-            return None
-        raw = zlib.decompress(s[0]) if s[1] == CODEC_ZLIB else s[0]
+            raise ReplayIntegrityError(f"staging 缺失: replay_id={replay_id}")
+        try:
+            if s[1] not in (CODEC_ZLIB, CODEC_RAW):
+                raise ValueError(f"未知 staging codec={s[1]}")
+            raw = zlib.decompress(s[0]) if s[1] == CODEC_ZLIB else s[0]
+        except (zlib.error, ValueError, TypeError) as exc:
+            raise ReplayIntegrityError(f"staging 解压失败: {exc}") from exc
     elif codec == CODEC_LZMA_COLUMNAR:
         seg = cursor.execute(
             "SELECT blob, record_count FROM replay_segment WHERE seg_id = ?",
             (seg_id,),
         ).fetchone()
         if seg is None:
-            return None
+            raise ReplayIntegrityError(f"录像块缺失: replay_id={replay_id}")
         try:
             payload = lzma.decompress(seg[0])
             triples = decode_group(payload, seg[1])
+            if not isinstance(slot, int) or slot < 0:
+                raise ValueError(f"无效的块内位置: {slot}")
             head, events, tail = triples[slot]
             raw = head + events + tail
         except (lzma.LZMAError, UnsupportedReplayError, ValueError,
-                IndexError) as exc:
+                IndexError, TypeError) as exc:
             raise ReplayIntegrityError(f"块解压失败: {exc}") from exc
     else:
         raise ReplayIntegrityError(f"未知 codec={codec}")
 
-    if len(raw) != length or hashlib.sha256(raw).digest() != digest:
+    try:
+        valid = len(raw) == length and hashlib.sha256(raw).digest() == digest
+    except (TypeError, ValueError) as exc:
+        raise ReplayIntegrityError(f"录像数据无效: replay_id={replay_id}") from exc
+    if not valid:
         raise ReplayIntegrityError(f"bit-exact 校验失败: replay_id={replay_id}")
     return raw
 
@@ -253,9 +267,12 @@ def read_raw_data(conn: sqlite3.Connection, replay_id: int) -> bytes | None:
     cursor = conn.cursor()
     # a) 新存储
     try:
-        if cursor.execute(
-            "SELECT 1 FROM replay_index WHERE replay_id = ?", (replay_id,)
-        ).fetchone():
+        index_row = cursor.execute(
+            "SELECT deleted FROM replay_index WHERE replay_id = ?", (replay_id,)
+        ).fetchone()
+        if index_row:
+            if index_row[0]:
+                return None  # tombstone 必须阻止旧副本复活
             try:
                 return _read_from_segment(conn, replay_id)
             except ReplayIntegrityError as exc:
@@ -390,33 +407,50 @@ def finalize_migration(conn: sqlite3.Connection,
     Returns:
         是否成功清空（False 表示校验未通过，旧表保持不动）。
     """
-    cursor = conn.cursor()
-    try:
-        rows = cursor.execute(
-            "SELECT replay_id, raw_data, compressed FROM replay_data"
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return False
-    if not rows:
-        return False
-    if expected is not None and len(rows) != expected:
-        logger.warning("迁移条数不符 (%d != %d)，保留旧表", len(rows), expected)
+    # 不接管调用方的事务，也不能在已有事务内执行 VACUUM。
+    if conn.in_transaction:
+        logger.warning("迁移收尾需要独立事务，保留旧表")
         return False
 
-    # 逐条校验新存储可读且与原字节完全一致
-    for replay_id, data, compressed in rows:
-        original = zlib.decompress(data) if compressed else data
+    try:
+        # 先取得写锁，确保校验期间其他连接无法修改新旧副本或墓碑。
+        conn.execute("BEGIN IMMEDIATE")
         try:
-            restored = _read_from_segment(conn, replay_id)
-        except ReplayIntegrityError:
-            restored = None
-        if restored != original:
-            logger.warning("迁移校验失败 rid=%s，保留旧表", replay_id)
+            rows = conn.execute(
+                "SELECT replay_id, raw_data, compressed FROM replay_data"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            conn.rollback()
+            return False
+        if not rows or (expected is not None and len(rows) != expected):
+            if rows:
+                logger.warning("迁移条数不符 (%d != %d)，保留旧表", len(rows), expected)
+            conn.rollback()
             return False
 
-    cursor.execute("DELETE FROM replay_data")
-    conn.commit()
-    conn.execute("VACUUM")
+        for replay_id, data, compressed in rows:
+            try:
+                original = zlib.decompress(data) if compressed else data
+                restored = _read_from_segment(conn, replay_id)
+            except (ReplayIntegrityError, zlib.error, TypeError):
+                restored = None
+                original = data
+            if restored is None or restored != original:
+                logger.warning("迁移校验失败 rid=%s，保留旧表", replay_id)
+                conn.rollback()
+                return False
+
+        conn.execute("DELETE FROM replay_data")
+        conn.commit()
+    except Exception:
+        if conn.in_transaction:
+            conn.rollback()
+        raise
+
+    try:
+        conn.execute("VACUUM")
+    except sqlite3.OperationalError as exc:
+        logger.warning("旧录像已清空，空间回收失败: %s", exc)
     return True
 
 

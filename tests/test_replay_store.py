@@ -293,3 +293,118 @@ def test_finalize_refuses_when_integrity_broken(conn):
     conn.commit()
     assert finalize_migration(conn) is False
     assert conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == 1
+
+
+def test_unencodable_staging_does_not_block_later_records(conn, monkeypatch):
+    monkeypatch.setattr("plugins.history.replay_store._maybe_seal", lambda c: None)
+    bad = make_evf(version=3)
+    for rid in range(1, 4):
+        write_record(conn, rid, bad)
+    good = make_evf()
+    for rid in range(4, 7):
+        write_record(conn, rid, good)
+    assert seal_staging(conn, limit=2) == 2
+    assert seal_staging(conn, limit=2) == 1
+    assert seal_staging(conn, limit=2) == 0
+    assert [read_raw_data(conn, rid) for rid in range(1, 7)] == [bad] * 3 + [good] * 3
+    assert conn.execute("SELECT COUNT(*) FROM replay_staging").fetchone()[0] == 3
+
+
+def test_automatic_sealing_progresses_past_unsupported_records(conn):
+    for rid in range(1, BLOCK_SIZE + 1):
+        write_record(conn, rid, make_evf(version=3))
+    raw = make_evf()
+    write_record(conn, BLOCK_SIZE + 1, raw)
+    assert conn.execute("SELECT codec FROM replay_index WHERE replay_id = ?",
+                        (BLOCK_SIZE + 1,)).fetchone()[0] == CODEC_LZMA_COLUMNAR
+    assert read_raw_data(conn, BLOCK_SIZE + 1) == raw
+    assert read_raw_data(conn, 1) == make_evf(version=3)
+
+
+@pytest.mark.parametrize("damage", ["bad_zlib", "missing_staging", "bad_codec",
+                                    "missing_segment", "bad_segment", "bad_slot"])
+@pytest.mark.parametrize("legacy", ["replay_data", "history"])
+def test_damaged_new_storage_falls_back(conn, damage, legacy):
+    raw = make_evf()
+    conn.execute(f"CREATE TABLE {legacy} (replay_id INTEGER PRIMARY KEY, "
+                 "raw_data BLOB, compressed INTEGER)")
+    conn.execute(f"INSERT INTO {legacy} VALUES (?, ?, ?)", (1, zlib.compress(raw), 1))
+    write_record(conn, 1, raw)
+    if damage in ("missing_segment", "bad_segment", "bad_slot"):
+        assert seal_staging(conn) == 1
+        if damage == "missing_segment":
+            conn.execute("DELETE FROM replay_segment")
+        elif damage == "bad_segment":
+            conn.execute("UPDATE replay_segment SET blob = ?", (b"broken",))
+        else:
+            conn.execute("UPDATE replay_index SET slot = -1")
+    elif damage == "bad_zlib":
+        conn.execute("UPDATE replay_staging SET raw_data = ?", (b"broken",))
+    elif damage == "bad_codec":
+        conn.execute("UPDATE replay_staging SET codec = 99")
+    else:
+        conn.execute("DELETE FROM replay_staging")
+    assert read_raw_data(conn, 1) == raw
+
+
+def test_tombstone_never_falls_back_to_old_history(conn):
+    raw = make_evf()
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, raw_data BLOB)")
+    conn.execute("INSERT INTO history VALUES (?, ?)", (1, raw))
+    write_record(conn, 1, raw)
+    mark_deleted(conn, 1)
+    conn.execute("DELETE FROM replay_staging WHERE replay_id = 1")
+    assert read_raw_data(conn, 1) is None
+    restore_deleted(conn, 1)
+    assert read_raw_data(conn, 1) == raw
+
+
+def test_finalize_preserves_caller_transaction(conn):
+    conn.execute("CREATE TABLE replay_data (replay_id INTEGER PRIMARY KEY, raw_data BLOB, compressed INTEGER)")
+    raw = make_evf()
+    conn.execute("INSERT INTO replay_data VALUES (?, ?, 0)", (1, raw))
+    write_record(conn, 1, raw)
+    assert finalize_migration(conn) is False
+    assert conn.in_transaction
+    conn.rollback()
+    assert conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == 0
+
+
+def test_finalize_locks_competing_writer_during_validation(tmp_path, monkeypatch):
+    from plugins.history import replay_store
+
+    path = tmp_path / "history.db"
+    with sqlite3.connect(path) as primary, sqlite3.connect(path, timeout=0) as other:
+        ensure_tables(primary)
+        primary.execute("CREATE TABLE replay_data (replay_id INTEGER PRIMARY KEY, raw_data BLOB, compressed INTEGER)")
+        raw = make_evf()
+        primary.execute("INSERT INTO replay_data VALUES (?, ?, 0)", (1, raw))
+        write_record(primary, 1, raw)
+        primary.commit()
+        original_read = replay_store._read_from_segment
+        attempted = []
+
+        def competing_read(conn, replay_id):
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                other.execute("UPDATE replay_index SET deleted = 1 WHERE replay_id = 1")
+            other.rollback()
+            attempted.append(True)
+            return original_read(conn, replay_id)
+
+        monkeypatch.setattr(replay_store, "_read_from_segment", competing_read)
+        assert finalize_migration(primary) is True
+        assert attempted == [True]
+        assert primary.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == 0
+        assert original_read(primary, 1) == raw
+
+
+def test_finalize_rejects_tombstone_and_releases_lock(conn):
+    conn.execute("CREATE TABLE replay_data (replay_id INTEGER PRIMARY KEY, raw_data BLOB, compressed INTEGER)")
+    raw = make_evf()
+    conn.execute("INSERT INTO replay_data VALUES (?, ?, 0)", (1, raw))
+    write_record(conn, 1, raw)
+    conn.execute("UPDATE replay_index SET deleted = 1 WHERE replay_id = 1")
+    conn.commit()
+    assert finalize_migration(conn) is False
+    assert not conn.in_transaction
+    assert conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == 1

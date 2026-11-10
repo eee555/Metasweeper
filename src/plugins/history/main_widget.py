@@ -13,7 +13,7 @@ from typing import cast
 
 from .db import db_connection
 
-from PySide6.QtCore import QCoreApplication, Signal
+from PySide6.QtCore import QCoreApplication, QSignalBlocker, Signal
 from PySide6.QtGui import QCloseEvent as _QCloseEvent
 from PySide6.QtWidgets import (
     QWidget,
@@ -265,8 +265,10 @@ class HistoryMainWidget(QWidget):
 
     def load_data(self):
         if not self._db_path.exists():
-            self.page_spin.setMaximum(1)
+            with QSignalBlocker(self.page_spin):
+                self.page_spin.setMaximum(1)
             self.limit_label.setText(_translate("Form", "共0行,0页"))
+            self.table.load([])
             return
 
         try:
@@ -322,16 +324,25 @@ class HistoryMainWidget(QWidget):
                 cursor.execute(sql, (*filter_params, per_page, offset))
                 datas = cursor.fetchall()
 
-                if not datas:
-                    self.page_spin.setMaximum(1)
-                    self.limit_label.setText(_translate("Form", "共0行,0页"))
-                else:
-                    per_page = int(self.one_page_combo.currentText())
+                if datas:
                     total = datas[0]["total_count"]
-                    max_page = math.ceil(total / per_page)
-                    self.page_spin.setMaximum(max_page)
-                    self.limit_label.setText(
-                        _translate("Form", "共%1行,%2页").replace("%1", str(total)).replace("%2", str(max_page)))
+                else:
+                    # 窗口函数在 OFFSET 越界时没有结果行，需要单独获取总数。
+                    count_sql = f"SELECT COUNT(*) FROM {from_clause}"
+                    if filter_str:
+                        count_sql += " WHERE " + filter_str
+                    cursor.execute(count_sql, filter_params)
+                    total = cursor.fetchone()[0]
+
+                max_page = math.ceil(total / per_page)
+                with QSignalBlocker(self.page_spin):
+                    self.page_spin.setMaximum(max(1, max_page))
+                if total and not datas:
+                    offset = (self.page_spin.value() - 1) * per_page
+                    cursor.execute(sql, (*filter_params, per_page, offset))
+                    datas = cursor.fetchall()
+                self.limit_label.setText(
+                    _translate("Form", "共%1行,%2页").replace("%1", str(total)).replace("%2", str(max_page)))
 
                 history_data = [HistoryData.from_dict(dict(d)) for d in datas]
         except sqlite3.Error as e:
