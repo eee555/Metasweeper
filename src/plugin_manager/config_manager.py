@@ -64,6 +64,10 @@ class PluginConfigManager:
         """
         return self._base_dir / plugin_name / self.CONFIG_FILENAME
 
+    def config_path(self, plugin_name: str) -> Path:
+        """返回插件配置文件的完整路径。"""
+        return self._config_path(plugin_name)
+
     def load(self, plugin_name: str, config: OtherInfoBase) -> OtherInfoBase:
         """
         加载插件配置
