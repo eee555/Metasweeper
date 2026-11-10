@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import threading
+import time
 import uuid
 from concurrent.futures import Future
+from dataclasses import dataclass
+from queue import Empty, Full, Queue
 from typing import Any, Callable
 from urllib.parse import urlparse
 
@@ -42,8 +45,22 @@ def _derive_endpoints(base: str) -> tuple[str, str]:
         raise ValueError(f"Unsupported scheme: {parsed.scheme}")
 
 
+@dataclass
+class _Outgoing:
+    payload: bytes
+    deadline: float
+    request_id: str = ""
+    future: Future[Any] | None = None
+
+
 class ZMQClient:
-    """ZMQ 客户端，运行在插件管理器进程中"""
+    """客户端。仅 I/O 线程创建、收发、订阅和关闭 ZMQ socket。"""
+
+    _QUEUE_LIMIT = 1024
+    _POLL_INTERVAL_MS = 20
+    _SEND_TIMEOUT = 5.0
+    _PROBE_INTERVAL = 1.0
+    _CONNECTION_TIMEOUT = 12.0
 
     def __init__(
         self,
@@ -69,6 +86,21 @@ class ZMQClient:
         self._pending_queries: dict[str, Future[BaseQueryResult]] = {}
         self._pending_lock = threading.Lock()
         self._sync_topics: dict[str, str] = {}  # request_id → topic
+        self._sync_deadlines: dict[str, float] = {}
+        self._subscribers_lock = threading.Lock()
+        self._subscription_revision = 0
+        self._subscription_versions: dict[str, int] = {}
+        self._active_versions: dict[str, int] = {}
+        self._state_lock = threading.RLock()
+        self._outgoing: Queue[_Outgoing] = Queue(self._QUEUE_LIMIT)
+        self._deferred_send: _Outgoing | None = None
+        self._active_topics: set[str] = set()
+        self._snapshot_waiting: set[str] = set()
+        self._accepting = False
+        self._ready = threading.Event()
+        self._startup_error: BaseException | None = None
+        self._last_activity = 0.0
+        self._next_probe = 0.0
 
         self._ctx: zmq.Context | None = None
         self._sub_socket: zmq.Socket | None = None
@@ -104,34 +136,66 @@ class ZMQClient:
     # ── 连接管理 ──
 
     def connect(self) -> None:
-        self._stopped.clear()
-        self._ctx = zmq.Context()
-        self._create_sockets()
-
-        self._thread = threading.Thread(target=self._poll_loop, daemon=True)
-        self._thread.start()
-
-        # 不在此处标记已连接 —— ZMQ connect 是非阻塞的，
-        # 即使服务端不存在也不会报错。
-        # 改为延迟确认：首次收到服务端响应 / 心跳成功后，
-        # 由 _on_first_activity() 触发 on_connected。
-
-        for topic in list(self._subscribers):
-            self._request_snapshot(topic)
-
-        # 启动后立即发一次心跳作为探测
-        self._probe_connection()
+        with self._state_lock:
+            if self._thread and self._thread.is_alive():
+                if self._accepting:
+                    return
+                raise RuntimeError("Client is still stopping")
+            self._stopped.clear()
+            self._ready.clear()
+            self._startup_error = None
+            self._accepting = True
+            self._thread = threading.Thread(
+                target=self._run, name="ZMQClientIO", daemon=True)
+            self._thread.start()
+        if not self._ready.wait(timeout=5.0):
+            self.disconnect()
+            raise TimeoutError("Client I/O initialization timed out")
+        if self._startup_error is not None:
+            self.disconnect()
+            raise self._startup_error
 
     def disconnect(self) -> None:
-        self._stopped.set()
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=3.0)
-        self._close_sockets()
-        if self._ctx:
-            self._ctx.term()
-        self._ctx = None
-        self._thread = None
-        self._is_connected = False
+        with self._state_lock:
+            self._accepting = False
+            self._stopped.set()
+            thread = self._thread
+        self._fail_pending(ConnectionError("Client disconnected"))
+        if thread is threading.current_thread():
+            return
+        if thread:
+            thread.join(timeout=3.0)
+            if thread.is_alive():
+                # 不跨线程强行关闭仍在使用的 socket。
+                raise RuntimeError("Client I/O thread did not stop")
+        with self._state_lock:
+            if self._thread is thread:
+                self._thread = None
+            self._is_connected = False
+
+    def _run(self) -> None:
+        try:
+            self._ctx = zmq.Context()
+            self._create_sockets()
+            self._ready.set()
+            self._poll_loop()
+        except BaseException as exc:
+            if not self._ready.is_set():
+                self._startup_error = exc
+            else:
+                self._log.error("Client I/O failed", exc_info=True)
+        finally:
+            with self._state_lock:
+                self._accepting = False
+                self._stopped.set()
+            self._fail_pending(ConnectionError("Client I/O stopped"))
+            self._discard_outgoing()
+            self._close_sockets()
+            if self._ctx is not None:
+                self._ctx.term()
+                self._ctx = None
+            self._is_connected = False
+            self._ready.set()
 
     def _create_sockets(self) -> None:
         if self._ctx is None:
@@ -141,6 +205,8 @@ class ZMQClient:
         if self._dealer_socket is None:
             return
         self._dealer_socket.setsockopt_string(zmq.IDENTITY, uuid.uuid4().hex)
+        self._dealer_socket.setsockopt(zmq.IMMEDIATE, 1)
+        self._dealer_socket.setsockopt(zmq.SNDTIMEO, 0)
 
         # 启用 ZMQ 原生心跳，自动检测服务端断开
         # HEARTBEAT_IVL: 每 5 秒发送一次心跳
@@ -158,8 +224,9 @@ class ZMQClient:
         self._poller.register(self._sub_socket, zmq.POLLIN)
         self._poller.register(self._dealer_socket, zmq.POLLIN)
 
-        for topic in self._subscribers:
-            self._sub_socket.setsockopt_string(zmq.SUBSCRIBE, topic)
+        self._last_activity = time.monotonic()
+        self._next_probe = 0.0
+        self._update_subscriptions()
 
     def _close_sockets(self) -> None:
         if self._sub_socket:
@@ -169,108 +236,206 @@ class ZMQClient:
         self._sub_socket = None
         self._dealer_socket = None
         self._poller = None
+        self._active_topics.clear()
+        self._active_versions.clear()
+        self._snapshot_waiting.clear()
+        self._sync_topics.clear()
+        self._sync_deadlines.clear()
 
     # ── 事件订阅 ──
 
     def subscribe(self, topic: type[BaseEvent], callback: Callable[[BaseEvent], None]) -> None:
         tag = get_event_tag(topic)
-        if tag not in self._subscribers:
-            self._subscribers[tag] = []
-        self._subscribers[tag].append(callback)
-        if self._sub_socket:
-            self._sub_socket.setsockopt_string(zmq.SUBSCRIBE, tag)
-            self._request_snapshot(tag)
+        with self._subscribers_lock:
+            self._subscribers.setdefault(tag, []).append(callback)
+            self._subscription_revision += 1
+            self._subscription_versions[tag] = self._subscription_revision
 
     def unsubscribe(self, topic: type[BaseEvent]) -> None:
         tag = get_event_tag(topic)
-        self._subscribers.pop(tag, None)
-        if self._sub_socket:
-            self._sub_socket.setsockopt_string(zmq.UNSUBSCRIBE, tag)
+        with self._subscribers_lock:
+            self._subscribers.pop(tag, None)
+            self._subscription_versions.pop(tag, None)
 
-    def _request_snapshot(self, topic: str) -> None:
+    def _update_subscriptions(self) -> None:
+        if self._sub_socket is None:
+            return
+        with self._subscribers_lock:
+            topics = set(self._subscribers)
+            versions = dict(self._subscription_versions)
+        for tag in self._active_topics - topics:
+            self._sub_socket.setsockopt_string(zmq.UNSUBSCRIBE, tag)
+            self._snapshot_waiting.discard(tag)
+        for tag in topics - self._active_topics:
+            self._sub_socket.setsockopt_string(zmq.SUBSCRIBE, tag)
+        for tag in topics:
+            if versions[tag] != self._active_versions.get(tag):
+                self._snapshot_waiting.add(tag)
+        self._active_topics = topics
+        self._active_versions = versions
+
+    def _request_snapshot(self, topic: str) -> bool:
         """异步发送快照同步请求"""
         if self._dealer_socket is None:
-            return
+            return False
         rid = uuid.uuid4().hex
-        self._sync_topics[rid] = topic
         cmd = SyncCommand(request_id=rid, topic=topic)
         payload = self._serializer.encode_command(cmd)
         try:
-            self._dealer_socket.send(payload)
-        except zmq.ZMQError:
-            self._log.warning(
-                "Failed to send sync request for topic: %s", topic)
-            self._sync_topics.pop(rid, None)
+            self._dealer_socket.send(payload, flags=zmq.NOBLOCK)
+        except zmq.Again:
+            return False
+        self._sync_topics[rid] = topic
+        self._sync_deadlines[rid] = time.monotonic() + self._SEND_TIMEOUT
+        return True
 
     # ── 指令发送（可在任意线程调用） ──
 
     def send_command(self, cmd: BaseCommand) -> None:
-        if self._dealer_socket is None:
-            raise RuntimeError("Client is not connected")
+        """非阻塞入队；队列已满时抛出 BufferError，异步命令不跨断线重放。"""
         payload = self._serializer.encode_command(cmd)
-        self._dealer_socket.send(payload)
+        self._enqueue(_Outgoing(payload, time.monotonic() + self._SEND_TIMEOUT))
+
+    def _enqueue(self, item: _Outgoing) -> None:
+        with self._state_lock:
+            if not self._accepting or self._stopped.is_set():
+                raise RuntimeError("Client is not connected")
+            try:
+                self._outgoing.put_nowait(item)
+            except Full:
+                raise BufferError("Client send queue is full") from None
+
+    def _wait_for_response(
+        self, payload: bytes, request_id: str,
+        deadline: float, pending: dict[str, Any],
+    ) -> Any:
+        if threading.current_thread() is self._thread:
+            raise RuntimeError("Cannot wait for a response on the client I/O thread")
+        future: Future[Any] = Future()
+        with self._state_lock:
+            if not self._accepting or self._stopped.is_set():
+                raise RuntimeError("Client is not connected")
+            with self._pending_lock:
+                pending[request_id] = future
+            try:
+                self._enqueue(_Outgoing(payload, deadline, request_id, future))
+            except BaseException:
+                with self._pending_lock:
+                    pending.pop(request_id, None)
+                raise
+        try:
+            return future.result(timeout=max(0.0, deadline - time.monotonic()))
+        finally:
+            with self._pending_lock:
+                pending.pop(request_id, None)
 
     def request(
         self, cmd: BaseCommand, timeout: float = 5.0
     ) -> CommandResponse:
-        if self._dealer_socket is None:
-            raise RuntimeError("Client is not connected")
+        deadline = time.monotonic() + timeout
         cmd.request_id = uuid.uuid4().hex
-        future: Future[CommandResponse] = Future()
-        with self._pending_lock:
-            self._pending_requests[cmd.request_id] = future
         payload = self._serializer.encode_command(cmd)
-        self._dealer_socket.send(payload)
-        return future.result(timeout=timeout)
+        return self._wait_for_response(
+            payload, cmd.request_id, deadline, self._pending_requests)
 
     def query(
         self, query: BaseQuery, timeout: float = 5.0
     ) -> BaseQueryResult:
         """发送只读查询并等待强类型响应（不经过控制授权）"""
-        if self._dealer_socket is None:
-            raise RuntimeError("Client is not connected")
+        deadline = time.monotonic() + timeout
         query.request_id = uuid.uuid4().hex
-        future: Future[BaseQueryResult] = Future()
-        with self._pending_lock:
-            self._pending_queries[query.request_id] = future
         payload = self._serializer.encode_query(query)
-        self._dealer_socket.send(payload)
-        return future.result(timeout=timeout)
+        return self._wait_for_response(
+            payload, query.request_id, deadline, self._pending_queries)
 
     # ── 后台轮询 ──
 
     def _poll_loop(self) -> None:
         while not self._stopped.is_set():
             try:
-                events = self._poller.poll(timeout=200)  # type: ignore
-            except zmq.ZMQError:
-                self._handle_reconnect(0.1)
-                continue
-
-            if not events:
-                continue
-
-            for socket, _ in events:
-                try:
+                if self._poller is None:
+                    self._create_sockets()
+                if self._poller is None:
+                    raise RuntimeError("Client poller is not initialized")
+                self._update_subscriptions()
+                self._send_queued()
+                now = time.monotonic()
+                if now >= self._next_probe:
+                    self._probe_connection()
+                    self._next_probe = now + self._PROBE_INTERVAL
+                if self._is_connected:
+                    for topic in list(self._snapshot_waiting):
+                        if self._request_snapshot(topic):
+                            self._snapshot_waiting.discard(topic)
+                for rid, deadline in list(self._sync_deadlines.items()):
+                    if now >= deadline:
+                        self._sync_deadlines.pop(rid, None)
+                        self._sync_topics.pop(rid, None)
+                events = self._poller.poll(timeout=self._POLL_INTERVAL_MS)
+                for socket, _ in events:
+                    if self._stopped.is_set():
+                        break
                     if socket is self._sub_socket:
                         self._handle_sub_message()
                     elif socket is self._dealer_socket:
                         self._handle_dealer_message()
-                    # 收到消息 = 服务端存活，确认连接
-                    self._on_first_activity()
-                except zmq.ZMQError as e:
-                    self._log.warning("Socket error during recv: %s", e)
-                    self._handle_reconnect(0.5)
+                        self._on_first_activity()
+                if time.monotonic() - self._last_activity >= self._CONNECTION_TIMEOUT:
+                    self._handle_reconnect(0.1)
+            except zmq.ZMQError:
+                self._log.warning("Client transport error", exc_info=True)
+                self._handle_reconnect(0.1)
+
+    def _send_queued(self) -> None:
+        if self._dealer_socket is None:
+            return
+        for _ in range(64):
+            item = self._deferred_send
+            if item is None:
+                try:
+                    item = self._outgoing.get_nowait()
+                except Empty:
+                    return
+            self._deferred_send = item
+            # 与 enqueue/disconnect 采用一致的锁顺序。发送为 NOBLOCK，
+            # 确保断开取消生效后，不会再发出先前已取出的队列项。
+            with self._state_lock:
+                if self._stopped.is_set():
+                    return
+                with self._pending_lock:
+                    if item.future is not None:
+                        active = (self._pending_requests.get(item.request_id) is item.future
+                                  or self._pending_queries.get(item.request_id) is item.future)
+                        if not active:
+                            self._deferred_send = None
+                            continue
+                    if time.monotonic() >= item.deadline:
+                        self._deferred_send = None
+                        if item.future is None:
+                            self._log.warning("Queued command expired before sending")
+                        continue
+                    try:
+                        self._dealer_socket.send(item.payload, flags=zmq.NOBLOCK)
+                    except zmq.Again:
+                        return
+                    self._deferred_send = None
 
     def _on_first_activity(self) -> None:
         """首次收到服务端数据时确认连接（防止虚假已连）"""
+        self._last_activity = time.monotonic()
         if self._is_connected:
             return
         self._is_connected = True
         self._has_ever_connected = True
         self._log.info("Server connection confirmed (first activity)")
-        if self.on_connected:
-            self.on_connected()
+        self._notify_connection(self.on_connected)
+
+    def _notify_connection(self, callback: Callable[[], Any] | None) -> None:
+        if callback is not None:
+            try:
+                callback()
+            except Exception:
+                self._log.error("Connection callback error", exc_info=True)
 
     def _probe_connection(self) -> bool:
         """发送探测包测试服务端是否在线"""
@@ -329,6 +494,7 @@ class ZMQClient:
 
         if resp.request_id and resp.data and resp.success:
             topic = self._sync_topics.pop(resp.request_id, None)
+            self._sync_deadlines.pop(resp.request_id, None)
             if topic:
                 try:
                     snapshot = self._serializer.decode_event(resp.data)
@@ -338,11 +504,14 @@ class ZMQClient:
                         "Failed to decode snapshot", exc_info=True)
         else:
             self._sync_topics.pop(resp.request_id, None)
+            self._sync_deadlines.pop(resp.request_id, None)
 
         self._resolve_pending(resp)
 
     def _notify_subscribers(self, topic: str, event: BaseEvent) -> None:
-        for cb in self._subscribers.get(topic, []):
+        with self._subscribers_lock:
+            callbacks = list(self._subscribers.get(topic, []))
+        for cb in callbacks:
             try:
                 cb(event)
             except Exception:
@@ -362,34 +531,37 @@ class ZMQClient:
 
     # ── 重连 ──
 
+    def _fail_pending(self, error: Exception) -> None:
+        with self._pending_lock:
+            futures = list(self._pending_requests.values()) + list(self._pending_queries.values())
+            self._pending_requests.clear()
+            self._pending_queries.clear()
+        for future in futures:
+            if not future.done():
+                future.set_exception(error)
+
+    def _discard_outgoing(self) -> None:
+        self._deferred_send = None
+        while True:
+            try:
+                self._outgoing.get_nowait()
+            except Empty:
+                return
+
     def _handle_reconnect(self, backoff: float) -> None:
         was_connected = self._is_connected
         if was_connected:
             self._is_connected = False
             self._reconnect_count += 1
-            if self.on_disconnected:
-                self.on_disconnected()
-
-        self._stopped.wait(timeout=backoff)
-        if self._stopped.is_set():
-            return
-
+        # 已发送的命令执行状态可能未知，禁止恢复后自动重放。
+        with self._state_lock:
+            self._fail_pending(ConnectionError("Server connection lost"))
+            self._discard_outgoing()
         self._close_sockets()
-        try:
-            self._create_sockets()
-        except zmq.ZMQError:
-            self._log.warning("Reconnect failed", exc_info=True)
-            # 重连失败且之前是已连接状态，保持断开
-            return
-
-        for topic in self._subscribers:
-            self._request_snapshot(topic)
-
-        # 发送探测包，等待 _on_first_activity 确认
-        self._probe_connection()
-
-        # 注意：不在这里设置 _is_connected = True / 调用 on_connected()
-        # 必须等到真正收到服务端响应后才确认
+        if was_connected:
+            self._notify_connection(self.on_disconnected)
+        # 由下一轮统一重建；创建失败继续退避，绝不访问 None poller。
+        self._stopped.wait(timeout=backoff)
 
     @property
     def is_connected(self) -> bool:

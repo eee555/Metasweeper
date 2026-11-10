@@ -11,6 +11,7 @@ import os
 import signal
 import sys
 import threading
+from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -26,7 +27,8 @@ from shared_types.events import LanguageChangeEvent
 from .event_dispatcher import EventDispatcher
 from plugin_sdk.plugin_base import BasePlugin
 from .plugin_loader import PluginLoader
-from .app_paths import get_all_plugin_dirs, get_bundle_dir, patch_sys_path_for_frozen
+from .app_paths import get_all_plugin_dirs, get_bundle_dir, get_data_dir, patch_sys_path_for_frozen
+from .plugin_state import PluginState, PluginStateManager
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication, QWidget
@@ -126,6 +128,17 @@ class PluginManager:
         # 插件管理
         self._plugins: dict[str, BasePlugin] = {}
         self._plugins_lock = threading.RLock()
+        self.state_manager = PluginStateManager(get_data_dir() / "plugin_states.json")
+        self.state_manager.load()
+
+        # 启动时只缓存事件，接收线程仍可处理插件初始化发出的查询响应。
+        # 单一 drainer 在锁外投递；清空队列和交还所有权在同一锁内完成，
+        # 避免实时事件越过启动缓冲，也允许分发回调重入/关闭管理器。
+        self._events_lock = threading.Lock()
+        self._pending_events: deque[tuple[str, BaseEvent]] = deque()
+        self._events_ready = False
+        self._events_draining = False
+        self._starting = False
 
         # 主窗口
         self._main_window = None
@@ -233,10 +246,13 @@ class PluginManager:
         ).start()
 
     def _graceful_shutdown(self) -> None:
-        """优雅关闭：调用所有插件的 shutdown 方法，然后清理资源"""
-        if self._shutdown_requested:
-            return
-        self._shutdown_requested = True
+        """关闭事件入口并丢弃缓冲，再清理资源；已开始的投递不强行中断。"""
+        with self._events_lock:
+            if self._shutdown_requested:
+                return
+            self._shutdown_requested = True
+            self._events_ready = False
+            self._pending_events.clear()
 
         logger.info("开始优雅关闭...")
 
@@ -256,21 +272,45 @@ class PluginManager:
         logger.info("优雅关闭完成")
 
     def start(self) -> None:
-        """启动插件管理器（后台模式，无界面）"""
-        if self._started:
-            return
+        """连接后初始化插件，再释放事件；失败关闭本实例，不支持停止后重启。"""
+        with self._events_lock:
+            if self._shutdown_requested:
+                raise RuntimeError("Cannot restart a stopped plugin manager")
+            if self._started or self._starting:
+                return
+            self._starting = True
 
-        # 在主线程创建，确保 QueuedConnection 投递到主线程事件循环
-        self._translator_installer = _TranslatorInstaller()
+        try:
+            # 在主线程创建，确保 QueuedConnection 投递到主线程事件循环
+            self._translator_installer = _TranslatorInstaller()
 
-        self._load_plugins()
-        self._client.connect()
-        self._setup_zmq_subscriptions()
-        self._initialize_plugins()
-        self._validate_control_authorizations()
+            self._load_plugins()
+            self._apply_saved_plugin_states()
+            # 在 connect 启动接收线程前注册回调，覆盖首次快照和实时事件。
+            self._setup_zmq_subscriptions()
+            if self._shutdown_requested:
+                return
+            self._client.connect()
+            if self._shutdown_requested:
+                return
+            # initialize 同步注册订阅并启动 QThread；on_initialized 异步执行。
+            self._initialize_plugins()
+            if self._shutdown_requested:
+                return
+            self._validate_control_authorizations()
+            self._release_startup_events()
 
-        self._started = True
-        logger.info("Plugin manager started")
+            with self._events_lock:
+                if self._shutdown_requested:
+                    return
+                self._started = True
+            logger.info("Plugin manager started")
+        except BaseException:
+            self._graceful_shutdown()
+            raise
+        finally:
+            with self._events_lock:
+                self._starting = False
 
     def _validate_control_authorizations(self) -> None:
         """验证控制授权配置，清除无效插件的授权"""
@@ -354,24 +394,54 @@ class PluginManager:
 
     def _setup_zmq_subscriptions(self) -> None:
         """设置 ZMQ 事件订阅"""
-        from shared_types.events import ShowPluginManagerEvent
         for event_type in EVENT_TYPES:
-            if event_type is ShowPluginManagerEvent or event_type is LanguageChangeEvent:
-                continue
             tag = get_event_tag(event_type)
-            # 订阅 ZMQ 事件，收到后分发给内部插件
             self._client.subscribe(
                 event_type,
-                lambda event, t=tag: self._dispatcher.dispatch(t, event),
+                lambda event, t=tag: self._queue_zmq_event(t, event),
             )
-        self._client.subscribe(
-            ShowPluginManagerEvent,
-            lambda _: self._main_window._show_requested.emit() if self._main_window else None,
-        )
-        self._client.subscribe(
-            LanguageChangeEvent,
-            self._on_language_change,
-        )
+
+    def _queue_zmq_event(self, tag: str, event: BaseEvent) -> None:
+        with self._events_lock:
+            if self._shutdown_requested:
+                return
+            self._pending_events.append((tag, event))
+            if not self._events_ready or self._events_draining:
+                return
+            self._events_draining = True
+        self._drain_zmq_events()
+
+    def _release_startup_events(self) -> None:
+        with self._events_lock:
+            if self._shutdown_requested:
+                return
+            self._events_ready = True
+            if self._events_draining:
+                return
+            self._events_draining = True
+        self._drain_zmq_events()
+
+    def _drain_zmq_events(self) -> None:
+        from shared_types.events import ShowPluginManagerEvent
+
+        while True:
+            with self._events_lock:
+                if self._shutdown_requested or not self._pending_events:
+                    self._events_draining = False
+                    return
+                tag, event = self._pending_events.popleft()
+
+            # 不持有入口锁：回调可查询、接收新事件或触发 stop()。
+            try:
+                if isinstance(event, LanguageChangeEvent):
+                    self._on_language_change(event)
+                elif isinstance(event, ShowPluginManagerEvent):
+                    if self._main_window:
+                        self._main_window._show_requested.emit()
+                else:
+                    self._dispatcher.dispatch(tag, event)
+            except Exception:
+                logger.exception(f"Failed to dispatch event '{tag}'")
 
     # ═══════════════════════════════════════════════════════════════════
     # 插件管理
@@ -391,9 +461,26 @@ class PluginManager:
 
         logger.info(f"Loaded {len(plugins)} plugin(s)")
 
+    def _apply_saved_plugin_states(self) -> None:
+        """在创建窗口、启动插件线程之前应用持久化启用状态。"""
+        for plugin in self._plugins.values():
+            info = plugin.info
+            state = self.state_manager.get_effective(plugin.name, PluginState(
+                enabled=info.enabled, show_window=info.show_window,
+                window_mode=info.window_mode, log_level=info.log_level,
+            ))
+            info.enabled = state.enabled
+            try:
+                plugin.set_log_level(state.log_level)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid saved log level for {plugin.name}: {state.log_level}")
+                plugin.set_log_level(info.log_level)
+
     def _initialize_plugins(self) -> None:
         with self._plugins_lock:
             for plugin in self._plugins.values():
+                if self._shutdown_requested:
+                    break
                 try:
                     if plugin.is_enabled:
                         plugin.initialize()
