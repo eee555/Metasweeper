@@ -66,10 +66,14 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
         pass
 
     def _create_widget(self) -> QWidget:
-        self._widget = ClipboardReplayWidget()
+        widget = ClipboardReplayWidget()
         self._output.connect(
-            self._widget.handle_output, Qt.ConnectionType.QueuedConnection)
-        return self._widget
+            widget.handle_output, Qt.ConnectionType.QueuedConnection)
+        return widget
+
+    def on_widget_created(self, widget: QWidget) -> None:
+        self._report("剪贴板监听已启动" if self._enabled() else "剪贴板监听已暂停",
+                     kind="state", enabled=self._enabled())
 
     def _report(self, message: str, **details: object) -> None:
         self._output.emit({
@@ -96,6 +100,12 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
                 self._report(
                     f"无法初始化 {handler_type.__name__}：{error}", kind="error")
         self.config_changed.connect(self._on_settings_changed)
+        for callback in list(getattr(self, "_watcher_stop_callbacks", [])):
+            try:
+                self._stop_watcher.disconnect(callback)
+            except (RuntimeError, TypeError):
+                pass
+        self._watcher_stop_callbacks = []
         self.run_on_gui(self._start_watcher)
         self.logger.info("Clipboard replay monitoring initialized")
         self._report("剪贴板监听已启动" if self._enabled() else "剪贴板监听已暂停",
@@ -113,6 +123,7 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
             self._on_text_changed, Qt.ConnectionType.QueuedConnection)
         self._stop_watcher.connect(
             self._watcher.stop, Qt.ConnectionType.QueuedConnection)
+        self._watcher_stop_callbacks = [self._watcher.stop]
         self._watcher.start()
 
     def _enabled(self) -> bool:

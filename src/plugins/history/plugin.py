@@ -184,7 +184,6 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     - 服务：提供 HistoryService 接口供其他插件查询历史记录
     """
     video_save_over = Signal()
-    _widget: HistoryMainWidget
 
     @classmethod
     def plugin_info(cls) -> PluginInfo:
@@ -200,6 +199,8 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
 
     def __init__(self, info):
         super().__init__(info)
+        # 只连接一次；投递到 GUI 时再读取当前窗口，避免持有已关闭的视图。
+        self.video_save_over.connect(self._refresh_widget)
         # 尽早加载自定义函数脚本，确保后续所有 db_connection 都能注册
         if self.other_info and self.other_info.saved_custom_functions:
             from .db import set_custom_script
@@ -222,50 +223,52 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             page_size = self.other_info.page_size
             board_preview = bool(self.other_info.board_preview)
 
-        self._widget = HistoryMainWidget(
+        widget = HistoryMainWidget(
             db_path, config_path, float_decimals, page_size,
             board_preview=board_preview)
 
         # 连接排序和过滤状态变化信号
-        self._widget.filter_sort_state_changed.connect(
+        widget.filter_sort_state_changed.connect(
             self._on_filter_sort_state_changed)
 
         # 连接列显示配置变化信号
-        self._widget.show_fields_changed.connect(
+        widget.show_fields_changed.connect(
             self._on_show_fields_changed)
 
         # 连接计算列变化信号
-        self._widget.computed_columns_changed.connect(
+        widget.computed_columns_changed.connect(
             self.set_computed_columns)
 
         # 连接自定义函数变化信号
-        self._widget.custom_functions_changed.connect(
+        widget.custom_functions_changed.connect(
             self._on_custom_functions_changed)
 
         # 初始化计算列（必须在恢复过滤/排序状态之前，否则过滤引用计算列时查不到）
         if self.other_info:
             columns = ComputedColumn.from_json(
                 self.other_info.saved_computed_columns)
-            self._widget.on_computed_columns_changed(columns, reload=False)
+            widget.on_computed_columns_changed(columns, reload=False)
             # 初始化自定义函数脚本
             if self.other_info.saved_custom_functions:
-                self._widget.set_custom_functions(
+                widget.set_custom_functions(
                     self.other_info.saved_custom_functions)
 
         # 恢复保存的排序和过滤状态
         if self.other_info:
-            self._widget.set_filter_sort_state(
+            widget.set_filter_sort_state(
                 self.other_info.saved_filter,
                 self.other_info.saved_sort
             )
             # 恢复保存的列显示配置
-            self._widget.restore_show_fields(self.other_info.saved_show_fields)
+            widget.restore_show_fields(self.other_info.saved_show_fields)
 
-        self.video_save_over.connect(self._widget.query_button.click)
-        return self._widget
+        return widget
+
+    def _refresh_widget(self) -> None:
+        self.run_on_widget(lambda widget: widget.query_button.click())
 
     def _on_language_change(self, event: LanguageChangeEvent) -> None:
-        self.run_on_gui(self._widget.retranslateUi)
+        self.run_on_widget(lambda widget: widget.retranslateUi())
 
     def _on_filter_sort_state_changed(self, filter_json: str, sort_json: str) -> None:
         """保存排序和过滤状态"""
@@ -289,8 +292,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     def on_initialized(self) -> None:
         self._init_db()
         self._cleanup_legacy_view()
-        if hasattr(self, '_widget'):
-            self.run_on_gui(self._widget.load_data)
+        self.run_on_widget(lambda widget: widget.load_data())
         self.register_service(self, protocol=HistoryService)
         self.logger.info("历史记录插件已初始化，HistoryService 已注册")
         # 后台静默压缩旧数据
@@ -359,8 +361,9 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                 columns)
             self.save_config()
         # 通知 widget 刷新
-        if hasattr(self, '_widget'):
-            self._widget.on_computed_columns_changed(columns)
+        self.run_on_widget(
+            lambda widget, value: widget.on_computed_columns_changed(value),
+            columns)
 
     def on_shutdown(self) -> None:
         """插件关闭（卸载/禁用/退出）前等待后台压缩迁移线程结束，
@@ -666,11 +669,13 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     def _on_config_changed(self, name: str, value: Any) -> None:
         if name == "float_decimals":
             # widget 可能在配置变更时尚未创建（如启用前修改配置）
-            if hasattr(self, '_widget'):
-                self._widget.set_float_decimals(value)
+            self.run_on_widget(
+                lambda widget, decimals: widget.set_float_decimals(decimals),
+                value)
         elif name == "board_preview":
-            if hasattr(self, '_widget'):
-                self._widget.set_board_preview_enabled(bool(value))
+            self.run_on_widget(
+                lambda widget, enabled: widget.set_board_preview_enabled(enabled),
+                bool(value))
         elif name == "saved_custom_functions":
             from .db import set_custom_script
             set_custom_script(value or "")
@@ -682,12 +687,15 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         不会触发 _on_config_changed，所以保存后需要在这里补一次同步，
         让「局面预览」这类开关立即生效，不必重新加载插件。
         """
-        widget = getattr(self, '_widget', None)
-        info = getattr(self, '_other_info', None)
-        if widget is None or info is None:
+        info = self.other_info
+        if info is None:
             return
-        widget.set_board_preview_enabled(bool(info.board_preview))
-        widget.set_float_decimals(info.float_decimals)
+
+        def apply(widget: HistoryMainWidget) -> None:
+            widget.set_board_preview_enabled(bool(info.board_preview))
+            widget.set_float_decimals(info.float_decimals)
+
+        self.run_on_widget(apply)
 
     def save_config(self) -> None:
         """保存配置，并同步到当前界面（见 _apply_runtime_config）"""

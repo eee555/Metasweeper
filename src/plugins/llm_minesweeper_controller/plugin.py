@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import QWidget
 
@@ -12,6 +14,21 @@ from .command_io import CommandIO
 from .config import LlmMinesweeperControllerConfig, sanitize_legacy_configs, valid_port
 from .tools import MinesweeperTools, TOOLS
 from .mcp_server import McpServer, RequestBridge
+
+
+def _disconnect_if_connected(signal, slot) -> None:
+    """重复初始化前精确断开旧槽，兼容测试中的信号替身。"""
+    disconnect = getattr(signal, "disconnect", None)
+    if not callable(disconnect):
+        return
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*Failed to disconnect.*",
+            category=RuntimeWarning)
+        try:
+            disconnect(slot)
+        except (RuntimeError, TypeError):
+            pass
 
 
 class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig]):
@@ -51,9 +68,11 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
         widget.start_requested.connect(self.start_mcp, Qt.ConnectionType.QueuedConnection)
         widget.stop_requested.connect(self.stop_mcp, Qt.ConnectionType.QueuedConnection)
         self.service_state_changed.connect(widget.set_service_state, Qt.ConnectionType.QueuedConnection)
-        self._widget = widget
         self._publish_state()
         return widget
+
+    def on_widget_created(self, widget: QWidget) -> None:
+        self._publish_state()
 
     def on_initialized(self) -> None:
         try:
@@ -62,6 +81,8 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
         except Exception:
             self._config_error = "旧配置清理失败，MCP 服务保持停止"
             self._state = "error"
+        _disconnect_if_connected(
+            self.config_changed, self._on_settings_changed)
         self.config_changed.connect(self._on_settings_changed, Qt.ConnectionType.QueuedConnection)
         self._publish_state(self._config_error)
 

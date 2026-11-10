@@ -229,6 +229,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
     # ── GUI 跨线程信号（类级别，所有实例共享连接到各自 slot）──
     gui_call = Signal(object, object, object)
     ready = Signal(object)  # 插件就绪信号（参数：插件实例）
+    stopped = Signal(object)  # 停止完成（包括初始化失败后的回滚）
     config_changed = Signal(str, object)  # 配置变化信号（参数：字段名, 新值）
 
     # ── 事件投递信号（替代 deque 队列，QueuedConnection 天然串行）──
@@ -271,6 +272,10 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
         # ── 线程安全基础设施 ──
         self._resource_lock = threading.RLock()  # 保护内部共享状态
+        self._auth_changed_callback = None
+        self._generation = 0
+        self._thread.finished.connect(
+            lambda: self.run_on_gui(self._finish_shutdown))
 
         # 连接事件投递信号（QueuedConnection 保证跨线程安全、串行执行）
         self._event_dispatch.connect(
@@ -490,6 +495,50 @@ class BasePlugin(QObject, Generic[ConfigT]):
         """
         self.gui_call.emit(func, args, kwargs)
 
+    def run_on_widget(
+        self, func: Callable[..., None], *args, **kwargs
+    ) -> None:
+        """在 GUI 线程对当前窗口执行回调；窗口已关闭或重建则跳过旧回调。"""
+        widget = self._widget
+        if widget is None:
+            return
+
+        def _call_on_current() -> None:
+            if self._widget is not widget:
+                return
+            try:
+                func(widget, *args, **kwargs)
+            except RuntimeError:
+                # 窗口可能刚被 Qt 销毁，此时丢弃旧界面回调。
+                return
+
+        self.run_on_gui(_call_on_current)
+
+    def ensure_widget(self) -> QWidget | None:
+        """在 GUI 线程重建已关闭的窗口；不重启后台插件线程。"""
+        if self._widget is not None:
+            return self._widget
+        widget = self._create_widget()
+        self._widget = widget
+        if widget is not None:
+            self.on_widget_created(widget)
+        return widget
+
+    def close_widget(self) -> None:
+        """在 GUI 线程销毁窗口并保留后台插件；由关闭 Tab/独立窗口调用。"""
+        widget = self._widget
+        if widget is None:
+            return
+        self._widget = None
+        self.on_widget_closed(widget)
+        widget.deleteLater()
+
+    def on_widget_created(self, widget: QWidget) -> None:
+        """窗口重建后的可选钩子；子类可补发当前后台状态。"""
+
+    def on_widget_closed(self, widget: QWidget) -> None:
+        """窗口销毁前的可选钩子；子类应清除额外的窗口引用。"""
+
     # ═══════════════════════════════════════════════════════════════════
     # 线程入口（Qt 事件循环驱动，子类不应覆写）
     # ═══════════════════════════════════════════════════════════════════
@@ -508,13 +557,23 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
         try:
             self.on_initialized()
-            self._lifecycle = PluginLifecycle.READY
+            with self._resource_lock:
+                if self._lifecycle != PluginLifecycle.INITIALIZING:
+                    return
+                self._lifecycle = PluginLifecycle.READY
             self.ready.emit(self)  # 通知 UI 刷新
         except Exception as e:
             self.logger.error(
                 f"on_initialized error in '{self.name}': {e}",
                 exc_info=True,
             )
+            self._info.enabled = False
+            with self._resource_lock:
+                already_stopping = self._lifecycle == PluginLifecycle.SHUTTING_DOWN
+                self._lifecycle = PluginLifecycle.SHUTTING_DOWN
+            self._unsubscribe_resources()
+            if not already_stopping:
+                self._do_shutdown()
 
     @Slot(object, object)
     def _handle_event(self, handler: Callable[[Any], None], event: Any) -> None:
@@ -524,7 +583,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
         由 _event_dispatch 信号触发，QueuedConnection 保证跨线程安全。
         """
         try:
-            handler(event)
+            if self.is_ready and self.is_enabled:
+                handler(event)
         except Exception as e:
             self.logger.error(
                 f"Handler error in '{self.name}': {e}",
@@ -546,21 +606,28 @@ class BasePlugin(QObject, Generic[ConfigT]):
         if self._lifecycle not in (PluginLifecycle.NEW, PluginLifecycle.STOPPED):
             return
 
-        self._setup_subscriptions()
-        self._widget = self._create_widget()
+        if self._thread.isRunning():
+            return
+        self._generation += 1
         self._lifecycle = PluginLifecycle.INITIALIZING
-
-        # 连接控制授权变更信号
-        self._connect_control_auth_signal()
-
-        # 启动插件的事件处理线程（Qt 事件循环自动运行）
-        self._thread.start()
+        try:
+            self._setup_subscriptions()
+            # 首次创建不走重建钩子；此时后台数据可能尚未初始化。
+            self._widget = self._create_widget()
+            self._connect_control_auth_signal()
+            self._thread.start()
+        except Exception:
+            self._info.enabled = False
+            self.shutdown()
+            raise
         self.logger.debug(f"Plugin thread launched: {self.name}")
 
     def _connect_control_auth_signal(self) -> None:
         """连接控制授权变更信号"""
         from .control_auth import ControlAuthorizationManager
 
+        if self._auth_changed_callback is not None:
+            return
         auth_manager = ControlAuthorizationManager.instance()
 
         def on_auth_changed(tag: str, plugin_name: str, granted: bool) -> None:
@@ -581,37 +648,33 @@ class BasePlugin(QObject, Generic[ConfigT]):
                 except ValueError:
                     continue
 
+        self._auth_changed_callback = on_auth_changed
         auth_manager.authorization_changed.connect(on_auth_changed)
 
     def shutdown(self) -> None:
-        """关闭插件并停止事件处理线程"""
-        if self._lifecycle == PluginLifecycle.STOPPED:
-            return
-
+        """请求工作线程清理，最多等待两秒；超时后在线程结束时完成释放。"""
         with self._resource_lock:
+            if self._lifecycle in (PluginLifecycle.STOPPED, PluginLifecycle.SHUTTING_DOWN):
+                return
             self._lifecycle = PluginLifecycle.SHUTTING_DOWN
 
-        # 在插件线程中执行清理回调
-        # 使用 QMetaObject.invokeMethod 确保在插件线程执行
-        try:
-            if self._thread.isRunning() and QThread.currentThread() != self._thread:
-                QMetaObject.invokeMethod(
-                    self, "_do_shutdown", Qt.ConnectionType.BlockingQueuedConnection)
-            else:
+        self._unsubscribe_resources()
+        if self._thread.isRunning():
+            if QThread.currentThread() == self._thread:
                 self._do_shutdown()
-        except Exception as e:
-            # 如果线程已停止，BlockingQueuedConnection 会失败，直接调用
-            self.logger.debug(f"Fallback to direct shutdown: {e}")
+                return
+            QMetaObject.invokeMethod(
+                self, "_do_shutdown", Qt.ConnectionType.QueuedConnection)
+            if not self._thread.wait(2000):
+                self.logger.warning(
+                    f"Plugin is still stopping: {self.name}")
+                return
+        else:
             self._do_shutdown()
+        self._finish_shutdown()
 
-        # 退出线程事件循环
-        self._thread.quit()
-
-        # 等待线程结束（最多 2 秒）
-        if not self._thread.wait(2000):
-            self.logger.debug(
-                f"Plugin thread did not stop in time: {self.name}")
-
+    def _unsubscribe_resources(self) -> None:
+        """停止新事件和服务发现；也可用于异步初始化失败。"""
         if self._event_dispatcher:
             self._event_dispatcher.unsubscribe_all(self)
 
@@ -626,25 +689,26 @@ class BasePlugin(QObject, Generic[ConfigT]):
                         f"Failed to unregister service {protocol.__name__}: {e}")
             self._registered_protocols.clear()
 
-        if self._widget:
-            try:
-                self._widget.deleteLater()
-            except RuntimeError:
-                pass
-            self._widget = None
+    def _finish_shutdown(self) -> None:
+        """在线程停止后由 GUI 线程释放窗口；可重复投递。"""
+        if (self._lifecycle != PluginLifecycle.SHUTTING_DOWN
+                or self._thread.isRunning()):
+            return
+        self._unsubscribe_resources()
+        if self._auth_changed_callback is not None:
+            from .control_auth import ControlAuthorizationManager
+            ControlAuthorizationManager.instance().authorization_changed.disconnect(
+                self._auth_changed_callback)
+            self._auth_changed_callback = None
 
-        if self._gui_handler:
-            try:
-                self._gui_handler.deleteLater()
-            except RuntimeError:
-                pass
-            self._gui_handler = None
-
-        # 保存插件配置
-        self.save_config()
+        self.close_widget()
 
         with self._resource_lock:
             self._lifecycle = PluginLifecycle.STOPPED
+        try:
+            self.save_config()
+        finally:
+            self.stopped.emit(self)
 
     @Slot()
     def _do_shutdown(self) -> None:
@@ -657,6 +721,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
                 exc_info=True,
             )
         self.logger.debug(f"Plugin thread stopping: {self.name}")
+        self._thread.quit()
 
     # ═══════════════════════════════════════════════════════════════════
     # 内部事件投递（由 EventDispatcher 调用）
@@ -674,7 +739,13 @@ class BasePlugin(QObject, Generic[ConfigT]):
         Returns:
             True（始终成功，Qt 信号无内置背压）
         """
-        self._event_dispatch.emit(handler, event)
+        generation = self._generation
+
+        def deliver(current_event):
+            if generation == self._generation:
+                handler(current_event)
+
+        self._event_dispatch.emit(deliver, event)
         return True
 
     # ═══════════════════════════════════════════════════════════════════
@@ -1166,6 +1237,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
     def enable(self) -> None:
         """启用插件"""
+        if self._lifecycle == PluginLifecycle.SHUTTING_DOWN:
+            return
         self._info.enabled = True
         if self._lifecycle == PluginLifecycle.STOPPED or not self._thread.isRunning():
             self.initialize()

@@ -3,6 +3,8 @@ SaoleiWebsite - 插件主类
 """
 from __future__ import annotations
 
+import warnings
+
 from plugin_sdk import BasePlugin, PluginInfo, WindowMode
 
 from plugins.services.saolei_website import SaoleiUserInfo, SaoleiWebsiteService
@@ -31,7 +33,22 @@ class SaoleiWebsitePlugin(BasePlugin[SaoleiWebsiteConfig]):
         self._client = self._build_client()
         self.register_service(self, protocol=SaoleiWebsiteService)
         self.logger.info("SaoleiWebsiteService 已注册")
+        self._disconnect_config_changed()
         self.config_changed.connect(self._on_config_changed)
+
+    def _disconnect_config_changed(self) -> None:
+        """重复初始化前断开旧槽，兼容测试替身和无连接情况。"""
+        disconnect = getattr(self.config_changed, "disconnect", None)
+        if not callable(disconnect):
+            return
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=".*Failed to disconnect.*",
+                category=RuntimeWarning)
+            try:
+                disconnect(self._on_config_changed)
+            except (RuntimeError, TypeError):
+                pass
 
     def _build_client(self) -> SaoleiWebsiteClient:
         base_url = DEFAULT_API_BASE_URL

@@ -1762,7 +1762,6 @@ def test_widget_wiring_round_trip(qapp, qtbot, tmp_path):
     widget = cast(McpControlWidget,
                   plugin.LlmMinesweeperControllerPlugin._create_widget(host))
     qtbot.addWidget(widget)
-    assert host._widget is widget
     assert widget.port_spin.value() == 8765
     assert widget.prompt_edit.isReadOnly() and not widget.copy_button.isEnabled()
     assert not widget.prompt_edit.toPlainText()

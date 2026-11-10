@@ -70,16 +70,28 @@ class ChallengeModePlugin(BasePlugin):
         self.subscribe(LanguageChangeEvent, self._on_language_change)
 
     def _create_widget(self) -> QWidget:
-        self._ui = ChallengeModeUI()
-        self._ui.set_callbacks(
+        widget = ChallengeModeUI()
+        widget.set_callbacks(
             start_cb=self._on_start_click,
             next_cb=self._on_next_click,
             reset_cb=self._on_reset_click,
             select_cb=self._on_level_select,
         )
-        return self._ui
+        widget.set_auto_next(self._auto_next)
+        widget.auto_next_changed.connect(self._set_auto_next)
+        return widget
+
+    def on_widget_closed(self, widget: QWidget) -> None:
+        self._auto_next = widget.is_auto_next()
+
+    def on_widget_created(self, widget: QWidget) -> None:
+        self._push_ui_update()
+
+    def _set_auto_next(self, enabled: bool) -> None:
+        self._auto_next = bool(enabled)
 
     def on_initialized(self) -> None:
+        self._auto_next = False
         self._load_levels()
         self._load_save()
         self._push_ui_update()
@@ -167,7 +179,8 @@ class ChallengeModePlugin(BasePlugin):
         self._push_ui_update()
 
     def _on_start_click(self):
-        self._start_level(self._ui.selected_level_index())
+        self.run_on_widget(
+            lambda widget: self._start_level(widget.selected_level_index()))
 
     def _on_level_select(self, index: int):
         self._start_level(index)
@@ -206,7 +219,7 @@ class ChallengeModePlugin(BasePlugin):
         self._save()
         self._push_ui_update()
 
-        if self._ui and self._ui.is_auto_next():
+        if self._auto_next:
             next_idx = self._current_level + 1
             if next_idx < len(self._levels):
                 self._start_level(next_idx)
@@ -215,16 +228,22 @@ class ChallengeModePlugin(BasePlugin):
         self._save()
 
     def _on_language_change(self, event: LanguageChangeEvent) -> None:
-        self.run_on_gui(self._ui.retranslateUi)
-        self._push_ui_update()
+        def retranslate(widget):
+            widget.retranslateUi()
+            self._push_ui_update_for(widget)
+
+        self.run_on_widget(retranslate)
 
     def _push_ui_update(self):
+        self.run_on_widget(self._push_ui_update_for)
+
+    def _push_ui_update_for(self, widget):
         if not self._levels:
             return
         total = len(self._levels)
         idx = self._current_level
         level = self._levels[idx] if idx < total else None
-        self._ui._signal_update.emit({
+        widget._signal_update.emit({
             "current_level": idx,
             "total_levels": total,
             "row": level["r"] if level else 0,

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
@@ -52,7 +51,6 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
 
     def __init__(self, info: PluginInfo):
         super().__init__(info)
-        self._widget: QWidget | None = None
         # 缓存上一次成功应用的皮肤名，避免重复发送
         self._applied: str | None = None
         # 音效状态与皮肤状态完全独立，单独缓存
@@ -80,14 +78,12 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
 
     def _create_widget(self) -> QWidget:
         widget = SkinManagerWidget()
-        self._widget = widget
         widget.apply_requested.connect(
             self._on_apply_requested, Qt.ConnectionType.QueuedConnection)
+        widget.sound_preview_requested.connect(
+            self._on_sound_preview_requested,
+            Qt.ConnectionType.QueuedConnection)
         return widget
-
-    @property
-    def _ui(self) -> SkinManagerWidget | None:
-        return cast("SkinManagerWidget | None", self._widget)
 
     # ── 皮肤库根目录（自带 + zip 导入落地目录）────────────────────
     def _roots(self) -> list[Path]:
@@ -147,10 +143,9 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
         self._notify(f"已应用：{detail}")
 
     def _notify(self, text: str) -> None:
-        widget = self._ui
-        if widget is not None:
-            # 插件工作线程 -> GUI 线程
-            self.run_on_gui(widget.set_status, text)
+        # 在 GUI 执行时读取当前窗口，关闭期间自动跳过通知。
+        self.run_on_widget(
+            lambda widget, message: widget.set_status(message), text)
 
     def _on_apply_requested(self) -> None:
         """界面上「重新应用」按钮：强制重发一次当前皮肤。"""
@@ -224,12 +219,6 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
             self._on_config_changed, Qt.ConnectionType.QueuedConnection)
         self._refresh_choices()
         self._refresh_sound_choices()
-        if self._ui is not None:
-            _safe_disconnect(self._ui.sound_preview_requested,
-                             self._on_sound_preview_requested)
-            self._ui.sound_preview_requested.connect(
-                self._on_sound_preview_requested,
-                Qt.ConnectionType.QueuedConnection)
         if self.other_info.auto_apply:
             # 固定 1500/1600ms 是竞态：慢启动机器上 ZMQ 未就绪时
             # request() 返回 None 后无重试，此后不再应用。改为带一次重试的

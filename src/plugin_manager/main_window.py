@@ -338,15 +338,11 @@ class DetachableTabWidget(QTabWidget):
         self.tab_attach_requested.emit(name)
 
     def _on_tab_close_requested(self, index: int) -> None:
-        """处理标签页关闭按钮点击"""
+        """处理标签页关闭按钮点击：仅移交关闭请求，视图由插件管理器销毁。"""
         name = self.tabText(index)
-        widget = self.widget(index)
-        if widget is None:
+        if self.widget(index) is None:
             return
-        # 隐藏并移除标签页，不销毁 widget（保留插件数据）
         self.removeTab(index)
-        widget.hide()
-        widget.setParent(None)  # type: ignore
         self.tab_close_requested.emit(name)
 
 
@@ -1188,9 +1184,7 @@ class PluginManagerWindow(QMainWindow):
             self.show_and_raise, Qt.ConnectionType.QueuedConnection)
 
         # 状态持久化
-        self._state_mgr = PluginStateManager(
-            get_data_dir() / "plugin_states.json")
-        self._state_mgr.load()
+        self._state_mgr = self._manager.state_manager
 
         # 设置管理
         self._settings_mgr = SettingsManager(get_data_dir())
@@ -1209,6 +1203,8 @@ class PluginManagerWindow(QMainWindow):
         for p in self._manager.plugins.values():
             p.ready.connect(self._on_plugin_ready,
                             Qt.ConnectionType.QueuedConnection)
+            p.stopped.connect(self._on_plugin_stopped,
+                              Qt.ConnectionType.QueuedConnection)
 
         self._refresh_plugin_list()
 
@@ -1643,6 +1639,10 @@ class PluginManagerWindow(QMainWindow):
             self.tr("插件 {name} 就绪").format(name=plugin.name), 2000
         )
 
+    @Slot(object)
+    def _on_plugin_stopped(self, plugin) -> None:
+        self._refresh_plugin_list()
+
     def _refresh_plugin_list(self) -> None:
         """刷新插件列表和标签页"""
         t = self._tab_widget
@@ -1701,7 +1701,7 @@ class PluginManagerWindow(QMainWindow):
         t.setUpdatesEnabled(True)
         lst.setUpdatesEnabled(True)
 
-        # 延迟弹出到独立窗口
+        # 延迟弹出到独立窗口（已有视图，不触发重建）
         for name in _pending_detach:
             for i in range(t.count()):
                 if t.tabText(i) == name:
@@ -1732,7 +1732,7 @@ class PluginManagerWindow(QMainWindow):
 
         # 启用/禁用（非就绪状态不可切换，但 STOPPED 可以重新启用）
         lc = plugin.lifecycle
-        can_control = lc in (PluginLifecycle.READY, PluginLifecycle.STOPPED)
+        can_control = lc in (PluginLifecycle.NEW, PluginLifecycle.READY, PluginLifecycle.STOPPED)
         act_enable = menu.addAction("✅ " + self.tr("启用"))
         act_disable = menu.addAction("❌ " + self.tr("禁用"))
         act_enable.setEnabled(can_control and not plugin.is_enabled)
@@ -1819,16 +1819,19 @@ class PluginManagerWindow(QMainWindow):
         if enable:
             self._manager.enable_plugin(name)
         else:
-            # 禁用时先关闭窗口（处理 detached 窗口清理），再 shutdown
-            self._close_plugin_window(name)
+            # 禁用时先移除窗口显示，再由 shutdown 销毁视图并停止后台。
+            self._remove_plugin_window(name)
             self._manager.disable_plugin(name)
         self._sync_state(name, enabled=enable)
         self._refresh_plugin_list()
 
     def _open_plugin_window(self, name: str) -> None:
-        """打开/恢复插件窗口"""
+        """打开/恢复插件窗口；关闭后由插件重建视图，后台继续运行。"""
         plugin = self._manager.plugins.get(name)
-        if not plugin or not plugin.widget:
+        if not plugin or plugin.lifecycle != PluginLifecycle.READY:
+            return
+        widget = plugin.ensure_widget()
+        if widget is None:
             return
 
         t = self._tab_widget
@@ -1847,41 +1850,37 @@ class PluginManagerWindow(QMainWindow):
                 return
 
         # 从关闭列表中移除并重新打开
-        if name in self._closed_plugins:
-            self._closed_plugins.discard(name)
-            t.add_detachable_tab(plugin.widget, name, icon=plugin.plugin_icon)
+        self._closed_plugins.discard(name)
+        st = self._effective_state(name)
+        if st.window_mode == WindowMode.DETACHED:
+            self._open_detached_window(name)
+        else:
+            t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+            self._sync_state(name, window_mode=WindowMode.TAB)
 
-    def _close_plugin_window(self, name: str) -> None:
-        """关闭插件窗口（不销毁）"""
+    def _remove_plugin_window(self, name: str) -> None:
+        """从当前容器中移除视图，并交给插件统一销毁。"""
         t = self._tab_widget
-
-        # 关闭独立窗口 → 取出 widget 后关闭
+        plugin = self._manager.plugins.get(name)
         if name in t._detached_windows:
-            window = t._detached_windows[name]
-            lay = window.layout()
-            if lay is not None and lay.count() >= 2:
-                item = lay.itemAt(1)
-                if item is not None:
-                    widget = item.widget()
-                    if widget is not None:
-                        lay.removeWidget(widget)
-                        widget.setParent(None)  # type: ignore
-            window.blockSignals(True)  # 防止 closeEvent 二次触发
+            window = t._detached_windows.pop(name)
+            window.blockSignals(True)
             window.close()
             window.deleteLater()
-            del t._detached_windows[name]
-
-        # 关闭标签页
         for i in range(t.count()):
             if t.tabText(i) == name:
-                widget = t.widget(i)
                 t.removeTab(i)
-                widget.hide()
-                widget.setParent(None)  # type: ignore
                 break
-
+        if plugin is not None and plugin.widget is not None:
+            widget = plugin.widget
+            widget.hide()
+            widget.setParent(None)
+            plugin.close_widget()
         self._closed_plugins.add(name)
-        # 同步状态：窗口模式 → closed
+
+    def _close_plugin_window(self, name: str) -> None:
+        """关闭窗口并销毁视图；插件后台继续运行。"""
+        self._remove_plugin_window(name)
         self._sync_state(name, window_mode=WindowMode.CLOSED)
 
     def _open_plugin_log(self, name: str) -> None:
@@ -1942,33 +1941,19 @@ class PluginManagerWindow(QMainWindow):
                 if new_state.enabled:
                     self._manager.enable_plugin(name)
                 else:
-                    self._close_plugin_window(name)
+                    self._remove_plugin_window(name)
                     self._manager.disable_plugin(name)
 
             # 立即应用窗口模式变化
             if current.window_mode != new_state.window_mode:
-                t = self._tab_widget
                 if new_state.window_mode == WindowMode.CLOSED:
-                    # 关闭窗口
-                    self._closed_plugins.add(name)
-                    if name in t._detached_windows:
-                        # 如果是独立窗口，嵌回标签页然后关闭
-                        t._attach_tab(name)
                     self._close_plugin_window(name)
                 elif new_state.window_mode == WindowMode.DETACHED:
-                    # 弹出为独立窗口
                     self._closed_plugins.discard(name)
-                    if name not in t._detached_windows:
-                        # 当前是标签页，弹出为独立窗口
-                        for i in range(t.count()):
-                            if t.tabText(i) == name:
-                                t._detach_tab(i, name)
-                                break
+                    self._open_detached_window(name)
                 else:  # TAB
-                    # 嵌回标签页
                     self._closed_plugins.discard(name)
-                    if name in t._detached_windows:
-                        t._attach_tab(name)
+                    self._open_tab_window(name)
 
             # 立即应用日志级别
             if plugin and current.log_level != new_state.log_level:
@@ -2007,10 +1992,11 @@ class PluginManagerWindow(QMainWindow):
             if not st.enabled and p.is_enabled:
                 self._manager.disable_plugin(name)
 
-            # 窗口加载方式：记录到 _closed_plugins 或稍后处理 detached
+            # 启动状态已由管理器在初始化前应用；窗口需要关闭时释放视图。
             mode = st.window_mode
-            if not st.show_window or mode == WindowMode.CLOSED:
+            if p.is_enabled and (not st.show_window or mode == WindowMode.CLOSED):
                 self._closed_plugins.add(name)
+                p.close_widget()
 
             # 日志级别
             try:
@@ -2021,7 +2007,7 @@ class PluginManagerWindow(QMainWindow):
     def _sync_state(self, name: str, *, enabled: bool | None = None,
                     window_mode: WindowMode | None = None) -> None:
         """将运行时变化同步到状态管理器（不立即写盘）"""
-        st = self._state_mgr.get(name)
+        st = self._effective_state(name)
         changes = {}
         if enabled is not None:
             changes["enabled"] = enabled
@@ -2030,6 +2016,43 @@ class PluginManagerWindow(QMainWindow):
         if changes:
             ns = PluginState(**{**st.__dict__, **changes})
             self._state_mgr.set(name, ns)
+
+    def _open_tab_window(self, name: str) -> None:
+        """确保插件视图存在，并以标签页显示。"""
+        plugin = self._manager.plugins.get(name)
+        if plugin is None or plugin.lifecycle != PluginLifecycle.READY:
+            return
+        widget = plugin.ensure_widget()
+        if widget is None:
+            return
+        t = self._tab_widget
+        if name in t._detached_windows:
+            t._attach_tab(name)
+            return
+        for i in range(t.count()):
+            if t.tabText(i) == name:
+                t.setCurrentIndex(i)
+                return
+        t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+
+    def _open_detached_window(self, name: str) -> None:
+        """确保插件视图存在，并以独立窗口显示。"""
+        plugin = self._manager.plugins.get(name)
+        if plugin is None or plugin.lifecycle != PluginLifecycle.READY:
+            return
+        widget = plugin.ensure_widget()
+        if widget is None:
+            return
+        t = self._tab_widget
+        if name in t._detached_windows:
+            t._detached_windows[name].show()
+            return
+        for i in range(t.count()):
+            if t.tabText(i) == name:
+                t._detach_tab(i, name)
+                return
+        idx = t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+        t._detach_tab(idx, name)
 
     def _on_list_double_clicked(self, item) -> None:
         """双击列表项：打开对应插件窗口"""
@@ -2048,7 +2071,8 @@ class PluginManagerWindow(QMainWindow):
 
     def _on_tab_closed(self, name: str) -> None:
         logger.debug(f"Tab closed: {name}")
-        self._closed_plugins.add(name)
+        self._remove_plugin_window(name)
+        self._sync_state(name, window_mode=WindowMode.CLOSED)
 
     # ── 窗口事件 ────────────────────────────────────────
 

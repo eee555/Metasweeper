@@ -16,6 +16,7 @@ class ChallengeModeUI(QWidget):
     """无猜闯关主界面"""
 
     _signal_update = Signal(object)
+    auto_next_changed = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -35,6 +36,9 @@ class ChallengeModeUI(QWidget):
 
     def is_auto_next(self) -> bool:
         return self._auto_next_cb.isChecked()
+
+    def set_auto_next(self, enabled: bool) -> None:
+        self._auto_next_cb.setChecked(bool(enabled))
 
     def selected_level_index(self) -> int:
         return self._level_select.value() - 1
@@ -108,6 +112,7 @@ class ChallengeModeUI(QWidget):
         self._auto_next_cb.setStyleSheet(
             "font-size: 12px; color: #888888; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
+        self._auto_next_cb.toggled.connect(self.auto_next_changed.emit)
         btn_layout.addWidget(self._auto_next_cb)
 
         info_layout.addLayout(btn_layout)

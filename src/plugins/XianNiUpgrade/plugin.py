@@ -29,6 +29,7 @@ import secrets
 import subprocess
 import threading
 import time
+import warnings
 import urllib.error
 import urllib.request
 import webbrowser
@@ -146,15 +147,19 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self.subscribe(LanguageChangeEvent, self._on_language_change)
 
     def _create_widget(self) -> QWidget:
-        self._ui = XianNiUpgradeUI()
+        widget = XianNiUpgradeUI()
         assets_path = Path(__file__).parent
-        self._ui.set_image_dir(assets_path)
-        self._ui.set_absorb_callbacks(
+        widget.set_image_dir(assets_path)
+        widget.set_absorb_callbacks(
             self.validate_replays, self.absorb_replays)
-        self._ui.set_save_callbacks(self.validate_save, self.absorb_save)
-        self._ui.set_upload_callback(self.upload_ranking)
-        self._ui.set_first_visible_callback(self._maybe_show_rules_dialog)
-        return self._ui
+        widget.set_save_callbacks(self.validate_save, self.absorb_save)
+        widget.set_upload_callback(self.upload_ranking)
+        widget.set_first_visible_callback(self._maybe_show_rules_dialog)
+        return widget
+
+    def on_widget_created(self, widget: QWidget) -> None:
+        self._push_ui_update()
+        widget.set_upload_enabled(not self._upload_in_progress)
 
     def on_initialized(self) -> None:
         self._guide_dialog_open = False
@@ -165,7 +170,22 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self._pending_timer = QTimer(self)
         self._pending_timer.setSingleShot(True)
         self._pending_timer.timeout.connect(self._on_pending_upload_timeout)
+        self._disconnect_schedule_pending()
         self._schedule_pending.connect(self._start_pending_timer)
+
+    def _disconnect_schedule_pending(self) -> None:
+        """重复初始化前精确断开旧计时槽，兼容测试替身和无连接情况。"""
+        disconnect = getattr(self._schedule_pending, "disconnect", None)
+        if not callable(disconnect):
+            return
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=".*Failed to disconnect.*",
+                category=RuntimeWarning)
+            try:
+                disconnect(self._start_pending_timer)
+            except (RuntimeError, TypeError):
+                pass
         self._load_data()
         self._migrate_config_flags()
         self._saolei_service = self.wait_for_service(
@@ -704,9 +724,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
     def upload_ranking(self) -> None:
         """由「上传排行」按钮回调。不受 60 秒客户端跳过限制。"""
         if getattr(self, "_upload_in_progress", False):
-            ui = getattr(self, "_ui", None)
-            if ui is not None:
-                ui.set_upload_enabled(True)
+            self.run_on_widget(lambda widget: widget.set_upload_enabled(True))
             return
         self._start_upload(silent=False, bypass_throttle=True)
 
@@ -764,9 +782,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         """准备 payload 并在后台线程 POST。silent 时成功不弹窗、不打开浏览器。"""
         if getattr(self, "_upload_in_progress", False):
             if not silent:
-                ui = getattr(self, "_ui", None)
-                if ui is not None:
-                    self.run_on_gui(ui.set_upload_enabled, True)
+                self.run_on_widget(lambda widget: widget.set_upload_enabled(True))
             else:
                 self._pending_upload = True
             return
@@ -1005,20 +1021,20 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                 self.logger.warning(f"自动上传失败: {message}")
             return
 
-        parent = getattr(self, "_ui", None)
-        try:
-            if success:
-                QMessageBox.information(
-                    parent, _translate("Form", "上传排行"), message
-                )
-                self._maybe_open_site()
-            else:
-                QMessageBox.warning(
-                    parent, _translate("Form", "上传排行"), message
-                )
-        finally:
-            if parent is not None:
-                parent.set_upload_enabled(True)
+        widget = self._widget
+        if widget is None:
+            self.logger.info("上传结果窗口已关闭，跳过弹窗：%s", message)
+            return
+        self.run_on_widget(lambda ui: ui.set_upload_enabled(True))
+        if success:
+            QMessageBox.information(
+                widget, _translate("Form", "上传排行"), message
+            )
+            self._maybe_open_site()
+        else:
+            QMessageBox.warning(
+                widget, _translate("Form", "上传排行"), message
+            )
 
     def _maybe_open_site(self) -> None:
         if not self.other_info or not self.other_info.open_site_after_upload:
@@ -1078,11 +1094,17 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self._save_data()
 
     def _on_language_change(self, event: LanguageChangeEvent) -> None:
-        self.run_on_gui(self._ui.retranslateUi)
-        self._push_ui_update()
+        def retranslate(widget):
+            widget.retranslateUi()
+            self._push_ui_update_for(widget)
+
+        self.run_on_widget(retranslate)
 
     def _push_ui_update(self):
-        self._ui._signal_update.emit(self._build_update_data())
+        self.run_on_widget(self._push_ui_update_for)
+
+    def _push_ui_update_for(self, widget):
+        widget._signal_update.emit(self._build_update_data())
 
     def _resolve_rank_display_name(self, identifier: str) -> str:
         key = (identifier or "").strip()
@@ -1116,12 +1138,14 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             return
         if getattr(self, "_guide_dialog_open", False):
             return
-        ui = getattr(self, "_ui", None)
-        if ui is None or not ui.isVisible():
+        widget = getattr(self, "_widget", None)
+        if widget is None:
+            widget = getattr(self, "_ui", None)  # 兼容旧测试替身
+        if widget is None or not widget.isVisible():
             return
         self._guide_dialog_open = True
         try:
-            RulesDialog(parent=ui).exec()
+            RulesDialog(parent=widget).exec()
             self.other_info.rules_dialog_seen = True
             self.save_config()
         finally:
