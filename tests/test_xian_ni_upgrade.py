@@ -39,6 +39,37 @@ def test_non_standard_modes_can_gain_base_xp():
     assert xp > 0
 
 
+def test_xp_breakdown_parts_match_total():
+    plugin = XianNiUpgradePlugin.__new__(XianNiUpgradePlugin)
+    parts: list[float] = []
+    xp = plugin._calc_xp_base(
+        mode=0,
+        level=5,
+        row=16,
+        column=30,
+        mine_num=99,
+        rtime=50.0,
+        bbbv=100,
+        cell1=1,
+        cell2=2,
+        cell3=3,
+        cell4=4,
+        cell5=5,
+        cell6=6,
+        cell7=7,
+        cell8=8,
+        op=5,
+        isl=10,
+        ioe=0.9,
+        nf=False,
+        parts=parts,
+    )
+
+    assert len(parts) == 4
+    assert all(v > 0 for v in parts)  # 基础 / 稀有 / 竞速 / 效率
+    assert xp == min(int(sum(parts)), 99999)
+
+
 def test_api_url_requires_https_except_loopback():
     assert api_url_transport_error("http://evil.example") is not None
     assert api_url_transport_error("https://leixiu-rank.pages.dev") is None

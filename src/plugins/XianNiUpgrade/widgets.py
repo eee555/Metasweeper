@@ -5,23 +5,39 @@
 from __future__ import annotations
 from .models import LEVEL_NAMES, LEVEL_LABELS, MODE_LABELS
 from .config import DEFAULT_API_URL
-from PySide6.QtGui import QPixmap, QResizeEvent, QPainter, QShowEvent
-from PySide6.QtCore import Qt, Signal, Slot, QCoreApplication, QTimer
+from PySide6.QtGui import (
+    QPixmap, QResizeEvent, QPainter, QShowEvent, QColor, QFont, QPen, QPaintEvent
+)
+from PySide6.QtCore import Qt, Signal, Slot, QCoreApplication, QTimer, QEvent, QPoint, QRect
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
     QTableWidgetItem, QGroupBox, QHeaderView, QProgressBar,
     QFrame, QAbstractItemView, QPushButton, QFileDialog,
-    QMessageBox, QDialog, QLineEdit, QTextBrowser, QDialogButtonBox
+    QMessageBox, QDialog, QLineEdit, QTextBrowser, QDialogButtonBox,
+    QApplication
 )
 
+import math
 import struct
 from datetime import datetime
 from pathlib import Path
 
 _XOR_KEY = b"XianNiAssetKey2026!"
 
-
 _translate = QCoreApplication.translate
+
+# 道行四个分项：基础 / 稀有局面 / 竞速 / 效率，顺序与 plugin 落库的 parts 一致
+_XP_PART_COLORS = ("#42A5F5", "#AB47BC", "#FFA726", "#26A69A")
+_XP_COLUMN = 5  # 修行日志表格中的「道行」列
+
+
+def _xp_part_labels() -> list[str]:
+    return [
+        _translate("Form", "基础经验"),
+        _translate("Form", "稀有局面"),
+        _translate("Form", "竞速经验"),
+        _translate("Form", "效率经验"),
+    ]
 
 
 class AspectLabel(QLabel):
@@ -71,6 +87,138 @@ class AspectLabel(QLabel):
             super().setPixmap(canvas)
         except Exception:
             super().setPixmap(QPixmap())
+
+
+class XpPiePopup(QWidget):
+    """道行四个分项的饼图浮窗：ToolTip 型窗口，不抢焦点、不拦截鼠标事件"""
+
+    WIDTH = 356
+    HEIGHT = 190
+    MARGIN = 12
+    PIE_TOP = 34
+    PIE_SIZE = 118
+    HOLE_INSET = 29
+    LEGEND_X = 150
+    ROW_H = 28
+    CURSOR_OFFSET = QPoint(14, 18)
+
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setFixedSize(self.WIDTH, self.HEIGHT)
+        self._parts: list[float] = [0.0] * 4
+        self._total = 0
+        self._capped = False
+
+    def set_data(self, parts: list[float], total: int, capped: bool) -> None:
+        self._parts = parts
+        self._total = total
+        self._capped = capped
+        self.update()
+
+    def show_at(self, global_pos: QPoint) -> None:
+        """在光标右下方弹出，并保证整个浮窗落在屏幕内"""
+        pos = global_pos + self.CURSOR_OFFSET
+        screen = QApplication.screenAt(global_pos) or QApplication.primaryScreen()
+        if screen is not None:
+            area = screen.availableGeometry()
+            x = max(area.left(), min(pos.x(), area.right() - self.width() + 1))
+            y = max(area.top(), min(pos.y(), area.bottom() - self.height() + 1))
+            pos = QPoint(x, y)
+        self.move(pos)
+        self.show()
+        self.raise_()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.fillRect(self.rect(), QColor("#FFFFFF"))
+
+        title_font = QFont()
+        title_font.setPixelSize(12)
+        title_font.setBold(True)
+        p.setFont(title_font)
+        p.setPen(QColor("#6A1B9A"))
+        p.drawText(QRect(self.MARGIN, 6, self.WIDTH - 2 * self.MARGIN, 22),
+                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                   _translate("Form", "道行构成"))
+
+        # 环形饼图：按四个分项的原始浮点值比例划分，中心显示最终取整后的道行
+        pie_rect = QRect(self.MARGIN, self.PIE_TOP, self.PIE_SIZE, self.PIE_SIZE)
+        raw_total = sum(self._parts)
+        p.setPen(QPen(QColor("#FFFFFF"), 1))
+        if raw_total > 0:
+            angle = 90 * 16  # 从 12 点方向顺时针
+            for i, value in enumerate(self._parts):
+                if value <= 0:
+                    continue
+                span = max(1, int(round(360 * 16 * value / raw_total)))
+                p.setBrush(QColor(_XP_PART_COLORS[i]))
+                p.drawPie(pie_rect, angle - span, span)
+                angle -= span
+        else:
+            p.setBrush(QColor("#E0E0E0"))
+            p.drawPie(pie_rect, 0, 360 * 16)
+
+        hole = pie_rect.adjusted(self.HOLE_INSET, self.HOLE_INSET,
+                                 -self.HOLE_INSET, -self.HOLE_INSET)
+        p.setBrush(QColor("#FFFFFF"))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(hole)
+        total_font = QFont()
+        total_font.setPixelSize(14)
+        total_font.setBold(True)
+        p.setFont(total_font)
+        p.setPen(QColor("#4A148C"))
+        p.drawText(QRect(hole.left(), hole.top() + 5, hole.width(), 22),
+                   Qt.AlignmentFlag.AlignCenter, f"{self._total:,}")
+        hint_font = QFont()
+        hint_font.setPixelSize(9)
+        p.setFont(hint_font)
+        p.setPen(QColor("#9E9E9E"))
+        p.drawText(QRect(hole.left(), hole.top() + 29, hole.width(), 14),
+                   Qt.AlignmentFlag.AlignCenter, _translate("Form", "道行"))
+
+        # 图例：色块 + 分项名 + 原始值 + 占比
+        name_font = QFont()
+        name_font.setPixelSize(11)
+        value_font = QFont()
+        value_font.setPixelSize(10)
+        labels = _xp_part_labels()
+        right_x = self.LEGEND_X + 86
+        for i, label in enumerate(labels):
+            y = self.PIE_TOP + 6 + i * self.ROW_H
+            p.setBrush(QColor(_XP_PART_COLORS[i]))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawRoundedRect(QRect(self.LEGEND_X, y + 6, 9, 9), 2, 2)
+            p.setFont(name_font)
+            p.setPen(QColor("#424242"))
+            p.drawText(QRect(self.LEGEND_X + 15, y, 68, 22),
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, label)
+            pct = 100.0 * self._parts[i] / raw_total if raw_total > 0 else 0.0
+            p.setFont(value_font)
+            p.setPen(QColor("#616161"))
+            p.drawText(QRect(right_x, y, self.WIDTH - self.MARGIN - right_x, 22),
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                       f"{self._parts[i]:,.1f}  {pct:.1f}%")
+
+        note = (_translate("Form", "本局已达 99999 上限，分项仍按原始值显示")
+                if self._capped else
+                _translate("Form", "分项为原始浮点值，合计取整后为最终道行"))
+        note_font = QFont()
+        note_font.setPixelSize(9)
+        p.setFont(note_font)
+        p.setPen(QColor("#9E9E9E"))
+        p.drawText(QRect(self.MARGIN, self.PIE_TOP + self.PIE_SIZE + 4,
+                         self.WIDTH - 2 * self.MARGIN, 20),
+                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, note)
+
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(QColor("#CE93D8"), 1))
+        p.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        p.end()
 
 
 class AbsorbDialog(QDialog):
@@ -481,6 +629,14 @@ class XianNiUpgradeUI(QWidget):
         self._upload_cb = None
         self._first_visible_cb = None
         self._first_visible_scheduled = False
+        self._row_breakdowns: list[dict | None] = []
+        self._xp_popup: XpPiePopup | None = None
+        self._hover_key: tuple | None = None
+        self._hover_pos = QPoint()
+        self._hover_timer = QTimer(self)
+        self._hover_timer.setSingleShot(True)
+        self._hover_timer.setInterval(180)
+        self._hover_timer.timeout.connect(self._show_xp_popup)
         self._setup_ui()
         self._signal_update.connect(self._do_update)
 
@@ -549,9 +705,64 @@ class XianNiUpgradeUI(QWidget):
         self._table.setAlternatingRowColors(True)
         self._table.setSelectionMode(QAbstractItemView.NoSelection)
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setMouseTracking(True)
+        self._table.viewport().setMouseTracking(True)
+        self._table.viewport().installEventFilter(self)
         group_layout.addWidget(self._table)
 
         layout.addWidget(self._log_group, 2)
+
+    # ── 「道行」列悬浮分项饼图 ──────────────────────────────
+    def eventFilter(self, obj, event):
+        if obj is self._table.viewport():
+            etype = event.type()
+            if etype == QEvent.Type.MouseMove:
+                self._handle_xp_hover(
+                    self._table.indexAt(event.position().toPoint()),
+                    event.globalPosition().toPoint(),
+                )
+            elif etype in (QEvent.Type.Leave, QEvent.Type.MouseButtonPress,
+                           QEvent.Type.Wheel):
+                self._hide_xp_popup()
+        return super().eventFilter(obj, event)
+
+    def hideEvent(self, event):
+        self._hide_xp_popup()
+        super().hideEvent(event)
+
+    def _handle_xp_hover(self, index, global_pos: QPoint) -> None:
+        key = None
+        if (index.isValid() and index.column() == _XP_COLUMN
+                and 0 <= index.row() < len(self._row_breakdowns)):
+            data = self._row_breakdowns[index.row()]
+            if data is not None:
+                key = (index.row(), data["total"], tuple(data["parts"]))
+        if key == self._hover_key:
+            return
+        self._hide_xp_popup()
+        if key is None:
+            return
+        self._hover_key = key
+        self._hover_pos = QPoint(global_pos)
+        self._hover_timer.start()
+
+    def _show_xp_popup(self) -> None:
+        if self._hover_key is None:
+            return
+        row = self._hover_key[0]
+        data = self._row_breakdowns[row] if row < len(self._row_breakdowns) else None
+        if data is None:
+            return
+        if self._xp_popup is None:
+            self._xp_popup = XpPiePopup(self)
+        self._xp_popup.set_data(data["parts"], data["total"], data["capped"])
+        self._xp_popup.show_at(self._hover_pos)
+
+    def _hide_xp_popup(self) -> None:
+        self._hover_timer.stop()
+        self._hover_key = None
+        if self._xp_popup is not None and self._xp_popup.isVisible():
+            self._xp_popup.hide()
 
     def retranslateUi(self):
         self._log_group.setTitle(_translate("Form", "修行日志"))
@@ -652,6 +863,7 @@ class XianNiUpgradeUI(QWidget):
 
     @Slot(object)
     def _do_update(self, data: dict):
+        self._hide_xp_popup()
         rank = LEVEL_NAMES.get(data["level"], "")
         self._level_display.update_info(
             data.get("player_name", ""), rank, data["level"],
@@ -662,6 +874,7 @@ class XianNiUpgradeUI(QWidget):
 
         history = data["history"]
         self._table.setRowCount(len(history))
+        self._row_breakdowns = []
         for i, h in enumerate(history):
             time_value = h["time"]
             if isinstance(time_value, (int, float)):
@@ -669,8 +882,27 @@ class XianNiUpgradeUI(QWidget):
                     int(time_value)).strftime("%Y-%m-%d %H:%M:%S")
             level_str = LEVEL_LABELS.get(h["level"], str(h["level"]))
             mode_str = MODE_LABELS.get(h["mode"], str(h["mode"]))
+            raw_parts = h.get("parts")
+            parts: list[float] = []
+            if isinstance(raw_parts, (list, tuple)) and len(raw_parts) == 4:
+                try:
+                    parts = [float(v) if math.isfinite(float(v)) else 0.0
+                             for v in raw_parts]
+                except (TypeError, ValueError, OverflowError):
+                    parts = []
+            breakdown = None
+            if parts:
+                breakdown = {
+                    "parts": parts,
+                    "total": int(h["xp"]),
+                    "capped": sum(parts) >= 100000,
+                }
+            self._row_breakdowns.append(breakdown)
             for col, val in [(0, str(time_value)), (1, level_str), (2, mode_str),
-                             (3, f'{h["rtime"]:.3f}'), (4, str(h["bbbv"])), (5, str(h["xp"]))]:
+                             (3, f'{h["rtime"]:.3f}'), (4, str(h["bbbv"])),
+                             (_XP_COLUMN, str(h["xp"]))]:
                 item = QTableWidgetItem(val)
                 item.setTextAlignment(Qt.AlignCenter)
+                if col == _XP_COLUMN and breakdown is None:
+                    item.setToolTip(_translate("Form", "此记录未保存分项数据"))
                 self._table.setItem(i, col, item)
