@@ -1886,3 +1886,38 @@ def test_http_connection_bound(monkeypatch):
             connection.close()
     with socket.socket() as connection:
         connection.bind(("127.0.0.1", server.port))
+
+
+def test_expired_sessions_release_capacity_and_cancel_pending(http_service):
+    server = http_service[0]
+    session = initialize(server)
+    session_id = session["Mcp-Session-Id"]
+    call = PendingCall("get_board_state", {}, (session_id, 99), time.monotonic() + 10)
+    with server.bridge.lock:
+        server.bridge.pending[call.key] = call
+    with server.lock:
+        server.session_activity[session_id] = time.monotonic() - mcp_server.SESSION_IDLE_TIMEOUT
+        for index in range(31):
+            key = f"abandoned-{index}"
+            server.sessions[key] = True
+            server.session_activity[key] = time.monotonic() - mcp_server.SESSION_IDLE_TIMEOUT
+    replacement = initialize(server)
+    assert replacement["Mcp-Session-Id"] != session_id
+    assert call.future.result(timeout=1)["error"].startswith("Session closed")
+    assert http_request(server, {"jsonrpc": "2.0", "id": 1, "method": "ping"}, extra=session)[0] == 404
+    with server.bridge.lock:
+        server.bridge.pending.pop(call.key)
+
+
+def test_session_activity_extends_expiry(http_service):
+    server = http_service[0]
+    session = initialize(server)
+    session_id = session["Mcp-Session-Id"]
+    with server.lock:
+        old = time.monotonic() - mcp_server.SESSION_IDLE_TIMEOUT / 2
+        server.session_activity[session_id] = old
+    assert http_request(server, {"jsonrpc": "2.0", "id": 1, "method": "ping"}, extra=session)[0] == 200
+    with server.lock:
+        assert server.session_activity[session_id] > old
+        server.expire_sessions(old + mcp_server.SESSION_IDLE_TIMEOUT)
+        assert session_id in server.sessions

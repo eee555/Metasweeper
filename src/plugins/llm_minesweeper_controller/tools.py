@@ -221,6 +221,8 @@ class MinesweeperTools:
 
     def _run_query(self, name: str, query: BaseQuery) -> dict:
         """执行只读查询，失败时回退到最近一次官方事件"""
+        with self.lock:
+            revision = self.revision
         try:
             result = self.query(query, 3.0) if self.query is not None else None
         except Exception:
@@ -242,8 +244,12 @@ class MinesweeperTools:
             return failure("Main process returned an invalid snapshot; wait for SDK events", "unknown")
         code = getattr(result, "game_status_code", None)
         with self.lock:
+            if self.revision != revision:
+                cached = self._cached_snapshot(name)
+                if cached is not None:
+                    return cached
+                return failure("State changed during query; wait for a fresh snapshot", "unknown")
             if name == "get_board_state":
-                self.revision += 1
                 self.board = {"rows": snapshot["rows"], "cols": snapshot["cols"],
                               "cells": snapshot["cells"],
                               "mines_remaining": snapshot["mines_remaining"],
@@ -251,6 +257,7 @@ class MinesweeperTools:
             # 同步状态：插件可能晚于对局启动，收不到 GameStatusChangeEvent
             if type(code) is int and code in STATUS_NAMES:
                 self.status = code
+            self.revision += 1
         return snapshot
 
     def refresh_state(self) -> bool:

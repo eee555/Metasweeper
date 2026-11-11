@@ -18,6 +18,7 @@ MAX_CONNECTIONS = 8
 IO_TIMEOUT = 3.0
 CALL_TIMEOUT = 8.0
 STOP_TIMEOUT = 1.0
+SESSION_IDLE_TIMEOUT = 60 * 60
 
 
 def failure(message: str, outcome: str = "not_executed") -> dict:
@@ -243,6 +244,7 @@ class McpServer:
         self.bridge = bridge if bridge is not None else RequestBridge(
             cast(Callable[[PendingCall], None], dispatcher))
         self.sessions: dict[str, bool] = {}
+        self.session_activity: dict[str, float] = {}
         self.lock = threading.Lock()
         self._lifecycle_lock = threading.Lock()
         self.stopped = threading.Event()
@@ -287,6 +289,7 @@ class McpServer:
             self.bridge.stop()
             with self.lock:
                 self.sessions.clear()
+                self.session_activity.clear()
             http, thread = self.http, self.thread
             if http is not None:
                 http.shutdown()
@@ -307,6 +310,15 @@ class McpServer:
             self.bridge._wait_until(deadline)
             self.http = None
             self.thread = None
+
+    def expire_sessions(self, now: float) -> None:
+        # The caller holds self.lock, so expiry and session validation are atomic.
+        expired = [session for session, last_active in self.session_activity.items()
+                   if now - last_active >= SESSION_IDLE_TIMEOUT]
+        for session in expired:
+            self.sessions.pop(session, None)
+            self.session_activity.pop(session, None)
+            self.bridge.cancel_session(session)
 
     def admit_request(self) -> bool:
         now = time.monotonic()
@@ -434,7 +446,11 @@ class _Handler(BaseHTTPRequestHandler):
         session = self.headers.get("Mcp-Session-Id")
         if session is not None:
             with owner.lock:
+                now = time.monotonic()
+                owner.expire_sessions(now)
                 found = session in owner.sessions
+                if found:
+                    owner.session_activity[session] = now
             if not found:
                 self._reply(404)
                 return False
@@ -461,8 +477,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         with self.mcp.owner.lock:
             found = self.mcp.owner.sessions.pop(session, None)
-        if found is not None:
-            self.mcp.owner.bridge.cancel_session(session)
+            self.mcp.owner.session_activity.pop(session, None)
+            if found is not None:
+                self.mcp.owner.bridge.cancel_session(session)
         self._reply(200 if found is not None else 404)
 
     def do_POST(self):
@@ -559,12 +576,14 @@ class _Handler(BaseHTTPRequestHandler):
                 if owner.stopped.is_set():
                     self._reply(503)
                     return
+                now = time.monotonic()
+                owner.expire_sessions(now)
                 if len(owner.sessions) >= 32:
-                    self._error(-32000,
-                                "Session limit reached; restart service", request_id)
+                    self._error(-32000, "Session limit reached", request_id)
                     return
                 session = secrets.token_urlsafe(24)
                 owner.sessions[session] = False
+                owner.session_activity[session] = now
             self._reply(200, {"jsonrpc": "2.0", "id": request_id, "result": {
                 "protocolVersion": PROTOCOL_VERSION, "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": "metasweeper-mcp", "version": "2.0.0"}}},
