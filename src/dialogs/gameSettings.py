@@ -1,14 +1,68 @@
 from PySide6 import QtGui
 import configparser
+import sys
 from ui.ui_gameSettings import Ui_Form
 from ui.uiComponents import RoundQDialog
 from country_name import country_name
 from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtCore import QSortFilterProxyModel
-from PySide6.QtWidgets import QComboBox
+from PySide6.QtWidgets import QComboBox, QApplication, QToolTip
 from config.constants import BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT
 from utils.path_utils import resource_path
+
+
+class _MacToolTipFallback:
+    """macOS 上无边框半透明窗口的 tooltip 兜底。
+
+    Qt 原生 tooltip 链路要求：自发（系统投递的）MouseMove 无按键事件 ->
+    QApplication 启动唤醒定时器 -> 窗口是 active window（或窗口设置了
+    WA_AlwaysShowToolTips）-> 才向控件发送 QEvent.ToolTip。本项目的对话框
+    是 Qt.FramelessWindowHint + WA_TranslucentBackground 的圆角窗口（见
+    uiComponents.RoundMixin），在 macOS 上这条链路不可靠：hover 时不产生
+    tooltip，而 Windows 上正常。故在 macOS 上改为轮询兜底：光标落在带
+    tooltip 的控件上时，直接调用 QToolTip.showText 显示（不依赖 hover 事件链，
+    QCursor.pos / widgetAt / showText 均为常规 API，在无边框窗口上实测可用）。
+    仅 darwin 平台启用，Windows 行为保持不变。
+    """
+
+    # 轮询间隔（ms），同时充当原生 tooltip 的"延迟感"
+    INTERVAL_MS = 300
+
+    def __init__(self, window, cursor_pos=None):
+        self._window = window
+        # cursor_pos 可注入，便于测试时模拟光标位置
+        self._cursor_pos = cursor_pos or (lambda: QtGui.QCursor.pos())
+        self._cur = None
+        self._timer = QTimer(window)
+        self._timer.setInterval(self.INTERVAL_MS)
+        self._timer.timeout.connect(self._poll)
+
+    def start(self):
+        self._timer.start()
+
+    def _poll(self):
+        if not self._window.isVisible():
+            self._timer.stop()
+            return
+        pos = self._cursor_pos()
+        w = QApplication.widgetAt(pos)
+        if w is not None and w.window().windowType() == Qt.ToolTip:
+            # 光标落在了 tooltip 弹窗自身（贴近屏幕边缘时 Qt 会把 tip 翻转到
+            # 光标上方）——此时既不重设也不隐藏，避免 hide/show 来回抖动
+            return
+        # 只认本对话框内的控件（QToolTip 自己的弹窗是独立顶层窗口，天然被排除）
+        tip_w = None
+        if w is not None and self._window.isAncestorOf(w) and w.toolTip():
+            tip_w = w
+        if tip_w is not None:
+            if tip_w is not self._cur:
+                # 换了控件才重设，避免同一控件内反复触发
+                self._cur = tip_w
+                QToolTip.showText(pos, tip_w.toolTip(), tip_w, tip_w.rect())
+        elif self._cur is not None:
+            self._cur = None
+            QToolTip.hideText()
 
 
 class ui_Form(Ui_Form):
@@ -73,6 +127,16 @@ class ui_Form(Ui_Form):
             self.Dialog.activateWindow()
 
         self.Dialog.show = _show_and_activate
+        # macOS 修复：hover 标签不出 tooltip。无边框半透明窗口上 Qt 原生
+        # tooltip 链路（自发 MouseMove -> 唤醒定时器 -> active window 检查）
+        # 不可靠，两道保险：
+        # 1) WA_AlwaysShowToolTips 放行原生链路的 active window 检查；
+        # 2) _MacToolTipFallback 轮询光标位置直接 showText，不依赖 hover 事件。
+        # 仅 darwin 启用，Windows 行为保持不变。
+        if sys.platform == "darwin":
+            self.Dialog.setAttribute(Qt.WA_AlwaysShowToolTips)
+            self._mac_tooltip = _MacToolTipFallback(self.Dialog)
+            self._mac_tooltip.start()
         for combo_box in self.Dialog.findChildren(QComboBox):
             combo_box.view().setStyleSheet("""
                 QListView {
