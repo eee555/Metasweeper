@@ -74,9 +74,11 @@ def _get_pointer_path() -> Path:
 
 
 def _write_pointer_file(data_dir: str) -> None:
-    """将 data-dir 写入指针文件"""
+    """将 data-dir 写入指针文件（父目录缺失时先创建）"""
     try:
-        _get_pointer_path().write_text(data_dir, encoding="utf-8")
+        p = _get_pointer_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(data_dir, encoding="utf-8")
     except Exception as e:
         logger.warning(f"写入指针文件失败: {e}")
 

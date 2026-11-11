@@ -4,7 +4,7 @@ if __name__ == "__main__":
     enforce_policy_integrity()
 
 import time
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 from PySide6.QtNetwork import QLocalSocket, QLocalServer
 import sys
 import os
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         class _FileOpenEventFilter(QtCore.QObject):
             def eventFilter(self, obj, event):
                 if event.type() == QtCore.QEvent.FileOpen and event.file():
-                    for win in QApplication.topLevelWidgets():
+                    for win in QtWidgets.QApplication.topLevelWidgets():
                         if isinstance(win, mainWindowGUI.MainWindow):
                             win.dropFileSignal.emit(event.file())
                             break

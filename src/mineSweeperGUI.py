@@ -96,6 +96,10 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
     def __init__(self, MainWindow: MainWindow, args):
         self.mainWindow = MainWindow
+        # 格子边长变化回调：MineSweeperGUI 继承链全是普通类（无 QObject），
+        # QtCore.Signal 绑定不上实例（emit 会 AttributeError），改用回调列表。
+        # pixSize setter 广播，设置对话框等关注者经 on/off 订阅。
+        self._pix_size_listeners: list = []
         self.checksum_guard = metasweeper_checksum.ChecksumGuard()
         super(MineSweeperGUI, self).__init__(MainWindow, args)
 
@@ -290,6 +294,19 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # 放大和缩小都要让窗口贴合界面，否则放大后格子会被窗口裁剪
         self._pixSize = pixSize
         self.minimumWindow()
+        # 广播给设置对话框等关注者，保证「方格边长」显示与实际一致
+        for listener in list(self._pix_size_listeners):
+            listener(pixSize)
+
+    def on_pix_size_changed(self, callback) -> None:
+        # 订阅格子边长变化；回调带一个 int 参数（新 pixSize）
+        if callback not in self._pix_size_listeners:
+            self._pix_size_listeners.append(callback)
+
+    def off_pix_size_changed(self, callback) -> None:
+        # 退订；对话框等短生命周期关注者关闭时必须调用，防止回调悬挂对象
+        if callback in self._pix_size_listeners:
+            self._pix_size_listeners.remove(callback)
 
     @property
     def gameMode(self):
@@ -1286,6 +1303,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         ui.Dialog.setModal(True)
         ui.Dialog.show()
         ui.Dialog.exec()
+        # 对话框废弃前退订格子边长广播，防止回调悬挂已关闭的对话框
+        if ui._on_pix_size is not None:
+            self.off_pix_size_changed(ui._on_pix_size)
         if ui.alter:
             self.gameRestart()
             self.pixSize = ui.pixSize

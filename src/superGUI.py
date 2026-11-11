@@ -9,6 +9,7 @@ from PySide6.QtGui import QPalette, QPixmap, QIcon
 from ui.ui_main_board import Ui_MainWindow
 from pathlib import Path
 from utils.path_utils import resource_path
+from utils.pixmap_utils import render_svg_pixmap, scale_bitmap_pixmap
 from dialogs.gameScoreBoard import gameScoreBoardManager
 from country_name import country_name
 import os
@@ -391,14 +392,22 @@ class Ui_MainWindow(Ui_MainWindow):
                   else QPixmap(self.led_path_map[key]))
             for key in SKIN_LED_KEYS
         }
+        # 统一按「目标尺寸 × 屏幕 DPR」出图，避免 Retina 屏上位图 DPR=1
+        # 被整体拉伸导致的发糊：磁盘默认表情是 SVG，矢量重栅格化；
+        # 内存皮肤位图与 LED PNG（无论皮肤或磁盘）走物理分辨率平滑缩放。
+        dpr = self.mainWindow.devicePixelRatioF()
+        face_size = int(pixSize * 1.5)
         self.pixmapNum = {
-            key: value.copy().scaled(int(pixSize * 1.5), int(pixSize * 1.5))
-            for key, value in self.pixmapNumPix.items()
+            key: (scale_bitmap_pixmap(source, face_size, face_size, dpr)
+                  if faces and key in faces
+                  else render_svg_pixmap(self.face_path_map[key],
+                                         face_size, face_size, dpr))
+            for key, source in self.pixmapNumPix.items()
         }
         # 以上是笑脸；以下是上方LED数字的图片（比例 208/368 沿用原逻辑）
+        led_width = int(pixSize * 1.5 * 208 / 368)
         self.pixmapLEDNum = {
-            key: value.copy().scaled(
-                int(pixSize * 1.5 * 208 / 368), int(pixSize * 1.5))
+            key: scale_bitmap_pixmap(value, led_width, face_size, dpr)
             for key, value in self.pixmapLEDNumPix.items()
         }
 
@@ -537,6 +546,17 @@ class Ui_MainWindow(Ui_MainWindow):
             mw.resize(hint)
             mw._programmatic = False
         self.minimum_counter += 1
+        # 收敛判定：窗口已与界面精确贴合（resize 后未被外力改走），提前
+        # 结束吸附并复位拖拽抑制。此前固定跑满 100 轮，期间 _suppress_drag
+        # 一直为 True：用户此刻开始拖边缘时 resizeEvent 被吞（dragResize
+        # 不发、pixSize 不跟随），timer 又每轮 resize(hint) 把窗口弹回旧
+        # 尺寸——表现为「拖拽调不了尺寸」+ 窗口在目标/hint 之间反复横跳
+        # （游戏过程界面抖动）。贴合即停从根上斩断这条循环。
+        if mw.width() == hint.width() and mw.height() == hint.height():
+            self.minimum_counter = 0
+            self.timer_.stop()
+            mw._suppress_drag = False
+            return
         if self.minimum_counter >= 100:
             self.minimum_counter = 0
             self.timer_.stop()

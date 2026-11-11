@@ -1,4 +1,5 @@
-from utils.helpers import trans_expression, trans_game_mode
+from utils.helpers import trans_expression, trans_game_mode, \
+    clamp_widget_to_screen, place_detached_panel
 from utils.board_funcs import (
     EnuLimit,
     choose_3BV,

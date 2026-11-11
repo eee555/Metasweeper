@@ -11,6 +11,7 @@ from replay_analysis import analyse_replay_events, unwrap_board_event, unwrap_mo
 from ui.uiComponents import RoundQWidget
 from ui.ui_video_control import Ui_Form
 from utils.app_logger import logger
+from utils.helpers import place_detached_panel
 from utils.path_utils import resource_path
 
 
@@ -611,8 +612,11 @@ class ui_Form(QWidget, Ui_Form):
             self.set_double_spin_box_time)
         self.doubleSpinBox_time.valueChanged[float].connect(
             self.set_horizontal_slider_time)
-        self.QWidget.move(game_setting.value("DEFAULT/videocontroltop", 100, int),
-                          game_setting.value("DEFAULT/videocontrolleft", 300, int))
+        # 同计数器：首启贴合主窗口左侧；恢复记忆位置后钳制回屏幕内
+        place_detached_panel(
+            self.QWidget, parent,
+            game_setting.value("DEFAULT/videocontroltop", None, int),
+            game_setting.value("DEFAULT/videocontrolleft", None, int))
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
 
     def add_new_video_tab(self, video, progress_callback=None):
@@ -806,6 +810,7 @@ class ui_Form(QWidget, Ui_Form):
     def close(self):
         self.tabWidget.clear()
         self.tab_id = 0
+        # 注意：ini 键名历史原因是 top/left 反着存 y/x
         self.game_setting.set_value(
             "DEFAULT/videocontroltop", self.QWidget.x())
         self.game_setting.set_value(

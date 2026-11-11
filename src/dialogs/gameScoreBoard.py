@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QTableWidgetItem, QAbstractItemDelegate, QApplicat
 from PySide6.QtGui import QBrush, QColor, QPixmap, QShortcut, QTransform
 from PySide6 import QtCore, QtGui
 from utils.path_utils import resource_path
+from utils.helpers import place_detached_panel
 
 
 class ScoreBoardWidget(RoundQWidget):
@@ -342,8 +343,12 @@ class gameScoreBoardManager():
         self.ui.QWidget.closeEvent_.connect(self.close)
         QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Return), self.ui.QWidget).\
             activated.connect(self.__table_ok)
-        self.ui.QWidget.move(game_setting.value("DEFAULT/scoreboardtop", 100, int),
-                             game_setting.value("DEFAULT/scoreboardleft", 200, int))
+        # 无记忆位置时首次启动：贴合主窗口左侧、顶边对齐；有记忆位置时
+        # 钳制回主窗口所在屏幕，防止扩展屏断开后面板留在屏幕外不可见
+        place_detached_panel(
+            self.ui.QWidget, parent,
+            game_setting.value("DEFAULT/scoreboardtop", None, int),
+            game_setting.value("DEFAULT/scoreboardleft", None, int))
         self.editing_row = -1  # -1不在编辑状态，-2不能编辑（正在游戏）
         self.editing_column = -1
 
@@ -583,6 +588,7 @@ class gameScoreBoardManager():
     def close(self):
         self.score_board_setting.set_section("DEFAULT", self.score_board_items)
         self.score_board_setting.sync()
+        # 注意：ini 键名历史原因是 top/left 反着存 y/x
         self.game_setting.set_value(
             "DEFAULT/scoreboardtop", self.ui.QWidget.x())
         self.game_setting.set_value(

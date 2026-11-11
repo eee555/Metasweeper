@@ -195,20 +195,30 @@ class StatusLabel (QtWidgets.QLabel):
         return src if src is not None else QPixmap(self.smileface_path)
 
     def reloadFace(self, pixSize):
-        # 重新修改脸的大小，叫rescale_face更妥
+        # 重新修改脸的大小，叫rescale_face更妥。
+        # 统一按「目标尺寸 × 屏幕 DPR」出图，避免 Retina 屏上发糊：
+        # 磁盘默认资源是 SVG，矢量重栅格化；内存皮肤源是位图（无法矢量化），
+        # 走物理分辨率平滑缩放，二者都不再被 DPR 整体拉伸二次重采样。
+        from utils.pixmap_utils import render_svg_pixmap, scale_bitmap_pixmap
         self.pixSize = pixSize
+        face_size = int(pixSize * 1.5)
+        dpr = self.devicePixelRatioF()
         base1 = self._face_base("down")
         base2 = self._face_base("normal")
-        self.pixmap1 = base1.copy().scaled(
-            int(pixSize * 1.5), int(pixSize * 1.5))
-        self.pixmap2 = base2.copy().scaled(
-            int(pixSize * 1.5), int(pixSize * 1.5))
+        if self.skin_face_down is not None:
+            self.pixmap1 = scale_bitmap_pixmap(base1, face_size, face_size, dpr)
+        else:
+            self.pixmap1 = render_svg_pixmap(
+                self.smilefacedown_path, face_size, face_size, dpr)
+        if self.skin_face_normal is not None:
+            self.pixmap2 = scale_bitmap_pixmap(base2, face_size, face_size, dpr)
+        else:
+            self.pixmap2 = render_svg_pixmap(
+                self.smileface_path, face_size, face_size, dpr)
         self.pixmap1_svg = base1
         self.pixmap2_svg = base2
-        self.setMinimumSize(QtCore.QSize(
-            int(pixSize * 1.5), int(pixSize * 1.5)))
-        self.setMaximumSize(QtCore.QSize(
-            int(pixSize * 1.5), int(pixSize * 1.5)))
+        self.setMinimumSize(QtCore.QSize(face_size, face_size))
+        self.setMaximumSize(QtCore.QSize(face_size, face_size))
 
     def setPath(self):
         self.smileface_path = str(resource_path(
