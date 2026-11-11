@@ -232,7 +232,7 @@ class GitHub(QObject):
             loop = QEventLoop()
             reply.finished.connect(loop.quit)
             loop.exec()
-            if reply.error() != QNetworkReply.NoError:
+            if reply.error() != QNetworkReply.NetworkError.NoError:
                 self.error(reply.errorString())
                 return None
             dataStr = reply.readAll().data().decode('utf-8')
@@ -250,7 +250,7 @@ class GitHub(QObject):
     def __isNeedUpdateAsync(self, reply: QNetworkReply):
         if reply.error() == QNetworkReply.NetworkError.OperationCanceledError:
             pass
-        elif reply.error() != QNetworkReply.NoError:
+        elif reply.error() != QNetworkReply.NetworkError.NoError:
             self.error(reply.errorString())
         else:
             self.isNeedUpdateAsyncSignal.emit(
@@ -275,7 +275,7 @@ class GitHub(QObject):
             loop = QEventLoop()
             reply.finished.connect(loop.quit)
             loop.exec()
-            if reply.error() != QNetworkReply.NoError:
+            if reply.error() != QNetworkReply.NetworkError.NoError:
                 self.error(reply.errorString())
                 return None
             dataStr = reply.readAll().data().decode('utf-8')
@@ -289,7 +289,7 @@ class GitHub(QObject):
     def __lastReleaseAsync(self, reply: QNetworkReply):
         if reply.error() == QNetworkReply.NetworkError.OperationCanceledError:
             pass
-        elif reply.error() != QNetworkReply.NoError:
+        elif reply.error() != QNetworkReply.NetworkError.NoError:
             self.error(reply.errorString())
         else:
             self.latestReleaseAsyncSignal.emit(
@@ -313,7 +313,7 @@ class GitHub(QObject):
             loop = QEventLoop()
             reply.finished.connect(loop.quit)
             loop.exec()
-            if reply.error() != QNetworkReply.NoError:
+            if reply.error() != QNetworkReply.NetworkError.NoError:
                 self.error(reply.errorString())
                 return None
             dataStr = reply.readAll().data().decode('utf-8')
@@ -330,7 +330,7 @@ class GitHub(QObject):
     def __releasesAsync(self, reply: QNetworkReply):
         if reply.error() == QNetworkReply.NetworkError.OperationCanceledError:
             pass
-        elif reply.error() != QNetworkReply.NoError:
+        elif reply.error() != QNetworkReply.NetworkError.NoError:
             self.error(reply.errorString())
         else:
             releases = self.__releases(reply.readAll().data().decode('utf-8'))
@@ -393,7 +393,7 @@ class GitHub(QObject):
         reply: QNetworkReply = self.sender()
         if reply.error() == QNetworkReply.NetworkError.OperationCanceledError:
             pass
-        elif reply.error() != QNetworkReply.NoError:
+        elif reply.error() != QNetworkReply.NetworkError.NoError:
             self.error(reply.errorString())
         else:
             # 临时文件夹

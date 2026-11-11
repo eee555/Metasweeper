@@ -18,7 +18,7 @@ def on_new_connection(local_server):
 
 
 def on_ready_read(socket):
-    if socket and socket.state() == QLocalSocket.ConnectedState:
+    if socket and socket.state() == QLocalSocket.LocalSocketState.ConnectedState:
         socket.waitForReadyRead(500)
         file_path = socket.readAll().data().decode()
         for win in QApplication.topLevelWidgets():

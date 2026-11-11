@@ -95,7 +95,7 @@ class HistoryMainWidget(QWidget):
         btn_layout.addWidget(self.columns_button)
         btn_layout.addWidget(self.computed_columns_button)
         btn_layout.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
+            QSpacerItem(10, 10, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         )
 
         # 当前过滤/排序条件显示
@@ -126,7 +126,7 @@ class HistoryMainWidget(QWidget):
 
         self.limit_label = QLabel("")
         limit_layout.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
+            QSpacerItem(10, 10, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         )
         limit_layout.addWidget(self.limit_label)
         limit_layout.addWidget(self.previous_button)

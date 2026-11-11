@@ -39,16 +39,19 @@ class EditableComboBox(QComboBox):
         # 设置补全器
         completer = QCompleter(items, self)
         completer.setCaseSensitivity(
-            Qt.CaseSensitive if case_sensitive else Qt.CaseInsensitive
+            Qt.CaseSensitivity.CaseSensitive if case_sensitive else Qt.CaseSensitivity.CaseInsensitive
         )
         completer.setFilterMode(
-            Qt.MatchStartsWith if filter_mode == "startswith" else Qt.MatchContains
+            Qt.MatchFlag.MatchStartsWith if filter_mode == "startswith" else Qt.MatchFlag.MatchContains
         )
-        completer.setCompletionMode(QCompleter.PopupCompletion)  # 改为弹出式，更高效
+        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)  # 改为弹出式，更高效
         self.setCompleter(completer)
 
         # 焦点移开时验证输入
-        self.lineEdit().editingFinished.connect(self._validate_input)
+        lineEdit = self.lineEdit()
+        if lineEdit is None:
+            return
+        lineEdit.editingFinished.connect(self._validate_input)
 
     def _validate_input(self):
         """验证输入，如果不在有效列表中则恢复默认值"""

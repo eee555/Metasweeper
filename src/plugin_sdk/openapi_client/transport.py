@@ -262,7 +262,7 @@ class QtNetworkTransport:
             raise TransportError(f"请求超时（{timeout}s）: {url}")
 
         # ---- 错误 / 状态码映射 ----
-        status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+        status_code = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
         if status_code is None:
             # 拿不到 HTTP 状态码 => 纯网络层失败（DNS/连接被拒/超时中断等）。
             # 仅用 errorString() 描述原因，避免不同 Qt 绑定的 API 差异。

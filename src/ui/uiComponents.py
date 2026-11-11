@@ -90,8 +90,8 @@ class RoundMixin:
         self.skin_bg_color: QColor | None = None
         # 可选的整幅 SVG 栅格源；子窗口可把同一张 frame.svg 直接铺满圆角面板。
         self.skin_bg_pixmap: QPixmap | None = None
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
 
     def paintEvent(self, event):
         # 阴影
@@ -104,7 +104,7 @@ class RoundMixin:
 
         for i in range(10):
             i_path = QPainterPath()
-            i_path.setFillRule(Qt.WindingFill)
+            i_path.setFillRule(Qt.FillRule.WindingFill)
             ref = QRectF(10-i, 10-i, self.width()-(10-i)
                          * 2, self.height()-(10-i)*2)
             # i_path.addRect(ref)
@@ -129,21 +129,21 @@ class RoundMixin:
         else:
             # 圆角背景由计数器纯色皮肤控制；None 时沿用默认浅灰色。
             p.setBrush(self.skin_bg_color or QtGui.QColor(242, 242, 242, 255))
-            p.setPen(Qt.transparent)
+            p.setPen(Qt.GlobalColor.transparent)
             p.drawRoundedRect(rect, 10, 10)
 
     def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
+        if e.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._drag_offset = e.globalPosition().toPoint() - self.pos()
             e.accept()
 
     def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton:
+        if e.button() == Qt.MouseButton.LeftButton:
             self._dragging = False
 
     def mouseMoveEvent(self, e):
-        if self._dragging and e.buttons() & Qt.LeftButton:
+        if self._dragging and e.buttons() & Qt.MouseButton.LeftButton:
             self.move(e.globalPosition().toPoint() - self._drag_offset)
             e.accept()
 
@@ -177,10 +177,10 @@ class StatusLabel (QtWidgets.QLabel):
     def __init__(self, parent=None):
         super(StatusLabel, self).__init__(parent)
 
-        self.setFrameShape(QtWidgets.QFrame.Panel)
-        self.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.setFrameShape(QtWidgets.QFrame.Shape.Panel)
+        self.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
         self.setLineWidth(1)
-        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         # 皮肤内存源：按下/松开两张脸的原始 QPixmap；None 表示用磁盘默认资源。
         # 由 app.skin_applier 在运行时写入，不落盘、重启即还原。
         self.skin_face_down: QPixmap | None = None
@@ -226,11 +226,11 @@ class StatusLabel (QtWidgets.QLabel):
         # self.resize(QtCore.QSize(int(self.pixSize * 1.5), int(self.pixSize * 1.5)))
 
     def mousePressEvent(self, e):  # 重载一下鼠标点击事件
-        if e.button() == QtCore.Qt.LeftButton:
+        if e.button() == QtCore.Qt.MouseButton.LeftButton:
             self.setPixmap(self.pixmap1)
 
     def mouseReleaseEvent(self, e):
-        if e.button() == QtCore.Qt.LeftButton:
+        if e.button() == QtCore.Qt.MouseButton.LeftButton:
             self.setPixmap(self.pixmap2)
             if self.pixSize * 1.5 >= e.localPos().x() >= 0 and 0 <= e.localPos().y() <= self.pixSize*1.5:
                 self.leftRelease.emit()
@@ -269,27 +269,27 @@ class CountryComboBox(QComboBox):
 
         # 1. 基础设置
         self.setEditable(True)
-        self.lineEdit().setAlignment(Qt.AlignCenter)
-        self.setInsertPolicy(QComboBox.NoInsert)
-        self.view().setTextElideMode(Qt.ElideNone)
+        self.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.view().setTextElideMode(Qt.TextElideMode.ElideNone)
         self.view().setSpacing(2)
-        self.view().setLayoutDirection(Qt.LeftToRight)
+        self.view().setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
         # 2. 设置 model
         self._model = QStringListModel(countries)
         self._proxy_model = QSortFilterProxyModel(self)
         self._proxy_model.setSourceModel(self._model)
-        self._proxy_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self._proxy_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self._proxy_model.setFilterKeyColumn(0)
 
         self.setModel(self._model)
 
         # 3. 设置补全器
         self._completer = QCompleter(self._proxy_model, self)
-        self._completer.setCompletionMode(QCompleter.PopupCompletion)
-        self._completer.setFilterMode(Qt.MatchContains)  # 包含搜索
-        self._completer.popup().setTextElideMode(Qt.ElideNone)
-        self._completer.popup().setLayoutDirection(Qt.LeftToRight)
+        self._completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        self._completer.setFilterMode(Qt.MatchFlag.MatchContains)  # 包含搜索
+        self._completer.popup().setTextElideMode(Qt.TextElideMode.ElideNone)
+        self._completer.popup().setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.setCompleter(self._completer)
 
         # 4. 居中补全框中的文字

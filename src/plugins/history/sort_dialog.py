@@ -36,20 +36,20 @@ class SortDialog(ConfirmDialog):
 
         self.sort_table = AutoEditTableView()
         self.sort_table.setModel(SortModel(self))
-        self.sort_table.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
-        self.sort_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.sort_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.sort_table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sort_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.sort_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.sort_table.customContextMenuRequested.connect(
             self.show_sort_context_menu)
-        self.sort_table.setSelectionBehavior(QTableView.SelectItems)
-        self.sort_table.setSelectionMode(QTableView.ExtendedSelection)
+        self.sort_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectItems)
+        self.sort_table.setSelectionMode(QTableView.SelectionMode.ExtendedSelection)
         self.sort_table.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding)
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         # 设置所有列自动进入编辑
         self.sort_table.setAutoEditColumns(
             [SortModel.COL_FIELD, SortModel.COL_ORDER])
         # 禁用双击编辑
-        self.sort_table.setEditTriggers(QTableView.NoEditTriggers)
+        self.sort_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.sort_table)
 
         self._setup_delegates()

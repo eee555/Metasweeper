@@ -72,11 +72,11 @@ class ToggleSwitch(QWidget):
         # 动画
         self._animation = QPropertyAnimation(self, b"handle_position")
         self._animation.setDuration(200)
-        self._animation.setEasingCurve(QEasingCurve.OutQuad)
+        self._animation.setEasingCurve(QEasingCurve.Type.OutQuad)
 
         self.setFixedSize(self.sizeHint())
-        self.setCursor(Qt.PointingHandCursor)
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     # ── 属性动画 ──────────────────────────────────────────
 
@@ -137,7 +137,7 @@ class ToggleSwitch(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # 轨道颜色插值
         track_color = QColor(
@@ -155,7 +155,7 @@ class ToggleSwitch(QWidget):
         # 绘制轨道
         track_rect = self.rect()
         track_radius = self._track_height / 2
-        painter.setPen(Qt.NoPen)
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(track_color))
         painter.drawRoundedRect(track_rect, track_radius, track_radius)
 
@@ -186,11 +186,11 @@ class ToggleSwitch(QWidget):
     # ── 交互 ──────────────────────────────────────────────
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._drag_start_x = event.x()
             self._drag_position = self._handle_position
             self._dragging = True
-            if self._animation.state() == QPropertyAnimation.Running:
+            if self._animation.state() == QPropertyAnimation.State.Running:
                 self._animation.stop()
 
     def mouseMoveEvent(self, event):
@@ -226,7 +226,7 @@ class ToggleSwitch(QWidget):
             self.update()
 
     def keyPressEvent(self, event):
-        if event.key() in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
+        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self.toggle()
             event.accept()
         else:

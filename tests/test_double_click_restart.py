@@ -32,15 +32,15 @@ def board(qtbot):
 def send_mouse(label, event_type, button, buttons, pos=(10, 30)):
     position = QPointF(*pos)
     event = QMouseEvent(event_type, position, position, position,
-                        button, buttons, Qt.NoModifier)
+                        button, buttons, Qt.KeyboardModifier.NoModifier)
     QApplication.sendEvent(label, event)
 
 
-def double_click(label, button=Qt.LeftButton, release_pos=(10, 30)):
-    send_mouse(label, QEvent.MouseButtonPress, button, button)
-    send_mouse(label, QEvent.MouseButtonRelease, button, Qt.NoButton)
-    send_mouse(label, QEvent.MouseButtonDblClick, button, button)
-    send_mouse(label, QEvent.MouseButtonRelease, button, Qt.NoButton, release_pos)
+def double_click(label, button=Qt.MouseButton.LeftButton, release_pos=(10, 30)):
+    send_mouse(label, QEvent.Type.MouseButtonPress, button, button)
+    send_mouse(label, QEvent.Type.MouseButtonRelease, button, Qt.MouseButton.NoButton)
+    send_mouse(label, QEvent.Type.MouseButtonDblClick, button, button)
+    send_mouse(label, QEvent.Type.MouseButtonRelease, button, Qt.MouseButton.NoButton, release_pos)
 
 
 @pytest.mark.parametrize('state', [WIN, FAIL, JOWIN, JOFAIL])
@@ -62,12 +62,12 @@ def test_double_click_restarts_only_after_second_release(board, state, enabled):
     presses = Mock()
     board.leftPressed.connect(presses)
 
-    send_mouse(board, QEvent.MouseButtonPress, Qt.LeftButton, Qt.LeftButton)
-    send_mouse(board, QEvent.MouseButtonRelease, Qt.LeftButton, Qt.NoButton)
+    send_mouse(board, QEvent.Type.MouseButtonPress, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton)
+    send_mouse(board, QEvent.Type.MouseButtonRelease, Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton)
     controller.gameRestart.assert_not_called()
-    send_mouse(board, QEvent.MouseButtonDblClick, Qt.LeftButton, Qt.LeftButton)
+    send_mouse(board, QEvent.Type.MouseButtonDblClick, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton)
     controller.gameRestart.assert_not_called()
-    send_mouse(board, QEvent.MouseButtonRelease, Qt.LeftButton, Qt.NoButton)
+    send_mouse(board, QEvent.Type.MouseButtonRelease, Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton)
 
     assert presses.call_count == 2
     assert controller.gameRestart.call_count == int(enabled)
@@ -113,7 +113,7 @@ def test_right_double_click_preserves_right_button_events(board):
     board.rightPressed.connect(presses)
     board.rightRelease.connect(releases)
     board.leftDoubleRelease.connect(left_double_releases)
-    double_click(board, Qt.RightButton)
+    double_click(board, Qt.MouseButton.RightButton)
     assert presses.call_count == releases.call_count == 2
     left_double_releases.assert_not_called()
 
@@ -127,9 +127,9 @@ def test_chording_does_not_emit_left_double_release(board):
     board.leftDoubleRelease.connect(double_releases)
     board.leftAndRightPressed.connect(chord_presses)
     board.leftRelease.connect(releases)
-    send_mouse(board, QEvent.MouseButtonDblClick, Qt.LeftButton, Qt.LeftButton)
-    send_mouse(board, QEvent.MouseButtonPress, Qt.RightButton, Qt.LeftButton | Qt.RightButton)
-    send_mouse(board, QEvent.MouseButtonRelease, Qt.LeftButton, Qt.RightButton)
+    send_mouse(board, QEvent.Type.MouseButtonDblClick, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton)
+    send_mouse(board, QEvent.Type.MouseButtonPress, Qt.MouseButton.RightButton, Qt.MouseButton.LeftButton | Qt.MouseButton.RightButton)
+    send_mouse(board, QEvent.Type.MouseButtonRelease, Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton)
     chord_presses.assert_not_called()
     releases.assert_called_once_with(30, 10)
     double_releases.assert_not_called()

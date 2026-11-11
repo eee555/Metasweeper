@@ -125,7 +125,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.timer_10ms.setInterval(10)  # 10毫秒回调一次的定时器
         self.timer_10ms.timeout.connect(self.timeCount)
         # 开了高精度反而精度降低
-        self.timer_10ms.setTimerType(Qt.PreciseTimer)
+        self.timer_10ms.setTimerType(Qt.TimerType.PreciseTimer)
         self.mineUnFlagedNum = self.minenum  # 没有标出的雷，显示在左上角
         self.showMineNum(self.mineUnFlagedNum)    # 在左上角画雷数
 

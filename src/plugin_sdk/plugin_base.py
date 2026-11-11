@@ -64,23 +64,23 @@ def make_plugin_icon(
         PLUGIN_INFO = PluginInfo(..., icon=make_plugin_icon("#e65100", "📝"))
     """
     pix = QPixmap(size, size)
-    pix.fill(Qt.transparent)  # type: ignore[attr-defined]
+    pix.fill(Qt.GlobalColor.transparent)
 
     p = QPainter(pix)
-    p.setRenderHint(QPainter.Antialiasing)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
     # 圆形背景
-    p.setPen(Qt.NoPen)  # type: ignore[attr-defined]
+    p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QBrush(QColor(color)))
     p.drawEllipse(pix.rect().adjusted(3, 3, -3, -3))
 
     # 符号文字
     pen = QPen(QColor("white"), 2)
     p.setPen(pen)
-    p.setBrush(Qt.NoBrush)  # type: ignore[attr-defined]
-    font = QFont("Segoe UI Emoji", int(size * 0.44), QFont.Bold)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    font = QFont("Segoe UI Emoji", int(size * 0.44), QFont.Weight.Bold)
     p.setFont(font)
-    p.drawText(pix.rect(), Qt.AlignCenter | Qt.AlignVCenter,  # type: ignore[attr-defined]
+    p.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
                symbol)
     p.end()
 

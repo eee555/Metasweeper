@@ -35,7 +35,7 @@ class AnimationButton(QPushButton):
         super().paintEvent(event)
         if self.pixmap is not None:
             painter = QPainter(self)
-            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.translate(self.width() // 2, self.height() // 2)
             size = self.width() if self.width() < self.height() else self.height()
             painter.rotate(self.rotate())
@@ -89,13 +89,13 @@ class ReleaseFrame(QFrame):
         row1.addWidget(self.showButton)
         row1.addWidget(QLabel(self.release.tag_name))
         row1.addItem(QSpacerItem(
-            20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+            20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         if self.release.assets_created_at != "":
             self.dateTimeLabel.setText(QDateTime.fromString(
                 self.release.assets_created_at, "yyyy-MM-ddThh:mm:ssZ").toString("yyyy-MM-dd hh:mm:ss"))
         row1.addWidget(self.dateTimeLabel)
         row1.addItem(QSpacerItem(
-            20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+            20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         self.downloadButton.setEnabled(self.mode == ">")
         row1.addWidget(self.downloadButton)
         self.titleWidget.setLayout(row1)
@@ -201,7 +201,7 @@ class ReleaseFrame(QFrame):
 
     def mousePressEvent(self, a0: QMouseEvent) -> None:
         super().mousePressEvent(a0)
-        if self.titleWidget.geometry().contains(a0.pos()) and a0.button() == Qt.LeftButton:
+        if self.titleWidget.geometry().contains(a0.pos()) and a0.button() == Qt.MouseButton.LeftButton:
             self.showButton.click()
 
     def __setStyleSheet(self, isEnter: bool):
@@ -243,7 +243,7 @@ class CheckUpdateGui(QDialog):
         self.setWindowTitle(self.tr("CheckUpdate"))
         # 去掉问号
         self.setWindowFlags(self.windowFlags() & ~
-                            Qt.WindowContextHelpButtonHint)
+                            Qt.WindowType.WindowContextHelpButtonHint)
         self.github: GitHub = github
         self.github.setParent(self)
         self.checkUpdateButton = QPushButton(
@@ -285,7 +285,7 @@ class CheckUpdateGui(QDialog):
         row1.setContentsMargins(0, 0, 0, 0)
         row1.addWidget(self.currentVersionLabel)
         row1.addItem(QSpacerItem(
-            20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+            20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         row1.addWidget(self.sourceSpeedLabel)
         row1.addWidget(self.sourceCombo)
         row1.addWidget(self.checkUpdateButton)
@@ -343,7 +343,7 @@ class CheckUpdateGui(QDialog):
         panel.setFixedHeight(100)
         layout.addWidget(panel)
         layout.addItem(QSpacerItem(
-            20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
+            20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         widget.setLayout(layout)
         self.releaseArea.setWidget(widget)
 

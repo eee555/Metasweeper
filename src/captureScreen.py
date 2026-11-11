@@ -24,18 +24,18 @@ class CaptureScreen(QDialog):
 
     def initWindow(self):
         self.setMouseTracking(True)     # 鼠标追踪
-        self.setCursor(Qt.CrossCursor)  # 设置光标
-        self.setWindowFlag(Qt.FramelessWindowHint)  # 窗口无边框
-        self.setWindowState(Qt.WindowFullScreen)    # 窗口全屏
+        self.setCursor(Qt.CursorShape.CrossCursor)  # 设置光标
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)  # 窗口无边框
+        self.setWindowState(Qt.WindowState.WindowFullScreen)    # 窗口全屏
 
     def captureFullScreen(self):
         self.fullScreenImage = QGuiApplication.primaryScreen().grabWindow(0)
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.beginPosition = event.pos()
             self.isMousePressLeft = True
-        if event.button() == Qt.RightButton:
+        if event.button() == Qt.MouseButton.RightButton:
             # 如果选取了图片,则按一次右键开始重新截图
             if self.captureImage is not None:
                 self.captureImage = None
@@ -68,7 +68,7 @@ class CaptureScreen(QDialog):
         self.paintBackgroundImage()
         penColor = QColor(30, 144, 245)     # 画笔颜色
         # 设置画笔,蓝色,1px大小,实线,圆形笔帽
-        self.painter.setPen(QPen(penColor, 1, Qt.SolidLine, Qt.RoundCap))
+        self.painter.setPen(QPen(penColor, 1, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         if self.isMousePressLeft is True:
             pickRect = self.getRectangle(
                 self.beginPosition, self.endPosition)   # 获得要截图的矩形框

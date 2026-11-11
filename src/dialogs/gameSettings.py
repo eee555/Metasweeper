@@ -78,7 +78,7 @@ class ui_Form(Ui_Form):
         self.pushButton_no.clicked.connect(self.Dialog.close)
         # self.comboBox_country.activated['QString'].connect(lambda x: self.onchange_combobox_country(x))
         self.country_name = list(country_name.keys())
-        self.comboBox_country.lineEdit().setAlignment(Qt.AlignCenter)
+        self.comboBox_country.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.comboBox_country.editTextChanged.connect(
             self.onchange_combobox_country)
         self.comboBox_country.lineEdit().setText(self.country)

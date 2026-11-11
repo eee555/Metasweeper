@@ -63,7 +63,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.closeEvent_.emit()
 
     def keyReleaseEvent(self, event):
-        if event.key() == Qt.Key_Space and not event.isAutoRepeat():
+        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
             self.keyRelease.emit('Space')
 
     def resizeEvent(self, event):

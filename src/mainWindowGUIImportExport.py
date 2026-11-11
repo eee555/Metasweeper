@@ -144,7 +144,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 renderers[val] = QSvgRenderer(path)
         board_origin = label.mapTo(self.centralwidget, QPoint(0, 0))
         buf = QBuffer()
-        buf.open(QBuffer.WriteOnly)
+        buf.open(QBuffer.OpenModeFlag.WriteOnly)
         gen = QSvgGenerator()
         gen.setOutputDevice(buf)
         gen.setSize(self.centralwidget.size())
@@ -555,7 +555,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 self.mainWindow, _translate("MainWindow", "确认覆盖"),
                 _translate("MainWindow", "以下文件已存在，是否覆盖？\n{paths}")
                 .replace("{paths}", "\n".join(existing)),
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
 
         dialog = CsvExportProgressDialog(self.mainWindow)

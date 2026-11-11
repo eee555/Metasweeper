@@ -58,10 +58,10 @@ class AspectLabel(QLabel):
             ph = int(self.height() * dpr)
             if pw <= 0 or ph <= 0:
                 return
-            scaled = src.scaled(pw, ph, Qt.KeepAspectRatio,
-                                Qt.SmoothTransformation)
+            scaled = src.scaled(pw, ph, Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation)
             canvas = QPixmap(pw, ph)
-            canvas.fill(Qt.transparent)
+            canvas.fill(Qt.GlobalColor.transparent)
             p = QPainter(canvas)
             x = (pw - scaled.width()) // 2
             y = (ph - scaled.height()) // 2
@@ -185,7 +185,7 @@ class RulesDialog(QDialog):
         browser.setHtml(self._build_content())
         layout.addWidget(browser)
 
-        btn_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         btn_box.accepted.connect(self.accept)
         layout.addWidget(btn_box)
 
@@ -350,26 +350,26 @@ class LevelDisplay(QWidget):
         self._player_label = QLabel("")
         self._player_label.setStyleSheet(
             "color: #01579B; font-size: 15px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
-        self._player_label.setAlignment(Qt.AlignCenter)
+        self._player_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self._player_label)
 
         self._rank_label = QLabel(_translate("Form", "凡人"))
         self._rank_label.setStyleSheet(
             "color: #01579B; font-size: 28px; font-weight: bold; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
-        self._rank_label.setAlignment(Qt.AlignCenter)
+        self._rank_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._rank_label.setWordWrap(True)
         info_layout.addWidget(self._rank_label)
 
         self._level_label = QLabel("Lv.0")
         self._level_label.setStyleSheet(
             "color: #0277BD; font-size: 16px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
-        self._level_label.setAlignment(Qt.AlignCenter)
+        self._level_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self._level_label)
 
         self._total_xp_label = QLabel(_translate("Form", "修为: 0"))
         self._total_xp_label.setStyleSheet(
             "color: #0288D1; font-size: 14px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
-        self._total_xp_label.setAlignment(Qt.AlignCenter)
+        self._total_xp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self._total_xp_label)
 
         self._progress = QProgressBar()
@@ -388,7 +388,7 @@ class LevelDisplay(QWidget):
         btn_row = QHBoxLayout()
         self._law_btn = QPushButton(_translate("Form", "天地法则"))
         self._law_btn.setFixedHeight(22)
-        self._law_btn.setCursor(Qt.PointingHandCursor)
+        self._law_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._law_btn.setStyleSheet(
             "QPushButton { background: transparent; color: #AB47BC; border: none; "
             "font-size: 12px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
@@ -399,7 +399,7 @@ class LevelDisplay(QWidget):
 
         self._absorb_btn = QPushButton(_translate("Form", "吸收灵气"))
         self._absorb_btn.setFixedHeight(22)
-        self._absorb_btn.setCursor(Qt.PointingHandCursor)
+        self._absorb_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._absorb_btn.setStyleSheet(
             "QPushButton { background: transparent; color: #64B5F6; border: none; "
             "font-size: 12px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
@@ -410,7 +410,7 @@ class LevelDisplay(QWidget):
 
         self._upload_btn = QPushButton(_translate("Form", "上传排行"))
         self._upload_btn.setFixedHeight(22)
-        self._upload_btn.setCursor(Qt.PointingHandCursor)
+        self._upload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._upload_btn.setStyleSheet(
             "QPushButton { background: transparent; color: #26A69A; border: none; "
             "font-size: 12px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
@@ -425,7 +425,7 @@ class LevelDisplay(QWidget):
 
         # 右侧：仙躯形象
         self._image_label = AspectLabel()
-        self._image_label.setAlignment(Qt.AlignCenter)
+        self._image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._image_label.setStyleSheet(
             "QLabel { background: #E1F5FE; "
             " border: 2px solid #4FC3F7; color: #0277BD; font-size: 14px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
@@ -541,14 +541,14 @@ class XianNiUpgradeUI(QWidget):
         self._table.setShowGrid(False)
         self._table.setHorizontalHeaderLabels([_translate("Form", "时刻"), _translate("Form", "境阶"), _translate(
             "Form", "法式"), _translate("Form", "耗时"), _translate("Form", "衍数"), _translate("Form", "道行")])
-        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self._table.setColumnWidth(0, 150)
         for c in range(1, 6):
-            self._table.horizontalHeader().setSectionResizeMode(c, QHeaderView.Stretch)
+            self._table.horizontalHeader().setSectionResizeMode(c, QHeaderView.ResizeMode.Stretch)
         self._table.verticalHeader().setDefaultSectionSize(22)
         self._table.setAlternatingRowColors(True)
-        self._table.setSelectionMode(QAbstractItemView.NoSelection)
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         group_layout.addWidget(self._table)
 
         layout.addWidget(self._log_group, 2)
@@ -635,9 +635,9 @@ class XianNiUpgradeUI(QWidget):
                     self, _translate("Form", "导入道藏"),
                     _translate("Form", "发现 %1 位道友，共 %2 道行，确认导入？").replace(
                         "%1", str(p["total_players"])).replace("%2", str(p["total_xp"])),
-                    QMessageBox.Yes | QMessageBox.No
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
-                if ret == QMessageBox.Yes:
+                if ret == QMessageBox.StandardButton.Yes:
                     gained = self._absorb_save_cb(preview)
                     total_gained += gained
                     msgs.append(_translate("Form", "3.3.1+ 导入 %1 位道友，获 %2 道行").replace(
@@ -672,5 +672,5 @@ class XianNiUpgradeUI(QWidget):
             for col, val in [(0, str(time_value)), (1, level_str), (2, mode_str),
                              (3, f'{h["rtime"]:.3f}'), (4, str(h["bbbv"])), (5, str(h["xp"]))]:
                 item = QTableWidgetItem(val)
-                item.setTextAlignment(Qt.AlignCenter)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self._table.setItem(i, col, item)

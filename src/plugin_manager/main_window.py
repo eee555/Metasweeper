@@ -116,7 +116,7 @@ class DetachedPluginWindow(QDialog):
         # 顶部提示栏（保留此栏：_attach_tab 依赖 layout 第 1 项为插件 widget）
         hint_bar = QLabel(self.tr("关闭此窗口将释放插件界面"))
         hint_bar.setFixedHeight(25)
-        hint_bar.setAlignment(Qt.AlignCenter)
+        hint_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hint_bar.setStyleSheet("""
             QLabel {
                 background: #e8f4fd;
@@ -142,18 +142,18 @@ class DetachedPluginWindow(QDialog):
         self.grabMouse()
 
     def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._drag_offset = event.globalPos() - self.pos()
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
-        if self._dragging and event.buttons() & Qt.LeftButton:
+        if self._dragging and event.buttons() & Qt.MouseButton.LeftButton:
             self.move(event.globalPos() - self._drag_offset)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = False
             self.releaseMouse()
         super().mouseReleaseEvent(event)
@@ -182,14 +182,14 @@ class _DetachableTabBar(QTabBar):
         self._drag_start_pos: QPoint | None = None
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._drag_start_pos = event.globalPos()
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if (
             self._drag_start_pos is not None
-            and (event.buttons() & Qt.LeftButton)
+            and (event.buttons() & Qt.MouseButton.LeftButton)
         ):  # type: ignore
             distance = (event.globalPos() -
                         self._drag_start_pos).manhattanLength()
@@ -206,7 +206,7 @@ class _DetachableTabBar(QTabBar):
         super().mouseMoveEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             idx = self.tabAt(event.pos())
             if idx >= 0:
                 name = self.tabText(idx)
@@ -528,7 +528,7 @@ class PluginSettingsDialog(QDialog):
                             hint = QLabel(text)
                             hint.setWordWrap(True)
                             hint.setTextInteractionFlags(
-                                Qt.TextSelectableByMouse)
+                                Qt.TextInteractionFlag.TextSelectableByMouse)
                             hint.setStyleSheet("color: #666; font-size: 11px;")
                             grp4_layout.addWidget(hint)
                     upload_field = other_info._fields.get("upload_token")
@@ -547,7 +547,7 @@ class PluginSettingsDialog(QDialog):
 
         # 按钮：确定时先用控件当前值校验，通过才关闭
         btns = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         btns.accepted.connect(self._on_ok_clicked)
         btns.rejected.connect(self.reject)
@@ -560,7 +560,7 @@ class PluginSettingsDialog(QDialog):
             self.accept()
             return
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             errors = self._config_widget.validate_pending(self._plugin)
         except Exception as e:
@@ -678,7 +678,7 @@ class BasicSettingsDialog(QDialog):
 
         # 按钮盒
         button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
@@ -760,7 +760,7 @@ class LogViewerDialog(QDialog):
             "LogViewerDialog", "日志查看"))
         self.setWindowIcon(action_icon("app"))
         self.setMinimumSize(900, 600)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
 
         self._plugin_names = plugin_names
         self._current_log = initial_log
@@ -839,7 +839,7 @@ class LogViewerDialog(QDialog):
         layout.addWidget(self._log_view)
 
         # 底部：按钮
-        button_box = QDialogButtonBox(QDialogButtonBox.Close)
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         button_box.rejected.connect(self.close)
         set_button_box_icons(button_box)
         layout.addWidget(button_box)
@@ -1024,17 +1024,17 @@ class ControlAuthorizationDialog(QDialog):
             self.tr("授权插件"),
             self.tr("状态"),
         ])
-        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
         self._table.setColumnWidth(2, 80)
-        self._table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setAlternatingRowColors(True)
         layout.addWidget(self._table)
 
         # 按钮
         btns = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         btns.accepted.connect(self._on_accept)
         btns.rejected.connect(self.reject)
@@ -1063,7 +1063,7 @@ class ControlAuthorizationDialog(QDialog):
                 f"{cmd_label}\n"
                 f"{command_hint(cmd_type)}\n"
                 f"类名: {cmd_type.__name__}")
-            name_item.setData(Qt.UserRole, cmd_type)  # 存储类型
+            name_item.setData(Qt.ItemDataRole.UserRole, cmd_type)  # 存储类型
             self._table.setItem(row, 0, name_item)
 
             # 找出声明了该控制权限的插件
@@ -1144,7 +1144,7 @@ class ControlAuthorizationDialog(QDialog):
                 row, 0)  # type: ignore
             combo: QComboBox = self._table.cellWidget(row, 1)  # type: ignore
 
-            cmd_type = name_item.data(Qt.UserRole)
+            cmd_type = name_item.data(Qt.ItemDataRole.UserRole)
             plugin_name = combo.currentData()
 
             if plugin_name is None:
@@ -1165,7 +1165,7 @@ class _PluginReadmeDialog(ConfirmDialog):
             parent=parent,
             title=parent.tr("{name} - README").format(name=plugin_name)
             if parent else f"{plugin_name} - README",
-            buttons=QDialogButtonBox.Close,
+            buttons=QDialogButtonBox.StandardButton.Close,
         )
         self.setWindowIcon(action_icon("app"))
         set_button_box_icons(self.button_box)
@@ -1187,13 +1187,13 @@ class _PluginReadmeDialog(ConfirmDialog):
         browser.setMarkdown(self._content)
 
         font = QFont("Microsoft YaHei", 11)
-        font.setStyleHint(QFont.SansSerif)
+        font.setStyleHint(QFont.StyleHint.SansSerif)
         browser.setFont(font)
 
         palette = browser.palette()
-        palette.setColor(QPalette.Text, QColor("#24292f"))
-        palette.setColor(QPalette.Link, QColor("#0969da"))
-        palette.setColor(QPalette.LinkVisited, QColor("#8250df"))
+        palette.setColor(QPalette.ColorRole.Text, QColor("#24292f"))
+        palette.setColor(QPalette.ColorRole.Link, QColor("#0969da"))
+        palette.setColor(QPalette.ColorRole.LinkVisited, QColor("#8250df"))
         browser.setPalette(palette)
 
         layout.addWidget(browser)
@@ -1340,10 +1340,10 @@ class PluginManagerWindow(QMainWindow):
 
         # 插件列表
         lst = QListWidget()
-        lst.setViewMode(QListView.ListMode)
-        lst.setSelectionMode(QListView.SingleSelection)
-        lst.setEditTriggers(QListView.NoEditTriggers)
-        lst.setContextMenuPolicy(Qt.CustomContextMenu)
+        lst.setViewMode(QListView.ViewMode.ListMode)
+        lst.setSelectionMode(QListView.SelectionMode.SingleSelection)
+        lst.setEditTriggers(QListView.EditTrigger.NoEditTriggers)
+        lst.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._list = lst
         left_layout.addWidget(lst)
 
@@ -1431,7 +1431,7 @@ class PluginManagerWindow(QMainWindow):
             bar.showMessage(self._status_bar_msg)
 
     def changeEvent(self, event):
-        if event.type() == QEvent.LanguageChange:
+        if event.type() == QEvent.Type.LanguageChange:
             self.retranslateUi()
         super().changeEvent(event)
 
@@ -1452,7 +1452,7 @@ class PluginManagerWindow(QMainWindow):
 
     def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """托盘图标被双击时恢复窗口"""
-        if reason == QSystemTrayIcon.DoubleClick:
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.show_and_raise()
 
     def _really_quit(self) -> None:
@@ -1509,14 +1509,14 @@ class PluginManagerWindow(QMainWindow):
 
         # 设置字体
         font = QFont("Microsoft YaHei", 11)
-        font.setStyleHint(QFont.SansSerif)
+        font.setStyleHint(QFont.StyleHint.SansSerif)
         text_browser.setFont(font)
 
         # 设置调色板（颜色主题）
         palette = text_browser.palette()
-        palette.setColor(QPalette.Text, QColor("#24292f"))  # 文字颜色
-        palette.setColor(QPalette.Link, QColor("#0969da"))  # 链接颜色
-        palette.setColor(QPalette.LinkVisited, QColor("#8250df"))  # 已访问链接
+        palette.setColor(QPalette.ColorRole.Text, QColor("#24292f"))  # 文字颜色
+        palette.setColor(QPalette.ColorRole.Link, QColor("#0969da"))  # 链接颜色
+        palette.setColor(QPalette.ColorRole.LinkVisited, QColor("#8250df"))  # 已访问链接
         text_browser.setPalette(palette)
 
         # 设置文档边距
@@ -1526,7 +1526,7 @@ class PluginManagerWindow(QMainWindow):
         layout.addWidget(text_browser)
 
         # 关闭按钮
-        btn_box = QDialogButtonBox(QDialogButtonBox.Close)
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         btn_box.rejected.connect(dlg.close)
         set_button_box_icons(btn_box)
         layout.addWidget(btn_box)
@@ -1680,7 +1680,7 @@ class PluginManagerWindow(QMainWindow):
         current_name = None
         item = lst.currentItem()
         if item:
-            current_name = item.data(Qt.UserRole)
+            current_name = item.data(Qt.ItemDataRole.UserRole)
 
         lst.clear()
         while t.count() > 0:
@@ -1691,7 +1691,7 @@ class PluginManagerWindow(QMainWindow):
 
         for name, p in self._manager.plugins.items():
             li = QListWidgetItem(p.name)
-            li.setData(Qt.UserRole, name)
+            li.setData(Qt.ItemDataRole.UserRole, name)
             li.setIcon(p.plugin_icon)
 
             lc = p.lifecycle
@@ -1701,7 +1701,7 @@ class PluginManagerWindow(QMainWindow):
                 li.setForeground(QColor("#f57c00"))  # 橙色：初始化中
                 li.setText(self.tr("{name}（初始化中...）").format(name=p.name))
             elif not p.is_enabled:
-                li.setForeground(Qt.gray)  # 灰色：已禁用
+                li.setForeground(Qt.GlobalColor.gray)  # 灰色：已禁用
             elif lc == PluginLifecycle.SHUTTING_DOWN:
                 li.setForeground(QColor("#c62828"))  # 红色：关闭中
                 li.setText(self.tr("{name}（关闭中...）").format(name=p.name))
@@ -1720,7 +1720,7 @@ class PluginManagerWindow(QMainWindow):
         # 恢复选中项
         if current_name:
             for i in range(lst.count()):
-                if lst.item(i).data(Qt.UserRole) == current_name:  # type: ignore
+                if lst.item(i).data(Qt.ItemDataRole.UserRole) == current_name:  # type: ignore
                     lst.setCurrentRow(i)
                     break
 
@@ -1748,7 +1748,7 @@ class PluginManagerWindow(QMainWindow):
         if not item:
             return
 
-        name = item.data(Qt.UserRole)
+        name = item.data(Qt.ItemDataRole.UserRole)
         plugin = self._manager.plugins.get(name)
         if not plugin:
             return
@@ -2096,7 +2096,7 @@ class PluginManagerWindow(QMainWindow):
         """双击列表项：打开对应插件窗口"""
         if not item:
             return
-        name = item.data(Qt.UserRole)
+        name = item.data(Qt.ItemDataRole.UserRole)
         self._open_plugin_window(name)
 
     # ── 标签页弹出/嵌回 ─────────────────────────────────
@@ -2129,7 +2129,7 @@ class PluginManagerWindow(QMainWindow):
                 self._tray_icon.showMessage(
                     self.tr("插件管理器"),
                     self.tr("程序已在系统托盘中运行"),
-                    QSystemTrayIcon.Information,
+                    QSystemTrayIcon.MessageIcon.Information,
                     2000,
                 )
             return
@@ -2139,10 +2139,10 @@ class PluginManagerWindow(QMainWindow):
             self,
             self.tr("确认关闭"),
             self.tr("关闭窗口将停止插件管理器，确定吗？"),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             self._state_mgr.save()
             self._manager.stop()
             event.accept()

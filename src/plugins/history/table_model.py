@@ -33,7 +33,7 @@ class HistoryTableModel(QAbstractTableModel):
     def columnCount(self, parent=None):
         return len(self._visible_headers)
 
-    def data(self, index: QModelIndex, role=Qt.DisplayRole):
+    def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
         row = index.row()
@@ -41,7 +41,7 @@ class HistoryTableModel(QAbstractTableModel):
         if row >= len(self._data) or col >= len(self._visible_headers):
             return None
 
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             field_name = self._visible_headers[col]
             value = getattr(self._data[row], field_name, None)
             if value is None:
@@ -54,19 +54,19 @@ class HistoryTableModel(QAbstractTableModel):
                 # 对于可能是枚举但值不在定义中的情况，直接显示数值
                 return str(value)
 
-        elif role == Qt.UserRole:
+        elif role == Qt.ItemDataRole.UserRole:
             field_name = self._visible_headers[col]
             return getattr(self._data[row], field_name, None)
 
-        elif role == Qt.TextAlignmentRole:
-            return Qt.AlignCenter | Qt.AlignVCenter
+        elif role == Qt.ItemDataRole.TextAlignmentRole:
+            return Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
 
         return None
 
     def headerData(
-        self, section: int, orientation: Qt.Orientation, role=Qt.DisplayRole
+        self, section: int, orientation: Qt.Orientation, role=Qt.ItemDataRole.DisplayRole
     ):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
             if section < len(self._visible_headers):
                 return self._visible_headers[section]
         return None

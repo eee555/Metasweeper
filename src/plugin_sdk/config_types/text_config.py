@@ -51,7 +51,7 @@ class TextConfig(BaseConfig[str]):
             line_edit.setPlaceholderText(self.placeholder)
 
         if self.password:
-            line_edit.setEchoMode(QLineEdit.Password)
+            line_edit.setEchoMode(QLineEdit.EchoMode.Password)
 
         if self.readonly:
             line_edit.setReadOnly(True)

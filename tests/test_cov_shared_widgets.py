@@ -69,23 +69,23 @@ class _ContentDialog(ConfirmDialog):
 def test_confirm_dialog_defaults_title_and_flags(app, widgets):
     d = _keep(widgets, ConfirmDialog())
     assert d.windowTitle() == "对话框"
-    assert not (d.windowFlags() & Qt.WindowContextHelpButtonHint)
+    assert not (d.windowFlags() & Qt.WindowType.WindowContextHelpButtonHint)
     assert isinstance(d.button_box, QDialogButtonBox)
-    assert d._buttons == (QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    assert d._buttons == (QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
     assert d._create_content() is None
 
 
 def test_confirm_dialog_custom_title_buttons_and_content(app, widgets):
-    buttons = QDialogButtonBox.Save | QDialogButtonBox.Discard | QDialogButtonBox.Help
+    buttons = QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Discard | QDialogButtonBox.StandardButton.Help
     d = _keep(widgets, _ContentDialog(title="自定义标题", buttons=buttons))
     assert d.windowTitle() == "自定义标题"
     assert d.content_layout is not None
     # 内容布局已被加入主布局
     assert d.layout().count() == 2
     found = d.buttons()
-    assert QDialogButtonBox.Save in found and QDialogButtonBox.Discard in found
-    assert QDialogButtonBox.Help in found
-    assert QDialogButtonBox.Ok not in found
+    assert QDialogButtonBox.StandardButton.Save in found and QDialogButtonBox.StandardButton.Discard in found
+    assert QDialogButtonBox.StandardButton.Help in found
+    assert QDialogButtonBox.StandardButton.Ok not in found
     for btn, widget in found.items():
         assert d.button(btn) is widget
         assert widget is not None
@@ -114,9 +114,9 @@ def test_confirm_dialog_base_hooks_are_noops(app, widgets):
 
 
 def test_confirm_dialog_empty_button_set(app, widgets):
-    d = _keep(widgets, ConfirmDialog(buttons=QDialogButtonBox.StandardButtons(0)))
+    d = _keep(widgets, ConfirmDialog(buttons=QDialogButtonBox.StandardButton(0)))
     assert d.buttons() == {}
-    assert d.button(QDialogButtonBox.Ok) is None
+    assert d.button(QDialogButtonBox.StandardButton.Ok) is None
 
 
 # ── EditableComboBox ────────────────────────────────────────────────
@@ -136,12 +136,12 @@ def test_editable_combo_box_init_completer_and_default(app, widgets,
     assert box.currentData() == "Beta"
     completer = box.completer()
     assert completer is not None
-    expected_cs = Qt.CaseSensitive if case_sensitive else Qt.CaseInsensitive
+    expected_cs = Qt.CaseSensitivity.CaseSensitive if case_sensitive else Qt.CaseSensitivity.CaseInsensitive
     assert completer.caseSensitivity() == expected_cs
-    expected_mode = Qt.MatchStartsWith if filter_mode == "startswith" else Qt.MatchContains
+    expected_mode = Qt.MatchFlag.MatchStartsWith if filter_mode == "startswith" else Qt.MatchFlag.MatchContains
     assert completer.filterMode() == expected_mode
     from PySide6.QtWidgets import QCompleter
-    assert completer.completionMode() == QCompleter.PopupCompletion
+    assert completer.completionMode() == QCompleter.CompletionMode.PopupCompletion
 
 
 def test_editable_combo_box_invalid_default_index_ignored(app, widgets):
@@ -202,13 +202,13 @@ def test_editable_combo_box_set_items_empty(app, widgets):
 
 # ── ToggleSwitch ────────────────────────────────────────────────────
 
-def _mouse(event_type, x, button=Qt.LeftButton):
+def _mouse(event_type, x, button=Qt.MouseButton.LeftButton):
     return QMouseEvent(event_type, QPointF(float(x), 5.0), QPointF(float(x), 5.0),
-                       button, button, Qt.NoModifier)
+                       button, button, Qt.KeyboardModifier.NoModifier)
 
 
 def _key(key):
-    return QKeyEvent(QEvent.Type.KeyPress, key, Qt.NoModifier)
+    return QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
 
 
 def test_toggle_switch_defaults_and_size(app, widgets):
@@ -217,7 +217,7 @@ def test_toggle_switch_defaults_and_size(app, widgets):
     assert w.isAnimated() is True
     assert w.handle_position == 0.0
     assert w.sizeHint().width() == 44 and w.sizeHint().height() == 22
-    assert w.focusPolicy() == Qt.StrongFocus
+    assert w.focusPolicy() == Qt.FocusPolicy.StrongFocus
     assert w._track_on_color == QColor("#4CAF50")
     assert w._track_off_color == QColor("#BDBDBD")
     assert w._handle_color == QColor("#FFFFFF")
@@ -313,7 +313,7 @@ def test_toggle_switch_mouse_press_tracks_drag_and_stops_running_animation(app, 
     w = _keep(widgets, ToggleSwitch(animated=True))
     # 不真正启动动画（避免离线 Qt 告警），用伪造 state() 覆盖 Running 分支
     with patch.object(w._animation, "state",
-                      return_value=QPropertyAnimation.Running), \
+                      return_value=QPropertyAnimation.State.Running), \
             patch.object(w._animation, "stop") as stop:
         w.mousePressEvent(_mouse(QEvent.Type.MouseButtonPress, 3))
         stop.assert_called_once_with()
@@ -324,7 +324,7 @@ def test_toggle_switch_mouse_press_tracks_drag_and_stops_running_animation(app, 
 
 def test_toggle_switch_mouse_press_ignores_non_left_button(app, widgets):
     w = _keep(widgets, ToggleSwitch(animated=False))
-    w.mousePressEvent(_mouse(QEvent.Type.MouseButtonPress, 3, Qt.RightButton))
+    w.mousePressEvent(_mouse(QEvent.Type.MouseButtonPress, 3, Qt.MouseButton.RightButton))
     assert w._dragging is False
 
 
@@ -415,7 +415,7 @@ def test_toggle_switch_drag_travel_zero_treated_as_click(app, widgets):
     assert w.isChecked() is True
 
 
-@pytest.mark.parametrize("key", [Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter])
+@pytest.mark.parametrize("key", [Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter])
 def test_toggle_switch_keyboard_keys_toggle_and_accept(app, widgets, key):
     w = _keep(widgets, ToggleSwitch(animated=False))
     event = _key(key)
@@ -426,7 +426,7 @@ def test_toggle_switch_keyboard_keys_toggle_and_accept(app, widgets, key):
 
 def test_toggle_switch_other_key_delegates_to_base(app, widgets):
     w = _keep(widgets, ToggleSwitch(animated=False))
-    event = _key(Qt.Key_Escape)
+    event = _key(Qt.Key.Key_Escape)
     w.keyPressEvent(event)
     assert w.isChecked() is False
 
