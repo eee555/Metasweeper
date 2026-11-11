@@ -184,3 +184,6 @@ package_tool/macos/.orig/
 # VSCode WorkSpace
 Solvable-Minesweeper.code-workspace
 uv.lock
+
+# build
+nuitka-crash-report.xml

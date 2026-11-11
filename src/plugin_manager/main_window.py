@@ -1157,23 +1157,210 @@ class ControlAuthorizationDialog(QDialog):
 
 
 class _PluginReadmeDialog(ConfirmDialog):
-    """插件 README 查看对话框（Markdown 渲染）。"""
+    """插件 README 查看对话框（Markdown 渲染，随系统深浅色自适应）。
 
-    def __init__(self, plugin_name: str, content: str, parent=None):
+    链接点击策略：
+    - 内部锚点（目录跳转）→ 滚动到对应标题
+    - 本地 .md/.txt 文件 → 用本对话框展示
+    - 其他本地文件/目录 → 用系统默认应用打开
+    - 外部链接 → 用系统默认浏览器打开
+    """
+
+    # 浅色/深色两套配色（与 GitHub 风格接近，保证对比度）
+    _LIGHT_TEXT = "#24292f"
+    _LIGHT_LINK = "#0969da"
+    _LIGHT_LINK_VISITED = "#8250df"
+    _DARK_TEXT = "#e6edf3"
+    _DARK_LINK = "#58a6ff"
+    _DARK_LINK_VISITED = "#bc8cff"
+
+    def __init__(self, plugin_name: str, content: str, parent=None,
+                 base_dir: Path | None = None, title: str | None = None):
         self._content = content
+        self._base_dir = base_dir or Path.cwd()
+        self._browser: QTextBrowser | None = None
+        # 标题 slug → 文档位置，用于目录锚点跳转
+        self._heading_positions: dict[str, int] = {}
+        # 模块内导入，避免顶层引入 QTextBrowser/QFont/QPalette 影响冷启动
+        from PySide6.QtWidgets import QTextBrowser  # noqa: F401
+        if title is None:
+            title = (parent.tr("{name} - README").format(name=plugin_name)
+                     if parent else f"{plugin_name} - README")
         super().__init__(
             parent=parent,
-            title=parent.tr("{name} - README").format(name=plugin_name)
-            if parent else f"{plugin_name} - README",
+            title=title,
             buttons=QDialogButtonBox.StandardButton.Close,
         )
         self.setWindowIcon(action_icon("app"))
         set_button_box_icons(self.button_box)
         self.resize(720, 520)
+        self._apply_theme()
+        self._connect_theme_change()
+
+    def _is_dark(self) -> bool:
+        """当前是否处于深色模式（跟随系统 colorScheme，System 时按浅色兜底）。"""
+        try:
+            return QApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
+        except Exception:
+            return False
+
+    def _connect_theme_change(self) -> None:
+        """监听系统深浅色切换，实时刷新 Markdown 配色。"""
+        try:
+            hints = QApplication.styleHints()
+            hints.colorSchemeChanged.connect(self._apply_theme)
+        except Exception:
+            return
+
+    def _apply_theme(self, *_args) -> None:
+        """按当前深浅色更新文本/链接配色。"""
+        if self._browser is None:
+            return
+        from PySide6.QtGui import QColor, QPalette
+
+        palette = self._browser.palette()
+        if self._is_dark():
+            palette.setColor(QPalette.ColorRole.Text, QColor(self._DARK_TEXT))
+            palette.setColor(QPalette.ColorRole.Link, QColor(self._DARK_LINK))
+            palette.setColor(QPalette.ColorRole.LinkVisited,
+                             QColor(self._DARK_LINK_VISITED))
+        else:
+            palette.setColor(QPalette.ColorRole.Text, QColor(self._LIGHT_TEXT))
+            palette.setColor(QPalette.ColorRole.Link, QColor(self._LIGHT_LINK))
+            palette.setColor(QPalette.ColorRole.LinkVisited,
+                             QColor(self._LIGHT_LINK_VISITED))
+        self._browser.setPalette(palette)
+
+    @staticmethod
+    def _heading_slug(text: str) -> str:
+        """按 GitHub 规则把标题文本转成锚点 slug。
+
+        小写、空格转连字符、去掉标点（保留中日韩文字、字母、数字、``-``/``_``）。
+        Qt 的 Markdown 渲染器不会给标题生成锚点，因此目录里的
+        ``#一系统架构概览`` 这类链接需要靠 slug 匹配标题块位置来跳转。
+        """
+        import unicodedata
+
+        s = text.strip().lower().replace(" ", "-")
+        return "".join(
+            ch for ch in s
+            if ch in "-_" or unicodedata.category(ch)[0] in ("L", "N")
+        )
+
+    def _collect_heading_positions(self) -> None:
+        """渲染 Markdown 后，记录每个标题块的位置，供目录锚点跳转。"""
+        self._heading_positions.clear()
+        if self._browser is None:
+            return
+        block = self._browser.document().firstBlock()
+        while block.isValid():
+            if block.blockFormat().headingLevel() > 0:
+                slug = self._heading_slug(block.text())
+                if slug:
+                    self._heading_positions.setdefault(slug, block.position())
+            block = block.next()
+
+    def _scroll_to_heading(self, fragment: str) -> bool:
+        """滚动到 fragment 对应的标题，成功返回 True。"""
+        from urllib.parse import unquote
+        from PySide6.QtGui import QTextCursor
+
+        if self._browser is None:
+            return False
+        key = unquote(fragment)
+        pos = self._heading_positions.get(key)
+        if pos is None:
+            return False
+        cursor = QTextCursor(self._browser.document())
+        cursor.setPosition(pos)
+        self._browser.setTextCursor(cursor)
+        self._browser.ensureCursorVisible()
+        return True
+
+    def _resolve_local_path(self, url) -> Path | None:
+        """从点击的 URL 解析本地文件路径。
+
+        处理 file:// 绝对路径、相对路径（相对插件目录解析）、
+        Windows 盘符路径。非本地文件返回 None。
+        """
+        from urllib.parse import unquote
+
+        scheme = url.scheme().lower()
+
+        if scheme == "file":
+            raw = url.toLocalFile()
+            if raw:
+                p = Path(raw)
+                return p if p.is_absolute() else (self._base_dir / p)
+
+        if scheme in ("", "qt"):
+            raw = unquote(url.path())
+            if "#" in raw:
+                raw = raw.split("#", 1)[0]
+            if raw:
+                p = Path(raw)
+                return p if p.is_absolute() else (self._base_dir / p)
+
+        return None
+
+    def _on_anchor_click(self, url) -> None:
+        """处理 README 内链接点击，按文件类型分流。"""
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        # 内部锚点（目录跳转）：Qt 不为标题生成锚点，靠标题位置定位滚动
+        if not url.path() and url.fragment():
+            if self._scroll_to_heading(url.fragment()):
+                return
+            # 兜底：文档里显式的 HTML <a name="..."> 锚点
+            if self._browser:
+                self._browser.scrollToAnchor(url.fragment())
+            return
+
+        local_path = self._resolve_local_path(url)
+
+        if local_path is not None:
+            if local_path.is_file():
+                suffix = local_path.suffix.lower()
+                if suffix in (".md", ".txt"):
+                    # 用对话框展示
+                    try:
+                        content = local_path.read_text(
+                            encoding="utf-8", errors="replace")
+                    except OSError as e:
+                        QMessageBox.warning(
+                            self, self.tr("README"),
+                            self.tr("读取文件失败: {err}").format(err=e))
+                        return
+                    dlg = _PluginReadmeDialog(
+                        local_path.stem, content,
+                        parent=self, base_dir=self._base_dir)
+                    # 若链接带 #锚点，进入模态循环、布局完成后滚到目标标题
+                    fragment = url.fragment()
+                    if fragment:
+                        QTimer.singleShot(
+                            0, lambda d=dlg, f=fragment:
+                            d._scroll_to_heading(f))
+                    dlg.exec()
+                else:
+                    # 其他类型文件用系统默认应用打开
+                    QDesktopServices.openUrl(
+                        QUrl.fromLocalFile(str(local_path)))
+            elif local_path.is_dir():
+                # 目录用系统默认文件管理器打开
+                QDesktopServices.openUrl(
+                    QUrl.fromLocalFile(str(local_path)))
+            else:
+                # 文件不存在，用原始 URL 尝试打开（可能是外部链接）
+                QDesktopServices.openUrl(url)
+            return
+
+        # 非本地文件 → 系统默认浏览器/应用
+        QDesktopServices.openUrl(url)
 
     def _create_content(self) -> QLayout:
         from PySide6.QtWidgets import QTextBrowser
-        from PySide6.QtGui import QFont, QPalette, QColor
+        from PySide6.QtGui import QFont
 
         layout = QVBoxLayout()
         if not self._content:
@@ -1183,18 +1370,20 @@ class _PluginReadmeDialog(ConfirmDialog):
             return layout
 
         browser = QTextBrowser()
-        browser.setOpenExternalLinks(True)
+        browser.setOpenLinks(False)
+        browser.setOpenExternalLinks(False)
         browser.setMarkdown(self._content)
+        browser.anchorClicked.connect(self._on_anchor_click)
+        self._browser = browser
 
         font = QFont("Microsoft YaHei", 11)
         font.setStyleHint(QFont.StyleHint.SansSerif)
         browser.setFont(font)
 
-        palette = browser.palette()
-        palette.setColor(QPalette.ColorRole.Text, QColor("#24292f"))
-        palette.setColor(QPalette.ColorRole.Link, QColor("#0969da"))
-        palette.setColor(QPalette.ColorRole.LinkVisited, QColor("#8250df"))
-        browser.setPalette(palette)
+        # Qt 不给 Markdown 标题生成锚点，收集标题位置以支持目录跳转
+        self._collect_heading_positions()
+
+        self._apply_theme()
 
         layout.addWidget(browser)
         return layout
@@ -1467,9 +1656,11 @@ class PluginManagerWindow(QMainWindow):
         self._open_control_auth_dialog()
 
     def _open_dev_guide(self) -> None:
-        """用 Qt 控件打开插件开发指南文档"""
-        from PySide6.QtWidgets import QTextBrowser
-        from PySide6.QtGui import QFont, QPalette, QColor
+        """用 Qt 控件打开插件开发指南文档。
+
+        复用 :class:`_PluginReadmeDialog`，因此同样支持深浅色自适应，
+        以及 README 内本地链接的分流（.md/.txt 用对话框，其他用默认应用）。
+        """
         from .app_paths import get_executable_dir
 
         # 获取 plugin-dev-tutorial.md 的路径
@@ -1494,43 +1685,12 @@ class PluginManagerWindow(QMainWindow):
             )
             return
 
-        # 创建显示对话框
-        dlg = QDialog(self)
-        dlg.setWindowTitle(self.tr("插件开发指南"))
-        dlg.setWindowIcon(action_icon("app"))
-        dlg.setMinimumSize(900, 700)
-
-        layout = QVBoxLayout(dlg)
-
-        # 使用 QTextBrowser 显示 Markdown 内容
-        text_browser = QTextBrowser()
-        text_browser.setOpenExternalLinks(True)
-        text_browser.setMarkdown(content)
-
-        # 设置字体
-        font = QFont("Microsoft YaHei", 11)
-        font.setStyleHint(QFont.StyleHint.SansSerif)
-        text_browser.setFont(font)
-
-        # 设置调色板（颜色主题）
-        palette = text_browser.palette()
-        palette.setColor(QPalette.ColorRole.Text, QColor("#24292f"))  # 文字颜色
-        palette.setColor(QPalette.ColorRole.Link, QColor("#0969da"))  # 链接颜色
-        palette.setColor(QPalette.ColorRole.LinkVisited, QColor("#8250df"))  # 已访问链接
-        text_browser.setPalette(palette)
-
-        # 设置文档边距
-        doc = text_browser.document()
-        doc.setDocumentMargin(16)
-
-        layout.addWidget(text_browser)
-
-        # 关闭按钮
-        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        btn_box.rejected.connect(dlg.close)
-        set_button_box_icons(btn_box)
-        layout.addWidget(btn_box)
-
+        dlg = _PluginReadmeDialog(
+            "plugin-dev-tutorial", content, parent=self,
+            base_dir=guide_path.parent,
+            title=self.tr("插件开发指南"),
+        )
+        dlg.resize(900, 700)
         dlg.exec()
 
     def _connect_signals(self) -> None:
@@ -1935,6 +2095,8 @@ class PluginManagerWindow(QMainWindow):
 
         调用插件的 ``get_readme_text()``（默认读取插件目录下 README.md，
         子类可重写 ``load_READMD`` 自定义来源），并以 Markdown 渲染展示。
+        README 内的本地链接按文件类型分流：.md/.txt 用对话框展示，
+        其他类型用系统默认应用打开。
         """
         plugin = self._manager.plugins.get(name)
         if not plugin:
@@ -1948,7 +2110,10 @@ class PluginManagerWindow(QMainWindow):
                 self.tr("读取 README 失败: {err}").format(err=e))
             return
 
-        dlg = _PluginReadmeDialog(name, text, parent=self)
+        # 以插件目录为相对路径基准，供 README 内相对链接解析
+        base_dir = plugin.plugin_dir
+        dlg = _PluginReadmeDialog(name, text, parent=self,
+                                  base_dir=base_dir)
         dlg.exec()
 
     def _open_plugin_info(self, name: str) -> None:

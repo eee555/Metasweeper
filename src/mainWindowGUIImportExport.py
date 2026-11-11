@@ -94,13 +94,13 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             return
         import tempfile
         import os
-        from PySide6.QtCore import QMimeData, QUrl
+        from PySide6.QtCore import QMimeData, QUrl, QPoint
         from PySide6.QtGui import QPixmap, QPainter
         from PySide6.QtWidgets import QApplication
         pixmap = QPixmap(self.centralwidget.size())
         pixmap.fill(self.centralwidget.palette().window().color())
         painter = QPainter(pixmap)
-        self.centralwidget.render(painter)
+        self.centralwidget.render(painter, QPoint(0, 0))
         painter.end()
         path = os.path.join(tempfile.gettempdir(), "metasweeper_board.png")
         pixmap.save(path, "PNG")
@@ -152,7 +152,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         painter = QPainter(gen)
         painter.fillRect(self.centralwidget.rect(),
                          self.centralwidget.palette().window())
-        self.centralwidget.render(painter)
+        self.centralwidget.render(painter, QPoint(0, 0))
         for i in range(rows):
             for j in range(cols):
                 cell = game_board[i][j]
@@ -171,7 +171,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         preview = QPixmap(self.centralwidget.size())
         preview.fill(self.centralwidget.palette().window().color())
         painter = QPainter(preview)
-        self.centralwidget.render(painter)
+        self.centralwidget.render(painter, QPoint(0, 0))
         painter.end()
         mime = QMimeData()
         mime.setText(svg_text)
