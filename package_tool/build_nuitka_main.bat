@@ -8,6 +8,7 @@ set "PYTHON=.venv\Scripts\python.exe"
 if not defined NUITKA_JOBS set "NUITKA_JOBS=4"
 if not defined NUITKA_CONSOLE_MODE set "NUITKA_CONSOLE_MODE=disable"
 if not defined NUITKA_OUTPUT_DIR set "NUITKA_OUTPUT_DIR=dist\metasweeper-nuitka"
+if not defined NUITKA_INCLUDE_DEBUGPY set "NUITKA_INCLUDE_DEBUGPY=1"
 set "EXCLUDE_OPTIONS=--nofollow-import-to=numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests,PySide6.QtQuickWidgets,PySide6.QtQuick,PySide6.QtQml,PySide6.QtCharts"
 set "MANAGER_DEBUGPY_OPTION=--nofollow-import-to=debugpy"
 if /i "%NUITKA_INCLUDE_DEBUGPY%"=="1" set "MANAGER_DEBUGPY_OPTION=--include-package=debugpy"
@@ -63,6 +64,12 @@ for %%L in (en_US de_DE pl_PL ja_JP) do (
         popd
         exit /b 1
     )
+)
+
+if /i "%NUITKA_INCLUDE_DEBUGPY%"=="1" if not exist ".venv\Lib\site-packages\debugpy\__init__.py" (
+    echo debugpy is missing from the project virtual environment.
+    popd
+    exit /b 1
 )
 
 if exist "%MAIN_STAGE%" rmdir /s /q "%MAIN_STAGE%"
@@ -192,6 +199,26 @@ xcopy /e /i /y /h "%MANAGER_DIST%\*" "%PACKAGE_DIR%\" >nul
 if errorlevel 1 (
     popd
     exit /b 1
+)
+if /i "%NUITKA_INCLUDE_DEBUGPY%"=="1" (
+    xcopy /e /i /y /h ".venv\Lib\site-packages\debugpy\*" "%PACKAGE_DIR%\debugpy\" >nul
+    if errorlevel 1 (
+        popd
+        exit /b 1
+    )
+    rem pydevd imports its vendored modules by their top-level names.
+    for %%M in (_pydev_bundle _pydev_runfiles _pydevd_bundle _pydevd_frame_eval _pydevd_sys_monitoring pydev_ipython pydev_sitecustomize pydevd_attach_to_process pydevd_plugins) do (
+        xcopy /e /i /y /h ".venv\Lib\site-packages\debugpy\_vendored\pydevd\%%M\*" "%PACKAGE_DIR%\%%M\" >nul
+        if errorlevel 1 (
+            popd
+            exit /b 1
+        )
+    )
+    copy /y ".venv\Lib\site-packages\debugpy\_vendored\pydevd\*.py" "%PACKAGE_DIR%\" >nul
+    if errorlevel 1 (
+        popd
+        exit /b 1
+    )
 )
 xcopy /e /i /y /h "src\plugins\*" "%PACKAGE_DIR%\internal\plugins\" >nul
 if errorlevel 1 (

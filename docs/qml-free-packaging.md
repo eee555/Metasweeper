@@ -33,7 +33,9 @@ $env:NUITKA_JOBS = '8'
 ```
 
 `NUITKA_JOBS` 必须为正整数。还可设置 `NUITKA_OUTPUT_DIR` 修改输出根目录、
-`NUITKA_CONSOLE_MODE` 修改控制台模式，以及 `NUITKA_INCLUDE_DEBUGPY=1` 包含调试支持。
+`NUITKA_CONSOLE_MODE` 修改控制台模式。默认包含 `debugpy` 及其随包调试器源码。
+同时把 pydevd 的 `_pydevd_bundle` 等模块分发到包根目录，满足调试器运行时使用
+顶层模块名的动态导入；设置 `NUITKA_INCLUDE_DEBUGPY=0` 可以不包含调试支持。
 未找到 `dumpbin.exe` 时，脚本通过 `vswhere.exe` 定位 Visual Studio C++ 工具链并
 加载 `vcvars64.bat`；工具链缺失会在编译前报错。
 
@@ -44,7 +46,9 @@ $env:NUITKA_JOBS = '8'
 
 脚本会删除整个 QML 导入目录、QML 调试插件以及 Qt 屏幕虚拟键盘插件。
 虚拟键盘会间接引用 Quick/QML，即使排除了 Python 模块也可能被 Qt hook 收集。
-其他输入法插件保留。
+其他输入法插件保留。支持 PyInstaller 的 `plugins` 和 Nuitka 的 `qt-plugins`
+目录布局。如果包内没有 `Qt6Pdf.dll`，同时移除无法加载的 `imageformats/qpdf.dll`；
+已分发 PDF 运行库的包保留该插件。
 
 本地源码中遗留的统计插件 `__pycache__` 可能被目录复制带入产物，
 因此脚本也清除发布包内旧的统计插件目录，不改动用户历史数据库。
