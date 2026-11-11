@@ -17,6 +17,26 @@
 界面、网络、皮肤和音效；不能整体删除 `PySide6_Addons`。
 `.qm` 是翻译文件，必须保留，与 `.qml` 无关。
 
+## Windows Nuitka 构建
+
+在项目根目录执行 `package_tool\build_nuitka_main.bat`。脚本使用 `.venv` 中的
+Python、Nuitka 和 `pyside6-lrelease`，先更新四种语言的翻译，再依次编译主程序和
+插件管理器，合并到 `dist\metasweeper-nuitka\package`。内置插件保留为源码，放在
+`internal\plugins`；插件管理器显式收集 `plugin_sdk`、`shared_types`、
+`config.constants` 和 `utils.app_logger`，覆盖插件源码中的动态导入依赖。
+
+两个编译步骤均默认使用 `--jobs=4`，限制并行编译任务数。可以在 PowerShell 中覆盖：
+
+```powershell
+$env:NUITKA_JOBS = '8'
+.\package_tool\build_nuitka_main.bat
+```
+
+`NUITKA_JOBS` 必须为正整数。还可设置 `NUITKA_OUTPUT_DIR` 修改输出根目录、
+`NUITKA_CONSOLE_MODE` 修改控制台模式，以及 `NUITKA_INCLUDE_DEBUGPY=1` 包含调试支持。
+未找到 `dumpbin.exe` 时，脚本通过 `vswhere.exe` 定位 Visual Studio C++ 工具链并
+加载 `vcvars64.bat`；工具链缺失会在编译前报错。
+
 ## Windows 产物裁剪
 
 主程序和插件管理器合并后调用 `package_tool/trim_qt_runtime.ps1`。

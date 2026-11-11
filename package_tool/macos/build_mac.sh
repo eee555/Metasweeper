@@ -49,6 +49,7 @@ QT_QPA_PLATFORM=offscreen "$PY" "$MACOS_DIR/make_assets.py"
 if [ ! -f "$BUILD/Metasweeper.icns" ]; then
     iconutil -c icns "$BUILD/Metasweeper.iconset" -o "$BUILD/Metasweeper.icns"
 fi
+iconutil -c icns "$BUILD/PluginManager.iconset" -o "$BUILD/PluginManager.icns"
 
 # ── 3. PyInstaller 两段打包 ─────────────────────────────
 # 清理旧构建产物：移入废纸篓（可恢复）而非直接 rm -rf，

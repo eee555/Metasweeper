@@ -44,10 +44,11 @@ pyinstaller --noconfirm --clean --name metaminsweeper --windowed --distpath "%OU
     src\main.py
 if errorlevel 1 exit /b 1
 
-pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/media/cat.ico ^
+pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/media/plugin_manager.ico ^
     %EXCLUDES% ^
     --paths src ^
     --runtime-hook package_tool\hook-debugpy-pyinstaller.py ^
+    --add-data "src/media/plugin_manager.ico;media" ^
     --add-data "src/plugins;plugins" ^
     --add-data "src/shared_types;shared_types" ^
     --add-data "src/en_US.qm;." ^
@@ -60,6 +61,7 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --hidden-import email --hidden-import email.utils ^
     --hidden-import requests ^
     --hidden-import win32api --hidden-import win32event --hidden-import winerror ^
+    --hidden-import PySide6.QtSvg ^
     --hidden-import ms_toollib ^
     --hidden-import shared_types.aes_gcm --hidden-import config.constants --hidden-import utils.app_logger ^
     --distpath "%OUT%" src\plugin_manager\_run.py

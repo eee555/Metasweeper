@@ -10,6 +10,7 @@ SRC = os.path.join(ROOT, "src")
 datas = [
     # 内置插件以源码形式随包分发（与 Windows 版 internal/plugins 一致）
     (os.path.join(SRC, "plugins"), "plugins"),
+    (os.path.join(SRC, "media", "plugin_manager.ico"), "media"),
     (os.path.join(ROOT, "AI_AGENT_POLICY.md"), "."),
     (os.path.join(ROOT, "README.md"), "."),
 ]
@@ -26,7 +27,7 @@ a = Analysis(
         "http.server", "socketserver",
         "shared_types.aes_gcm", "config.constants", "utils.app_logger",
         "zmq", "msgspec", "loguru", "requests", "textdistance",
-        "cryptography", "PyMCUlib", "ms_toollib",
+        "cryptography", "PyMCUlib", "ms_toollib", "PySide6.QtSvg",
     ],
     hookspath=[],
     runtime_hooks=[],
@@ -50,7 +51,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
-    icon=os.path.join(SPECPATH, "build", "Metasweeper.icns"),
+    icon=os.path.join(SPECPATH, "build", "PluginManager.icns"),
 )
 coll = COLLECT(
     exe,
@@ -63,7 +64,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="plugin_manager.app",
-    icon=os.path.join(SPECPATH, "build", "Metasweeper.icns"),
+    icon=os.path.join(SPECPATH, "build", "PluginManager.icns"),
     bundle_identifier="top.openms.metasweeper.plugin-manager",
     # 托盘常驻应用，不占用 Dock
     info_plist={"LSUIElement": True},

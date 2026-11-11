@@ -24,8 +24,8 @@ ICNS_SIZES = [16, 32, 128, 256, 512]        # iconset 每级基础尺寸（@2x �
 ICO_SIZES = [16, 32, 48, 64, 128, 256]
 
 
-def render(size: int) -> QImage:
-    renderer = QSvgRenderer(os.path.abspath(SVG))
+def render(size: int, svg: str = SVG) -> QImage:
+    renderer = QSvgRenderer(os.path.abspath(svg))
     if not renderer.isValid():
         raise SystemExit(f"无效的 SVG 文件: {SVG}")
     img = QImage(size, size, QImage.Format.Format_ARGB32)
@@ -36,12 +36,12 @@ def render(size: int) -> QImage:
     return img
 
 
-def write_iconset() -> str:
-    iconset = os.path.join(BUILD, "Metasweeper.iconset")
+def write_iconset(name: str = "Metasweeper", svg: str = SVG) -> str:
+    iconset = os.path.join(BUILD, f"{name}.iconset")
     os.makedirs(iconset, exist_ok=True)
     for base in ICNS_SIZES:
         for suffix, size in (("", base), ("@2x", base * 2)):
-            img = render(size)
+            img = render(size, svg)
             img.save(os.path.join(iconset, f"icon_{base}x{base}{suffix}.png"), "PNG")
     return iconset
 
@@ -70,6 +70,8 @@ def main() -> None:
     os.makedirs(BUILD, exist_ok=True)
     iconset = write_iconset()
     print(f"[assets] iconset 就绪: {iconset}")
+    plugin_iconset = write_iconset("PluginManager", os.path.join(SRC_MEDIA, "plugin_manager.svg"))
+    print(f"[assets] iconset 就绪: {plugin_iconset}")
 
     ico_path = os.path.join(SRC_MEDIA, "cat.ico")
     if os.path.exists(ico_path):

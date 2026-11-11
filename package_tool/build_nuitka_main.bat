@@ -3,7 +3,9 @@ setlocal
 chcp 65001 >nul 2>&1
 
 pushd "%~dp0\.."
+if errorlevel 1 exit /b 1
 set "PYTHON=.venv\Scripts\python.exe"
+if not defined NUITKA_JOBS set "NUITKA_JOBS=4"
 if not defined NUITKA_CONSOLE_MODE set "NUITKA_CONSOLE_MODE=disable"
 if not defined NUITKA_OUTPUT_DIR set "NUITKA_OUTPUT_DIR=dist\metasweeper-nuitka"
 set "EXCLUDE_OPTIONS=--nofollow-import-to=numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests,PySide6.QtQuickWidgets,PySide6.QtQuick,PySide6.QtQml,PySide6.QtCharts"
@@ -32,6 +34,37 @@ if errorlevel 1 (
     exit /b 1
 )
 
+"%PYTHON%" -c "import sys; value=sys.argv[1]; sys.exit(0 if value.isascii() and value.isdecimal() and int(value) > 0 else 1)" "%NUITKA_JOBS%"
+if errorlevel 1 (
+    echo NUITKA_JOBS must be a positive integer.
+    popd
+    exit /b 1
+)
+
+where dumpbin.exe >nul 2>&1
+if errorlevel 1 (
+    set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+    call :setup_msvc
+    if errorlevel 1 (
+        echo MSVC tools not found. Install Visual Studio C++ build tools or use a developer command prompt.
+        popd
+        exit /b 1
+    )
+)
+
+if not exist ".venv\Scripts\pyside6-lrelease.exe" (
+    echo Qt translation compiler not found in the project virtual environment.
+    popd
+    exit /b 1
+)
+for %%L in (en_US de_DE pl_PL ja_JP) do (
+    ".venv\Scripts\pyside6-lrelease.exe" "src\ui\%%L.ts" -qm "src\%%L.qm"
+    if errorlevel 1 (
+        popd
+        exit /b 1
+    )
+)
+
 if exist "%MAIN_STAGE%" rmdir /s /q "%MAIN_STAGE%"
 if exist "%MAIN_STAGE%" (
     echo Could not clear main build staging directory: %MAIN_STAGE%
@@ -52,6 +85,7 @@ if exist "%MANAGER_STAGE%" (
     --windows-console-mode=%NUITKA_CONSOLE_MODE% ^
     --output-dir="%MAIN_STAGE%" ^
     --output-filename=metasweeper.exe ^
+    --jobs=%NUITKA_JOBS% ^
     --include-data-files=AI_AGENT_POLICY.md=AI_AGENT_POLICY.md ^
     --include-data-files=README.md=README.md ^
     --include-data-dir=src\media=media ^
@@ -80,6 +114,8 @@ if errorlevel 1 (
     --windows-console-mode=%NUITKA_CONSOLE_MODE% ^
     --output-dir="%MANAGER_STAGE%" ^
     --output-filename=plugin_manager.exe ^
+    --jobs=%NUITKA_JOBS% ^
+    --windows-icon-from-ico=src\media\plugin_manager.ico ^
     --include-data-dir=src\media=media ^
     --include-data-dir=src\plugins=internal/plugins ^
     --include-data-files=src\en_US.qm=en_US.qm ^
@@ -95,8 +131,14 @@ if errorlevel 1 (
     --include-package=cryptography ^
     --include-package=PyMCUlib ^
     --include-package=ms_toollib ^
+    --include-package=plugin_sdk ^
+    --include-package-data=plugin_sdk ^
+    --include-package=shared_types ^
+    --include-module=config.constants ^
+    --include-module=utils.app_logger ^
     --include-package-data=textdistance ^
     --include-module=sqlite3 ^
+    --include-module=PySide6.QtSvg ^
     --include-module=code ^
     --include-module=xmlrpc.server ^
     --include-module=xmlrpc.client ^
@@ -193,3 +235,14 @@ echo   %PACKAGE_DIR%\metasweeper.exe
 echo   %PACKAGE_DIR%\plugin_manager.exe
 popd
 exit /b 0
+
+:setup_msvc
+if not exist "%VSWHERE%" exit /b 1
+set "VS_INSTALL_DIR="
+for /f "usebackq tokens=*" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_INSTALL_DIR=%%I"
+if not defined VS_INSTALL_DIR exit /b 1
+if not exist "%VS_INSTALL_DIR%\VC\Auxiliary\Build\vcvars64.bat" exit /b 1
+call "%VS_INSTALL_DIR%\VC\Auxiliary\Build\vcvars64.bat" >nul
+if errorlevel 1 exit /b 1
+where dumpbin.exe >nul 2>&1
+exit /b %errorlevel%

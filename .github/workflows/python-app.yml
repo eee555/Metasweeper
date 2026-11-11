@@ -84,7 +84,8 @@ jobs:
             --name plugin_manager `
             --windowed `
             --paths src `
-            --icon src/media/cat.ico `
+            --icon src/media/plugin_manager.ico `
+            --add-data "src/media/plugin_manager.ico;media" `
             --add-data "src/plugins;plugins" `
             --add-data "src/shared_types;shared_types" `
             --add-data "src/en_US.qm;." `
@@ -104,6 +105,7 @@ jobs:
             --hidden-import win32api `
             --hidden-import win32event `
             --hidden-import winerror `
+            --hidden-import PySide6.QtSvg `
             --hidden-import ms_toollib `
             --hidden-import shared_types.aes_gcm `
             --hidden-import config.constants `
