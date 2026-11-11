@@ -263,7 +263,6 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="73"/>
         <location filename="../../uiFiles/ui_record_pop.ui" line="1077"/>
         <location filename="../../uiFiles/ui_advanced.ui" line="143"/>
-        <location filename="../dialogs/gameScores.py" line="125"/>
         <source>确定</source>
         <translation>OK</translation>
     </message>
@@ -989,16 +988,6 @@ The dropdown only shows plugins that declare the permission.</translation>
     <message>
         <location filename="../mineSweeperVideoPlayer.py" line="71"/>
         <source>All(*.avf *.evf *.rmv *.mvf *.evfs);;Arbiter video(*.avf);;Metasweeper video(*.evf);;Vienna MineSweeper video(*.rmv);;Minesweeper Clone 0.97(*.mvf);;Metasweeper video set(*.evfs)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameScores.py" line="124"/>
-        <source>成绩</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameScores.py" line="126"/>
-        <source>Space</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

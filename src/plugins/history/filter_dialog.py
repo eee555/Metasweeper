@@ -106,10 +106,6 @@ class FilterDialog(ConfirmDialog):
         field_value = self._get_field_value(field_name)
         new_default = self._get_default_value(field_value)
 
-        # 获取当前值（使用 EditRole 获取原始数据）
-        current_value = model.data(model.index(
-            row, FilterModel.COL_VALUE), Qt.EditRole)
-
         # 始终更新为新类型的默认值
         model.setData(
             model.index(row, FilterModel.COL_VALUE),

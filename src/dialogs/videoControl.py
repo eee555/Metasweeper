@@ -229,7 +229,7 @@ class VideoSetTabWidget(QWidget):
         target_folder = path.parent / folder_name
         try:
             target_folder.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to create directory: %s", target_folder)
             return
 

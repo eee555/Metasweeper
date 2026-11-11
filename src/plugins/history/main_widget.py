@@ -525,7 +525,6 @@ class HistoryMainWidget(QWidget):
             if col.name not in self.table.showFields:
                 self.table.showFields.append(col.name)
         # 移除已删除的计算列
-        computed_names = {col.name for col in columns}
         self.table.showFields = [
             f for f in self.table.showFields
             if f in all_headers

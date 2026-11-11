@@ -43,7 +43,6 @@ from PySide6.QtWidgets import (
     QToolBar,
     QVBoxLayout,
     QWidget,
-    QDialog,
 )
 
 from .plugin_info_dialog import PluginInfoDialog

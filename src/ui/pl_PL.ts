@@ -263,7 +263,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="73"/>
         <location filename="../../uiFiles/ui_record_pop.ui" line="1077"/>
         <location filename="../../uiFiles/ui_advanced.ui" line="143"/>
-        <location filename="../dialogs/gameScores.py" line="125"/>
         <source>确定</source>
         <translation>Czy na pewno</translation>
     </message>
@@ -2424,16 +2423,6 @@ nieśmiertelnego ciała</translation>
         <location filename="../dialogs/videoControl.py" line="784"/>
         <source>目录</source>
         <translation>Directory</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameScores.py" line="124"/>
-        <source>成绩</source>
-        <translation>Scores</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameScores.py" line="126"/>
-        <source>Space</source>
-        <translation>Space</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="88"/>

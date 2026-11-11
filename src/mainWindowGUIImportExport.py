@@ -1,8 +1,7 @@
 # 重写QMainWindow
 from mineSweeperVideoPlayer import MineSweeperVideoPlayer
-from mainWindowGUI import MainWindow
 
-from PySide6.QtCore import QTimer, QCoreApplication, Qt, QRect, QUrl
+from PySide6.QtCore import QTimer, QCoreApplication
 import utils
 import ms_toollib as ms
 import hashlib
@@ -240,8 +239,6 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             QMessageBox.information(self.mainWindow, _translate("MainWindow", "导入"),
                                     _translate("MainWindow", "没有新的录像需要导入"))
             return True
-
-        entries = preview["entries"]
 
         def on_write_progress(cur, total):
             progress_bar.setRange(0, total)

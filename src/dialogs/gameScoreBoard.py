@@ -503,12 +503,6 @@ class gameScoreBoardManager():
         # self.visible()
         ...
 
-    def time_step(self):
-        # 游戏过程中时间步进
-        self.total_time += 0.001
-
-        self.show()
-
     # 重写窗口的翻译方法。主要是模式的翻译问题
     def retranslateUi(self, Form):
         self.ui.retranslateUi(Form)
