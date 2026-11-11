@@ -342,7 +342,9 @@ class PluginManager:
             app: QApplication 实例，如果不提供则创建新的
             show_main_window: 是否显示主窗口（False 时仅在托盘运行）
         """
+        from PySide6.QtGui import QIcon
         from PySide6.QtWidgets import QApplication
+        from .app_paths import get_bundle_dir
         from .main_window import PluginManagerWindow
 
         # 创建或使用现有的 QApplication
@@ -351,6 +353,11 @@ class PluginManager:
             if app is None:
                 app = QApplication([])
 
+        app_icon = QIcon(str(get_bundle_dir() / "media" / "plugin_manager.ico"))
+        if app_icon.isNull():
+            from .icons import action_icon
+            app_icon = action_icon("app")
+        app.setWindowIcon(app_icon)
         self._app = app
 
         # 启动核心功能

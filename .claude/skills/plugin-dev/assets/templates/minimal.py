@@ -2,6 +2,7 @@
 {plugin_name} - {description}
 
 一个最小可行插件示例。
+图标优先使用同级有效的 icon.svg；否则依次使用 PluginInfo.icon 和默认图标。
 """
 from __future__ import annotations
 

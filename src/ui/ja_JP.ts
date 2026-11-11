@@ -3489,6 +3489,14 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <translation>プラグイン {name} 準備完了</translation>
     </message>
     <message>
+        <source>{name}（初始化中...）</source>
+        <translation>{name}（初期化中...）</translation>
+    </message>
+    <message>
+        <source>{name}（关闭中...）</source>
+        <translation>{name}（終了中...）</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1714"/>
         <source>已加载 {total} 个插件，{enabled} 个已启用</source>
         <translation>{total} プラグイン中 {enabled} 有効</translation>

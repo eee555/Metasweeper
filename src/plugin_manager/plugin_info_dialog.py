@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QCoreApplication
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QIcon
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
@@ -29,6 +29,8 @@ from shared_types.commands import (
     command_hint, command_label,
 )
 from shared_types.widgets import ConfirmDialog
+
+from .icons import action_icon, set_button_box_icons
 
 if TYPE_CHECKING:
     from plugin_sdk.plugin_base import BasePlugin
@@ -69,6 +71,8 @@ class PluginInfoDialog(ConfirmDialog):
         title = QCoreApplication.translate(
             "PluginInfoDialog", "插件详情 - {name}").format(name=plugin.name)
         super().__init__(parent, title=title, buttons=QDialogButtonBox.Close)
+        self.setWindowIcon(action_icon("app"))
+        set_button_box_icons(self.button_box)
         self.setMinimumSize(560, 540)
 
         self._load_data()
@@ -179,8 +183,7 @@ class PluginInfoDialog(ConfirmDialog):
     ) -> None:
         """填充权限列表：声明权限与授权记录取并集，逐项标注授予状态。
 
-        已授予项显示「中文名 (tag) ✅ 已授予」；未授权项显示
-        「中文名 (tag) ⭕ 未授予」并以灰色区分（与空列表占位风格一致）。
+        已授予/未授予项使用同套确认/取消图标与文字；未授予项另以灰色区分。
         每项 tooltip 给出一句话说明与类名，避免只剩英文类名看不出用途。
         """
         items = self._permission_texts(declared, authorized_tags)
@@ -190,9 +193,11 @@ class PluginInfoDialog(ConfirmDialog):
             lst.addItem(item)
             return
         for text, granted, hint in items:
+            icon_name = "confirm" if granted else "cancel"
             item = QListWidgetItem(
-                f"{text} ✅ {self.tr('已授予')}" if granted
-                else f"{text} ⭕ {self.tr('未授予')}"
+                QIcon(action_icon(icon_name)),
+                f"{text} {self.tr('已授予')}" if granted
+                else f"{text} {self.tr('未授予')}"
             )
             if hint:
                 item.setToolTip(hint)

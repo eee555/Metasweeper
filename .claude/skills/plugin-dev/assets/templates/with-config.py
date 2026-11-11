@@ -60,6 +60,7 @@ class {PluginName}(BasePlugin):
             version="1.0.0",
             description="{description}",
             window_mode=WindowMode.TAB,
+            # 同级 icon.svg 有效时优先使用；否则使用此备用图标，最后回退默认图标。
             icon=make_plugin_icon("#2196F3", "C"),
             other_info={PluginName}Config,  # 绑定配置类
         )

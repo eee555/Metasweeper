@@ -52,8 +52,8 @@ python {skills_path}/plugin-dev/scripts/create_plugin.py create --name <名称> 
 | `--version` | "1.0.0" | 版本号 |
 | `--author` | "" | 作者名称 |
 | `--window-mode` | "TAB" | 窗口模式：`TAB`、`DETACHED`、`CLOSED` |
-| `--icon-color` | "#4CAF50" | 图标颜色（十六进制） |
-| `--icon-char` | 插件名首字母 | 图标字符 |
+| `--icon-color` | "#4CAF50" | 生成的 `PluginInfo.icon` 备用图标颜色（十六进制） |
+| `--icon-char` | 插件名首字母 | 生成的 `PluginInfo.icon` 备用图标字符 |
 | `--events` | "" | 订阅的事件，逗号分隔（如 `BoardUpdateEvent,VideoSaveEvent`） |
 | `--commands` | "" | 需要的控制权限，逗号分隔（如 `NewGameCommand`） |
 | `--config` | True | 是否需要配置系统（默认启用） |
@@ -139,6 +139,8 @@ python {skills_path}/plugin-dev/scripts/create_plugin.py create \
 ```bash
 python -m py_compile src/plugins/<plugin_name>/plugin.py
 ```
+
+插件图标优先读取定义插件类的 Python 文件同级目录中的有效 `icon.svg`；文件不存在或无效时，回退到 `PluginInfo.icon` 声明的有效图标，再回退到默认图标。`--icon-color` 和 `--icon-char` 设置的是生成代码中的备用图标，不会覆盖有效的 `icon.svg`。
 
 脚本会在插件目录默认生成一个空的 `README.md`（仅含标题骨架），可通过插件管理器右键菜单「查看 README」打开。
 

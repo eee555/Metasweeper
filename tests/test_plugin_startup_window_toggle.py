@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 import shiboken6
 from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QWidget
 
 from plugin_manager.main_window import (
@@ -110,6 +111,19 @@ def test_programmatic_set_checked_does_not_emit_signals(app):
     # 真实用户交互仍然必须发出信号。
     dialog._chk_show.toggle()
     assert toggled == [True]
+
+
+def test_plugin_settings_uses_plugin_icon_and_falls_back_to_parent(app):
+    parent = QWidget()
+    parent_icon = QIcon(QPixmap(16, 16))
+    parent.setWindowIcon(parent_icon)
+    plugin_icon = QIcon(QPixmap(32, 32))
+    dialog = PluginSettingsDialog("test", PluginState(), parent=parent,
+                                  plugin=SimpleNamespace(plugin_icon=plugin_icon))
+    assert dialog.windowIcon().cacheKey() == plugin_icon.cacheKey()
+
+    fallback = PluginSettingsDialog("test", PluginState(), parent=parent)
+    assert fallback.windowIcon().cacheKey() == parent_icon.cacheKey()
 
 
 def test_open_window_does_not_change_startup_toggle(manager_window):

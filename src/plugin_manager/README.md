@@ -1,4 +1,35 @@
-# 插件下载与平台适配
+# 插件管理器
+
+## 操作图标资源
+
+`resources/actions.qrc` 登记 `resources/icons/*.svg`：18 个原创线性操作图标和一个
+`app.svg` 应用身份图标。操作图标统一用于菜单、工具栏、右键菜单、托盘菜单、日志、
+插件详情、设置、README 与安装插件入口；`app.svg` 只用于管理器窗口/托盘和对话框标题。
+插件列表、标签页和插件独立窗口仍使用 `plugin.plugin_icon`（插件包内 `icon.svg`
+或 SDK 默认图标），不得用操作图标或应用身份图标覆盖。
+
+操作 SVG 均为 `24x24` viewBox、`#526b86` 线条；`app.svg` 是
+`src/media/plugin_manager.svg` 的同源副本（仅调整声明尺寸），
+与 PyInstaller/Nuitka 的 `.ico` 应用图标保持同一视觉标识。
+`icons.py` 导入生成的 `actions_rc.py`，通过 `action_icon(name)` /
+`set_action_icon(widget, name)` 统一加载；
+`QIconEngine` 在 16/24/32px 和禁用/选中状态按当前应用调色板着色，适合高 DPI 与深浅主题。
+新增图标时同步维护 SVG、`ICON_NAMES`、`actions.qrc`，然后重新生成并校验：
+
+```powershell
+.\.venv\Scripts\pyside6-rcc.exe src/plugin_manager/resources/actions.qrc -o src/plugin_manager/actions_rc.py
+.\.venv\Scripts\python.exe -m pytest tests/test_plugin_manager_icons.py
+```
+
+`actions_rc.py` 是生成文件，需纳入版本管理并随源码提交，不要手改。
+它把 SVG 字节编译进 Python 模块，Windows PyInstaller/Nuitka 与 macOS PyInstaller
+均会随 `plugin_manager.icons` 导入注册资源，
+无需把 SVG 作为外部 `datas` 复制；打包必须显式包含 `PySide6.QtSvg`
+（`build.bat`、CI、`plugin_manager_mac.spec`、Nuitka 脚本与 `plugin_manager.spec`
+已列出该 hidden import，现有裁剪脚本不会删除它）。
+图标为本项目原创几何图形，遵循仓库 `LICENSE`，不引入额外第三方图标授权。
+
+## 插件下载与平台适配
 
 `plugin_repositories.py` 定义仓库、标签及托管平台接口。各适配器负责 URL 解析、
 标签请求、响应字段、分页规则与源码归档请求。

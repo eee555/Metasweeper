@@ -70,7 +70,7 @@ challenge_mode/
 ├── plugin.py
 ├── widgets.py
 ├── config.py
-├── icon.png
+├── icon.svg            ← 可选，优先使用的插件图标
 ├── manifest.json       ← 新增
 └── README.md
 ```

@@ -4,10 +4,11 @@ import requests
 from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
-    QLabel, QLineEdit, QProgressBar, QPushButton, QStyle, QVBoxLayout,
+    QLabel, QLineEdit, QProgressBar, QPushButton, QVBoxLayout,
 )
 
 from .app_paths import get_all_plugin_dirs, get_executable_dir
+from .icons import action_icon, set_action_icon, set_button_box_icons
 from .plugin_download import DownloadCancelled, PluginDownloader
 from .plugin_repositories import PluginRepository, RepositoryTag
 
@@ -45,6 +46,7 @@ class PluginDownloadDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("下载插件"))
+        self.setWindowIcon(action_icon("app"))
         self.setMinimumWidth(520)
         self._task = None
         self._repository = None
@@ -59,7 +61,7 @@ class PluginDownloadDialog(QDialog):
         self.url = QLineEdit()
         self.url.setPlaceholderText("https://github.com/owner/repository")
         self.fetch = QPushButton(self.tr("获取标签"))
-        self.fetch.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
+        set_action_icon(self.fetch, "tag")
         self.fetch.setEnabled(False)
         self.fetch.setAutoDefault(False)
         url_layout = QHBoxLayout()
@@ -85,11 +87,12 @@ class PluginDownloadDialog(QDialog):
         self.buttons = QDialogButtonBox(QDialogButtonBox.Close)
         self.install = self.buttons.addButton(
             self.tr("下载插件"), QDialogButtonBox.ActionRole)
-        self.install.setIcon(self.style().standardIcon(QStyle.SP_ArrowDown))
+        set_action_icon(self.install, "download")
         self.install.setEnabled(False)
         self.install.setAutoDefault(False)
         self.close_button = self.buttons.button(QDialogButtonBox.Close)
         self.close_button.setText(self.tr("关闭"))
+        set_button_box_icons(self.buttons)
 
         layout = QVBoxLayout(self)
         layout.addLayout(form)

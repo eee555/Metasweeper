@@ -182,7 +182,7 @@ class PluginInfo(Generic[ConfigT]):
     show_window: bool = True  # 初始化时是否显示窗口
     window_mode: WindowMode = WindowMode.TAB  # 窗口加载方式
     log_level: LogLevel = LogLevel.INFO  # 默认日志级别
-    icon: QIcon | None = None  # 插件图标，None 使用默认蓝色问号
+    icon: QIcon | None = None  # icon.svg 不可用时的备用图标
     log_config: "LogConfig | None" = None  # 日志轮转配置，None 使用全局默认值
     # 插件自定义配置类（继承自 OtherInfoBase）
     other_info: Type[ConfigT] = cast(Any, OtherInfoBase)
@@ -452,8 +452,15 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
     @property
     def plugin_icon(self) -> QIcon:
-        """返回插件图标（使用 PluginInfo.icon，未设置则生成默认图标）"""
-        if self._info.icon:
+        """优先加载插件目录的 icon.svg，再使用声明图标或默认图标。"""
+        from PySide6.QtSvg import QSvgRenderer
+
+        path = self.plugin_dir / "icon.svg"
+        if path.is_file() and QSvgRenderer(str(path)).isValid():
+            icon = QIcon(str(path))
+            if not icon.isNull():
+                return icon
+        if self._info.icon and not self._info.icon.isNull():
             return self._info.icon
         return make_plugin_icon()
 

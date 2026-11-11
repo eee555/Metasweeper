@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QTimer, QEvent
-from PySide6.QtGui import QColor, QMouseEvent, QIcon, QPixmap
+from PySide6.QtGui import QColor, QMouseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -57,6 +57,7 @@ from shared_types.commands import command_hint, command_label
 from plugin_sdk.control_auth import ControlAuthorizationManager
 from plugin_sdk.config_types import OtherInfoBase
 from .app_paths import get_data_dir
+from .icons import action_icon, set_action_icon, set_button_box_icons
 
 if TYPE_CHECKING:
     from .plugin_manager import PluginManager
@@ -440,6 +441,8 @@ class PluginSettingsDialog(QDialog):
         self._other_info = other_info
         self._plugin = plugin
 
+        if plugin is not None:
+            self.setWindowIcon(plugin.plugin_icon)
         self.setWindowTitle(self.tr("插件设置 - {n}").format(n=plugin_name))
         self.setMinimumWidth(400)
         self.setMinimumHeight(300)
@@ -549,6 +552,7 @@ class PluginSettingsDialog(QDialog):
         )
         btns.accepted.connect(self._on_ok_clicked)
         btns.rejected.connect(self.reject)
+        set_button_box_icons(btns)
         layout.addWidget(btns)
 
     def _on_ok_clicked(self) -> None:
@@ -618,6 +622,7 @@ class BasicSettingsDialog(QDialog):
         self._settings_manager = settings_manager
         self.setWindowTitle(
             QCoreApplication.translate("SettingsDialog", "基础设置"))
+        self.setWindowIcon(action_icon("app"))
         self.setMinimumWidth(400)
         self._setup_ui()
 
@@ -678,6 +683,7 @@ class BasicSettingsDialog(QDialog):
         )
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
+        set_button_box_icons(button_box)
         layout.addWidget(button_box)
 
     def _on_accept(self) -> None:
@@ -753,6 +759,7 @@ class LogViewerDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(QCoreApplication.translate(
             "LogViewerDialog", "日志查看"))
+        self.setWindowIcon(action_icon("app"))
         self.setMinimumSize(900, 600)
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
 
@@ -811,6 +818,7 @@ class LogViewerDialog(QDialog):
 
         # 清空按钮
         clear_btn = QPushButton(_translate("LogViewerDialog", "清空"))
+        set_action_icon(clear_btn, "clear")
         clear_btn.clicked.connect(self._clear_log)
         top_layout.addWidget(clear_btn)
 
@@ -834,6 +842,7 @@ class LogViewerDialog(QDialog):
         # 底部：按钮
         button_box = QDialogButtonBox(QDialogButtonBox.Close)
         button_box.rejected.connect(self.close)
+        set_button_box_icons(button_box)
         layout.addWidget(button_box)
 
     def _attach_sink(self, log_name: str) -> None:
@@ -989,6 +998,7 @@ class ControlAuthorizationDialog(QDialog):
         self._auth_manager = ControlAuthorizationManager.instance()
 
         self.setWindowTitle(self.tr("控制授权配置"))
+        self.setWindowIcon(action_icon("app"))
         self.setMinimumWidth(500)
         self.setMinimumHeight(300)
 
@@ -1029,6 +1039,7 @@ class ControlAuthorizationDialog(QDialog):
         )
         btns.accepted.connect(self._on_accept)
         btns.rejected.connect(self.reject)
+        set_button_box_icons(btns)
         layout.addWidget(btns)
 
     def _load_authorizations(self) -> None:
@@ -1157,6 +1168,8 @@ class _PluginReadmeDialog(ConfirmDialog):
             if parent else f"{plugin_name} - README",
             buttons=QDialogButtonBox.Close,
         )
+        self.setWindowIcon(action_icon("app"))
+        set_button_box_icons(self.button_box)
         self.resize(720, 520)
 
     def _create_content(self) -> QLayout:
@@ -1202,6 +1215,7 @@ class PluginManagerWindow(QMainWindow):
         super().__init__(parent)
 
         self._manager = plugin_manager
+        # 保留进程级应用图标；QMainWindow 未显式设置时继承 QApplication.windowIcon()。
         self._show_requested.connect(
             self.show_and_raise, Qt.ConnectionType.QueuedConnection)
 
@@ -1247,20 +1261,24 @@ class PluginManagerWindow(QMainWindow):
 
         self._act_download_plugin = self._menu_options.addAction(
             self.tr("下载插件..."))
+        set_action_icon(self._act_download_plugin, "download")
         self._act_download_plugin.triggered.connect(self._open_download_plugin)
 
         # 设置子菜单
         self._menu_settings = self._menu_options.addMenu(self.tr("设置"))
+        set_action_icon(self._menu_settings.menuAction(), "settings")
 
         # 基础设置动作
         self._act_basic_settings = self._menu_settings.addAction(
             self.tr("基础设置..."))
+        set_action_icon(self._act_basic_settings, "settings")
         self._act_basic_settings.triggered.connect(
             self._open_basic_settings_dialog)
 
         # 控制授权动作
         self._act_control_auth = self._menu_settings.addAction(
             self.tr("控制授权..."))
+        set_action_icon(self._act_control_auth, "authorize")
         self._act_control_auth.triggered.connect(
             self._open_control_auth_dialog)
 
@@ -1268,12 +1286,14 @@ class PluginManagerWindow(QMainWindow):
 
         # 调试动作
         self._debug_act = self._menu_settings.addAction(self.tr("启动调试"))
+        set_action_icon(self._debug_act, "debug")
         self._debug_act.triggered.connect(self._start_debug)
 
         self._menu_options.addSeparator()
 
         # 插件开发指南动作
         self._act_dev_guide = self._menu_options.addAction(self.tr("插件开发指南"))
+        set_action_icon(self._act_dev_guide, "guide")
         self._act_dev_guide.triggered.connect(self._open_dev_guide)
 
         # ── 查看菜单 ──
@@ -1281,6 +1301,7 @@ class PluginManagerWindow(QMainWindow):
 
         # 日志查看动作
         self._act_log_viewer = self._menu_view.addAction(self.tr("日志查看"))
+        set_action_icon(self._act_log_viewer, "log")
         self._act_log_viewer.triggered.connect(lambda: self._open_log_viewer())
 
         # ── 工具栏 ──
@@ -1290,13 +1311,15 @@ class PluginManagerWindow(QMainWindow):
 
         # 刷新按钮
         self._refresh_btn = QPushButton(self.tr("刷新"))
+        set_action_icon(self._refresh_btn, "refresh")
         self._refresh_btn.setToolTip(self.tr("刷新插件列表"))
         self._toolbar.addWidget(self._refresh_btn)
 
         self._toolbar.addSeparator()
 
         # 控制授权按钮
-        self._control_auth_btn = QPushButton("🔐 " + self.tr("控制授权"))
+        self._control_auth_btn = QPushButton(self.tr("控制授权"))
+        set_action_icon(self._control_auth_btn, "authorize")
         self._control_auth_btn.setToolTip(self.tr("配置插件控制命令权限"))
         self._toolbar.addWidget(self._control_auth_btn)
 
@@ -1358,15 +1381,16 @@ class PluginManagerWindow(QMainWindow):
             logger.warning("系统不支持托盘图标")
             return
 
-        icon = self._create_tray_icon()
-        tray = QSystemTrayIcon(icon, self)
+        tray = QSystemTrayIcon(self.windowIcon(), self)
         tray.setToolTip(self.tr("插件管理器 - 右键打开菜单"))
 
         menu = QMenu(self)
         act_show = menu.addAction(self.tr("显示主窗口"))
+        set_action_icon(act_show, "window")
         act_show.triggered.connect(self.show_and_raise)
         menu.addSeparator()
         act_quit = menu.addAction(self.tr("退出"))
+        set_action_icon(act_quit, "quit")
         act_quit.triggered.connect(self._really_quit)
         tray.setContextMenu(menu)
 
@@ -1395,7 +1419,7 @@ class PluginManagerWindow(QMainWindow):
         self._toolbar.setWindowTitle(self.tr("工具栏"))
         self._refresh_btn.setText(self.tr("刷新"))
         self._refresh_btn.setToolTip(self.tr("刷新插件列表"))
-        self._control_auth_btn.setText("🔐 " + self.tr("控制授权"))
+        self._control_auth_btn.setText(self.tr("控制授权"))
         self._control_auth_btn.setToolTip(self.tr("配置插件控制命令权限"))
         self._title_label.setText(self.tr("插件列表"))
         if self._tray_icon is not None:
@@ -1416,28 +1440,6 @@ class PluginManagerWindow(QMainWindow):
         dialog = PluginDownloadDialog(self)
         dialog.exec()
         dialog.deleteLater()
-
-    @staticmethod
-    def _create_tray_icon() -> QIcon:
-        """生成一个简单的托盘图标（蓝色圆形 + 插件符号）"""
-        pix = QPixmap(64, 64)
-        pix.fill(Qt.transparent)
-        from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QFont
-        p = QPainter(pix)
-        p.setRenderHint(QPainter.Antialiasing)
-        # 蓝色圆形背景
-        p.setPen(Qt.NoPen)
-        p.setBrush(QBrush(QColor("#1976d2")))
-        p.drawEllipse(pix.rect().adjusted(3, 3, -3, -3))
-        # 白色 "P" 字母
-        pen = QPen(QColor("white"), 2)
-        p.setPen(pen)
-        p.setBrush(Qt.NoBrush)
-        font = QFont("Arial", 32, QFont.Bold)
-        p.setFont(font)
-        p.drawText(pix.rect(), Qt.AlignCenter, "P")
-        p.end()
-        return QIcon(pix)
 
     @Slot()
     def show_and_raise(self) -> None:
@@ -1496,6 +1498,7 @@ class PluginManagerWindow(QMainWindow):
         # 创建显示对话框
         dlg = QDialog(self)
         dlg.setWindowTitle(self.tr("插件开发指南"))
+        dlg.setWindowIcon(action_icon("app"))
         dlg.setMinimumSize(900, 700)
 
         layout = QVBoxLayout(dlg)
@@ -1526,6 +1529,7 @@ class PluginManagerWindow(QMainWindow):
         # 关闭按钮
         btn_box = QDialogButtonBox(QDialogButtonBox.Close)
         btn_box.rejected.connect(dlg.close)
+        set_button_box_icons(btn_box)
         layout.addWidget(btn_box)
 
         dlg.exec()
@@ -1696,12 +1700,12 @@ class PluginManagerWindow(QMainWindow):
             # 根据生命周期状态显示
             if lc == PluginLifecycle.INITIALIZING:
                 li.setForeground(QColor("#f57c00"))  # 橙色：初始化中
-                li.setText(f"{p.name} (⏳ 初始化中...)")
+                li.setText(self.tr("{name}（初始化中...）").format(name=p.name))
             elif not p.is_enabled:
                 li.setForeground(Qt.gray)  # 灰色：已禁用
             elif lc == PluginLifecycle.SHUTTING_DOWN:
                 li.setForeground(QColor("#c62828"))  # 红色：关闭中
-                li.setText(f"{p.name} (⏸ 关闭中...)")
+                li.setText(self.tr("{name}（关闭中...）").format(name=p.name))
 
             lst.addItem(li)
 
@@ -1756,8 +1760,10 @@ class PluginManagerWindow(QMainWindow):
         # 启用/禁用（非就绪状态不可切换，但 STOPPED 可以重新启用）
         lc = plugin.lifecycle
         can_control = lc in (PluginLifecycle.NEW, PluginLifecycle.READY, PluginLifecycle.STOPPED)
-        act_enable = menu.addAction("✅ " + self.tr("启用"))
-        act_disable = menu.addAction("❌ " + self.tr("禁用"))
+        act_enable = menu.addAction(self.tr("启用"))
+        act_disable = menu.addAction(self.tr("禁用"))
+        set_action_icon(act_enable, "enable")
+        set_action_icon(act_disable, "disable")
         act_enable.setEnabled(can_control and not plugin.is_enabled)
         act_disable.setEnabled(
             lc == PluginLifecycle.READY and plugin.is_enabled)
@@ -1767,7 +1773,8 @@ class PluginManagerWindow(QMainWindow):
         menu.addSeparator()
 
         # 插件详情（点击打开详情对话框，只读展示订阅/权限信息）
-        act_detail = menu.addAction("ℹ️ " + self.tr("插件详情"))
+        act_detail = menu.addAction(self.tr("插件详情"))
+        set_action_icon(act_detail, "info")
         act_detail.triggered.connect(lambda: self._open_plugin_info(name))
 
         menu.addSeparator()
@@ -1777,8 +1784,10 @@ class PluginManagerWindow(QMainWindow):
         has_detached = name in t._detached_windows
         has_closed = name in self._closed_plugins
 
-        act_open = menu.addAction("🖥 " + self.tr("打开窗口"))
-        act_close = menu.addAction("🚫 " + self.tr("关闭窗口"))
+        act_open = menu.addAction(self.tr("打开窗口"))
+        act_close = menu.addAction(self.tr("关闭窗口"))
+        set_action_icon(act_open, "window")
+        set_action_icon(act_close, "window-close")
 
         # 窗口操作只有就绪状态才可用
         can_open = lc == PluginLifecycle.READY and (
@@ -1788,10 +1797,12 @@ class PluginManagerWindow(QMainWindow):
             lc == PluginLifecycle.READY and (has_tab or has_detached))
 
         # 打开日志文件
-        act_log = menu.addAction("📋 " + self.tr("打开日志"))
+        act_log = menu.addAction(self.tr("打开日志"))
+        set_action_icon(act_log, "log")
 
         # 查看 README
-        act_readme = menu.addAction("📖 " + self.tr("查看 README"))
+        act_readme = menu.addAction(self.tr("查看 README"))
+        set_action_icon(act_readme, "guide")
 
         act_open.triggered.connect(lambda: self._open_plugin_window(name))
         act_close.triggered.connect(lambda: self._close_plugin_window(name))
@@ -1803,13 +1814,14 @@ class PluginManagerWindow(QMainWindow):
         # 一键授权控制权限（仅 READY 且声明了控制权限的插件）
         required_controls = plugin.info.required_controls or []
         if lc == PluginLifecycle.READY and required_controls:
-            act_control_auth = menu.addAction(
-                "🔐 " + self.tr("一键授权控制权限"))
+            act_control_auth = menu.addAction(self.tr("一键授权控制权限"))
+            set_action_icon(act_control_auth, "authorize")
             act_control_auth.triggered.connect(
                 lambda: self._authorize_plugin_controls(name))
 
         # 设置
-        act_settings = menu.addAction("⚙️ " + self.tr("设置..."))
+        act_settings = menu.addAction(self.tr("设置..."))
+        set_action_icon(act_settings, "settings")
         act_settings.triggered.connect(
             lambda: self._open_plugin_settings(name))
 

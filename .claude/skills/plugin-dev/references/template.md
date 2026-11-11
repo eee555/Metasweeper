@@ -1,5 +1,7 @@
 # 插件模板代码
 
+插件图标优先读取定义插件类的 Python 文件同级目录中的有效 `icon.svg`；文件不存在或无效时，使用 `PluginInfo.icon` 声明的有效图标；未声明或图标无效时，使用默认图标。模板中的 `make_plugin_icon(...)` 用于生成备用图标。
+
 ## 最小可行插件（无 GUI）
 
 ```python
@@ -101,6 +103,7 @@ class MyPlugin(BasePlugin):
 ```
 plugins/my_plugin/
 ├── __init__.py     # 插件类定义
+├── icon.svg        # 可选，优先使用的插件图标
 ├── models.py       # 数据模型
 ├── widgets.py      # UI 组件
 └── utils.py        # 工具函数

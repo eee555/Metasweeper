@@ -3489,6 +3489,14 @@ nieśmiertelnego ciała</translation>
         <translation>Wtyczka {name} gotowa</translation>
     </message>
     <message>
+        <source>{name}（初始化中...）</source>
+        <translation>{name} (inicjowanie...)</translation>
+    </message>
+    <message>
+        <source>{name}（关闭中...）</source>
+        <translation>{name} (zamykanie...)</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1714"/>
         <source>已加载 {total} 个插件，{enabled} 个已启用</source>
         <translation>Załadowano {total} wtyczek, {enabled} włączonych</translation>

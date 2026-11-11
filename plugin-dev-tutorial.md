@@ -277,7 +277,7 @@ class HelloPlugin(BasePlugin):
             priority=100,                 # 优先级（数字越小越先处理事件）
             show_window=True,             # 初始化时是否显示窗口
             window_mode=WindowMode.TAB,   # 窗口模式: TAB=标签页 / DETACHED=独立窗口 / CLOSED=不显示
-            icon=make_plugin_icon(        # 图标（可选，None 则用默认）
+            icon=make_plugin_icon(        # 备用图标，优先使用同级有效的 icon.svg
                 color="#4CAF50",          # 绿色背景
                 symbol="H",               # 显示字母 H
                 size=64
@@ -373,7 +373,7 @@ class HelloPlugin(BasePlugin):
 1. 将 `hello_world.py` 放入 `<安装目录>/plugins/` 目录
 2. 启动 `metaminsweeper.exe`（主程序）
 3. 启动 `plugin_manager.exe`（插件管理器）
-4. 如果一切正常，你应该能在左侧列表看到绿色的 "H" 图标插件
+4. 如果一切正常，你应该能在左侧列表看到插件图标；没有有效的同级 `icon.svg` 时，示例显示绿色的 "H" 图标
 5. 玩一局游戏结束后，插件界面应显示游戏统计信息
 
 ---
@@ -679,10 +679,12 @@ class PluginInfo:
     show_window: bool = True               # 初始化时显示窗口
     window_mode: WindowMode = "tab"        # tab/detached/closed
     log_level: LogLevel = "DEBUG"          # 默认日志级别
-    icon: QIcon | None = None             # 图标
+    icon: QIcon | None = None             # 同级 icon.svg 不可用时的备用图标
     log_config: LogConfig | None = None    # 高级日志配置
     other_info: type[OtherInfoBase] | None = None  # 👈 自定义配置类
 ```
+
+**图标优先级：**将 `icon.svg` 放在定义插件类的 Python 文件同级目录。插件优先使用有效的 `icon.svg`；文件不存在或无效时，使用 `PluginInfo.icon` 中声明的有效图标；未声明或图标无效时，使用默认图标。`make_plugin_icon(...)` 可用于生成声明的备用图标。
 
 **WindowMode 含义：**
 

@@ -3489,6 +3489,14 @@ Bild</translation>
         <translation>Plugin {name} bereit</translation>
     </message>
     <message>
+        <source>{name}（初始化中...）</source>
+        <translation>{name} (wird initialisiert...)</translation>
+    </message>
+    <message>
+        <source>{name}（关闭中...）</source>
+        <translation>{name} (wird beendet...)</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1714"/>
         <source>已加载 {total} 个插件，{enabled} 个已启用</source>
         <translation>Geladen: {total} Plugins, {enabled} aktiv</translation>

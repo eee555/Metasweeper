@@ -426,6 +426,24 @@ def test_plugin_icon_custom_and_default(app):
     assert isinstance(generated, QIcon) and not generated.isNull()
 
 
+def test_plugin_icon_svg_priority_and_invalid_fallback(app, tmp_path, monkeypatch):
+    monkeypatch.setattr(CorePlugin, "plugin_dir", property(lambda self: tmp_path))
+    custom = make_plugin_icon("#123456", "X", 16)
+    plugin = CorePlugin(PluginInfo(name="icon-svg", icon=custom, other_info=None))
+    path = tmp_path / "icon.svg"
+    path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">'
+                    '<rect width="16" height="16" fill="#ff0000"/></svg>', encoding="utf-8")
+    icon = plugin.plugin_icon
+    assert not icon.isNull()
+    assert icon.pixmap(16, 16).toImage().pixelColor(8, 8).name() == "#ff0000"
+    path.write_text("<invalid>", encoding="utf-8")
+    assert plugin.plugin_icon is custom
+    path.unlink()
+    assert plugin.plugin_icon is custom
+    plugin.info.icon = None
+    assert not plugin.plugin_icon.isNull()
+
+
 # ── GUI / widget 工具 ─────────────────────────────────────────────────────
 
 def _drain_gui(app):

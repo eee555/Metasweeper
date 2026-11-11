@@ -1,0 +1,23 @@
+<RCC>
+  <qresource prefix="/plugin_manager/actions">
+    <file alias="app.svg">icons/app.svg</file>
+    <file alias="authorize.svg">icons/authorize.svg</file>
+    <file alias="cancel.svg">icons/cancel.svg</file>
+    <file alias="clear.svg">icons/clear.svg</file>
+    <file alias="close.svg">icons/close.svg</file>
+    <file alias="confirm.svg">icons/confirm.svg</file>
+    <file alias="debug.svg">icons/debug.svg</file>
+    <file alias="disable.svg">icons/disable.svg</file>
+    <file alias="download.svg">icons/download.svg</file>
+    <file alias="enable.svg">icons/enable.svg</file>
+    <file alias="guide.svg">icons/guide.svg</file>
+    <file alias="info.svg">icons/info.svg</file>
+    <file alias="log.svg">icons/log.svg</file>
+    <file alias="quit.svg">icons/quit.svg</file>
+    <file alias="refresh.svg">icons/refresh.svg</file>
+    <file alias="settings.svg">icons/settings.svg</file>
+    <file alias="tag.svg">icons/tag.svg</file>
+    <file alias="window.svg">icons/window.svg</file>
+    <file alias="window-close.svg">icons/window-close.svg</file>
+  </qresource>
+</RCC>
