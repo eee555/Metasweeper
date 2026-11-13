@@ -26,7 +26,7 @@ class ScoreBoardWidget(RoundQWidget):
         self._on_ctrl_wheel = handler
 
     def wheelEvent(self, event):
-        if self._on_ctrl_wheel and QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+        if self._on_ctrl_wheel and QApplication.keyboardModifiers() == QtCore.Qt.KeyboardModifier.ControlModifier:
             angle = event.angleDelta().y()
             if angle > 0:
                 self._on_ctrl_wheel(1)
@@ -225,7 +225,7 @@ class ui_Form(Ui_Form):
     def _fix_widget_size(self):
         self.QWidget.setMinimumSize(0, 0)
         self.QWidget.setMaximumSize(99999, 99999)
-        self.QWidget.layout().setSizeConstraint(QtWidgets.QLayout.SetDefaultConstraint)
+        self.QWidget.layout().setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetDefaultConstraint)
         m = self.QWidget.layout().contentsMargins()
         sp = self.QWidget.layout().spacing() or 0
         fw = self.tableWidget.frameWidth()
@@ -340,7 +340,7 @@ class gameScoreBoardManager():
         # self.ui.tableWidget.cellChanged.connect(self.__cell_changed)
         self.ui.pushButton_add.clicked.connect(self.__add_blank_line)
         self.ui.QWidget.closeEvent_.connect(self.close)
-        QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Return), self.ui.QWidget).\
+        QShortcut(QtGui.QKeySequence(QtCore.Qt.Key.Key_Return), self.ui.QWidget).\
             activated.connect(self.__table_ok)
         self.ui.QWidget.move(game_setting.value("DEFAULT/scoreboardtop", 100, int),
                              game_setting.value("DEFAULT/scoreboardleft", 200, int))
@@ -503,12 +503,6 @@ class gameScoreBoardManager():
         # self.visible()
         ...
 
-    def time_step(self):
-        # 游戏过程中时间步进
-        self.total_time += 0.001
-
-        self.show()
-
     # 重写窗口的翻译方法。主要是模式的翻译问题
     def retranslateUi(self, Form):
         self.ui.retranslateUi(Form)
@@ -543,7 +537,7 @@ class gameScoreBoardManager():
             if editor is not None and hasattr(editor, 'text'):
                 new_formula = editor.text()
                 self.ui.tableWidget.closeEditor(
-                    editor, QAbstractItemDelegate.SubmitModelCache)
+                    editor, QAbstractItemDelegate.EndEditHint.SubmitModelCache)
             else:
                 item = self.ui.tableWidget.item(
                     self.editing_row, self.editing_column)

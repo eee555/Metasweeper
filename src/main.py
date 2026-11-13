@@ -63,7 +63,7 @@ if __name__ == "__main__":
         # 已有实例在运行时同样由系统把打开事件投递到当前实例。
         class _FileOpenEventFilter(QtCore.QObject):
             def eventFilter(self, obj, event):
-                if event.type() == QtCore.QEvent.FileOpen and event.file():
+                if event.type() == QtCore.QEvent.Type.FileOpen and event.file():
                     for win in QApplication.topLevelWidgets():
                         if isinstance(win, mainWindowGUI.MainWindow):
                             win.dropFileSignal.emit(event.file())
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         from shared_types.events import LanguageChangeEvent
         if not plugins_disabled:
             QTimer.singleShot(2000, lambda: GameServerBridge.instance().send_event(
-                LanguageChangeEvent(language=ui.language)))
+                LanguageChangeEvent(language=ui.language))) # type: ignore
 
         register_plugin_commands(GameServerBridge.instance(), ui)
         register_plugin_queries(GameServerBridge.instance(), ui)

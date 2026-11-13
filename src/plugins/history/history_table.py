@@ -54,7 +54,7 @@ class _DeleteConfirmDialog(ConfirmDialog):
         super().__init__(
             parent,
             title=_translate("Form", "删除确认"),
-            buttons=QDialogButtonBox.Yes | QDialogButtonBox.No,
+            buttons=QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No,
         )
         self.resize(320, 120)
 
@@ -142,19 +142,19 @@ class HistoryTable(QWidget):
         layout.addWidget(self.table)
         self.setLayout(layout)
 
-        self.table.setEditTriggers(QTableView.NoEditTriggers)
-        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_context_menu)
         self.showFields: list[str] = show_fields
         self.headers = self.all_headers(self._computed_columns)
 
         self.model = HistoryTableModel([], self.headers, self.showFields, self)
         self.table.setModel(self.model)
-        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
-        self.table.setSelectionBehavior(QTableView.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.model.modelReset.connect(self._apply_column_widths)
         self._apply_column_widths()
 
@@ -199,17 +199,17 @@ class HistoryTable(QWidget):
         visible_headers = getattr(self.model, "_visible_headers", [])
 
         # 清掉上一次残留的定宽（含拉伸模式），避免宽度粘到别的列上
-        header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         if "board" in visible_headers:
             col = visible_headers.index("board")
-            header.setSectionResizeMode(col, QHeaderView.Fixed)
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
             width = self.table.fontMetrics().horizontalAdvance('中' * 30 + '  ')
             self.table.setColumnWidth(col, width)
 
         if "nf" in visible_headers:
             col = visible_headers.index("nf")
-            header.setSectionResizeMode(col, QHeaderView.Fixed)
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
             self.table.setColumnWidth(col, self.NF_COLUMN_WIDTH)
 
     # ── board 列悬浮预览 ──────────────────────────────────────
@@ -217,11 +217,11 @@ class HistoryTable(QWidget):
         """监听表格视口：鼠标移到 board 列时弹出局面预览"""
         if obj is self.table.viewport():
             etype = event.type()
-            if etype == QEvent.MouseMove:
+            if etype == QEvent.Type.MouseMove:
                 self._handle_hover(
                     self.table.indexAt(event.position().toPoint()), event.globalPosition().toPoint())
-            elif etype in (QEvent.Leave, QEvent.MouseButtonPress,
-                           QEvent.Wheel):
+            elif etype in (QEvent.Type.Leave, QEvent.Type.MouseButtonPress,
+                           QEvent.Type.Wheel):
                 self._hide_preview()
         return super().eventFilter(obj, event)
 
@@ -257,9 +257,9 @@ class HistoryTable(QWidget):
         """可预览单元格的标识 (row, col, board 文本)；非 board 列或无效单元格返回 None"""
         if not index.isValid():
             return None
-        if self.model.headerData(index.column(), Qt.Horizontal) != "board":
+        if self.model.headerData(index.column(), Qt.Orientation.Horizontal) != "board":
             return None
-        text = self.model.data(index, Qt.DisplayRole)
+        text = self.model.data(index, Qt.ItemDataRole.DisplayRole)
         return (index.row(), index.column(), text if isinstance(text, str) else "")
 
     def _show_preview(self) -> None:
@@ -331,7 +331,7 @@ class HistoryTable(QWidget):
         visible = self.model._visible_headers
         if "replay_id" in visible:
             col = visible.index("replay_id")
-            rid = self.model.data(self.model.index(row_idx, col), Qt.UserRole)
+            rid = self.model.data(self.model.index(row_idx, col), Qt.ItemDataRole.UserRole)
             return rid  # type: ignore
         return getattr(self.model._data[row_idx], "replay_id", None)
 
@@ -461,7 +461,7 @@ class HistoryTable(QWidget):
         headers = self.model._visible_headers
         for idx, field in enumerate(headers):
             value = self.model.data(
-                self.model.index(row_idx, idx), Qt.DisplayRole)
+                self.model.index(row_idx, idx), Qt.ItemDataRole.DisplayRole)
             result[field] = value
 
         clipboard = QApplication.clipboard()

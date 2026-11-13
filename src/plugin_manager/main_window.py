@@ -43,7 +43,6 @@ from PySide6.QtWidgets import (
     QToolBar,
     QVBoxLayout,
     QWidget,
-    QDialog,
 )
 
 from .plugin_info_dialog import PluginInfoDialog
@@ -117,7 +116,7 @@ class DetachedPluginWindow(QDialog):
         # 顶部提示栏（保留此栏：_attach_tab 依赖 layout 第 1 项为插件 widget）
         hint_bar = QLabel(self.tr("关闭此窗口将释放插件界面"))
         hint_bar.setFixedHeight(25)
-        hint_bar.setAlignment(Qt.AlignCenter)
+        hint_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hint_bar.setStyleSheet("""
             QLabel {
                 background: #e8f4fd;
@@ -143,18 +142,18 @@ class DetachedPluginWindow(QDialog):
         self.grabMouse()
 
     def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._drag_offset = event.globalPos() - self.pos()
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
-        if self._dragging and event.buttons() & Qt.LeftButton:
+        if self._dragging and event.buttons() & Qt.MouseButton.LeftButton:
             self.move(event.globalPos() - self._drag_offset)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = False
             self.releaseMouse()
         super().mouseReleaseEvent(event)
@@ -183,14 +182,14 @@ class _DetachableTabBar(QTabBar):
         self._drag_start_pos: QPoint | None = None
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._drag_start_pos = event.globalPos()
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if (
             self._drag_start_pos is not None
-            and (event.buttons() & Qt.LeftButton)
+            and (event.buttons() & Qt.MouseButton.LeftButton)
         ):  # type: ignore
             distance = (event.globalPos() -
                         self._drag_start_pos).manhattanLength()
@@ -207,7 +206,7 @@ class _DetachableTabBar(QTabBar):
         super().mouseMoveEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             idx = self.tabAt(event.pos())
             if idx >= 0:
                 name = self.tabText(idx)
@@ -529,7 +528,7 @@ class PluginSettingsDialog(QDialog):
                             hint = QLabel(text)
                             hint.setWordWrap(True)
                             hint.setTextInteractionFlags(
-                                Qt.TextSelectableByMouse)
+                                Qt.TextInteractionFlag.TextSelectableByMouse)
                             hint.setStyleSheet("color: #666; font-size: 11px;")
                             grp4_layout.addWidget(hint)
                     upload_field = other_info._fields.get("upload_token")
@@ -548,7 +547,7 @@ class PluginSettingsDialog(QDialog):
 
         # 按钮：确定时先用控件当前值校验，通过才关闭
         btns = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         btns.accepted.connect(self._on_ok_clicked)
         btns.rejected.connect(self.reject)
@@ -561,7 +560,7 @@ class PluginSettingsDialog(QDialog):
             self.accept()
             return
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             errors = self._config_widget.validate_pending(self._plugin)
         except Exception as e:
@@ -679,7 +678,7 @@ class BasicSettingsDialog(QDialog):
 
         # 按钮盒
         button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
@@ -761,7 +760,7 @@ class LogViewerDialog(QDialog):
             "LogViewerDialog", "日志查看"))
         self.setWindowIcon(action_icon("app"))
         self.setMinimumSize(900, 600)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
 
         self._plugin_names = plugin_names
         self._current_log = initial_log
@@ -840,7 +839,7 @@ class LogViewerDialog(QDialog):
         layout.addWidget(self._log_view)
 
         # 底部：按钮
-        button_box = QDialogButtonBox(QDialogButtonBox.Close)
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         button_box.rejected.connect(self.close)
         set_button_box_icons(button_box)
         layout.addWidget(button_box)
@@ -1025,17 +1024,17 @@ class ControlAuthorizationDialog(QDialog):
             self.tr("授权插件"),
             self.tr("状态"),
         ])
-        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
         self._table.setColumnWidth(2, 80)
-        self._table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setAlternatingRowColors(True)
         layout.addWidget(self._table)
 
         # 按钮
         btns = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         btns.accepted.connect(self._on_accept)
         btns.rejected.connect(self.reject)
@@ -1064,7 +1063,7 @@ class ControlAuthorizationDialog(QDialog):
                 f"{cmd_label}\n"
                 f"{command_hint(cmd_type)}\n"
                 f"类名: {cmd_type.__name__}")
-            name_item.setData(Qt.UserRole, cmd_type)  # 存储类型
+            name_item.setData(Qt.ItemDataRole.UserRole, cmd_type)  # 存储类型
             self._table.setItem(row, 0, name_item)
 
             # 找出声明了该控制权限的插件
@@ -1145,7 +1144,7 @@ class ControlAuthorizationDialog(QDialog):
                 row, 0)  # type: ignore
             combo: QComboBox = self._table.cellWidget(row, 1)  # type: ignore
 
-            cmd_type = name_item.data(Qt.UserRole)
+            cmd_type = name_item.data(Qt.ItemDataRole.UserRole)
             plugin_name = combo.currentData()
 
             if plugin_name is None:
@@ -1158,23 +1157,210 @@ class ControlAuthorizationDialog(QDialog):
 
 
 class _PluginReadmeDialog(ConfirmDialog):
-    """插件 README 查看对话框（Markdown 渲染）。"""
+    """插件 README 查看对话框（Markdown 渲染，随系统深浅色自适应）。
 
-    def __init__(self, plugin_name: str, content: str, parent=None):
+    链接点击策略：
+    - 内部锚点（目录跳转）→ 滚动到对应标题
+    - 本地 .md/.txt 文件 → 用本对话框展示
+    - 其他本地文件/目录 → 用系统默认应用打开
+    - 外部链接 → 用系统默认浏览器打开
+    """
+
+    # 浅色/深色两套配色（与 GitHub 风格接近，保证对比度）
+    _LIGHT_TEXT = "#24292f"
+    _LIGHT_LINK = "#0969da"
+    _LIGHT_LINK_VISITED = "#8250df"
+    _DARK_TEXT = "#e6edf3"
+    _DARK_LINK = "#58a6ff"
+    _DARK_LINK_VISITED = "#bc8cff"
+
+    def __init__(self, plugin_name: str, content: str, parent=None,
+                 base_dir: Path | None = None, title: str | None = None):
         self._content = content
+        self._base_dir = base_dir or Path.cwd()
+        self._browser: QTextBrowser | None = None
+        # 标题 slug → 文档位置，用于目录锚点跳转
+        self._heading_positions: dict[str, int] = {}
+        # 模块内导入，避免顶层引入 QTextBrowser/QFont/QPalette 影响冷启动
+        from PySide6.QtWidgets import QTextBrowser  # noqa: F401
+        if title is None:
+            title = (parent.tr("{name} - README").format(name=plugin_name)
+                     if parent else f"{plugin_name} - README")
         super().__init__(
             parent=parent,
-            title=parent.tr("{name} - README").format(name=plugin_name)
-            if parent else f"{plugin_name} - README",
-            buttons=QDialogButtonBox.Close,
+            title=title,
+            buttons=QDialogButtonBox.StandardButton.Close,
         )
         self.setWindowIcon(action_icon("app"))
         set_button_box_icons(self.button_box)
         self.resize(720, 520)
+        self._apply_theme()
+        self._connect_theme_change()
+
+    def _is_dark(self) -> bool:
+        """当前是否处于深色模式（跟随系统 colorScheme，System 时按浅色兜底）。"""
+        try:
+            return QApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
+        except Exception:
+            return False
+
+    def _connect_theme_change(self) -> None:
+        """监听系统深浅色切换，实时刷新 Markdown 配色。"""
+        try:
+            hints = QApplication.styleHints()
+            hints.colorSchemeChanged.connect(self._apply_theme)
+        except Exception:
+            return
+
+    def _apply_theme(self, *_args) -> None:
+        """按当前深浅色更新文本/链接配色。"""
+        if self._browser is None:
+            return
+        from PySide6.QtGui import QColor, QPalette
+
+        palette = self._browser.palette()
+        if self._is_dark():
+            palette.setColor(QPalette.ColorRole.Text, QColor(self._DARK_TEXT))
+            palette.setColor(QPalette.ColorRole.Link, QColor(self._DARK_LINK))
+            palette.setColor(QPalette.ColorRole.LinkVisited,
+                             QColor(self._DARK_LINK_VISITED))
+        else:
+            palette.setColor(QPalette.ColorRole.Text, QColor(self._LIGHT_TEXT))
+            palette.setColor(QPalette.ColorRole.Link, QColor(self._LIGHT_LINK))
+            palette.setColor(QPalette.ColorRole.LinkVisited,
+                             QColor(self._LIGHT_LINK_VISITED))
+        self._browser.setPalette(palette)
+
+    @staticmethod
+    def _heading_slug(text: str) -> str:
+        """按 GitHub 规则把标题文本转成锚点 slug。
+
+        小写、空格转连字符、去掉标点（保留中日韩文字、字母、数字、``-``/``_``）。
+        Qt 的 Markdown 渲染器不会给标题生成锚点，因此目录里的
+        ``#一系统架构概览`` 这类链接需要靠 slug 匹配标题块位置来跳转。
+        """
+        import unicodedata
+
+        s = text.strip().lower().replace(" ", "-")
+        return "".join(
+            ch for ch in s
+            if ch in "-_" or unicodedata.category(ch)[0] in ("L", "N")
+        )
+
+    def _collect_heading_positions(self) -> None:
+        """渲染 Markdown 后，记录每个标题块的位置，供目录锚点跳转。"""
+        self._heading_positions.clear()
+        if self._browser is None:
+            return
+        block = self._browser.document().firstBlock()
+        while block.isValid():
+            if block.blockFormat().headingLevel() > 0:
+                slug = self._heading_slug(block.text())
+                if slug:
+                    self._heading_positions.setdefault(slug, block.position())
+            block = block.next()
+
+    def _scroll_to_heading(self, fragment: str) -> bool:
+        """滚动到 fragment 对应的标题，成功返回 True。"""
+        from urllib.parse import unquote
+        from PySide6.QtGui import QTextCursor
+
+        if self._browser is None:
+            return False
+        key = unquote(fragment)
+        pos = self._heading_positions.get(key)
+        if pos is None:
+            return False
+        cursor = QTextCursor(self._browser.document())
+        cursor.setPosition(pos)
+        self._browser.setTextCursor(cursor)
+        self._browser.ensureCursorVisible()
+        return True
+
+    def _resolve_local_path(self, url) -> Path | None:
+        """从点击的 URL 解析本地文件路径。
+
+        处理 file:// 绝对路径、相对路径（相对插件目录解析）、
+        Windows 盘符路径。非本地文件返回 None。
+        """
+        from urllib.parse import unquote
+
+        scheme = url.scheme().lower()
+
+        if scheme == "file":
+            raw = url.toLocalFile()
+            if raw:
+                p = Path(raw)
+                return p if p.is_absolute() else (self._base_dir / p)
+
+        if scheme in ("", "qt"):
+            raw = unquote(url.path())
+            if "#" in raw:
+                raw = raw.split("#", 1)[0]
+            if raw:
+                p = Path(raw)
+                return p if p.is_absolute() else (self._base_dir / p)
+
+        return None
+
+    def _on_anchor_click(self, url) -> None:
+        """处理 README 内链接点击，按文件类型分流。"""
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        # 内部锚点（目录跳转）：Qt 不为标题生成锚点，靠标题位置定位滚动
+        if not url.path() and url.fragment():
+            if self._scroll_to_heading(url.fragment()):
+                return
+            # 兜底：文档里显式的 HTML <a name="..."> 锚点
+            if self._browser:
+                self._browser.scrollToAnchor(url.fragment())
+            return
+
+        local_path = self._resolve_local_path(url)
+
+        if local_path is not None:
+            if local_path.is_file():
+                suffix = local_path.suffix.lower()
+                if suffix in (".md", ".txt"):
+                    # 用对话框展示
+                    try:
+                        content = local_path.read_text(
+                            encoding="utf-8", errors="replace")
+                    except OSError as e:
+                        QMessageBox.warning(
+                            self, self.tr("README"),
+                            self.tr("读取文件失败: {err}").format(err=e))
+                        return
+                    dlg = _PluginReadmeDialog(
+                        local_path.stem, content,
+                        parent=self, base_dir=self._base_dir)
+                    # 若链接带 #锚点，进入模态循环、布局完成后滚到目标标题
+                    fragment = url.fragment()
+                    if fragment:
+                        QTimer.singleShot(
+                            0, lambda d=dlg, f=fragment:
+                            d._scroll_to_heading(f))
+                    dlg.exec()
+                else:
+                    # 其他类型文件用系统默认应用打开
+                    QDesktopServices.openUrl(
+                        QUrl.fromLocalFile(str(local_path)))
+            elif local_path.is_dir():
+                # 目录用系统默认文件管理器打开
+                QDesktopServices.openUrl(
+                    QUrl.fromLocalFile(str(local_path)))
+            else:
+                # 文件不存在，用原始 URL 尝试打开（可能是外部链接）
+                QDesktopServices.openUrl(url)
+            return
+
+        # 非本地文件 → 系统默认浏览器/应用
+        QDesktopServices.openUrl(url)
 
     def _create_content(self) -> QLayout:
         from PySide6.QtWidgets import QTextBrowser
-        from PySide6.QtGui import QFont, QPalette, QColor
+        from PySide6.QtGui import QFont
 
         layout = QVBoxLayout()
         if not self._content:
@@ -1184,18 +1370,20 @@ class _PluginReadmeDialog(ConfirmDialog):
             return layout
 
         browser = QTextBrowser()
-        browser.setOpenExternalLinks(True)
+        browser.setOpenLinks(False)
+        browser.setOpenExternalLinks(False)
         browser.setMarkdown(self._content)
+        browser.anchorClicked.connect(self._on_anchor_click)
+        self._browser = browser
 
         font = QFont("Microsoft YaHei", 11)
-        font.setStyleHint(QFont.SansSerif)
+        font.setStyleHint(QFont.StyleHint.SansSerif)
         browser.setFont(font)
 
-        palette = browser.palette()
-        palette.setColor(QPalette.Text, QColor("#24292f"))
-        palette.setColor(QPalette.Link, QColor("#0969da"))
-        palette.setColor(QPalette.LinkVisited, QColor("#8250df"))
-        browser.setPalette(palette)
+        # Qt 不给 Markdown 标题生成锚点，收集标题位置以支持目录跳转
+        self._collect_heading_positions()
+
+        self._apply_theme()
 
         layout.addWidget(browser)
         return layout
@@ -1341,10 +1529,10 @@ class PluginManagerWindow(QMainWindow):
 
         # 插件列表
         lst = QListWidget()
-        lst.setViewMode(QListView.ListMode)
-        lst.setSelectionMode(QListView.SingleSelection)
-        lst.setEditTriggers(QListView.NoEditTriggers)
-        lst.setContextMenuPolicy(Qt.CustomContextMenu)
+        lst.setViewMode(QListView.ViewMode.ListMode)
+        lst.setSelectionMode(QListView.SelectionMode.SingleSelection)
+        lst.setEditTriggers(QListView.EditTrigger.NoEditTriggers)
+        lst.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._list = lst
         left_layout.addWidget(lst)
 
@@ -1432,7 +1620,7 @@ class PluginManagerWindow(QMainWindow):
             bar.showMessage(self._status_bar_msg)
 
     def changeEvent(self, event):
-        if event.type() == QEvent.LanguageChange:
+        if event.type() == QEvent.Type.LanguageChange:
             self.retranslateUi()
         super().changeEvent(event)
 
@@ -1453,7 +1641,7 @@ class PluginManagerWindow(QMainWindow):
 
     def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """托盘图标被双击时恢复窗口"""
-        if reason == QSystemTrayIcon.DoubleClick:
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.show_and_raise()
 
     def _really_quit(self) -> None:
@@ -1468,9 +1656,11 @@ class PluginManagerWindow(QMainWindow):
         self._open_control_auth_dialog()
 
     def _open_dev_guide(self) -> None:
-        """用 Qt 控件打开插件开发指南文档"""
-        from PySide6.QtWidgets import QTextBrowser
-        from PySide6.QtGui import QFont, QPalette, QColor
+        """用 Qt 控件打开插件开发指南文档。
+
+        复用 :class:`_PluginReadmeDialog`，因此同样支持深浅色自适应，
+        以及 README 内本地链接的分流（.md/.txt 用对话框，其他用默认应用）。
+        """
         from .app_paths import get_executable_dir
 
         # 获取 plugin-dev-tutorial.md 的路径
@@ -1495,43 +1685,12 @@ class PluginManagerWindow(QMainWindow):
             )
             return
 
-        # 创建显示对话框
-        dlg = QDialog(self)
-        dlg.setWindowTitle(self.tr("插件开发指南"))
-        dlg.setWindowIcon(action_icon("app"))
-        dlg.setMinimumSize(900, 700)
-
-        layout = QVBoxLayout(dlg)
-
-        # 使用 QTextBrowser 显示 Markdown 内容
-        text_browser = QTextBrowser()
-        text_browser.setOpenExternalLinks(True)
-        text_browser.setMarkdown(content)
-
-        # 设置字体
-        font = QFont("Microsoft YaHei", 11)
-        font.setStyleHint(QFont.SansSerif)
-        text_browser.setFont(font)
-
-        # 设置调色板（颜色主题）
-        palette = text_browser.palette()
-        palette.setColor(QPalette.Text, QColor("#24292f"))  # 文字颜色
-        palette.setColor(QPalette.Link, QColor("#0969da"))  # 链接颜色
-        palette.setColor(QPalette.LinkVisited, QColor("#8250df"))  # 已访问链接
-        text_browser.setPalette(palette)
-
-        # 设置文档边距
-        doc = text_browser.document()
-        doc.setDocumentMargin(16)
-
-        layout.addWidget(text_browser)
-
-        # 关闭按钮
-        btn_box = QDialogButtonBox(QDialogButtonBox.Close)
-        btn_box.rejected.connect(dlg.close)
-        set_button_box_icons(btn_box)
-        layout.addWidget(btn_box)
-
+        dlg = _PluginReadmeDialog(
+            "plugin-dev-tutorial", content, parent=self,
+            base_dir=guide_path.parent,
+            title=self.tr("插件开发指南"),
+        )
+        dlg.resize(900, 700)
         dlg.exec()
 
     def _connect_signals(self) -> None:
@@ -1681,7 +1840,7 @@ class PluginManagerWindow(QMainWindow):
         current_name = None
         item = lst.currentItem()
         if item:
-            current_name = item.data(Qt.UserRole)
+            current_name = item.data(Qt.ItemDataRole.UserRole)
 
         lst.clear()
         while t.count() > 0:
@@ -1692,7 +1851,7 @@ class PluginManagerWindow(QMainWindow):
 
         for name, p in self._manager.plugins.items():
             li = QListWidgetItem(p.name)
-            li.setData(Qt.UserRole, name)
+            li.setData(Qt.ItemDataRole.UserRole, name)
             li.setIcon(p.plugin_icon)
 
             lc = p.lifecycle
@@ -1702,7 +1861,7 @@ class PluginManagerWindow(QMainWindow):
                 li.setForeground(QColor("#f57c00"))  # 橙色：初始化中
                 li.setText(self.tr("{name}（初始化中...）").format(name=p.name))
             elif not p.is_enabled:
-                li.setForeground(Qt.gray)  # 灰色：已禁用
+                li.setForeground(Qt.GlobalColor.gray)  # 灰色：已禁用
             elif lc == PluginLifecycle.SHUTTING_DOWN:
                 li.setForeground(QColor("#c62828"))  # 红色：关闭中
                 li.setText(self.tr("{name}（关闭中...）").format(name=p.name))
@@ -1721,7 +1880,7 @@ class PluginManagerWindow(QMainWindow):
         # 恢复选中项
         if current_name:
             for i in range(lst.count()):
-                if lst.item(i).data(Qt.UserRole) == current_name:  # type: ignore
+                if lst.item(i).data(Qt.ItemDataRole.UserRole) == current_name:  # type: ignore
                     lst.setCurrentRow(i)
                     break
 
@@ -1749,7 +1908,7 @@ class PluginManagerWindow(QMainWindow):
         if not item:
             return
 
-        name = item.data(Qt.UserRole)
+        name = item.data(Qt.ItemDataRole.UserRole)
         plugin = self._manager.plugins.get(name)
         if not plugin:
             return
@@ -1936,6 +2095,8 @@ class PluginManagerWindow(QMainWindow):
 
         调用插件的 ``get_readme_text()``（默认读取插件目录下 README.md，
         子类可重写 ``load_READMD`` 自定义来源），并以 Markdown 渲染展示。
+        README 内的本地链接按文件类型分流：.md/.txt 用对话框展示，
+        其他类型用系统默认应用打开。
         """
         plugin = self._manager.plugins.get(name)
         if not plugin:
@@ -1949,7 +2110,10 @@ class PluginManagerWindow(QMainWindow):
                 self.tr("读取 README 失败: {err}").format(err=e))
             return
 
-        dlg = _PluginReadmeDialog(name, text, parent=self)
+        # 以插件目录为相对路径基准，供 README 内相对链接解析
+        base_dir = plugin.plugin_dir
+        dlg = _PluginReadmeDialog(name, text, parent=self,
+                                  base_dir=base_dir)
         dlg.exec()
 
     def _open_plugin_info(self, name: str) -> None:
@@ -2097,7 +2261,7 @@ class PluginManagerWindow(QMainWindow):
         """双击列表项：打开对应插件窗口"""
         if not item:
             return
-        name = item.data(Qt.UserRole)
+        name = item.data(Qt.ItemDataRole.UserRole)
         self._open_plugin_window(name)
 
     # ── 标签页弹出/嵌回 ─────────────────────────────────
@@ -2130,7 +2294,7 @@ class PluginManagerWindow(QMainWindow):
                 self._tray_icon.showMessage(
                     self.tr("插件管理器"),
                     self.tr("程序已在系统托盘中运行"),
-                    QSystemTrayIcon.Information,
+                    QSystemTrayIcon.MessageIcon.Information,
                     2000,
                 )
             return
@@ -2140,10 +2304,10 @@ class PluginManagerWindow(QMainWindow):
             self,
             self.tr("确认关闭"),
             self.tr("关闭窗口将停止插件管理器，确定吗？"),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             self._state_mgr.save()
             self._manager.stop()
             event.accept()

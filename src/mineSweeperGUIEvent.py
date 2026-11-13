@@ -324,7 +324,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
         # 按住ctrl滚轮，调整局面大小
         # study状态下，滚轮修改局面
         # 函数名要改了
-        if QApplication.keyboardModifiers() == Qt.ControlModifier and\
+        if QApplication.keyboardModifiers() == Qt.KeyboardModifier.ControlModifier and\
                 self.game_state == READY and self.label.ms_board.game_board_state == BOARD_READY:
             # 调整局面大小需要满足：ui端是ready且状态机是ready
             if i > 0:

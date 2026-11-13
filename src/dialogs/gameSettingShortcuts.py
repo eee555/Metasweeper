@@ -1,6 +1,7 @@
 from ui.ui_gameSettingShortcuts import Ui_Form
 import configparser
 from PySide6 import QtGui
+from PySide6.QtWidgets import QAbstractSpinBox, QSpinBox
 from ui.uiComponents import RoundQDialog
 
 # 继承自ui文件生成的原始的.py
@@ -13,6 +14,16 @@ class myGameSettingShortcuts(Ui_Form):
         self.r_path = r_path
         self.Dialog = RoundQDialog(parent)
         self.setupUi(self.Dialog)
+        # NoButtons 配合全局 QSS 会将内部文本区挤成 1px；使用标准按钮布局，
+        # 再隐藏按钮子控件，维持无箭头的外观并让数值正常显示。
+        for spin_box in self.Dialog.findChildren(QSpinBox):
+            spin_box.setButtonSymbols(
+                QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        self.Dialog.setStyleSheet(
+            self.Dialog.styleSheet()
+            + "QSpinBox::up-button, QSpinBox::down-button { "
+              "width: 0px; height: 0px; }"
+        )
         self.setParameter()
         self.Dialog.setWindowIcon(QtGui.QIcon(ico_path))
         self.pushButton.clicked.connect(self.processParameter)
@@ -34,8 +45,8 @@ class myGameSettingShortcuts(Ui_Form):
             "CUSTOM_PRESET_4/attempt_times_limit", None, int))
         self.spinBox_minenum4.setProperty(
             "value", self.game_setting.value("CUSTOM_PRESET_4/mine_num", None, int))
-        self.lineEdit_constraint4.setProperty("value", self.game_setting.value(
-            "CUSTOM_PRESET_4/board_constraint", None, str))
+        self.lineEdit_constraint4.setText(self.game_setting.value(
+            "CUSTOM_PRESET_4/board_constraint", "", str) or "")
 
         self.comboBox_gamemode5.setCurrentIndex(
             modTable[self.game_setting.value("CUSTOM_PRESET_5/gamemode", None, int)])
@@ -49,8 +60,8 @@ class myGameSettingShortcuts(Ui_Form):
             "CUSTOM_PRESET_5/attempt_times_limit", None, int))
         self.spinBox_minenum5.setProperty(
             "value", self.game_setting.value("CUSTOM_PRESET_5/mine_num", None, int))
-        self.lineEdit_constraint5.setProperty("value", self.game_setting.value(
-            "CUSTOM_PRESET_5/board_constraint", None, str))
+        self.lineEdit_constraint5.setText(self.game_setting.value(
+            "CUSTOM_PRESET_5/board_constraint", "", str) or "")
 
         self.comboBox_gamemode6.setCurrentIndex(
             modTable[self.game_setting.value("CUSTOM_PRESET_6/gamemode", None, int)])
@@ -64,8 +75,8 @@ class myGameSettingShortcuts(Ui_Form):
             "CUSTOM_PRESET_6/attempt_times_limit", None, int))
         self.spinBox_minenum6.setProperty(
             "value", self.game_setting.value("CUSTOM_PRESET_6/mine_num", None, int))
-        self.lineEdit_constraint6.setProperty("value", self.game_setting.value(
-            "CUSTOM_PRESET_6/board_constraint", None, str))
+        self.lineEdit_constraint6.setText(self.game_setting.value(
+            "CUSTOM_PRESET_6/board_constraint", "", str) or "")
 
         self.change_minenum_limit()
         self.spinBox_height4.valueChanged.connect(self.change_minenum_limit)

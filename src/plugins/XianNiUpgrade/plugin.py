@@ -307,7 +307,11 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         return None
 
     def _calc_xp(self, event: GameFinishedEvent, parts: list[float] | None = None) -> int:
-        """每局获得的经验值；parts 非空时回填 [基础, 稀有, 竞速, 效率] 原始值"""
+        """每局获得的经验值；parts 非空时回填 [基础, 稀有, 竞速, 效率] 原始值。
+
+        这里只记录公式各分项的相对大小，不假设它们之和等于最终道行
+        （公式可能整体乘模式系数或施加上限）；展示层按最终道行等比折算。
+        """
         board = ms.Board(event.board)
         ioe = event.bbbv / (event.left + event.right + event.double)
         return self._calc_xp_base(
@@ -318,7 +322,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         )
 
     def _calc_xp2(self, video: ms.EvfVideo, parts: list[float] | None = None) -> int:
-        """通过录像计算经验值；parts 非空时回填 [基础, 稀有, 竞速, 效率] 原始值"""
+        """通过录像计算经验值；parts 含义同 _calc_xp，仅供展示层按最终道行折算"""
         board = ms.Board(video.board)
         return self._calc_xp_base(
             video.mode, video.level, video.row, video.column, video.mine_num,

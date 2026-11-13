@@ -53,10 +53,10 @@ class CommentCheckBox(QWidget):
 
         # 将复选框添加到布局并居中
         layout.addWidget(self.checkbox)
-        layout.setAlignment(QtCore.Qt.AlignCenter)  # 居中对齐
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)  # 居中对齐
 
         # 设置大小策略以确保正确显示
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         # 连接复选框的点击信号
         # self.checkbox.toggled.connect(self.on_toggled)
@@ -94,17 +94,17 @@ class CommentLabel(QLabel):
         self.setFont(font)
         # self.setMinimumSize(QtCore.QSize(height, width))
         if middle:
-            self.setAlignment(QtCore.Qt.AlignCenter)
+            self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
     def mouseReleaseEvent(self, event):
         """处理鼠标释放事件，主要用于单击检测"""
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()  # 发射单击信号
         super().mouseReleaseEvent(event)  # 确保调用父类方法
 
     def mouseDoubleClickEvent(self, event):
         """处理鼠标双击事件"""
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.doubleClicked.emit()  # 发射双击信号
         super().mouseDoubleClickEvent(event)
 
@@ -131,7 +131,7 @@ class VideoSetTabWidget(QWidget):
         self.setup_ui()
 
         # 添加右键菜单功能
-        self.setContextMenuPolicy(Qt.CustomContextMenu)  # 设置右键菜单策略[1,2](@ref)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)  # 设置右键菜单策略[1,2](@ref)
         self.customContextMenuRequested.connect(
             self.show_context_menu)  # 连接右键菜单信号[1,5](@ref)
 
@@ -149,9 +149,9 @@ class VideoSetTabWidget(QWidget):
 
         # 创建滚动区域
         self.scrollArea = QScrollArea(self)
-        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scrollArea.setSizeAdjustPolicy(QScrollArea.AdjustToContents)
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scrollArea.setSizeAdjustPolicy(QScrollArea.SizeAdjustPolicy.AdjustToContents)
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
 
@@ -173,7 +173,7 @@ class VideoSetTabWidget(QWidget):
         font.setFamily("微软雅黑")
         font.setPointSize(12)
         self.label_video.setFont(font)
-        self.label_video.setAlignment(Qt.AlignCenter)
+        self.label_video.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_video.setObjectName("label_video")
         self.label_video.setText(_translate("Form", "录像"))
 
@@ -187,10 +187,10 @@ class VideoSetTabWidget(QWidget):
         self.checkBox_choose.setText(_translate("Form", "全选"))
         self.checkBox_choose.setMinimumHeight(42)
         self.checkBox_choose.setSizePolicy(
-            QSizePolicy.Preferred, QSizePolicy.Minimum)
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.label_video.setMinimumHeight(42)
         self.label_video.setSizePolicy(
-            QSizePolicy.Preferred, QSizePolicy.Minimum)
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
         # 确保控件层次正确
         self.checkBox_choose.raise_()
@@ -229,7 +229,7 @@ class VideoSetTabWidget(QWidget):
         target_folder = path.parent / folder_name
         try:
             target_folder.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to create directory: %s", target_folder)
             return
 
@@ -290,14 +290,14 @@ class VideoSetTabWidget(QWidget):
 
         checkbox = CommentCheckBox(self.scrollAreaWidgetContents, index)
         checkbox.setMinimumHeight(42)
-        checkbox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        checkbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
         label = CommentLabel(self.scrollAreaWidgetContents,
                              video_name, middle=False)
         label.setFont(font)
         label.setWordWrap(True)
         label.setMinimumHeight(42)
-        label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
         self.tableLayout.addWidget(checkbox, row_index, 0)
         self.tableLayout.addWidget(label, row_index, 1)
@@ -336,9 +336,9 @@ class VideoTabWidget(QWidget):
 
         # 创建滚动区域
         self.scrollArea = QScrollArea(self)
-        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scrollArea.setSizeAdjustPolicy(QScrollArea.AdjustToContents)
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scrollArea.setSizeAdjustPolicy(QScrollArea.SizeAdjustPolicy.AdjustToContents)
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
 
@@ -379,7 +379,7 @@ class VideoTabWidget(QWidget):
         self.label_event.setObjectName("label_event")
         self.label_event.setMinimumHeight(42)
         self.label_event.setSizePolicy(
-            QSizePolicy.Preferred, QSizePolicy.Minimum)
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.label_event.setStyleSheet(self._row_style())
         self.label_event.addItem(_translate("Form", "类型"))
         self.label_event.currentTextChanged.connect(
@@ -404,9 +404,9 @@ class VideoTabWidget(QWidget):
     def _make_table_label(self, text, font, status=None):
         label = CommentLabel(self.scrollAreaWidgetContents, text)
         label.setFont(font)
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setMinimumHeight(42)
-        label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         label.setStyleSheet(self._row_style(status))
         return label
 
@@ -482,8 +482,8 @@ class VideoTabWidget(QWidget):
             event_type_text, font, status)
         tag_label = self._make_table_label(tag_text, font, status)
         tag_label.setWordWrap(True)
-        tag_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        tag_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        tag_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        tag_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self._remove_bottom_spacer()
         self.tableLayout.addWidget(time_label, row_index, 0)
@@ -504,7 +504,7 @@ class VideoTabWidget(QWidget):
     def _place_bottom_spacer(self, row_index):
         if self.bottom_spacer is None:
             self.bottom_spacer = QSpacerItem(
-                0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+                0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
         self.bottom_spacer_row = row_index
         self.tableLayout.addItem(self.bottom_spacer, row_index, 0, 1, 4)
         self.tableLayout.setRowStretch(row_index, 1)
@@ -622,7 +622,7 @@ class ui_Form(QWidget, Ui_Form):
         self.tab_id += 1
         tab = VideoTabWidget(
             self, video=video, tab_name=f"tab_{self.tab_id}", file_name=video.file_name)
-        tab.setAttribute(Qt.WA_DeleteOnClose)
+        tab.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         tab.replay_comments = comments
 
         self._populate_video_event_tab(tab, video, comments)
@@ -759,7 +759,7 @@ class ui_Form(QWidget, Ui_Form):
         tab_name = f"tab_{self.tab_id}"
         tab = VideoSetTabWidget(self, video_set=video_set,
                                 tab_name=tab_name, file_name=video_set.file_name)
-        tab.setAttribute(Qt.WA_DeleteOnClose)
+        tab.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         # video_labels = []
         comment_row = 1
         for idv in range(video_set.len()):

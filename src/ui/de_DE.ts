@@ -263,7 +263,6 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="73"/>
         <location filename="../../uiFiles/ui_record_pop.ui" line="1077"/>
         <location filename="../../uiFiles/ui_advanced.ui" line="143"/>
-        <location filename="../dialogs/gameScores.py" line="125"/>
         <source>确定</source>
         <translation>OK</translation>
     </message>
@@ -744,12 +743,12 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_about.ui" line="177"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/zh/guide/minesweeper/metasweeper&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/zh/guide/minesweeper/metasweeper&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/guide/minesweeper/metasweeper&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/guide/minesweeper/metasweeper&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_about.ui" line="217"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/zh/guide/minesweeper/terminology&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/zh/guide/minesweeper/terminology&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/guide/minesweeper/terminology&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/guide/minesweeper/terminology&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2424,16 +2423,6 @@ Bild</translation>
         <location filename="../dialogs/videoControl.py" line="784"/>
         <source>目录</source>
         <translation>Directory</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameScores.py" line="124"/>
-        <source>成绩</source>
-        <translation>Scores</translation>
-    </message>
-    <message>
-        <location filename="../dialogs/gameScores.py" line="126"/>
-        <source>Space</source>
-        <translation>Space</translation>
     </message>
     <message>
         <location filename="../plugins/XianNiUpgrade/widgets.py" line="88"/>

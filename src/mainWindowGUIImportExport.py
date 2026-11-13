@@ -1,8 +1,7 @@
 # 重写QMainWindow
 from mineSweeperVideoPlayer import MineSweeperVideoPlayer
-from mainWindowGUI import MainWindow
 
-from PySide6.QtCore import QTimer, QCoreApplication, Qt, QRect, QUrl
+from PySide6.QtCore import QTimer, QCoreApplication
 import utils
 import ms_toollib as ms
 import hashlib
@@ -95,13 +94,13 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             return
         import tempfile
         import os
-        from PySide6.QtCore import QMimeData, QUrl
+        from PySide6.QtCore import QMimeData, QUrl, QPoint
         from PySide6.QtGui import QPixmap, QPainter
         from PySide6.QtWidgets import QApplication
         pixmap = QPixmap(self.centralwidget.size())
         pixmap.fill(self.centralwidget.palette().window().color())
         painter = QPainter(pixmap)
-        self.centralwidget.render(painter)
+        self.centralwidget.render(painter, QPoint(0, 0))
         painter.end()
         path = os.path.join(tempfile.gettempdir(), "metasweeper_board.png")
         pixmap.save(path, "PNG")
@@ -145,7 +144,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 renderers[val] = QSvgRenderer(path)
         board_origin = label.mapTo(self.centralwidget, QPoint(0, 0))
         buf = QBuffer()
-        buf.open(QBuffer.WriteOnly)
+        buf.open(QBuffer.OpenModeFlag.WriteOnly)
         gen = QSvgGenerator()
         gen.setOutputDevice(buf)
         gen.setSize(self.centralwidget.size())
@@ -153,7 +152,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         painter = QPainter(gen)
         painter.fillRect(self.centralwidget.rect(),
                          self.centralwidget.palette().window())
-        self.centralwidget.render(painter)
+        self.centralwidget.render(painter, QPoint(0, 0))
         for i in range(rows):
             for j in range(cols):
                 cell = game_board[i][j]
@@ -172,7 +171,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
         preview = QPixmap(self.centralwidget.size())
         preview.fill(self.centralwidget.palette().window().color())
         painter = QPainter(preview)
-        self.centralwidget.render(painter)
+        self.centralwidget.render(painter, QPoint(0, 0))
         painter.end()
         mime = QMimeData()
         mime.setText(svg_text)
@@ -240,8 +239,6 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
             QMessageBox.information(self.mainWindow, _translate("MainWindow", "导入"),
                                     _translate("MainWindow", "没有新的录像需要导入"))
             return True
-
-        entries = preview["entries"]
 
         def on_write_progress(cur, total):
             progress_bar.setRange(0, total)
@@ -558,7 +555,7 @@ class MainWindowGUIImportExport(MineSweeperVideoPlayer):
                 self.mainWindow, _translate("MainWindow", "确认覆盖"),
                 _translate("MainWindow", "以下文件已存在，是否覆盖？\n{paths}")
                 .replace("{paths}", "\n".join(existing)),
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
 
         dialog = CsvExportProgressDialog(self.mainWindow)

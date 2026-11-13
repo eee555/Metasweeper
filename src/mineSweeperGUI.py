@@ -46,7 +46,7 @@ from config.constants import (
     READY, PLAYING, JOKING, WIN, FAIL, STUDY, DISPLAY, SHOW_DISPLAY, SHOW,
     JOWIN, JOFAIL,
     MODE_STANDARD, MODE_WIN7, MODE_CLASSIC_NO_GUESS, MODE_STRONG_NO_GUESS,
-    MODE_WEAK_NO_GUESS, MODE_QUASI_NO_GUESS, MODE_STRONG_GUESSABLE, MODE_WEAK_GUESSABLE,
+    MODE_WEAK_NO_GUESS, MODE_QUASI_NO_GUESS, MODE_STRONG_GUESSABLE,
     FACE_SMILE,
     BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT,
     IDX_BEGINNER, IDX_INTERMEDIATE, IDX_EXPERT, IDX_CUSTOM,
@@ -125,7 +125,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.timer_10ms.setInterval(10)  # 10毫秒回调一次的定时器
         self.timer_10ms.timeout.connect(self.timeCount)
         # 开了高精度反而精度降低
-        self.timer_10ms.setTimerType(Qt.PreciseTimer)
+        self.timer_10ms.setTimerType(Qt.TimerType.PreciseTimer)
         self.mineUnFlagedNum = self.minenum  # 没有标出的雷，显示在左上角
         self.showMineNum(self.mineUnFlagedNum)    # 在左上角画雷数
 
@@ -595,10 +595,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                     self.mineUnFlagedNum -= 1
             self.showMineNum(self.mineUnFlagedNum)
             self.score_board_manager.show(self.label.ms_board, index_type=1)
-            # self.timer_mine_num = QTimer()
-            # self.timer_mine_num.timeout.connect(self.refreshSettingsDefault)
-            # self.timer_mine_num.setSingleShot(True)
-            # self.timer_mine_num.start(3000)
 
     def _send_board_update_event(self):
         """发送棋盘更新事件给插件"""
@@ -756,24 +752,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.score_board_manager.show(board, index_type=2)
         self.enable_screenshot()
         self.unlimit_cursor()
-        # ms_board = self.label.ms_board
-        # status = utils.GameBoardState(ms_board.game_board_state)
-        # if status == utils.GameBoardState.Win:
-        #     self.dump_evf_file_data()
-        # event = VideoSaveEvent()
-        # data = msgspec.structs.asdict(event)
-        # for key in data:
-        #     if hasattr(ms_board, key):
-        #         if key == "raw_data":
-        #             data[key] = base64.b64encode(
-        #                 ms_board.raw_data).decode("utf-8")
-        #             continue
-        #         data[key] = getattr(ms_board, key)
-        # event = VideoSaveEvent(**data)
-        # GameServerBridge.instance().send_event(event)
-
-        # 发送棋盘更新事件，让插件知道最终状态
-        # self._send_board_update_event()
 
     def gameWin(self):  # 成功后改脸和状态变量，停时间
         self.timer_10ms.stop()
@@ -1543,16 +1521,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                 self.label.paintProbability = False
                 self.label_info.setText(self.player_identifier)
                 self.label.update()
-
-    def refreshSettingsDefault(self):
-        # 刷新游戏设置.ini里默认部分的设置，与当前游戏里一致，
-        # 除了transparency、mainwintop和mainwinleft
-        self.game_setting.set_value("DEFAULT/gamemode", str(self.gameMode))
-        self.game_setting.set_value("DEFAULT/pixsize", str(self.pixSize))
-        self.game_setting.set_value("DEFAULT/row", str(self.row))
-        self.game_setting.set_value("DEFAULT/column", str(self.column))
-        self.game_setting.set_value("DEFAULT/minenum", str(self.minenum))
-        self.game_setting.sync()
 
     def is_official(self) -> bool:
         if not self.is_fair():

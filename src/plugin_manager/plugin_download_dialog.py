@@ -70,7 +70,7 @@ class PluginDownloadDialog(QDialog):
 
         self.tags = QComboBox()
         self.tags.setSizeAdjustPolicy(
-            QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.tags.setMinimumContentsLength(20)
         self.tags.setEnabled(False)
         form = QFormLayout()
@@ -82,15 +82,15 @@ class PluginDownloadDialog(QDialog):
         self.progress.hide()
         self.status = QLabel()
         self.status.setWordWrap(True)
-        self.status.setTextFormat(Qt.PlainText)
-        self.status.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        self.status.setTextFormat(Qt.TextFormat.PlainText)
+        self.status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.install = self.buttons.addButton(
-            self.tr("下载插件"), QDialogButtonBox.ActionRole)
+            self.tr("下载插件"), QDialogButtonBox.ButtonRole.ActionRole)
         set_action_icon(self.install, "download")
         self.install.setEnabled(False)
         self.install.setAutoDefault(False)
-        self.close_button = self.buttons.button(QDialogButtonBox.Close)
+        self.close_button = self.buttons.button(QDialogButtonBox.StandardButton.Close)
         self.close_button.setText(self.tr("关闭"))
         set_button_box_icons(self.buttons)
 

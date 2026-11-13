@@ -231,16 +231,16 @@ class mineLabel(QtWidgets.QLabel):
         # 状态机会自然合成双击（UpUp+rc 或 UpDown+lc 都进入 Chording）。
         # 不再合并发 'cc'：状态机对 (残留 MouseState, 'cc') 有硬 Err 分支，
         # wheel 以 panic=abort 编译，一旦命中进程直接崩溃（2026-11-09 crash）。
-        if e.button() == QtCore.Qt.LeftButton:
+        if e.button() == QtCore.Qt.MouseButton.LeftButton:
             self.leftPressed.emit(self.current_x, self.current_y)
-        elif e.button() == QtCore.Qt.RightButton:
+        elif e.button() == QtCore.Qt.MouseButton.RightButton:
             self.rightPressed.emit(self.current_x, self.current_y)
 
     def mouseDoubleClickEvent(self, e):
         # 保留第二次按下的正常行为，由控制器在抬起时决定是否重开。
         self.mousePressEvent(e)
-        self._left_double_click = (e.button() == QtCore.Qt.LeftButton
-                                   and e.buttons() == QtCore.Qt.LeftButton)
+        self._left_double_click = (e.button() == QtCore.Qt.MouseButton.LeftButton
+                                   and e.buttons() == QtCore.Qt.MouseButton.LeftButton)
 
     def mouseReleaseEvent(self, e):
         # 每个标签的鼠标事件发射给槽的都是自身的坐标
@@ -259,12 +259,12 @@ class mineLabel(QtWidgets.QLabel):
 
         left_double_click = self._left_double_click
         self._left_double_click = False
-        if e.button() == QtCore.Qt.LeftButton:
-            if left_double_click and e.buttons() == QtCore.Qt.NoButton:
+        if e.button() == QtCore.Qt.MouseButton.LeftButton:
+            if left_double_click and e.buttons() == QtCore.Qt.MouseButton.NoButton:
                 self.leftDoubleRelease.emit(self.current_x, self.current_y)
             else:
                 self.leftRelease.emit(self.current_x, self.current_y)
-        elif e.button() == QtCore.Qt.RightButton:
+        elif e.button() == QtCore.Qt.MouseButton.RightButton:
             self.rightRelease.emit(self.current_x, self.current_y)
 
     def mouseMoveEvent(self, e):
@@ -373,7 +373,7 @@ class mineLabel(QtWidgets.QLabel):
         # 画黄色连线（将op边界格子的中心点连起来）
         pen = QPen(QColor("#ffff00"), 3)
         painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
 
         for i in range(row):
             for j in range(col):
@@ -430,7 +430,7 @@ class mineLabel(QtWidgets.QLabel):
                 cx = my * pix_size
                 cy = mx * pix_size
                 painter.drawText(QRect(cx, cy, pix_size, pix_size),
-                                 Qt.AlignCenter, str(k + 1))
+                                 Qt.AlignmentFlag.AlignCenter, str(k + 1))
 
     def highlight_cells(self, cells):
         valid_cells = tuple(
@@ -524,9 +524,9 @@ class mineLabel(QtWidgets.QLabel):
             if n > 0:
                 painter.save()
                 painter.fillRect(self.rect(), QColor(128, 128, 128, 100))
-                pen = QPen(Qt.white, 2)
+                pen = QPen(Qt.GlobalColor.white, 2)
                 painter.setPen(pen)
-                painter.setBrush(Qt.NoBrush)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
                 for i in range(n - 1):
                     x1, y1 = self.path_trace_points[i]
                     x2, y2 = self.path_trace_points[i + 1]
@@ -534,15 +534,15 @@ class mineLabel(QtWidgets.QLabel):
                 for i in range(n):
                     px, py = self.path_trace_points[i]
                     if i in self.path_trace_left_clicks:
-                        painter.setPen(Qt.NoPen)
+                        painter.setPen(Qt.PenStyle.NoPen)
                         painter.setBrush(QColor(255, 255, 0))
                         painter.drawEllipse(QPoint(px, py), 4, 4)
                     elif i in self.path_trace_right_clicks:
-                        painter.setPen(Qt.NoPen)
+                        painter.setPen(Qt.PenStyle.NoPen)
                         painter.setBrush(QColor(0, 255, 255))
                         painter.drawEllipse(QPoint(px, py), 4, 4)
                     elif i in self.path_trace_double_clicks:
-                        painter.setPen(Qt.NoPen)
+                        painter.setPen(Qt.PenStyle.NoPen)
                         painter.setBrush(QColor(0, 255, 0))
                         painter.drawEllipse(QPoint(px, py), 4, 4)
                 painter.restore()
@@ -551,7 +551,7 @@ class mineLabel(QtWidgets.QLabel):
         if self.paint_cursor:
             painter.translate(x, y)
             painter.drawPath(self.mouse)
-            painter.fillPath(self.mouse, Qt.white)
+            painter.fillPath(self.mouse, Qt.GlobalColor.white)
         painter.end()
 
     def importCellPic(self, pixSize):

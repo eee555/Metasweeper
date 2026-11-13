@@ -173,6 +173,8 @@ data/*
 src/stats.dat
 src/ms_toollib.pyi
 /src/data
+# 插件运行时数据（含误提交到多一级 src 目录下的副本）
+**/plugin_data/
 prompt.md
 /uiFiles/media
 .codebuddy/
@@ -184,3 +186,6 @@ package_tool/macos/.orig/
 # VSCode WorkSpace
 Solvable-Minesweeper.code-workspace
 uv.lock
+
+# build
+nuitka-crash-report.xml

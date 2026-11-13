@@ -11,7 +11,7 @@ set UI_FILES=../../uiFiles/ui_gs.ui ../../uiFiles/main_board.ui ../../uiFiles/ui
 set MAIN=../main.py ../mainWindowGUIImportExport.py ../mine_num_bar.py ../mineSweeperGUI.py ../mineSweeperGUIEvent.py ../mineSweeperVideoPlayer.py
 
 @REM ---------- 对话框 ----------
-set DIALOGS=../dialogs/CheckUpdateGui.py ../dialogs/gameAdvancedSettings.py ../dialogs/gameScores.py ../dialogs/videoControl.py
+set DIALOGS=../dialogs/CheckUpdateGui.py ../dialogs/gameAdvancedSettings.py ../dialogs/videoControl.py
 
 @REM ---------- 复盘分析 ----------
 set REPLAY_ANALYSIS=../replay_analysis/combo_click.py ../replay_analysis/flag.py ../replay_analysis/guess.py ../replay_analysis/one_point_five_click.py

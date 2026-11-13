@@ -360,7 +360,7 @@ def test_real_other_info_loads_saves_and_emits_config_changed(
     # 修改配置值 -> 回调转发到 GUI 线程 -> config_changed 信号
     seen = []
     plugin.config_changed.connect(
-        lambda name, value: seen.append((name, value)), Qt.DirectConnection
+        lambda name, value: seen.append((name, value)), Qt.ConnectionType.DirectConnection
     )
     plugin.other_info.count = 9
     _drain_gui(app)

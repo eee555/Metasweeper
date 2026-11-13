@@ -5,9 +5,9 @@ import ms_toollib as ms
 import utils
 import metasweeper_checksum
 from config.constants import (
-    READY, PLAYING, WIN, FAIL, JOWIN, JOFAIL, DISPLAY, SHOW_DISPLAY, STUDY,
+    READY, PLAYING, WIN, FAIL, DISPLAY, SHOW_DISPLAY,
     MODE_STANDARD, MODE_WIN7, MODE_CLASSIC_NO_GUESS, MODE_STRONG_NO_GUESS,
-    MODE_WEAK_NO_GUESS, MODE_QUASI_NO_GUESS, MODE_STRONG_GUESSABLE, MODE_WEAK_GUESSABLE,
+    MODE_WEAK_NO_GUESS, MODE_QUASI_NO_GUESS, MODE_STRONG_GUESSABLE,
     MODE_NOGUESS_CHORD_RECURSIVE, MODE_NOGUESS_FLAG_RECURSIVE,
     MODE_NOGUESS_CHORD_FLAG_RECURSIVE,
     MIN_PIX_SIZE, MAX_PIX_SIZE,
@@ -18,7 +18,6 @@ from config.constants import (
     CELL_MINE,
     BOARD_WIN, BOARD_PLAYING, BOARD_PreFlaging, BOARD_Display
 )
-from typing import List, Tuple
 
 
 class GameEngine:
@@ -194,10 +193,6 @@ class GameEngine:
     def pos_is_in_board(self, i: int, j: int) -> bool:
         return 0 <= i < self.row * self.pixSize and \
                0 <= j < self.column * self.pixSize
-
-    def pos_round_cell(self, r: int, c: int) -> List[Tuple[int, int]]:
-        return [(i, j) for i in range(max(0, r - 1), min(self.row, r + 2))
-                for j in range(max(0, c - 1), min(self.column, c + 2)) if (i, j) != (r, c)]
 
     @staticmethod
     def checksum_module_ok():

@@ -247,7 +247,6 @@ def get_env_for_subprocess(env: dict | None = None) -> dict:
     env.pop("QT_FONT_DPI", None)
 
     bundle = str(get_bundle_dir())
-    exec_dir = str(get_executable_dir())
 
     # PYTHONPATH: bundle 目录优先（包含所有打包的代码）
     existing = env.get("PYTHONPATH", "")

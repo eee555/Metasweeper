@@ -70,7 +70,7 @@ class PluginInfoDialog(ConfirmDialog):
         self._plugin = plugin
         title = QCoreApplication.translate(
             "PluginInfoDialog", "插件详情 - {name}").format(name=plugin.name)
-        super().__init__(parent, title=title, buttons=QDialogButtonBox.Close)
+        super().__init__(parent, title=title, buttons=QDialogButtonBox.StandardButton.Close)
         self.setWindowIcon(action_icon("app"))
         set_button_box_icons(self.button_box)
         self.setMinimumSize(560, 540)
@@ -112,8 +112,8 @@ class PluginInfoDialog(ConfirmDialog):
         box = QGroupBox(title)
         lay = QVBoxLayout(box)
         lst = QListWidget()
-        lst.setEditTriggers(QListWidget.NoEditTriggers)
-        lst.setSelectionMode(QListWidget.NoSelection)
+        lst.setEditTriggers(QListWidget.EditTrigger.NoEditTriggers)
+        lst.setSelectionMode(QListWidget.SelectionMode.NoSelection)
         lst.setMaximumHeight(120)
         lay.addWidget(lst)
         return lst, box

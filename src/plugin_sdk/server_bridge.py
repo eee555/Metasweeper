@@ -120,7 +120,7 @@ class GameServerBridge(QObject):
 
         # 连接内部信号
         self._execute_signal.connect(
-            self._on_execute, Qt.QueuedConnection)  # type: ignore
+            self._on_execute, Qt.ConnectionType.QueuedConnection)
 
         # 注册类型
         self._server.register_event_types(*EVENT_TYPES)
@@ -186,7 +186,7 @@ class GameServerBridge(QObject):
             self._execute_signal.emit(handler, query, future)
             return future.result(timeout=5.0)
 
-        self._server.register_query_handler(query_type, wrapped_handler)
+        self._server.register_query_handler(query_type, wrapped_handler) # pyright: ignore[reportArgumentType]
         logger.info(
             f"查询处理器已注册: {query_type.__struct_config__.tag}")
 

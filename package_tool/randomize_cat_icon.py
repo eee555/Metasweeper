@@ -35,15 +35,15 @@ if __name__ == '__main__':
         app = QApplication(sys.argv)
 
     renderer = QSvgRenderer(QByteArray(svg.encode('utf-8')))
-    img = QImage(128, 128, QImage.Format_ARGB32)
-    img.fill(Qt.transparent)
+    img = QImage(128, 128, QImage.Format.Format_ARGB32)
+    img.fill(Qt.GlobalColor.transparent)
     p = QPainter(img)
     renderer.render(p, QRectF(0, 0, 128, 128))
     p.end()
 
     buf = QByteArray()
     buffer = QBuffer(buf)
-    buffer.open(QIODevice.WriteOnly)
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
     img.save(buffer, 'PNG')
     buffer.close()
 

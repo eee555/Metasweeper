@@ -7,6 +7,9 @@ from plugins.XianNiUpgrade.config import (
     is_rank_health_payload,
 )
 from plugins.XianNiUpgrade.plugin import XianNiUpgradePlugin
+from plugins.XianNiUpgrade.widgets import _scale_xp_parts, _xp_is_capped
+
+import pytest
 
 
 def test_non_standard_modes_can_gain_base_xp():
@@ -40,34 +43,55 @@ def test_non_standard_modes_can_gain_base_xp():
 
 
 def test_xp_breakdown_parts_match_total():
+    """未触顶时，四个分项原始值之和取整即为最终道行。"""
     plugin = XianNiUpgradePlugin.__new__(XianNiUpgradePlugin)
     parts: list[float] = []
+    # 使用分布中常见的一组局面指标，避免极端值直接把经验顶到上限
     xp = plugin._calc_xp_base(
         mode=0,
-        level=5,
-        row=16,
-        column=30,
-        mine_num=99,
-        rtime=50.0,
-        bbbv=100,
-        cell1=1,
-        cell2=2,
+        level=3,
+        row=8,
+        column=8,
+        mine_num=10,
+        rtime=30.0,
+        bbbv=17,
+        cell1=22,
+        cell2=11,
         cell3=3,
-        cell4=4,
-        cell5=5,
-        cell6=6,
-        cell7=7,
-        cell8=8,
-        op=5,
-        isl=10,
-        ioe=0.9,
+        cell4=0,
+        cell5=0,
+        cell6=0,
+        cell7=0,
+        cell8=0,
+        op=3,
+        isl=3,
+        ioe=0.95,
         nf=False,
         parts=parts,
     )
 
     assert len(parts) == 4
     assert all(v > 0 for v in parts)  # 基础 / 稀有 / 竞速 / 效率
-    assert xp == min(int(sum(parts)), 99999)
+    assert xp == int(sum(parts))
+    assert xp < 99999  # 未触发上限，可检出系数/封顶口径回归
+
+
+def test_xp_breakdown_scales_with_final_total():
+    """公式若对分项整体乘系数，展示值仍应合计为最终道行，且不应误判封顶。"""
+    raw_parts = [30000.0, 60000.0, 21000.0, 9000.0]  # 原始合计 120000
+    total = 54000  # 例如 k=0.45 时的 int(k * sum(parts))
+
+    scaled = _scale_xp_parts(raw_parts, total)
+    assert sum(scaled) == pytest.approx(total)
+    assert scaled == pytest.approx([13500.0, 27000.0, 9450.0, 4050.0])
+    assert _xp_is_capped(total) is False
+
+
+def test_xp_cap_boundary():
+    assert _xp_is_capped(99998) is False
+    assert _xp_is_capped(99999) is True
+    assert sum(_scale_xp_parts([1.0, 2.0, 3.0, 4.0], 99999)) == pytest.approx(99999)
+    assert _scale_xp_parts([0.0, 0.0, 0.0, 0.0], 0) == [0.0] * 4
 
 
 def test_api_url_requires_https_except_loopback():

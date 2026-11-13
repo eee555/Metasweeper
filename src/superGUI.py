@@ -294,29 +294,29 @@ class Ui_MainWindow(Ui_MainWindow):
         self.label_2.setPixmap(self.pixmapNum[FACE_SMILE])
         self.label_2.setScaledContents(True)
         pe = QPalette()
-        pe.setColor(QPalette.WindowText, Qt.black)  # 设置字体颜色
+        pe.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.black)  # 设置字体颜色
         self.label_info.setPalette(pe)         # 最下面的框
         self.label_info.setText(self.player_identifier)
         self.set_country_flag()
 
         self.frameShortcut1 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_1), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_1), MainWindow)
         self.frameShortcut2 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_2), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_2), MainWindow)
         self.frameShortcut3 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_3), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_3), MainWindow)
         self.frameShortcut5 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_4), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_4), MainWindow)
         self.frameShortcut6 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_5), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_5), MainWindow)
         self.frameShortcut7 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_6), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_6), MainWindow)
         self.frameShortcut4 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_F2), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_F2), MainWindow)
         self.frameShortcutF3 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_F3), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_F3), MainWindow)
         self.frameShortcut8 = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_Space), MainWindow)
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_Space), MainWindow)
         self.frameShortcut8.setAutoRepeat(False)
         self.frameShortcut9 = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+Space"), MainWindow)
@@ -329,7 +329,7 @@ class Ui_MainWindow(Ui_MainWindow):
             self.frameShortcut9_mac = QtGui.QShortcut(
                 QtGui.QKeySequence("Ctrl+Shift+A"), MainWindow)
         self.shortcut_hidden_score_board = QtGui.QShortcut(
-            QtGui.QKeySequence(QtCore.Qt.Key_Slash), MainWindow)  # /键隐藏计数器
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_Slash), MainWindow)  # /键隐藏计数器
 
         self.shortcut_copy_board = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+C"), MainWindow)

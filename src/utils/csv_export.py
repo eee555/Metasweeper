@@ -405,8 +405,8 @@ class CsvExportProgressDialog(QProgressDialog):
         self.setAutoClose(False)
         self.setAutoReset(False)
         self.setMinimumDuration(0)
-        self.setWindowModality(Qt.WindowModal)
-        self.setWindowFlag(Qt.WindowCloseButtonHint, False)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
 
     def reject(self):
         # 导出结束前不能通过 Esc 关闭，避免销毁仍在运行的线程。

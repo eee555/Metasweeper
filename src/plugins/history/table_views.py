@@ -32,7 +32,7 @@ class AutoEditTableView(QTableView):
     def mousePressEvent(self, event):
         """鼠标按下事件：右键点击时阻止自动编辑"""
         # 右键点击，阻止自动编辑
-        if event.button() == Qt.RightButton:
+        if event.button() == Qt.MouseButton.RightButton:
             self.suppress_auto_edit = True
         super().mousePressEvent(event)
         self.reset_suppress_flag()
@@ -71,7 +71,7 @@ class AutoEditTableView(QTableView):
             return
 
         if index.column() in self._auto_edit_columns:
-            if self.state() != QTableView.EditingState:
+            if self.state() != QTableView.State.EditingState:
                 self.edit(index)
             return
 
@@ -96,7 +96,7 @@ class AutoEditTableView(QTableView):
 
     def _try_edit(self, index: QModelIndex):
         """尝试进入编辑状态"""
-        if self.state() != QTableView.EditingState:
+        if self.state() != QTableView.State.EditingState:
             self.edit(index)
 
     def addRow(self):
@@ -148,14 +148,14 @@ class FilterModel(QStandardItemModel):
             _translate("Form", "逻辑符"),
         ])
 
-    def data(self, index, role=Qt.DisplayRole):
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         """重写 data 方法，格式化某些列的显示"""
         if not index.isValid():
             return None
 
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             column = index.column()
-            raw_data = super().data(index, Qt.EditRole)
+            raw_data = super().data(index, Qt.ItemDataRole.EditRole)
 
             # 值列需要格式化显示
             if column == self.COL_VALUE:
@@ -164,7 +164,7 @@ class FilterModel(QStandardItemModel):
 
                 # 获取同行字段名来确定类型
                 field_index = self.index(index.row(), self.COL_FIELD)
-                field_name = super().data(field_index, Qt.EditRole)
+                field_name = super().data(field_index, Qt.ItemDataRole.EditRole)
 
                 if field_name:
                     field_value = self._get_field_value(field_name)

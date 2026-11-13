@@ -6,7 +6,7 @@ from country_name import country_name
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QSortFilterProxyModel
-from PySide6.QtWidgets import QComboBox
+from PySide6.QtWidgets import QAbstractSpinBox, QComboBox, QSpinBox
 from config.constants import BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT
 from utils.path_utils import resource_path
 
@@ -57,6 +57,16 @@ class ui_Form(Ui_Form):
 
         self.Dialog = RoundQDialog(mainWindow.mainWindow)
         self.setupUi(self.Dialog)
+        # NoButtons 配合全局 QSS 会将内部文本区挤成 1px；使用标准按钮布局，
+        # 再隐藏按钮子控件，维持无箭头的外观并让数值正常显示。
+        for spin_box in self.Dialog.findChildren(QSpinBox):
+            spin_box.setButtonSymbols(
+                QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        self.Dialog.setStyleSheet(
+            self.Dialog.styleSheet()
+            + "QSpinBox::up-button, QSpinBox::down-button { "
+              "width: 0px; height: 0px; }"
+        )
         for combo_box in self.Dialog.findChildren(QComboBox):
             combo_box.view().setStyleSheet("""
                 QListView {
@@ -78,7 +88,7 @@ class ui_Form(Ui_Form):
         self.pushButton_no.clicked.connect(self.Dialog.close)
         # self.comboBox_country.activated['QString'].connect(lambda x: self.onchange_combobox_country(x))
         self.country_name = list(country_name.keys())
-        self.comboBox_country.lineEdit().setAlignment(Qt.AlignCenter)
+        self.comboBox_country.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.comboBox_country.editTextChanged.connect(
             self.onchange_combobox_country)
         self.comboBox_country.lineEdit().setText(self.country)

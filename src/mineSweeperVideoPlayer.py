@@ -156,7 +156,7 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
         dialog.setMinimumDuration(0)
         dialog.setAutoClose(False)
         dialog.setAutoReset(False)
-        dialog.setWindowModality(Qt.WindowModal)
+        dialog.setWindowModality(Qt.WindowModality.WindowModal)
         dialog.setLabelText(_translate("VideoLoadProgress",
                             "正在打开录像...") + f"\n{openfile_name}")
         dialog.show()

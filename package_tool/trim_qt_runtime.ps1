@@ -11,23 +11,31 @@ if (Test-Path -LiteralPath (Join-Path $package '_internal\PySide6')) {
     $qtRuntime = Join-Path $package '_internal\PySide6'
     $pysideRoot = $qtRuntime
 }
+$qtPlugins = Join-Path $pysideRoot 'plugins'
+if (Test-Path -LiteralPath (Join-Path $pysideRoot 'qt-plugins')) {
+    $qtPlugins = Join-Path $pysideRoot 'qt-plugins'
+}
 $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
 if (-not $dumpbin) {
     throw 'dumpbin.exe not found. Run from the Visual Studio developer environment.'
 }
-$unusedDirectories = @('qml', 'plugins\qmltooling' | ForEach-Object {
-    $directory = Join-Path $pysideRoot $_
-    if (Test-Path -LiteralPath $directory -PathType Container) { $directory }
-})
+$unusedDirectories = @(@(
+    (Join-Path $pysideRoot 'qml')
+    (Join-Path $qtPlugins 'qmltooling')
+) | Where-Object { Test-Path -LiteralPath $_ -PathType Container })
 # 本地源码可能保留已删除统计插件的 __pycache__，目录复制会将其带入包中。
 $unusedDirectories += @('plugins\stats', '_internal\plugins\stats', 'internal\plugins\stats' | ForEach-Object {
     $directory = Join-Path $package $_
     if (Test-Path -LiteralPath $directory -PathType Container) { $directory }
 })
 # Qt 自动收集的屏幕虚拟键盘使用 QML；保留其他输入法插件。
-$unusedFiles = @('plugins\platforminputcontexts\qtvirtualkeyboardplugin.dll' | ForEach-Object {
-    $file = Join-Path $pysideRoot $_
-    if (Test-Path -LiteralPath $file -PathType Leaf) { Get-Item -LiteralPath $file }
+$unusedPluginPaths = @((Join-Path $qtPlugins 'platforminputcontexts\qtvirtualkeyboardplugin.dll'))
+# Qt 可能收集 PDF 图像插件，却未分发它依赖的 Qt6Pdf.dll。
+if (-not (Test-Path -LiteralPath (Join-Path $qtRuntime 'Qt6Pdf.dll'))) {
+    $unusedPluginPaths += Join-Path $qtPlugins 'imageformats\qpdf.dll'
+}
+$unusedFiles = @($unusedPluginPaths | ForEach-Object {
+    if (Test-Path -LiteralPath $_ -PathType Leaf) { Get-Item -LiteralPath $_ }
 })
 $excludedFiles = @{}
 foreach ($file in $unusedFiles) { $excludedFiles[$file.FullName] = $true }
@@ -73,7 +81,7 @@ foreach ($directory in $unusedDirectories) {
 }
 foreach ($file in $unusedFiles) {
     $removedBytes += $file.Length
-    Write-Output ('Unused QML plugin: {0}' -f $file.FullName)
+    Write-Output ('Unused Qt plugin: {0}' -f $file.FullName)
     if ($Apply) { Remove-Item -LiteralPath $file.FullName -Force }
 }
 foreach ($name in @($removable.Keys | Sort-Object)) {

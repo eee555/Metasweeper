@@ -91,7 +91,7 @@ class PluginConfigManager:
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 config.from_dict(data)
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
+        except (json.JSONDecodeError, KeyError, TypeError):
             # 加载失败，使用默认值
             # 可选：记录日志
             pass

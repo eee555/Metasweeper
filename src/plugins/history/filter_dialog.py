@@ -41,18 +41,18 @@ class FilterDialog(ConfirmDialog):
 
         self.table = AutoEditTableView()
         self.table.setModel(FilterModel(self._computed_columns, self))
-        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_context_menu)
-        self.table.setSelectionBehavior(QTableView.SelectItems)
-        self.table.setSelectionMode(QTableView.ExtendedSelection)
-        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.setSelectionBehavior(QTableView.SelectionBehavior.SelectItems)
+        self.table.setSelectionMode(QTableView.SelectionMode.ExtendedSelection)
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         # 设置所有列自动进入编辑
         self.table.setAutoEditColumns(
             list(range(FilterModel.COL_LBRACKET, FilterModel.COL_LOGIC + 1)))
         # 禁用双击编辑
-        self.table.setEditTriggers(QTableView.NoEditTriggers)
+        self.table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.table)
 
         self._setup_delegates()
@@ -66,7 +66,7 @@ class FilterDialog(ConfirmDialog):
 
     def _on_field_changed(self, topLeft, bottomRight, roles):
         """字段列或比较符列改变时触发"""
-        if Qt.EditRole not in roles:
+        if Qt.ItemDataRole.EditRole not in roles:
             return
         model = self.table.model()
         for row in range(topLeft.row(), bottomRight.row() + 1):
@@ -81,7 +81,7 @@ class FilterDialog(ConfirmDialog):
     def _close_value_editor(self, index):
         """关闭值列的编辑器（针对非持久编辑器）"""
         # 检查值列是否正在编辑
-        if self.table.state() == QTableView.EditingState and self.table.currentIndex() == index:
+        if self.table.state() == QTableView.State.EditingState and self.table.currentIndex() == index:
             # 临时阻止自动编辑
             self.table.suppress_auto_edit = True
             # 先移到其他列，关闭当前编辑器
@@ -106,15 +106,11 @@ class FilterDialog(ConfirmDialog):
         field_value = self._get_field_value(field_name)
         new_default = self._get_default_value(field_value)
 
-        # 获取当前值（使用 EditRole 获取原始数据）
-        current_value = model.data(model.index(
-            row, FilterModel.COL_VALUE), Qt.EditRole)
-
         # 始终更新为新类型的默认值
         model.setData(
             model.index(row, FilterModel.COL_VALUE),
             new_default,
-            Qt.EditRole
+            Qt.ItemDataRole.EditRole
         )
 
     def _get_field_value(self, field_name: str):

@@ -19,7 +19,7 @@ class ui_Form(Ui_Form):
         icon_path = str(resource_path('media') / 'cat.ico')
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(icon_path),
-                       QtGui.QIcon.Normal, QtGui.QIcon.Off)
+                       QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         self.Dialog.setWindowIcon(icon)
 
         # 空格键快捷键关闭这个窗口。回车不需要设置，在ui文件中已经设置。

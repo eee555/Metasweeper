@@ -42,7 +42,7 @@ class ConfirmDialog(QDialog):
         self,
         parent=None,
         title: str = "",
-        buttons: QDialogButtonBox.StandardButtons = QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+        buttons: QDialogButtonBox.StandardButton = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
     ):
         """
         Args:
@@ -53,7 +53,7 @@ class ConfirmDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title or _translate("Dialog", "对话框"))
         self.setWindowFlags(self.windowFlags() & ~
-                            Qt.WindowContextHelpButtonHint)
+                            Qt.WindowType.WindowContextHelpButtonHint)
         self._buttons = buttons
 
         self._setup_ui()
@@ -123,24 +123,25 @@ class ConfirmDialog(QDialog):
         """获取所有按钮"""
         result: dict[QDialogButtonBox.StandardButton, QPushButton] = {}
         flags = self._buttons
+        StandardButton = QDialogButtonBox.StandardButton
         for btn in (
-            QDialogButtonBox.Ok,
-            QDialogButtonBox.Cancel,
-            QDialogButtonBox.Save,
-            QDialogButtonBox.Discard,
-            QDialogButtonBox.Apply,
-            QDialogButtonBox.Reset,
-            QDialogButtonBox.RestoreDefaults,
-            QDialogButtonBox.Help,
-            QDialogButtonBox.SaveAll,
-            QDialogButtonBox.Yes,
-            QDialogButtonBox.YesToAll,
-            QDialogButtonBox.No,
-            QDialogButtonBox.NoToAll,
-            QDialogButtonBox.Abort,
-            QDialogButtonBox.Retry,
-            QDialogButtonBox.Ignore,
-            QDialogButtonBox.Close,
+            StandardButton.Ok,
+            StandardButton.Cancel,
+            StandardButton.Save,
+            StandardButton.Discard,
+            StandardButton.Apply,
+            StandardButton.Reset,
+            StandardButton.RestoreDefaults,
+            StandardButton.Help,
+            StandardButton.SaveAll,
+            StandardButton.Yes,
+            StandardButton.YesToAll,
+            StandardButton.No,
+            StandardButton.NoToAll,
+            StandardButton.Abort,
+            StandardButton.Retry,
+            StandardButton.Ignore,
+            StandardButton.Close,
         ):
             if bool(flags & btn) and (b := self.button_box.button(btn)) is not None:
                 result[btn] = b

@@ -43,7 +43,7 @@ class _TranslatorInstaller(QObject):
     def __init__(self):
         super().__init__()
         self._translator = None
-        self._signal.connect(self._install, Qt.QueuedConnection)
+        self._signal.connect(self._install, Qt.ConnectionType.QueuedConnection)
 
     def install(self, language: str) -> None:
         self._signal.emit(language)
