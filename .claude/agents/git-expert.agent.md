@@ -181,3 +181,6 @@ user-invocable: true
 - 不要修改代码逻辑，只负责 Git 操作
 - 冲突解决时如果不确定，询问用户而不是自行决定
 - 不要提交 .gitignore 中列出的文件
+- **提交或推送前必须验证测试**：本次改动涉及的测试必须全部通过；若其余测试可运行，则运行完整 `pytest tests/` 并要求全部通过。任何相关测试失败时，不得提交或推送；先修复并重跑测试。
+- 优先使用仓库 `.venv` 运行测试（Windows: `.venv\\Scripts\\python.exe -m pytest tests/`），设置 `QT_QPA_PLATFORM=offscreen`。
+- 提交前检查 `.githooks/pre-commit` 与 `.githooks/pre-push` 已配置；仓库钩子通过 `git config core.hooksPath .githooks` 启用。不得使用 `SKIP`、`--no-verify` 或其他方式绕过测试门禁。
