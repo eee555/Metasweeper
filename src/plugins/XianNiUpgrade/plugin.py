@@ -71,11 +71,14 @@ _DIST_PREFIX = {3: 'beg', 4: 'int', 5: 'exp'}
 
 # 模式难度系数
 _MODE_K: dict[int, float] = {
-    0: 1.0,    # 标准
-    4: 0.8,    # Win7
-    5: 0.2,    # 经典无猜
-    6: 0.25,   # 强无猜
-    7: 2.0,    # 弱无猜
+    0: 1.05,   # 标准
+    4: 0.75,   # Win7
+    5: 0.45,   # 经典无猜
+    6: 0.5,    # 强无猜
+    7: 0.55,   # 弱无猜
+    8: 0.25,   # 准无猜
+    9: 0.1,    # 强可猜
+    10: 0.15,  # 弱可猜
 }
 
 
@@ -343,18 +346,36 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         cells = row * column
         long_side = max(row, column)
         short_side = min(row, column)
-        if mine_num / cells <= 0.8 and mode in (0, 4, 7) or mine_num / cells <= 0.3 and mode in (5, 6):
-            exp_b = k * (1.08 ** (mine_num / cells * 341.0)) * \
-                short_side ** 1.2 * long_side ** 1.6 / 17411.0
+        density = mine_num / cells
+        non_mine = cells - mine_num
+
+        # 按顺序判断，前面命中即返回
+        if density < 0.05:
+            exp_b = 0.0
+        elif density > 0.30 and mode in (5, 6, 9):          # 无猜衰落：经典无猜/强无猜/强可猜
+            exp_b = 0.173 * non_mine ** 0.85
+        elif density > 0.41 and mode in (7, 8, 10):         # 可猜衰落：弱无猜/准无猜/弱可猜
+            exp_b = 0.0267539 * non_mine ** 1.55 * \
+                (long_side / short_side) ** 0.35
+        elif non_mine == 1:                                 # 极限衰落
+            exp_b = 0.0
+        elif mode == 4 and non_mine <= 9:                   # 极限衰落：Win7
+            exp_b = 0.0
+        elif density > 0.90:                                # 标准衰落（只有标准/Win7）
+            exp_b = 0.5377256 * cells ** 0.05 * \
+                (mine_num - 0.7 * cells) * non_mine ** 0.5
         else:
-            exp_b = 0
+            exp_b = 0.0233 * (math.exp(density) - 1.0) * \
+                short_side ** 1.2 * long_side ** 1.9
+        # 注：初级3 中级22 高级100（标准）
+        # 衰落即密度越高经验越低，直至密度为1值为0
 
         exp_r = 0.0
         exp_t = 0.0
         exp_e = 0.0
 
-        # ---- 稀有局面 & 竞速（仅标准模式·标准难度） ----
-        if mode == 0 and level in (3, 4, 5):
+        # ---- 稀有局面 & 竞速（仅标准难度） ----
+        if level in (3, 4, 5):
             prefix = _DIST_PREFIX[level]
 
             # 稀有局面
@@ -403,7 +424,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
 
         if parts is not None:
             parts[:] = [exp_b, exp_r, exp_t, exp_e]
-        total = int(exp_b + exp_r + exp_t + exp_e)
+        total = int(k * (exp_b + exp_r + exp_t + exp_e))
         total = min(total, 99999)  # 上限经验值，防止极端局面
         # self.logger.info(f"经验计算: 基础 {exp_b:.2f} + 稀有 {exp_r:.2f} + 竞速 {exp_t:.2f} = {total}")
 
