@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 消费 git 传入的 ref 行，避免真实 push 时管道未读完
+cat >/dev/null 2>&1 || true
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
+
+if [[ -x "$repo_root/.venv/Scripts/python.exe" ]]; then
+    python_exe="$repo_root/.venv/Scripts/python.exe"
+elif [[ -x "$repo_root/.venv/bin/python" ]]; then
+    python_exe="$repo_root/.venv/bin/python"
+elif command -v python >/dev/null 2>&1; then
+    python_exe="$(command -v python)"
+elif command -v python3 >/dev/null 2>&1; then
+    python_exe="$(command -v python3)"
+else
+    echo "ERROR: Python was not found. Install project dependencies before pushing." >&2
+    exit 1
+fi
+
+echo "Running the full test suite before push..."
+"$python_exe" -m pytest tests/

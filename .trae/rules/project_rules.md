@@ -72,8 +72,8 @@ pyside6-lrelease de_DE.ts -qm ../de_DE.qm
 pyside6-lrelease pl_PL.ts -qm ../pl_PL.qm
 pyside6-lrelease ja_JP.ts -qm ../ja_JP.qm
 
-# 测试
-pytest
+# 测试（必须使用项目 .venv）
+.\\.venv\\Scripts\\python.exe -m pytest tests/
 
 # 类型检查
 mypy src
@@ -105,3 +105,10 @@ mypy src
 - 插件管理器作为独立子进程运行
 - `src/plugin_sdk/` 定义 BasePlugin API
 - 插件模板与参考文档在 `.claude/skills/plugin-dev/`（历史资源，可直接使用）
+
+## 提交与推送门禁
+- 提交或推送前必须先运行测试；本次改动涉及的测试必须全部通过。其他测试可运行时，必须运行完整套件并要求全部通过。
+- 测试失败时禁止提交或推送；修复后重新运行相关测试，最终以完整套件结果为准。
+- 仓库钩子位于 `.githooks/pre-commit` 和 `.githooks/pre-push`，均执行完整 `pytest tests/`。克隆后执行 `git config core.hooksPath .githooks` 启用。
+- 优先使用仓库 `.venv` 的 Python，Qt 测试使用 `QT_QPA_PLATFORM=offscreen`。
+- CI 在 push 和 pull request 上运行完整测试套件。

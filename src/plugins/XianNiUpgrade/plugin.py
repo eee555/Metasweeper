@@ -309,30 +309,37 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         # registered: false 或其它 200 均通过
         return None
 
-    def _calc_xp(self, event: GameFinishedEvent) -> int:
-        """每局获得的经验值"""
+    def _calc_xp(self, event: GameFinishedEvent, parts: list[float] | None = None) -> int:
+        """每局获得的经验值；parts 非空时回填 [基础, 稀有, 竞速, 效率] 原始值。
+
+        这里只记录公式各分项的相对大小，不假设它们之和等于最终道行
+        （公式可能整体乘模式系数或施加上限）；展示层按最终道行等比折算。
+        """
         board = ms.Board(event.board)
         ioe = event.bbbv / (event.left + event.right + event.double)
         return self._calc_xp_base(
             event.mode, event.level, event.row, event.column, event.mine_num,
             event.rtime, event.bbbv, board.cell1, board.cell2, board.cell3, board.cell4, board.cell5,
-            board.cell6, board.cell7, board.cell8, board.op, board.isl, ioe, event.rce == 0
+            board.cell6, board.cell7, board.cell8, board.op, board.isl, ioe, event.rce == 0,
+            parts
         )
 
-    def _calc_xp2(self, video: ms.EvfVideo) -> int:
-        """通过录像计算经验值"""
+    def _calc_xp2(self, video: ms.EvfVideo, parts: list[float] | None = None) -> int:
+        """通过录像计算经验值；parts 含义同 _calc_xp，仅供展示层按最终道行折算"""
         board = ms.Board(video.board)
         return self._calc_xp_base(
             video.mode, video.level, video.row, video.column, video.mine_num,
             video.rtime, video.bbbv, board.cell1, board.cell2, board.cell3, board.cell4, board.cell5,
-            board.cell6, board.cell7, board.cell8, board.op, board.isl, video.ioe, video.rce == 0
+            board.cell6, board.cell7, board.cell8, board.op, board.isl, video.ioe, video.rce == 0,
+            parts
         )
 
     def _calc_xp_base(
         self,
         mode: int, level: int, row: int, column: int, mine_num: int,
         rtime: float, bbbv: int, cell1, cell2, cell3, cell4, cell5,
-        cell6: int, cell7: int, cell8: int, op: int, isl: int, ioe: float, nf: bool
+        cell6: int, cell7: int, cell8: int, op: int, isl: int, ioe: float, nf: bool,
+        parts: list[float] | None = None
     ) -> int:
         # ---- 基本经验 ----
         k = _MODE_K.get(mode, 0.0)
@@ -415,6 +422,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                     else:
                         exp_e = 1 * ioe ** 20
 
+        if parts is not None:
+            parts[:] = [exp_b, exp_r, exp_t, exp_e]
         total = int(k * (exp_b + exp_r + exp_t + exp_e))
         total = min(total, 99999)  # 上限经验值，防止极端局面
         # self.logger.info(f"经验计算: 基础 {exp_b:.2f} + 稀有 {exp_r:.2f} + 竞速 {exp_t:.2f} = {total}")
@@ -529,6 +538,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                     v.parse()
                     v.analyse()
                     key = (str(v.start_time), v.player_identifier)
+                    parts: list[float] = []
                     entry = {
                         "file": fp,
                         "player": v.player_identifier,
@@ -537,7 +547,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                         "mode": getattr(v, "mode", 0),
                         "rtime": getattr(v, "rtime", 0.0),
                         "bbbv": getattr(v, "bbbv", 0),
-                        "xp": self._calc_xp2(v),
+                        "xp": self._calc_xp2(v, parts),
+                        "parts": parts,
                     }
                     if key in self._imported:
                         dup_files.append(entry)
@@ -581,7 +592,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             if player["xp"] > top:
                 player["xp"] = top
 
-            self._history.append({
+            record = {
                 "pid": pid,
                 "time": int(datetime.now().timestamp()),
                 "level": entry["level"],
@@ -589,7 +600,10 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                 "rtime": round(entry["rtime"], 2),
                 "bbbv": entry["bbbv"],
                 "xp": xp_per,
-            })
+            }
+            if len(entry.get("parts", ())) == 4:
+                record["parts"] = entry["parts"]
+            self._history.append(record)
 
         if len(self._history) > 1000:
             self._history = self._history[-1000:]
@@ -1078,7 +1092,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self._current_pid = pid
         player = self._players[pid]
 
-        xp_gained = self._calc_xp(event)
+        xp_parts: list[float] = []
+        xp_gained = self._calc_xp(event, xp_parts)
 
         if xp_gained > 0:
             player["xp"] += xp_gained
@@ -1101,6 +1116,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                 "rtime": round(event.rtime, 2),
                 "bbbv": event.bbbv,
                 "xp": xp_gained,
+                "parts": xp_parts,
             })
 
             if len(self._history) > 1000:

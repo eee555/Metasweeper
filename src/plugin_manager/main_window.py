@@ -1416,6 +1416,12 @@ class PluginManagerWindow(QMainWindow):
         self.setWindowTitle(self.tr("插件管理器"))
         self.setMinimumSize(800, 600)
 
+        # 系统托盘不可用时 _setup_tray_icon 会提前返回，先置空避免后续访问未定义属性
+        self._tray_icon: QSystemTrayIcon | None = None
+        self._tray_menu: QMenu | None = None
+        self._tray_act_show = None
+        self._tray_act_quit = None
+
         self._setup_ui()
         self._connect_signals()
         self._setup_tray_icon()
@@ -1646,7 +1652,8 @@ class PluginManagerWindow(QMainWindow):
 
     def _really_quit(self) -> None:
         """真正退出程序（从托盘菜单触发）"""
-        self._tray_icon.hide()
+        if self._tray_icon is not None:
+            self._tray_icon.hide()
         self._state_mgr.save()
         self._manager.stop()
         QApplication.instance().quit()  # type: ignore
@@ -2287,7 +2294,7 @@ class PluginManagerWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         """关闭主窗口 → 最小化到系统托盘，不退出"""
-        if hasattr(self, "_tray_icon") and self._tray_icon.isVisible():
+        if hasattr(self, "_tray_icon") and self._tray_icon is not None and self._tray_icon.isVisible():
             event.ignore()
             self.hide()
             if self._tray_icon.supportsMessages():
