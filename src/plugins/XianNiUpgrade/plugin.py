@@ -352,23 +352,22 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         # 按顺序判断，前面命中即返回
         if density < 0.05:
             exp_b = 0.0
-        elif density > 0.30 and mode in (5, 6, 9):          # 无猜衰落：经典无猜/强无猜/强可猜
-            exp_b = 0.173 * non_mine ** 0.85
-        elif density > 0.41 and mode in (7, 8, 10):         # 可猜衰落：弱无猜/准无猜/弱可猜
-            exp_b = 0.0267539 * non_mine ** 1.55 * \
-                (long_side / short_side) ** 0.35
-        elif non_mine == 1:                                 # 极限衰落
+        elif density > 0.30 and mode in (5, 6, 9):          # 经典无猜/强无猜/强可猜
+            exp_b = 0.7 * non_mine ** 0.85
+        elif density > 0.41 and mode in (7, 8, 10):         # 弱无猜/准无猜/弱可猜
+            exp_b = 0.2298 * non_mine ** 1.5 * \
+                (long_side / short_side) ** 0.1
+        elif non_mine == 1:
             exp_b = 0.0
-        elif mode == 4 and non_mine <= 9:                   # 极限衰落：Win7
+        elif mode == 4 and non_mine <= 9:                   # Win7
             exp_b = 0.0
-        elif density > 0.90:                                # 标准衰落（只有标准/Win7）
-            exp_b = 0.5377256 * cells ** 0.05 * \
-                (mine_num - 0.7 * cells) * non_mine ** 0.5
+        elif density > 0.90:                                # 只有标准/Win7
+            exp_b = 39.0 * (mine_num - 0.7 * cells) * non_mine ** 0.5
         else:
-            exp_b = 0.0233 * (math.exp(density) - 1.0) * \
-                short_side ** 1.2 * long_side ** 1.9
-        # 注：初级3 中级22 高级100（标准）
-        # 衰落即密度越高经验越低，直至密度为1值为0
+            exp_b = 0.8 * (math.exp(density) - 1.0) ** 3 * \
+                short_side ** 1.4 * long_side ** 1.6
+        # 注：初级2 中级17 高级113（标准）
+        # 高密度下，密度越高经验越低，直至密度为1值为0
 
         exp_r = 0.0
         exp_t = 0.0
