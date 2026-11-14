@@ -75,3 +75,17 @@ GitHub 使用 Link 分页；GitLab 优先使用 `X-Next-Page`；其他平台使�
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/test_plugin_download.py
 ```
+
+## 测试覆盖率
+
+`tests/test_cov_pm_a_*.py` ~ `tests/test_cov_pm_f_*.py` 按模块分组覆盖插件管理器：
+入口与路径（A）、配置与信息对话框（B）、插件加载与管理器核心（C）、主窗口辅助组件（D）、
+`PluginManagerWindow`（E）、下载对话框（F）。全部使用桩替代 ZMQ、网络、子进程与真实应用，
+仅在 `tmp_path` 中写文件，不修改全局日志配置与 Qt 资源注册状态。
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/ --cov=src/plugin_manager --cov-report=term-missing
+```
+
+当前 `src/plugin_manager` 语句覆盖率为 100%。新增模块或分支时应同步补充对应分组的测试，
+并在完整测试套件（而非单分组）下复核，避免全局状态污染导致的用例互相干扰。
