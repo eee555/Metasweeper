@@ -35,6 +35,12 @@ DEFAULT_LOG_CONFIG = LogConfig()
 # 保存控制台 sink ID，用于清理
 _console_sink_id: Optional[int] = None
 
+# 按 plugin_name 复用插件文件 sink（#34）：同名插件只 add 一次，避免同一条
+# 日志被写多遍。value 为 (sink_id, 日志文件路径, handler 对象引用)。
+# 复用时校验 id + 路径 + handler 身份：loguru 会复用 sink_id 整数，仅比对
+# 整数可能在 remove 后误指向别的 handler。
+_plugin_sinks: dict[str, tuple[int, str, object]] = {}
+
 
 def init_logging(
     log_dir: Path | str,
@@ -52,15 +58,17 @@ def init_logging(
         level: 控制台最低级别
         log_config: 日志轮转配置（默认 10MB / 5个备份）
     """
-    global _console_sink_id
+    global _console_sink_id, _plugin_sinks
     _logger = loguru.logger
     cfg = log_config or DEFAULT_LOG_CONFIG
 
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # 移除 loguru 默认的 stderr sink，避免重复输出
+    # 移除 loguru 默认的 stderr sink，避免重复输出；同时作废插件 sink 复用表，
+    # 否则表里的 sink_id 会指向已被 remove 的 handler（#34）。
     _logger.remove()
+    _plugin_sinks.clear()
 
     # ── 主日志文件 (main.log) ──
     main_log = log_dir / "main.log"
@@ -108,11 +116,15 @@ def get_plugin_logger(
     Returns:
         (logger, sink_id) 元组，sink_id 用于动态修改日志级别
 
+    同名 plugin_name 复用同一文件 sink（#34）：已存在且仍有效的 sink 直接
+    返回其 sink_id，不再重复 add，避免同一条日志被写多遍。
+
     Usage::
 
         self.logger, self._log_sink_id = get_plugin_logger(self.name)
         self.logger.info("插件启动了")
     """
+    global _plugin_sinks
     if log_dir is None:
         from .app_paths import get_data_dir
         log_dir = get_data_dir() / "logs" / "plugins"
@@ -123,8 +135,19 @@ def get_plugin_logger(
 
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"{plugin_name}.log"
+    log_key = str(log_file)
 
     lg = loguru.logger.bind(plugin=plugin_name)
+
+    # 同名插件且目标文件一致时复用已有 sink；若外部直接 remove(sink_id)
+    # 导致 handler 已失效，则清掉记录并重建。
+    existing = _plugin_sinks.get(plugin_name)
+    if existing is not None:
+        sink_id, path, handler_ref = existing
+        current = loguru.logger._core.handlers.get(sink_id)
+        if current is handler_ref and current is not None and path == log_key:
+            return lg, sink_id
+        _plugin_sinks.pop(plugin_name, None)
 
     # 绑定专属文件 sink：只接收该插件的日志
     sink_id = lg.add(
@@ -136,7 +159,26 @@ def get_plugin_logger(
         encoding="utf-8",
         filter=lambda rec, pn=plugin_name: rec["extra"].get("plugin") == pn,
     )
+    _plugin_sinks[plugin_name] = (
+        sink_id, log_key, loguru.logger._core.handlers.get(sink_id))
     return lg, sink_id
+
+
+def remove_plugin_logger(sink_id: int) -> None:
+    """移除插件日志 sink 并清理复用表（#34）。
+
+    plugin_base.py 不在本批次白名单，故这里只提供清理入口，不强行接线到
+    shutdown。调用方在插件卸载时传入 get_plugin_logger 返回的 sink_id 即可；
+    重复移除或不存在的 sink_id 均安全（loguru.remove 抛 ValueError 时忽略）。
+    """
+    global _plugin_sinks
+    try:
+        loguru.logger.remove(sink_id)
+    except ValueError:
+        pass
+    for name, (sid, _, _) in list(_plugin_sinks.items()):
+        if sid == sink_id:
+            _plugin_sinks.pop(name, None)
 
 
 def set_plugin_log_level(sink_id: int, level: str = "DEBUG") -> None:

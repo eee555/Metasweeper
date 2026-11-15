@@ -1,128 +1,39 @@
-"""
-插件管理器独立入口（供 PyInstaller 打包使用）
+"""PyInstaller compatibility entry point; CLI logic lives in ``__main__``."""
+from __future__ import annotations
 
-替代 __main__.py，避免相对导入问题。
-python -m plugin_manager 仍走 __main__.py（开发模式）
-打包后使用此脚本作为入口。
-"""
-
-import argparse
 import os
 import sys
 
-# 高分屏支持：必须在导入 PyQt 之前设置
+# Set high-DPI attributes before importing the shared entry point (and Qt).
 os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
 os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
 
-# ── 互斥体：防止重复实例 ──
+from . import __main__ as _entry
 
-_MUTEX_NAME = "Metasweeper-PluginManager"
-_mutex_handle = None
+_MUTEX_NAME = _entry._MUTEX_NAME
+_mutex_handle = _entry._mutex_handle
+_core_acquire_mutex = _entry._acquire_mutex
 
 
 def _acquire_mutex() -> bool:
-    """创建命名互斥体。已有实例时返回 False。"""
+    """Compatibility alias used by older embedding code and tests."""
     global _mutex_handle
-    try:
-        import win32api
-        import win32event
-        import winerror
-        _mutex_handle = win32event.CreateMutex(None, False, _MUTEX_NAME)
-        if win32api.GetLastError() == winerror.ERROR_ALREADY_EXISTS:
-            win32api.CloseHandle(_mutex_handle)
-            _mutex_handle = None
-            return False
-        return True
-    except Exception:
-        return True  # 非 Windows 或 pywin32 缺失时放行
+    result = _core_acquire_mutex()
+    _mutex_handle = _entry._mutex_handle
+    return result
 
 
 def main() -> int:
-    if not _acquire_mutex():
-        print("[plugin_manager] 已有实例在运行，退出")
-        return 0
-
-    parser = argparse.ArgumentParser(description="Solvable-Minesweeper 插件管理器")
-    parser.add_argument(
-        "--endpoint",
-        default=os.environ.get(
-            "METASWEEPER_ZMQ_ENDPOINT", "tcp://127.0.0.1:5555"),
-        help="ZMQ Server 基准地址 (默认: tcp://127.0.0.1:5555)",
-    )
-    parser.add_argument(
-        "--pub-endpoint",
-        default=os.environ.get("METASWEEPER_ZMQ_PUB_ENDPOINT"),
-        help="主进程实际绑定的 PUB 端点（全随机端口模式由命令行传入）",
-    )
-    parser.add_argument(
-        "--ctrl-endpoint",
-        default=os.environ.get("METASWEEPER_ZMQ_CTRL_ENDPOINT"),
-        help="主进程实际绑定的 CTRL 端点（全随机端口模式由命令行传入）",
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["window", "tray"],
-        default="window",
-        help="GUI 模式: window=显示主窗口, tray=系统托盘 (默认: window)",
-    )
-    parser.add_argument(
-        "--no-gui",
-        action="store_true",
-        default=False,
-        help="不显示界面（后台模式）",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        default=False,
-        help="启用 debugpy 远程调试，等待 VS Code 附加 (端口 5678)",
-    )
-    parser.add_argument(
-        "--debug-port",
-        type=int,
-        default=5678,
-        help="debugpy 监听端口 (默认: 5678)",
-    )
-    parser.add_argument(
-        "--data-dir",
-        help="可写数据目录（由主进程传入，已通过权限测试）",
-    )
-
-    args = parser.parse_args()
-
-    if args.data_dir:
-        from plugin_manager.app_paths import set_data_dir_override
-        set_data_dir_override(args.data_dir)
-
-    # 可选：启动 debugpy 等待远程调试附加
-    if args.debug:
-        try:
-            import debugpy
-            # in_process_debug_adapter=True: 不启动子进程，直接在当前进程中运行 adapter
-            # 解决 PyInstaller 打包后子进程找不到 Python/debugpy 的问题
-            debugpy.listen(("0.0.0.0", args.debug_port), in_process_debug_adapter=True)
-            print(f"[debug] Waiting for debugger attach on port {args.debug_port}...")
-            debugpy.wait_for_client()
-            print("[debug] Debugger attached, continuing...")
-        except ImportError as e:
-            print(f"[WARN] --debug set but debugpy import failed: {e}")
-
-    from plugin_manager.app_paths import get_log_dir
-    from plugin_manager.logging_setup import init_logging
-
-    init_logging(get_log_dir(), console=True, level="DEBUG")
-
-    from plugin_manager import run_plugin_manager_process
-
-    show_main_window = not args.no_gui and args.mode == "window"
-
-    return run_plugin_manager_process(
-        endpoint=args.endpoint,
-        with_gui=not args.no_gui,
-        show_main_window=show_main_window,
-        pub_endpoint=args.pub_endpoint,
-        ctrl_endpoint=args.ctrl_endpoint,
-    )
+    """Run the shared CLI implementation while honoring compatibility patches."""
+    global _mutex_handle
+    _entry._mutex_handle = _mutex_handle
+    original_acquire_mutex = _entry._acquire_mutex
+    _entry._acquire_mutex = _acquire_mutex
+    try:
+        return _entry.main()
+    finally:
+        _entry._acquire_mutex = original_acquire_mutex
+        _mutex_handle = _entry._mutex_handle
 
 
 if __name__ == "__main__":

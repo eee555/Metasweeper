@@ -144,6 +144,9 @@ class PluginManager:
         self._main_window = None
         self._app = None
         self._translator_installer = None
+        # 启动期收到 ShowPluginManagerEvent 但窗口尚未创建时置位，
+        # 由 start_with_gui() 在创窗后重放。
+        self._show_requested_pending = False
 
         # 注册类型
         self._client.register_event_types(*EVENT_TYPES)
@@ -259,13 +262,19 @@ class PluginManager:
         # 1. 关闭所有插件（让插件保存状态等）
         self._shutdown_plugins()
 
-        # 2. 断开 ZMQ 连接
+        # 2. 兜底落盘插件状态（脏状态可能来自 UI 操作，未显式保存）
+        try:
+            self.state_manager.save()
+        except Exception as e:
+            logger.error(f"保存插件状态失败: {e}")
+
+        # 3. 断开 ZMQ 连接
         try:
             self._client.disconnect()
         except Exception as e:
             logger.error(f"断开 ZMQ 连接失败: {e}")
 
-        # 3. 清理事件分发器
+        # 4. 清理事件分发器
         self._dispatcher.clear()
 
         self._started = False
@@ -364,10 +373,20 @@ class PluginManager:
         self.start()
 
         # 创建主窗口（始终创建以支持托盘图标）
-        self._main_window = PluginManagerWindow(self)
-        self._main_window.setWindowTitle(f"插件管理器 - {self._endpoint}")
+        window = PluginManagerWindow(self)
+        window.setWindowTitle(f"插件管理器 - {self._endpoint}")
+        # 与 _drain_zmq_events 的判空/置位在同一把锁内完成，
+        # 避免「drainer 看到窗口为空置位 pending」与「此处清空 pending」交错丢失请求。
+        with self._events_lock:
+            self._main_window = window
+            pending_show = self._show_requested_pending
+            self._show_requested_pending = False
         if show_main_window:
-            self._main_window.show()
+            window.show()
+
+        # start() 期间（窗口尚不存在）收到的显示请求在此重放。
+        if pending_show:
+            window._show_requested.emit()
 
         logger.info(
             f"Plugin manager started with GUI (window={show_main_window})")
@@ -443,8 +462,14 @@ class PluginManager:
                 if isinstance(event, LanguageChangeEvent):
                     self._on_language_change(event)
                 elif isinstance(event, ShowPluginManagerEvent):
-                    if self._main_window:
-                        self._main_window._show_requested.emit()
+                    with self._events_lock:
+                        window = self._main_window
+                        if window is None:
+                            # 窗口尚未创建（start() 早于 start_with_gui() 创窗），
+                            # 记录待显示请求，创窗后重放。
+                            self._show_requested_pending = True
+                    if window is not None:
+                        window._show_requested.emit()
                 else:
                     self._dispatcher.dispatch(tag, event)
             except Exception:

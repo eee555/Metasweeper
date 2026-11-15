@@ -77,11 +77,32 @@ def main() -> int:
         help="不显示界面（后台模式）",
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="启用 debugpy 远程调试，等待 VS Code 附加",
+    )
+    parser.add_argument(
+        "--debug-port",
+        type=int,
+        default=5678,
+        help="debugpy 监听端口 (默认: 5678)",
+    )
+    parser.add_argument(
         "--data-dir",
         help="可写数据目录（由主进程传入，已通过权限测试）",
     )
 
     args = parser.parse_args()
+
+    if args.debug:
+        try:
+            import debugpy
+            debugpy.listen(("127.0.0.1", args.debug_port), in_process_debug_adapter=True)
+            print(f"[debug] Waiting for debugger attach on port {args.debug_port}...")
+            debugpy.wait_for_client()
+            print("[debug] Debugger attached, continuing...")
+        except ImportError as e:
+            print(f"[WARN] --debug set but debugpy import failed: {e}")
 
     if args.data_dir:
         from .app_paths import set_data_dir_override

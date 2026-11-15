@@ -5,6 +5,12 @@
 - 非阻塞：dispatch() 将事件投递到各插件的独立队列后立即返回
 - 每个插件在自己的线程中串行消费事件（由 BasePlugin.run() 负责）
 - 支持优先级排序和异常隔离
+
+真实投递语义（#27）：插件队列是无界 Qt QueuedConnection，投递本身不会
+因「队列满」返回 False。`_enqueue_event` 返回 False 只表示插件正在关闭或
+已停止（生命周期拒绝），不是有界队列背压。跨进程 PUB/SUB 的水位丢弃由
+ZMQ 的 SNDHWM/RCVHWM 处理（见 zmq_server/zmq_client）。此处不做丢包计数，
+以免改动事件协议。
 """
 from __future__ import annotations
 
@@ -40,7 +46,8 @@ class EventDispatcher:
     - 按优先级分发事件
     - dispatch() 不阻塞：将事件投递到各插件的队列，立即返回
     - 异常隔离通过各插件线程自行处理
-    - 背压控制：队列满时丢弃事件并记录警告
+    - 投递拒绝：仅当插件正在关闭/已停止时 _enqueue_event 返回 False；
+      插件内队列无界，不做「队列满丢弃」，ZMQ PUB/SUB 侧由 HWM 约束
     - 服务注册：管理插件间服务通讯
     """
     
@@ -150,12 +157,14 @@ class EventDispatcher:
                 continue
             
             if entry.plugin is not None:
-                # 投递到插件队列（非阻塞）
+                # 投递到插件队列（非阻塞）。_enqueue_event 返回 False 只代表
+                # 插件已停止/正在关闭（生命周期拒绝），并非有界队列「满」；
+                # 事件不会被本层主动丢弃计数，保留警告以便排障（#27）。
                 success = entry.plugin._enqueue_event(entry.handler, event)
                 if not success:
                     logger.warning(
-                        f"Dropped event '{event_type}' for plugin "
-                        f"'{entry.plugin.name}' (queue full)"
+                        f"Rejected event '{event_type}' for plugin "
+                        f"'{entry.plugin.name}' (queue full / plugin stopping)"
                     )
             else:
                 # 无归属插件的 handler（兜底），在调用者线程同步执行

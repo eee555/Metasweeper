@@ -1,25 +1,13 @@
 """
-插件管理器模块
+插件管理器包。
 
-基于 lib_zmq_plugins 实现的插件系统，支持：
-- 插件同时具备后台数据处理和界面交互能力
-- 事件分发机制
-- 动态加载插件
-- 独立的主界面窗口
-- 插件自定义配置系统
-
-模块结构：
-- plugin_sdk: 插件开发 SDK（BasePlugin, config_types, service_registry）
-- plugin_manager: 插件管理器内部实现（PluginManager, EventDispatcher, MainWindow）
+公共符号按需导入，避免主进程仅导入 ``plugin_manager.app_paths`` 时
+加载完整 Qt 窗口与插件运行时。
 """
+from __future__ import annotations
 
-from .logging_setup import LogConfig
-from .plugin_manager import PluginManager, run_plugin_manager_process
-from .event_dispatcher import EventDispatcher
-from .plugin_loader import PluginLoader
-from .main_window import PluginManagerWindow
-from .config_widget import OtherInfoWidget, OtherInfoScrollArea
-from .config_manager import PluginConfigManager
+from importlib import import_module
+from typing import Any
 
 __all__ = [
     "LogConfig",
@@ -32,3 +20,29 @@ __all__ = [
     "OtherInfoScrollArea",
     "PluginConfigManager",
 ]
+
+_EXPORTS = {
+    "LogConfig": (".logging_setup", "LogConfig"),
+    "PluginManager": (".plugin_manager", "PluginManager"),
+    "run_plugin_manager_process": (".plugin_manager", "run_plugin_manager_process"),
+    "EventDispatcher": (".event_dispatcher", "EventDispatcher"),
+    "PluginLoader": (".plugin_loader", "PluginLoader"),
+    "PluginManagerWindow": (".main_window", "PluginManagerWindow"),
+    "OtherInfoWidget": (".config_widget", "OtherInfoWidget"),
+    "OtherInfoScrollArea": (".config_widget", "OtherInfoScrollArea"),
+    "PluginConfigManager": (".config_manager", "PluginConfigManager"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    try:
+        module_name, attribute = _EXPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    value = getattr(import_module(module_name, __name__), attribute)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
