@@ -31,6 +31,7 @@ class PluginLoader:
     def __init__(self, plugin_dirs: list[Path] | None = None):
         self._plugin_dirs: list[Path] = []
         self._added_paths: set[Path] = set()  # 已添加到 sys.path 的目录
+        self._loaded_modules: set[str] = set()  # 本加载器成功登记的模块
         if plugin_dirs:
             for d in plugin_dirs:
                 self.add_plugin_dir(d)
@@ -40,24 +41,36 @@ class PluginLoader:
         p = Path(path)
         if p.is_dir():
             self._plugin_dirs.append(p)
-            # 将插件目录的父目录加入 sys.path（支持 from plugins.xxx 导入）
+            # 将插件目录的父目录加入 sys.path（支持 from plugins.xxx 导入）。
+            # append 而非 insert(0)，避免插件目录抢在标准库之前。
             parent = p.parent
             if parent not in self._added_paths:
                 self._added_paths.add(parent)
                 parent_str = str(parent)
                 if parent_str not in sys.path:
-                    sys.path.insert(0, parent_str)
+                    sys.path.append(parent_str)
                     logger.debug(f"Added to sys.path: {parent}")
             logger.debug(f"Added plugin directory: {p}")
         else:
             logger.warning(f"Plugin directory not found: {p}")
 
     def discover_plugins(self) -> list[tuple[Path, str]]:
-        """发现所有插件模块"""
-        plugins = []
+        """发现所有插件模块（同名模块只保留首次发现）"""
+        plugins: list[tuple[Path, str]] = []
+        seen: set[str] = set()
 
         # 排除的目录名（不是插件，但放在 plugins 目录下）
         excluded_dirs = {"services"}
+
+        def add(path: Path, name: str) -> None:
+            # 局限：仍使用裸模块名；改成命名空间名会破坏现有 from plugins.xxx 导入。
+            if name in seen:
+                logger.warning(
+                    f"Duplicate plugin module skipped: {name} ({path})")
+                return
+            seen.add(name)
+            plugins.append((path, name))
+            logger.debug(f"Discovered plugin module: {path}")
 
         for plugin_dir in self._plugin_dirs:
             if not plugin_dir.is_dir():
@@ -67,8 +80,7 @@ class PluginLoader:
             for py_file in plugin_dir.glob("*.py"):
                 if py_file.name.startswith("_"):
                     continue
-                plugins.append((py_file, py_file.stem))
-                logger.debug(f"Discovered plugin module: {py_file}")
+                add(py_file, py_file.stem)
 
             # 包形式插件
             for pkg_dir in plugin_dir.iterdir():
@@ -76,8 +88,7 @@ class PluginLoader:
                     # 排除 services 等非插件目录
                     if pkg_dir.name.startswith("_") or pkg_dir.name in excluded_dirs:
                         continue
-                    plugins.append((pkg_dir / "__init__.py", pkg_dir.name))
-                    logger.debug(f"Discovered plugin package: {pkg_dir}")
+                    add(pkg_dir / "__init__.py", pkg_dir.name)
 
         return plugins
 
@@ -95,8 +106,15 @@ class PluginLoader:
 
             module = importlib.util.module_from_spec(spec)
             sys.modules[module_name] = module
-            spec.loader.exec_module(module)
+            try:
+                spec.loader.exec_module(module)
+            except BaseException:
+                if sys.modules.get(module_name) is module:
+                    sys.modules.pop(module_name, None)
+                raise
 
+            # 局限：仍用裸名缓存；改成命名空间名会破坏现有跨包导入。
+            self._loaded_modules.add(module_name)
             logger.info(f"Loaded plugin module: {module_name}")
             return module
 
@@ -111,16 +129,43 @@ class PluginLoader:
 
         plugin_classes: list[type[BasePlugin]] = []
 
-        for name in dir(module):
+        try:
+            names = dir(module)
+            module_name = getattr(module, "__name__", None)
+        except Exception as e:
+            logger.warning(
+                f"Skipped unreadable plugin module: {e}")
+            return plugin_classes
+
+        for name in names:
             if name.startswith("_"):
                 continue
 
-            obj = getattr(module, name)
-            if (
-                isinstance(obj, type)
-                and issubclass(obj, BasePlugin)
-                and obj is not BasePlugin
-            ):
+            try:
+                obj = getattr(module, name)
+                obj_module = getattr(obj, "__module__", None)
+                # 排除 from plugins.b import B 这类外部类，同时保留本包
+                # __init__.py 通过 .plugin 子模块导出的真实插件类。
+                local_module = (
+                    obj_module == module_name
+                    or (
+                        isinstance(module_name, str)
+                        and isinstance(obj_module, str)
+                        and obj_module.startswith(f"{module_name}.")
+                    )
+                )
+                is_plugin = (
+                    isinstance(obj, type)
+                    and issubclass(obj, BasePlugin)
+                    and obj is not BasePlugin
+                    and local_module
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Skipped unreadable attribute {name!r} in plugin module "
+                    f"{module_name or '<unknown>'}: {e}")
+                continue
+            if is_plugin:
                 plugin_classes.append(obj)
                 logger.debug(f"Found plugin class: {obj.__name__}")
 
@@ -164,14 +209,23 @@ class PluginLoader:
 
         discovered = self.discover_plugins()
         for module_path, module_name in discovered:
-            plugins = self.load_plugins_from_module(module_path, module_name)
-            all_plugins.extend(plugins)
+            try:
+                plugins = self.load_plugins_from_module(module_path, module_name)
+                all_plugins.extend(plugins)
+            except Exception as e:
+                logger.error(
+                    f"Failed to load plugins from {module_path}: {e}",
+                    exc_info=True,
+                )
 
         logger.info(f"Loaded {len(all_plugins)} plugin(s)")
         return all_plugins
 
     def reload_module(self, module_name: str) -> bool:
         """重新加载模块"""
+        if module_name not in self._loaded_modules:
+            logger.warning(f"Module not registered by this loader: {module_name}")
+            return False
         if module_name not in sys.modules:
             logger.warning(f"Module not loaded: {module_name}")
             return False

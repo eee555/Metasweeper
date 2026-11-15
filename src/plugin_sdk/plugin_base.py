@@ -189,6 +189,38 @@ class PluginInfo(Generic[ConfigT]):
     # 声明需要的控制权限（命令类型列表）
     required_controls: list[type] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """拒绝会被当作路径片段解释的名称，同时保留中文等 Unicode 展示名。"""
+        import logging
+        import unicodedata
+        from pathlib import PurePosixPath, PureWindowsPath
+
+        def reject(reason: str) -> None:
+            message = f"Invalid plugin name {self.name!r}: {reason}"
+            logging.getLogger(__name__).error(message)
+            raise ValueError(message)
+
+        name = self.name
+        if not isinstance(name, str):
+            reject("must be a string")
+        if not name:
+            reject("must not be empty")
+        if len(name) > 64:
+            reject("must not exceed 64 characters")
+        if name in {".", ".."}:
+            reject("must not be a relative path segment")
+        if "/" in name or "\\" in name:
+            reject("must not contain path separators")
+        if any(unicodedata.category(char).startswith("C") for char in name):
+            reject("must not contain control or invisible characters")
+        windows_path = PureWindowsPath(name)
+        if (
+            PurePosixPath(name).is_absolute()
+            or windows_path.is_absolute()
+            or windows_path.drive
+        ):
+            reject("must not be an absolute or drive-qualified path")
+
 
 class _GuiCallHandler(QObject):
     """留在主线程的 GUI 调用处理器，确保 run_on_gui 真正在 GUI 线程执行"""
