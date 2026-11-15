@@ -361,8 +361,8 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             exp_b = 0.0
         elif mode == 4 and non_mine <= 9:                   # Win7
             exp_b = 0.0
-        elif density > 0.90:                                # 只有标准/Win7
-            exp_b = 39.0 * (mine_num - 0.7 * cells) * non_mine ** 0.5
+        elif density > 0.50:                                # 只有标准/Win7
+            exp_b = 0.3089 * (mine_num + 0.5 * cells) * non_mine ** 0.5
         else:
             exp_b = 0.8 * (math.exp(density) - 1.0) ** 3 * \
                 short_side ** 1.4 * long_side ** 1.6
