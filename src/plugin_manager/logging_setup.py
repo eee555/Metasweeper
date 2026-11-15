@@ -181,6 +181,38 @@ def remove_plugin_logger(sink_id: int) -> None:
             _plugin_sinks.pop(name, None)
 
 
+def clear_all_logs(log_dir: Path | str) -> tuple[int, list[str]]:
+    """清空日志目录下所有日志文件的内容（含插件日志与轮转备份）。
+
+    日志文件可能正被 loguru 的文件 sink 以追加模式持有：Windows 下无法删除，
+    但截断为空是安全的，后续追加写入会从新的文件末尾继续。因此这里一律截断
+    而不是删除，保证清理后 sink 仍能正常写入。
+
+    Args:
+        log_dir: 日志根目录
+
+    Returns:
+        (成功清理的文件数, 清理失败的文件路径列表)
+    """
+    root = Path(log_dir)
+    if not root.is_dir():
+        return 0, []
+
+    cleared = 0
+    failed: list[str] = []
+    # 只处理 .log：日志目录里可能混有截图等其它文件，不能一并清空
+    for path in sorted(root.rglob("*.log")):
+        if not path.is_file():
+            continue
+        try:
+            with path.open("w", encoding="utf-8"):
+                pass
+            cleared += 1
+        except OSError:
+            failed.append(str(path))
+    return cleared, failed
+
+
 def set_plugin_log_level(sink_id: int, level: str = "DEBUG") -> None:
     """
     动态修改某个插件日志 sink 的级别

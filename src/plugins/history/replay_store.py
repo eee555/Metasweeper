@@ -40,8 +40,11 @@ sha256 / codec / deleted 全部必须与准备阶段捕获的值逐字节相同�
                              progress=None, cancelled=None) -> (migrated, sealed)
     finalize_migration(conn, expected=None, *, batch_size=BLOCK_SIZE,
                        write=None, progress=None, cancelled=None) -> bool
-    migrate_board_to_blob(conn, batch_size, *, write=None,
+    migrate_board_to_ascii(conn, batch_size, *, write=None,
                           progress=None, cancelled=None) -> int  # board_codec
+    fill_incomplete_segments(conn, *, write=None, batch_size=BLOCK_SIZE,
+                             after_id=0) -> int
+    compact_tombstone_segments(conn, *, write=None, cancelled=None) -> int
 """
 
 from __future__ import annotations
@@ -77,9 +80,15 @@ __all__ = [
     "prepare_seal",
     "apply_seal",
     "seal_staging",
+    "count_sealable_staging",
+    "batch_sealable_staging_max_id",
+    "has_incomplete_segments",
+    "fill_incomplete_segments",
+    "tombstone_segment_ids",
+    "compact_tombstone_segments",
     "read_raw_data",
     "mark_deleted",
-    "restore_deleted",
+    "cleanup_low_value_replays",
     "migrate_from_replay_data",
     "finalize_migration",
     "vacuum",
@@ -121,6 +130,8 @@ _SCHEMA_STATEMENTS = (
     "ON replay_index (seg_id, slot)",
     "CREATE INDEX IF NOT EXISTS idx_replay_index_deleted "
     "ON replay_index (deleted)",
+    "CREATE INDEX IF NOT EXISTS idx_replay_index_seg_deleted "
+    "ON replay_index (seg_id, deleted)",
     "CREATE INDEX IF NOT EXISTS idx_replay_index_codec "
     "ON replay_index (codec, deleted)",
     """
@@ -510,6 +521,293 @@ def _apply_seal_locked(conn: sqlite3.Connection,
     return prepared.record_count
 
 
+def count_sealable_staging(conn: sqlite3.Connection, *,
+                           after_id: int = 0) -> int:
+    """统计可进入列式块的 staging 条数（不解压、不写库）。
+
+    ``after_id`` 仅统计 replay_id 更大的候选，供批量补齐的“新一批”
+    水位判断使用；默认统计全部。
+    """
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM replay_staging s "
+            "JOIN replay_index i ON i.replay_id = s.replay_id "
+            "WHERE s.replay_id > ? AND i.seg_id IS NULL AND i.slot IS NULL "
+            "AND i.deleted = 0 AND i.codec = ?",
+            (after_id, CODEC_ZLIB)).fetchone()[0]
+    except sqlite3.OperationalError:
+        return 0
+
+
+def batch_sealable_staging_max_id(conn: sqlite3.Connection,
+                                  batch_size: int = BLOCK_SIZE, *,
+                                  after_id: int = 0) -> int:
+    """``after_id`` 之后的一批最多 ``batch_size`` 条 staging 的最大 id。"""
+    try:
+        row = conn.execute(
+            "SELECT MAX(replay_id) FROM ("
+            "SELECT s.replay_id FROM replay_staging s "
+            "JOIN replay_index i ON i.replay_id = s.replay_id "
+            "WHERE s.replay_id > ? AND i.seg_id IS NULL AND i.slot IS NULL "
+            "AND i.deleted = 0 AND i.codec = ? "
+            "ORDER BY s.replay_id LIMIT ?)",
+            (after_id, CODEC_ZLIB, batch_size)).fetchone()
+    except sqlite3.OperationalError:
+        return 0
+    return int(row[0]) if row and row[0] is not None else 0
+
+
+def has_incomplete_segments(conn: sqlite3.Connection,
+                            batch_size: int = BLOCK_SIZE) -> bool:
+    """是否存在可继续补齐的未满列式块。"""
+    try:
+        return conn.execute(
+            "SELECT 1 FROM replay_segment WHERE codec = ? "
+            "AND record_count < ? LIMIT 1",
+            (CODEC_LZMA_COLUMNAR, batch_size)).fetchone() is not None
+    except sqlite3.OperationalError:
+        return False
+
+
+def fill_incomplete_segments(
+    conn: sqlite3.Connection,
+    *,
+    write: WriteDispatch | None = None,
+    batch_size: int = BLOCK_SIZE,
+    after_id: int = 0,
+) -> int:
+    """用 ``after_id`` 之后的一批 staging 录像补齐未满列式块。
+
+    只处理当前快照里 ``record_count < batch_size`` 且 codec 为列式 LZMA
+    的分块；补齐后剩余 staging 留在原地，不强制新建小块。返回成功并入
+    旧块的条数。
+    """
+    if batch_size <= 0:
+        batch_size = BLOCK_SIZE
+    if conn.in_transaction:
+        return 0
+    cursor = conn.cursor()
+    try:
+        staging = cursor.execute(
+            "SELECT s.replay_id, s.raw_data, s.codec, i.length, i.sha256, "
+            "i.codec, i.deleted FROM replay_staging s "
+            "JOIN replay_index i ON i.replay_id = s.replay_id "
+            "WHERE s.replay_id > ? AND i.seg_id IS NULL AND i.slot IS NULL "
+            "AND i.deleted = 0 AND i.codec = ? "
+            "ORDER BY s.replay_id LIMIT ?",
+            (after_id, CODEC_ZLIB, batch_size)).fetchall()
+        segments = cursor.execute(
+            "SELECT seg_id, blob, record_count FROM replay_segment "
+            "WHERE codec = ? AND record_count < ? ORDER BY seg_id",
+            (CODEC_LZMA_COLUMNAR, batch_size)).fetchall()
+    except sqlite3.OperationalError:
+        return 0
+    if not staging or not segments:
+        return 0
+
+    candidates: list[tuple[SealEntry, object]] = []
+    for replay_id, staged_blob, staged_codec, length, digest, index_codec, deleted in staging:
+        try:
+            if index_codec != CODEC_ZLIB or deleted or staged_codec not in (CODEC_ZLIB, CODEC_RAW):
+                continue
+            raw = (zlib.decompress(staged_blob) if staged_codec == CODEC_ZLIB
+                   else staged_blob)
+            if len(raw) != length or hashlib.sha256(raw).digest() != digest:
+                continue
+            triple = split_evf(raw)
+        except (zlib.error, ValueError, TypeError, UnsupportedReplayError):
+            continue
+        candidates.append((SealEntry(
+            replay_id=replay_id, staged_blob=staged_blob,
+            staged_codec=staged_codec, length=length, sha256=digest), triple))
+    if not candidates:
+        return 0
+
+    queued = list(candidates)
+    filled = 0
+    for seg_id, blob, record_count in segments:
+        if not queued:
+            break
+        try:
+            old_triples = decode_group(lzma.decompress(blob), record_count)
+        except (lzma.LZMAError, UnsupportedReplayError, ValueError, TypeError):
+            continue
+        capacity = batch_size - len(old_triples)
+        if capacity <= 0:
+            continue
+        take = queued[:capacity]
+        all_triples = old_triples + [triple for _, triple in take]
+        try:
+            packed = lzma.compress(encode_group(all_triples), preset=_LZMA_PRESET)
+            decoded = decode_group(lzma.decompress(packed), len(all_triples))
+        except (lzma.LZMAError, UnsupportedReplayError, ValueError, TypeError):
+            continue
+        if decoded != all_triples:
+            continue
+        old_indexes = tuple(tuple(row) for row in cursor.execute(
+            "SELECT replay_id, slot, length, sha256, codec, deleted "
+            "FROM replay_index WHERE seg_id = ? ORDER BY slot", (seg_id,)).fetchall())
+        old_slots = [(row[0], row[1]) for row in old_indexes]
+
+        def apply(target, sid=seg_id, old_blob=blob, snapshots=old_indexes,
+                  slots=tuple(old_slots), entries=tuple(entry for entry, _ in take),
+                  packed_blob=packed, triples=tuple(all_triples)):
+            current_blob = target.execute(
+                "SELECT blob FROM replay_segment WHERE seg_id = ?", (sid,)).fetchone()
+            if current_blob is None or current_blob[0] != old_blob:
+                return False
+            current_indexes = tuple(tuple(row) for row in target.execute(
+                "SELECT replay_id, slot, length, sha256, codec, deleted "
+                "FROM replay_index WHERE seg_id = ? ORDER BY slot", (sid,)))
+            if current_indexes != snapshots:
+                return False
+            for entry in entries:
+                srow = target.execute(
+                    "SELECT raw_data, codec FROM replay_staging WHERE replay_id = ?",
+                    (entry.replay_id,)).fetchone()
+                irow = target.execute(
+                    "SELECT seg_id, slot, length, sha256, codec, deleted "
+                    "FROM replay_index WHERE replay_id = ?",
+                    (entry.replay_id,)).fetchone()
+                if (srow != (entry.staged_blob, entry.staged_codec)
+                        or irow != (None, None, entry.length, entry.sha256,
+                                    CODEC_ZLIB, 0)):
+                    return False
+            target.execute(
+                "UPDATE replay_segment SET blob = ?, record_count = ?, "
+                "raw_size = ? WHERE seg_id = ?",
+                (packed_blob, len(triples), sum(
+                    len(h + e + t) for h, e, t in triples), sid))
+            for slot, entry in enumerate(entries, len(slots)):
+                target.execute(
+                    "UPDATE replay_index SET seg_id = ?, slot = ?, codec = ? "
+                    "WHERE replay_id = ?",
+                    (sid, slot, CODEC_LZMA_COLUMNAR, entry.replay_id))
+                target.execute(
+                    "DELETE FROM replay_staging WHERE replay_id = ?",
+                    (entry.replay_id,))
+            return True
+
+        if _run_short(write, conn, apply):
+            queued = queued[len(take):]
+            filled += len(take)
+    return filled
+
+
+def tombstone_segment_ids(conn: sqlite3.Connection) -> list[int]:
+    """返回仍指向分块、但已被 tombstone 的槽位所在 seg_id。"""
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT seg_id FROM replay_index "
+            "WHERE deleted = 1 AND seg_id IS NOT NULL "
+            "ORDER BY seg_id").fetchall()
+    except sqlite3.OperationalError:
+        return []
+    return [int(row[0]) for row in rows if row[0] is not None]
+
+
+def compact_tombstone_segments(
+    conn: sqlite3.Connection,
+    *,
+    write: WriteDispatch | None = None,
+    cancelled: CancelCallback | None = None,
+) -> int:
+    """重建含 tombstone 的分块，移除死槽位并保留活跃录像。"""
+    if conn.in_transaction:
+        return 0
+    compacted = 0
+    for seg_id in tombstone_segment_ids(conn):
+        if cancelled is not None and cancelled():
+            break
+        try:
+            segment = conn.execute(
+                "SELECT blob, codec, record_count FROM replay_segment "
+                "WHERE seg_id = ?", (seg_id,)).fetchone()
+            if segment is None or segment[1] != CODEC_LZMA_COLUMNAR:
+                continue
+            blob, codec, count = segment
+            triples = decode_group(lzma.decompress(blob), count)
+            indexes = conn.execute(
+                "SELECT replay_id, slot, length, sha256, codec, deleted "
+                "FROM replay_index WHERE seg_id = ? ORDER BY slot",
+                (seg_id,)).fetchall()
+            snapshots = tuple(tuple(row) for row in indexes)
+            removed_rows = tuple(row for row in indexes if row[5])
+            kept_rows = tuple(
+                row for row in indexes
+                if not row[5] and row[1] is not None
+                and row[1] >= 0 and row[1] < len(triples))
+            if (not removed_rows or len(indexes) != count
+                    or any(row[1] != slot for slot, row in enumerate(indexes))
+                    or any(row[4] != CODEC_LZMA_COLUMNAR for row in kept_rows)):
+                continue
+            kept_triples = [triples[row[1]] for row in kept_rows]
+            packed = (lzma.compress(encode_group(kept_triples),
+                                    preset=_LZMA_PRESET)
+                      if kept_triples else None)
+            if packed is not None:
+                decoded = decode_group(lzma.decompress(packed),
+                                       len(kept_triples))
+                if decoded != kept_triples:
+                    continue
+            raw_size = sum(int(row[2] or 0) for row in kept_rows)
+
+            def apply(target, sid=seg_id, old_segment=(blob, codec, count),
+                      old_indexes=snapshots, removed=removed_rows,
+                      kept=kept_rows, packed_blob=packed, size=raw_size):
+                if not target.in_transaction:
+                    target.execute("BEGIN IMMEDIATE")
+                current_segment = target.execute(
+                    "SELECT blob, codec, record_count FROM replay_segment "
+                    "WHERE seg_id = ?", (sid,)).fetchone()
+                if (current_segment is None
+                        or tuple(current_segment) != old_segment):
+                    return False
+                current_indexes = tuple(tuple(row) for row in target.execute(
+                    "SELECT replay_id, slot, length, sha256, codec, deleted "
+                    "FROM replay_index WHERE seg_id = ? ORDER BY slot", (sid,)))
+                if current_indexes != old_indexes:
+                    return False
+                for rid, old_slot, *_ in removed:
+                    cur = target.execute(
+                        "UPDATE replay_index SET seg_id = NULL, slot = NULL "
+                        "WHERE replay_id = ? AND deleted = 1 "
+                        "AND seg_id = ? AND slot = ?",
+                        (rid, sid, old_slot))
+                    if cur.rowcount != 1:
+                        raise ReplayIntegrityError("墓碑槽位复核失败")
+                if packed_blob is None:
+                    target.execute(
+                        "DELETE FROM replay_segment WHERE seg_id = ?", (sid,))
+                else:
+                    for slot, row in enumerate(kept):
+                        rid, old_slot = row[0], row[1]
+                        cur = target.execute(
+                            "UPDATE replay_index SET slot = ? "
+                            "WHERE replay_id = ? AND deleted = 0 "
+                            "AND seg_id = ? AND slot = ?",
+                            (slot, rid, sid, old_slot))
+                        if cur.rowcount != 1:
+                            raise ReplayIntegrityError("活跃槽位复核失败")
+                    target.execute(
+                        "UPDATE replay_segment SET blob = ?, "
+                        "record_count = ?, raw_size = ? WHERE seg_id = ?",
+                        (packed_blob, len(kept), size, sid))
+                return True
+
+            try:
+                applied = _run_short(write, conn, apply)
+            except (sqlite3.OperationalError, ReplayIntegrityError) as exc:
+                logger.info("分块回收暂缓: %s", exc)
+                continue
+            compacted += int(applied)
+        except (lzma.LZMAError, UnsupportedReplayError, ValueError,
+                TypeError, IndexError) as exc:
+            logger.warning("分块 %s 损坏，暂不回收: %s", seg_id, exc)
+            continue
+    return compacted
+
+
 def apply_seal(conn: sqlite3.Connection, prepared: PreparedSeal | None) -> int:
     """在写连接上应用一个预热好的列式块（短事务）。
 
@@ -718,12 +1016,7 @@ def read_raw_data(conn: sqlite3.Connection, replay_id: int) -> bytes | None:
 # ── 删除 ──────────────────────────────────────────────────────
 
 def mark_deleted(conn: sqlite3.Connection, replay_id: int) -> None:
-    """tombstone 删除：不物理删块，避免块内偏移错位。
-
-    注意：未封口的条目数据只存在于 staging，删除时不能清掉它，
-    否则 restore_deleted 后该条录像就永久丢失。已封口的条目数据
-    在 segment 里，由后台 compaction 回收，这里一律不物理删。
-    """
+    """标记录像已删除；块内数据由后台整理回收，暂存数据由调用方删除。"""
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -734,16 +1027,6 @@ def mark_deleted(conn: sqlite3.Connection, replay_id: int) -> None:
     try:
         cursor.execute(
             "DELETE FROM replay_data WHERE replay_id = ?", (replay_id,))
-    except sqlite3.OperationalError:
-        pass
-
-
-def restore_deleted(conn: sqlite3.Connection, replay_id: int) -> None:
-    """撤销 tombstone（供撤销/测试用）。"""
-    try:
-        conn.execute(
-            "UPDATE replay_index SET deleted = 0 WHERE replay_id = ?",
-            (replay_id,))
     except sqlite3.OperationalError:
         pass
 
@@ -1088,6 +1371,136 @@ def finalize_migration(
     except sqlite3.OperationalError:
         return False
     return remaining == 0
+
+
+def cleanup_low_value_replays(
+    conn: sqlite3.Connection,
+    min_solved_percent: int,
+    *,
+    write: WriteDispatch | None = None,
+    progress: ProgressCallback | None = None,
+    cancelled: CancelCallback | None = None,
+) -> int:
+    """清理低 3BV 完成率录像并紧凑受影响分块；保留 history 元数据。"""
+    threshold = max(0, min(100, int(min_solved_percent)))
+    if threshold == 0 or conn.in_transaction:
+        return 0
+    low_ids = {row[0] for row in conn.execute(
+        "SELECT i.replay_id FROM replay_index i "
+        "JOIN history h ON h.replay_id = i.replay_id "
+        "WHERE i.deleted = 0 AND h.bbbv > 0 AND h.bbbv_solved IS NOT NULL "
+        "AND h.bbbv_solved * 100 < ? * h.bbbv", (threshold,))}
+    total = len(low_ids)
+    if progress is not None and total:
+        progress(0, total)
+    if not low_ids:
+        return 0
+
+    # 先对尚未封口的录像做软删除，避免封口线程重新纳入它们。
+    staged = conn.execute(
+        "SELECT s.replay_id, s.raw_data, s.codec, i.seg_id, i.slot, i.length, "
+        "i.sha256, i.codec, i.deleted FROM replay_staging s "
+        "JOIN replay_index i ON i.replay_id=s.replay_id "
+        "JOIN history h ON h.replay_id=i.replay_id "
+        "WHERE i.deleted=0 AND h.bbbv>0 AND h.bbbv_solved IS NOT NULL "
+        "AND h.bbbv_solved * 100 < ? * h.bbbv", (threshold,)).fetchall()
+    def remove_staged(target, snapshots=tuple(tuple(row) for row in staged)):
+        removed_ids = []
+        for snapshot in snapshots:
+            rid = snapshot[0]
+            current = target.execute(
+                "SELECT s.raw_data, s.codec, i.seg_id, i.slot, i.length, i.sha256, "
+                "i.codec, i.deleted FROM replay_staging s JOIN replay_index i "
+                "ON i.replay_id=s.replay_id WHERE s.replay_id=?", (rid,)).fetchone()
+            if current is None or tuple(current) != snapshot[1:]:
+                continue
+            target.execute(
+                "UPDATE replay_index SET deleted=1 WHERE replay_id=? AND deleted=0",
+                (rid,))
+            target.execute("DELETE FROM replay_staging WHERE replay_id=?", (rid,))
+            try:
+                target.execute("DELETE FROM replay_data WHERE replay_id=?", (rid,))
+            except sqlite3.OperationalError:
+                pass
+            removed_ids.append(rid)
+        return removed_ids
+    removed_staged = _run_short(write, conn, remove_staged) if staged else []
+
+    segments = conn.execute(
+        "SELECT DISTINCT i.seg_id FROM replay_index i "
+        "JOIN history h ON h.replay_id = i.replay_id "
+        "WHERE i.deleted = 0 AND i.seg_id IS NOT NULL AND h.bbbv > 0 "
+        "AND h.bbbv_solved IS NOT NULL AND h.bbbv_solved * 100 < ? * h.bbbv",
+        (threshold,)).fetchall()
+    removed = len(removed_staged)
+    progress_done = len(removed_staged)
+    if progress is not None and total:
+        progress(min(progress_done, total), total)
+    for (seg_id,) in segments:
+        if cancelled is not None and cancelled():
+            break
+        segment = conn.execute(
+            "SELECT blob, record_count FROM replay_segment WHERE seg_id = ?",
+            (seg_id,)).fetchone()
+        if segment is None:
+            continue
+        blob, count = segment
+        triples = decode_group(lzma.decompress(blob), count)
+        indexes = conn.execute(
+            "SELECT replay_id, slot, length, sha256, codec, deleted "
+            "FROM replay_index WHERE seg_id = ? ORDER BY slot", (seg_id,)).fetchall()
+        snapshots = tuple(tuple(row) for row in indexes)
+        removed_rows = [row for row in indexes if row[5] or row[0] in low_ids]
+        kept_rows = [row for row in indexes if not row[5] and row[0] not in low_ids]
+        kept_triples = [triples[row[1]] for row in kept_rows]
+        new_blob = lzma.compress(encode_group(kept_triples), preset=_LZMA_PRESET) if kept_rows else None
+        raw_size = sum(row[2] for row in kept_rows)
+
+        def apply(target, sid=seg_id, old_blob=blob, old_indexes=snapshots,
+                  removed_rows=tuple(removed_rows), kept_rows=tuple(kept_rows),
+                  packed=new_blob, size=raw_size):
+            current = target.execute(
+                "SELECT blob FROM replay_segment WHERE seg_id = ?", (sid,)).fetchone()
+            if current is None or current[0] != old_blob:
+                return False
+            current_indexes = tuple(tuple(row) for row in target.execute(
+                "SELECT replay_id, slot, length, sha256, codec, deleted "
+                "FROM replay_index WHERE seg_id = ? ORDER BY slot", (sid,)))
+            if current_indexes != old_indexes:
+                return False
+            for rid, *_ in removed_rows:
+                target.execute(
+                    "UPDATE replay_index SET deleted=1, seg_id=NULL, slot=NULL "
+                    "WHERE replay_id=?", (rid,))
+                try:
+                    target.execute("DELETE FROM replay_data WHERE replay_id=?", (rid,))
+                except sqlite3.OperationalError:
+                    pass
+            if packed is None:
+                target.execute("DELETE FROM replay_segment WHERE seg_id=?", (sid,))
+            else:
+                (new_id,) = target.execute(
+                    "SELECT COALESCE(MAX(seg_id), -1) + 1 FROM replay_segment").fetchone()
+                target.execute(
+                    "INSERT INTO replay_segment(seg_id,blob,codec,record_count,raw_size) "
+                    "VALUES(?,?,?,?,?)", (new_id, packed, CODEC_LZMA_COLUMNAR,
+                                            len(kept_rows), size))
+                for slot, row in enumerate(kept_rows):
+                    target.execute(
+                        "UPDATE replay_index SET seg_id=?,slot=? WHERE replay_id=?",
+                        (new_id, slot, row[0]))
+                target.execute("DELETE FROM replay_segment WHERE seg_id=?", (sid,))
+            return True
+        applied = _run_short(write, conn, apply)
+        candidates = sum(row[0] in low_ids and not row[5] for row in indexes)
+        progress_done += candidates
+        if progress is not None and total:
+            progress(min(progress_done, total), total)
+        if applied:
+            removed += candidates
+    if progress is not None and total and (cancelled is None or not cancelled()):
+        progress(total, total)
+    return removed
 
 
 def vacuum(conn: sqlite3.Connection) -> None:

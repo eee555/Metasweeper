@@ -3368,6 +3368,38 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <translation>ログ表示</translation>
     </message>
     <message>
+        <source>清理全部日志...</source>
+        <translation>すべてのログを消去...</translation>
+    </message>
+    <message>
+        <source>清理全部日志</source>
+        <translation>すべてのログを消去</translation>
+    </message>
+    <message>
+        <source>清空日志目录下的所有日志文件内容</source>
+        <translation>ログディレクトリ内のすべてのログファイルの内容を消去します</translation>
+    </message>
+    <message>
+        <source>将清空日志目录下的所有日志文件内容：
+{path}
+
+该操作不可撤销，确定继续吗？</source>
+        <translation>このディレクトリ内のすべてのログファイルの内容を消去します：
+{path}
+
+この操作は元に戻せません。続行しますか？</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件，{failed} 个清理失败。
+文件可能被其它程序占用。</source>
+        <translation>{n} 個のログファイルを消去しました（{failed} 個失敗）。
+ファイルが他のプログラムで使用されている可能性があります。</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件</source>
+        <translation>{n} 個のログファイルを消去しました</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1269"/>
         <location filename="../plugin_manager/main_window.py" line="1376"/>
         <source>工具栏</source>

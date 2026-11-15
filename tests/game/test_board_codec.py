@@ -1,4 +1,4 @@
-"""board 列紧凑存储（雷图 BLOB）回归测试。"""
+"""board 列 ASCII 存储回归测试。"""
 from __future__ import annotations
 
 import json
@@ -7,11 +7,12 @@ import sqlite3
 import pytest
 
 from plugins.history.board_codec import (
-    BOARD_JSON_SQL,
-    board_blob_to_json,
-    board_json_to_blob,
-    is_board_blob,
-    migrate_board_to_blob,
+    board_ascii_to_matrix,
+    board_blob_to_ascii,
+    board_json_to_ascii,
+    board_to_ascii,
+    is_board_ascii,
+    migrate_board_to_ascii,
     register_board_functions,
 )
 from plugins.history.computed_column import ComputedColumn
@@ -19,303 +20,102 @@ from plugins.history.db import db_connection
 from plugins.history.query_builder import build_order_by, build_where
 
 
-def _board(row=3, col=4):
-    """一个带数字的合法完成局面。"""
+def _matrix():
     import ms_toollib as ms
-    m = [[0] * col for _ in range(row)]
+    m = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
     m[0][0] = -1
     m[1][2] = -1
-    m[2][col - 1] = -1
+    m[2][3] = -1
     return ms.cal_board_numbers(m)
 
 
 @pytest.fixture
 def board_json():
-    return json.dumps(_board(), separators=(",", ":"))
+    return json.dumps(_matrix(), separators=(",", ":"))
 
 
-# ── 编解码 ────────────────────────────────────────────────────
+@pytest.fixture
+def board_ascii(board_json):
+    return board_json_to_ascii(board_json)
 
-def test_roundtrip_bit_exact(board_json):
+
+def test_json_to_ascii_and_matrix_roundtrip(board_json, board_ascii):
+    assert board_ascii is not None
+    assert is_board_ascii(board_ascii)
+    assert len(board_ascii) == 3 * 4
+    assert board_ascii_to_matrix(board_ascii, 3, 4) == _matrix()
+
+
+def test_to_ascii_accepts_legacy_json_blob_and_ascii(board_json, board_ascii):
+    from plugins.history.board_codec import board_json_to_blob
     blob = board_json_to_blob(board_json)
-    assert blob is not None
-    assert is_board_blob(blob)
-    assert board_blob_to_json(blob) == board_json
+    assert board_to_ascii(board_json, 3, 4) == board_ascii
+    assert board_to_ascii(blob, 3, 4) == board_ascii
+    assert board_to_ascii(board_ascii, 3, 4) == board_ascii
+    assert board_blob_to_ascii(blob) == board_ascii
 
 
-@pytest.mark.parametrize("row,col", [(1, 1), (8, 8), (16, 16), (16, 30),
-                                     (9, 11), (99, 99)])
-def test_roundtrip_various_sizes(row, col):
-    import ms_toollib as ms
-    m = [[0] * col for _ in range(row)]
-    for i in range(0, row, 2):
-        for j in range(0, col, 3):
-            m[i][j] = -1
-    text = json.dumps(ms.cal_board_numbers(m), separators=(",", ":"))
-    blob = board_json_to_blob(text)
-    assert blob is not None
-    assert board_blob_to_json(blob) == text
+def test_preview_parses_ascii_and_legacy_json(board_json, board_ascii):
+    from plugins.history.board_preview import parse_board
+
+    assert parse_board(board_ascii, 3, 4) == _matrix()
+    assert parse_board(board_json, 3, 4) == _matrix()
+    assert parse_board("000000000009", 3, 4) is None
 
 
-def test_blob_is_much_smaller(board_json):
-    assert len(board_json_to_blob(board_json)) < len(board_json) / 4
+def test_invalid_ascii_is_rejected():
+    assert not is_board_ascii("[[0,1]]")
+    assert not is_board_ascii("019")
+    assert board_ascii_to_matrix("00000000000", 3, 4) is None
 
 
-def test_board_json_to_blob_rejects_invalid():
-    assert board_json_to_blob(None) is None
-    assert board_json_to_blob("not json") is None
-    assert board_json_to_blob("[]") is None
-    assert board_json_to_blob("[[1,2],[3]]") is None      # 非矩形
-    assert board_json_to_blob(json.dumps([[0]])) is not None
-
-
-def test_board_json_to_blob_is_idempotent(board_json):
-    blob = board_json_to_blob(board_json)
-    assert board_json_to_blob(blob) == blob
-
-
-def test_board_blob_to_json_accepts_legacy_text(board_json):
-    """兼容未迁移的旧 JSON 文本：原样返回。"""
-    assert board_blob_to_json(board_json) == board_json
-    assert board_blob_to_json(None) is None
-    assert board_blob_to_json(b"\x00\x01") is None       # 损坏 BLOB
-
-
-def test_is_board_blob_rejects_text(board_json):
-    assert not is_board_blob(board_json)
-    assert not is_board_blob(b"[[0,1],[1,-1]]")
-    assert not is_board_blob(None)
-
-
-# ── UDF ───────────────────────────────────────────────────────
-
-def test_udf_registered_on_db_connection(tmp_path, board_json):
+def test_migrate_board_converts_json_and_blob(tmp_path, board_json, board_ascii):
+    from plugins.history.board_codec import board_json_to_blob
     db = tmp_path / "h.db"
     conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.execute("INSERT INTO history VALUES (1, ?)",
-                 (board_json_to_blob(board_json),))
-    conn.commit()
-    conn.close()
-
-    with db_connection(db) as c:
-        (value,) = c.execute(
-            "SELECT py_board_json(board) FROM history WHERE replay_id=1"
-        ).fetchone()
-        assert value == board_json
-        (flag,) = c.execute(
-            "SELECT py_board_is_blob(board) FROM history WHERE replay_id=1"
-        ).fetchone()
-        assert flag == 1
-        (blob,) = c.execute(
-            "SELECT py_board_blob(?)", (board_json,)).fetchone()
-        assert board_blob_to_json(blob) == board_json
-
-
-def test_udf_available_even_with_custom_functions_disabled(tmp_path, board_json):
-    """register_custom_functions=False 时 board UDF 仍必须可用。"""
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.commit(); conn.close()
-    with db_connection(db, register_custom_functions=False) as c:
-        (value,) = c.execute("SELECT py_board_json(?)",
-                             (board_json_to_blob(board_json),)).fetchone()
-        assert value == board_json
-
-
-def test_board_like_requires_udf(tmp_path, board_json):
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.execute("INSERT INTO history VALUES (1, ?)",
-                 (board_json_to_blob(board_json),))
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, row INTEGER, column INTEGER, board)")
+    conn.executemany(
+        "INSERT INTO history VALUES (?, 3, 4, ?)",
+        [(1, board_json), (2, board_json_to_blob(board_json)), (3, board_ascii)])
     conn.commit(); conn.close()
     with db_connection(db) as c:
-        # 展开后 LIKE 才能匹配 JSON 文本（用 board_json 的真实前缀）
-        n = c.execute("SELECT COUNT(*) FROM history "
-                      "WHERE py_board_json(board) LIKE ?",
-                      (board_json[:12].replace("%", "\\%") + "%",)).fetchone()[0]
-        assert n == 1
-        # 不展开时直接对 BLOB 做 LIKE 匹配不到 JSON 文本
-        n_raw = c.execute("SELECT COUNT(*) FROM history "
-                          "WHERE board LIKE ?", ("%[%",)).fetchone()[0]
-        assert n_raw == 0
+        assert migrate_board_to_ascii(c) == 2
+        rows = c.execute("SELECT board FROM history ORDER BY replay_id").fetchall()
+        assert [r[0] for r in rows] == [board_ascii] * 3
+        assert migrate_board_to_ascii(c) == 0
 
 
-# ── 迁移 ──────────────────────────────────────────────────────
-
-def test_migrate_board_to_blob(tmp_path, board_json):
+def test_migrate_board_progress_write_and_cancel(tmp_path, board_json, board_ascii):
     db = tmp_path / "h.db"
     conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.executemany("INSERT INTO history VALUES (?, ?)",
-                     [(1, board_json), (2, board_json),
-                      (3, board_json_to_blob(board_json))])  # 已压缩
-    conn.commit(); conn.close()
-
-    with db_connection(db) as c:
-        converted = migrate_board_to_blob(c)
-        c.commit()
-        assert converted == 2                       # 跳过已压缩的
-        rows = c.execute("SELECT replay_id, board FROM history "
-                         "ORDER BY replay_id").fetchall()
-        assert all(is_board_blob(r[1]) for r in rows)
-        for _, blob in rows:
-            assert board_blob_to_json(blob) == board_json
-        # 幂等
-        assert migrate_board_to_blob(c) == 0
-
-
-def test_migrate_board_no_rows_no_progress(tmp_path, board_json):
-    """没有待迁移数据时 progress 必须完全不回调（UI 不显示迁移中）。"""
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.execute("INSERT INTO history VALUES (1, ?)",
-                 (board_json_to_blob(board_json),))
-    conn.commit(); conn.close()
-
-    with db_connection(db) as c:
-        seen: list[tuple[int, int]] = []
-        assert migrate_board_to_blob(c, progress=lambda d, t: seen.append((d, t))) == 0
-        assert seen == []
-
-
-def test_migrate_board_missing_table_is_noop(tmp_path):
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, row INTEGER, column INTEGER, board)")
+    conn.executemany(
+        "INSERT INTO history VALUES (?, 3, 4, ?)",
+        [(i, board_json) for i in range(1, 6)])
     conn.commit(); conn.close()
     with db_connection(db) as c:
         seen = []
-        assert migrate_board_to_blob(c, progress=lambda d, t: seen.append((d, t))) == 0
-        assert seen == []
+        dispatch = lambda cb: cb(c)
+        assert migrate_board_to_ascii(
+            c, batch_size=2, write=dispatch,
+            progress=lambda d, t: seen.append((d, t))) == 5
+        assert seen and seen[-1][1] == 5
+        assert all(r[0] == board_ascii for r in c.execute("SELECT board FROM history"))
 
 
-def test_migrate_board_progress_and_batches(tmp_path, board_json):
-    from plugins.history.board_codec import _BOARD_BATCH
+def test_board_udfs_registered(tmp_path, board_json, board_ascii):
     db = tmp_path / "h.db"
     conn = sqlite3.connect(db)
     conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    n = _BOARD_BATCH * 2 + 5
-    conn.executemany("INSERT INTO history VALUES (?, ?)",
-                     [(i, board_json) for i in range(1, n + 1)])
+    conn.execute("INSERT INTO history VALUES (1, ?)", (board_ascii,))
     conn.commit(); conn.close()
-
     with db_connection(db) as c:
-        seen: list[tuple[int, int]] = []
-        assert migrate_board_to_blob(
-            c, progress=lambda d, t: seen.append((d, t))) == n
-        assert seen and seen[-1] == (n, n)
-        assert all(is_board_blob(r[0]) for r in
-                   c.execute("SELECT board FROM history"))
+        assert c.execute("SELECT py_board_is_ascii(board) FROM history").fetchone()[0] == 1
+        assert c.execute("SELECT py_board_ascii(?, 3, 4)", (board_json,)).fetchone()[0] == board_ascii
+        assert c.execute(
+            "SELECT COUNT(*) FROM history WHERE board LIKE ?",
+            ("%2%",)).fetchone()[0] == 1
 
-
-def test_migrate_board_uses_write_dispatch(tmp_path, board_json):
-    """write() 收到的是纯 SQL 回调：解析/校验都在维护线程完成。"""
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.executemany("INSERT INTO history VALUES (?, ?)",
-                     [(i, board_json) for i in range(1, 6)])
-    conn.commit(); conn.close()
-
-    with db_connection(db) as c:
-        calls = []
-
-        def dispatch(callback):
-            calls.append(True)
-            out = callback(c)
-            c.commit()
-            return out
-
-        assert migrate_board_to_blob(c, write=dispatch) == 5
-        assert calls
-        assert all(is_board_blob(r[0]) for r in
-                   c.execute("SELECT board FROM history"))
-
-
-def test_migrate_board_skips_concurrently_mutated_rows(tmp_path, board_json):
-    """迁移期间 board 被改写 → 条件 UPDATE 不覆盖新值、不计入数量。"""
-    import json as _json
-    import ms_toollib as ms
-    from plugins.history import board_codec
-
-    other_board = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-    other_board[0][1] = -1
-    other_json = _json.dumps(ms.cal_board_numbers(other_board), separators=(",", ":"))
-
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.executemany("INSERT INTO history VALUES (?, ?)",
-                     [(1, board_json), (2, board_json)])
-    conn.commit(); conn.close()
-
-    original_convert = board_codec._convert_batch
-
-    with db_connection(db) as c:
-        def racing_convert(rows):
-            out = original_convert(rows)
-            # 准备之后、写之前并发改写第 2 行
-            c.execute("UPDATE history SET board = ? WHERE replay_id = 2",
-                      (other_json,))
-            c.commit()
-            return out
-
-        import unittest.mock as mock
-        with mock.patch.object(board_codec, "_convert_batch", racing_convert):
-            converted = migrate_board_to_blob(c, write=lambda cb: cb(c))
-        assert converted == 1                      # 只有第 1 行被转换
-        assert c.execute("SELECT board FROM history WHERE replay_id = 2"
-                         ).fetchone()[0] == other_json   # 新值未被覆盖
-
-
-def test_migrate_board_honours_cancel(tmp_path, board_json):
-    from plugins.history.board_codec import _BOARD_BATCH
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    n = _BOARD_BATCH * 2
-    conn.executemany("INSERT INTO history VALUES (?, ?)",
-                     [(i, board_json) for i in range(1, n + 1)])
-    conn.commit(); conn.close()
-
-    state = {"n": 0}
-
-    def cancel() -> bool:
-        state["n"] += 1
-        return state["n"] > 1
-
-    with db_connection(db) as c:
-        migrate_board_to_blob(c, cancelled=cancel)
-        c.commit()
-        # 未完成即停止，剩余行仍是旧文本
-        remaining = c.execute(
-            "SELECT COUNT(*) FROM history WHERE py_board_is_blob(board) = 0"
-        ).fetchone()[0]
-        assert remaining > 0
-
-
-def test_migrate_keeps_legacy_text_readable(tmp_path, board_json):
-    """迁移前后用 UDF 读到的 JSON 必须一致。"""
-    db = tmp_path / "h.db"
-    conn = sqlite3.connect(db)
-    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
-    conn.execute("INSERT INTO history VALUES (1, ?)", (board_json,))
-    conn.commit(); conn.close()
-
-    with db_connection(db) as c:
-        before = c.execute(
-            "SELECT py_board_json(board) FROM history").fetchone()[0]
-        assert before == board_json                 # 旧文本原样返回
-        migrate_board_to_blob(c); c.commit()
-        after = c.execute(
-            "SELECT py_board_json(board) FROM history").fetchone()[0]
-        assert after == before
-
-
-# ── 查询构建器：board 字段必须展开 ────────────────────────────
 
 from plugins.history.models import CompareSymbol, LogicSymbol  # noqa: E402
 
@@ -325,48 +125,33 @@ _AND = LogicSymbol.display_names()[0]
 
 
 def _filter_row(field: str, compare: str, value: str) -> dict:
-    return {
-        "left_bracket": "", "field": field, "compare": compare,
-        "value": value, "right_bracket": "", "logic": _AND,
-    }
+    return {"left_bracket": "", "field": field, "compare": compare,
+            "value": value, "right_bracket": "", "logic": _AND}
 
 
-def test_build_where_expands_board_for_like():
-    rows = [_filter_row("board", _LIKE, "[[0")]
-    sql, params = build_where(rows, {"board"}, {"board": ""})
-    assert 'py_board_json("board")' in sql
+def test_build_where_uses_raw_board_string():
+    sql, params = build_where([_filter_row("board", _LIKE, "3")], {"board"}, {"board": ""})
+    assert '"board"' in sql
+    assert "py_board_json" not in sql
     assert params
 
 
-def test_build_where_expands_board_for_equality():
-    rows = [_filter_row("board", _EQUAL, "x")]
-    sql, params = build_where(rows, {"board"}, {"board": ""})
-    assert 'py_board_json("board") = ?' in sql
-
-
 def test_build_where_does_not_touch_other_fields():
-    rows = [_filter_row("level", _EQUAL, "3")]
-    sql, params = build_where(rows, {"level"}, {"level": 0})
+    sql, _ = build_where([_filter_row("level", _EQUAL, "3")], {"level"}, {"level": 0})
     assert "level" in sql
     assert "py_board_json" not in sql
 
 
-def test_build_order_by_expands_board():
-    sql = build_order_by(
-        [{"field": "board", "order": "升序"}], {"board"})
-    assert 'py_board_json("board")' in sql
+def test_build_order_by_uses_raw_board_string():
+    sql = build_order_by([{"field": "board", "order": "升序"}], {"board"})
+    assert '"board"' in sql
+    assert "py_board_json" not in sql
 
 
-def test_computed_column_subquery_expands_board():
-    col = ComputedColumn(name="bbbvs",
-                         expression="bbbv_solved*1.0/rtime",
-                         result_type="float")
+def test_computed_column_subquery_keeps_raw_board_string():
+    col = ComputedColumn(name="bbbvs", expression="bbbv_solved*1.0/rtime", result_type="float")
     sql = ComputedColumn.build_subquery_sql([col])
     assert sql is not None
-    assert 'py_board_json("board") AS "board"' in sql
-    assert 'SELECT *' not in sql               # 不能带出原始 BLOB
-    assert '"bbbvs"' in sql
-
-
-def test_board_json_sql_constant():
-    assert BOARD_JSON_SQL == 'py_board_json("board") AS "board"'
+    assert '"board"' in sql
+    assert "py_board_json" not in sql
+    assert "SELECT *" not in sql

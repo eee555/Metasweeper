@@ -124,27 +124,17 @@ class ComputedColumn:
 
     @staticmethod
     def build_subquery_sql(columns: list[ComputedColumn]) -> str | None:
-        """
-        构建计算列子查询的 FROM 部分
-
-        Returns:
-            子查询 SQL（如 "SELECT *, (bbbv*1.0/rtime) AS \"bbbvs\" FROM history"），
-            或 None（无计算列时）
-        """
+        """构建计算列子查询，直接保留存储的 board 值。"""
         if not columns:
             return None
         computed_parts = ", ".join(
             f"({col.expression}) AS \"{col.name}\"" for col in columns
         )
-        # board 物理列是雷图 BLOB。不能用 SELECT *（会把 BLOB 原样带进
-        # 子查询且优先级高于同名展开列），必须显式列出除 board 外的所有列，
-        # 再用 UDF 生成名为 board 的 JSON 文本列。
         from .models import HistoryData
         physical = [f for f in HistoryData.fields() if f != "board"]
         # 全部加双引号：row/column/left/right/level 等是 SQL 关键字或保留字
         column_sql = ", ".join(f'"{f}"' for f in physical)
         return (
-            f"SELECT {column_sql}, "
-            f"py_board_json(\"board\") AS \"board\", {computed_parts} "
+            f'SELECT {column_sql}, "board", {computed_parts} '
             "FROM history"
         )

@@ -21,6 +21,7 @@ PHASE_LABELS = {
     "replays": "迁移旧录像数据",
     "verify": "校验迁移数据",
     "boards": "压缩雷图数据",
+    "cleanup": "清理低完成率录像",
 }
 FALLBACK_LABEL = "正在迁移旧数据"
 
@@ -61,7 +62,7 @@ def test_determinate_progress_is_shown(widget):
     assert widget.migration_label.text() == PHASE_LABELS["replays"]
 
 
-@pytest.mark.parametrize("phase", ["replays", "verify", "boards"])
+@pytest.mark.parametrize("phase", ["replays", "verify", "boards", "cleanup"])
 def test_each_phase_token_maps_to_label(widget, phase):
     widget.set_migration_progress(True, done=1, total=4, phase=phase)
     assert widget.migration_label.text() == PHASE_LABELS[phase]

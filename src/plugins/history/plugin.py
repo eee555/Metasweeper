@@ -40,14 +40,29 @@ class _CompressionMigrateWorker(QThread):
     progress = Signal(bool, int, int, str)
 
     def __init__(self, db_path: Path, writer: DatabaseWriter, logger: Any = None,
-                 batch_size: int = BLOCK_SIZE, parent=None):
+                 batch_size: int = BLOCK_SIZE, min_solved_percent: int = 0,
+                 parent=None):
         super().__init__(parent)
         self._db_path = db_path
         self._writer = writer
         self._logger = logger
         self._batch_size = batch_size
+        self._min_solved_percent = max(0, min(100, int(min_solved_percent)))
         self._wakeup = Event()
+        self._cleanup_requested = self._min_solved_percent > 0
+        self._last_fill_batch_max_id = 0
+        self._fill_only_batch = False
+        self._compact_requested = True
         self.reclaim_requested = False
+
+    def request_cleanup(self, threshold: int) -> None:
+        self._min_solved_percent = max(0, min(100, int(threshold)))
+        self._cleanup_requested = self._min_solved_percent > 0
+        self.notify()
+
+    def request_compaction(self) -> None:
+        self._compact_requested = True
+        self.notify()
 
     def notify(self):
         self._wakeup.set()
@@ -107,7 +122,7 @@ class _CompressionMigrateWorker(QThread):
 
     def _migrate(self, conn):
         from .replay_store import finalize_migration
-        from .board_codec import migrate_board_to_blob
+        from .board_codec import migrate_board_to_ascii
 
         try:
             self._migrate_legacy_raw(conn)
@@ -125,7 +140,7 @@ class _CompressionMigrateWorker(QThread):
                         conn, write=self._write, progress=self._progress("verify"),
                         cancelled=self.isInterruptionRequested)
             if not self.isInterruptionRequested():
-                migrate_board_to_blob(
+                migrate_board_to_ascii(
                     conn, write=self._write, progress=self._progress("boards"),
                     cancelled=self.isInterruptionRequested)
         except Exception as exc:
@@ -135,7 +150,12 @@ class _CompressionMigrateWorker(QThread):
             self.progress.emit(False, 0, 0, "")
 
     def run(self):
-        from .replay_store import prepare_seal, apply_seal
+        from .replay_store import (
+            prepare_seal, apply_seal, cleanup_low_value_replays,
+            count_sealable_staging, batch_sealable_staging_max_id,
+            has_incomplete_segments, fill_incomplete_segments,
+            compact_tombstone_segments,
+        )
 
         try:
             with db_connection(self._db_path, register_custom_functions=False) as conn:
@@ -143,12 +163,61 @@ class _CompressionMigrateWorker(QThread):
                 while not self.isInterruptionRequested():
                     self._wakeup.clear()
                     try:
-                        while not self.isInterruptionRequested():
-                            prepared = prepare_seal(conn, limit=self._batch_size)
-                            if prepared is None:
-                                break
-                            if not self._write(lambda target: apply_seal(target, prepared)):
-                                break
+                        if self._cleanup_requested and not self.isInterruptionRequested():
+                            self._cleanup_requested = False
+                            try:
+                                cleanup_low_value_replays(
+                                    conn, self._min_solved_percent, write=self._write,
+                                    progress=self._progress("cleanup"),
+                                    cancelled=self.isInterruptionRequested)
+                            finally:
+                                self.progress.emit(False, 0, 0, "")
+                        if (self._compact_requested
+                                and not self.isInterruptionRequested()):
+                            self._compact_requested = False
+                            if compact_tombstone_segments(
+                                    conn, write=self._write,
+                                    cancelled=self.isInterruptionRequested):
+                                self.reclaim_requested = True
+                        new_batch_staging = count_sealable_staging(
+                            conn, after_id=self._last_fill_batch_max_id)
+                        skip_seal = False
+                        if self._fill_only_batch:
+                            if new_batch_staging < self._batch_size:
+                                skip_seal = True
+                            else:
+                                self._fill_only_batch = False
+                        else:
+                            previous_watermark = self._last_fill_batch_max_id
+                            batch_watermark = batch_sealable_staging_max_id(
+                                conn, self._batch_size,
+                                after_id=previous_watermark)
+                            if (new_batch_staging >= self._batch_size
+                                    and batch_watermark > previous_watermark
+                                    and has_incomplete_segments(
+                                        conn, self._batch_size)):
+                                self._fill_only_batch = True
+                                fill_incomplete_segments(
+                                    conn, write=self._write,
+                                    batch_size=self._batch_size,
+                                    after_id=previous_watermark)
+                                self._last_fill_batch_max_id = batch_watermark
+                                self._compact_requested = True
+                                if count_sealable_staging(conn) < \
+                                        self._batch_size:
+                                    skip_seal = True
+                                else:
+                                    self._fill_only_batch = False
+                        if not skip_seal:
+                            while not self.isInterruptionRequested():
+                                prepared = prepare_seal(
+                                    conn, limit=self._batch_size)
+                                if prepared is None:
+                                    break
+                                if not self._write(
+                                        lambda target: apply_seal(
+                                            target, prepared)):
+                                    break
                         if self.reclaim_requested and not self.isInterruptionRequested():
                             self.reclaim_requested = False
                             self._writer.reclaim_once()
@@ -172,6 +241,15 @@ class HistoryConfig(OtherInfoBase):
         description=_translate("Form", "查询窗口中浮点数显示的小数位数"),
         min_value=0,
         max_value=10,
+    )
+
+    min_replay_solved_percent = IntConfig(
+        default=0,
+        label=_translate("Form", "录像最低 3BV 完成率（%）"),
+        description=_translate(
+            "Form", "清理低于此完成率的录像并保留历史统计；设为 0 则保留全部录像"),
+        min_value=0,
+        max_value=100,
     )
 
     # 隐藏字段：保存排序和过滤状态
@@ -345,6 +423,9 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         widget.custom_functions_changed.connect(
             self._on_custom_functions_changed)
 
+        # 删除记录后唤醒后台分块重组，避免墓碑槽位长期占用空间
+        widget.compaction_requested.connect(self._on_compaction_requested)
+
         # 初始化计算列（必须在恢复过滤/排序状态之前，否则过滤引用计算列时查不到）
         if self.other_info:
             columns = ComputedColumn.from_json(
@@ -363,6 +444,8 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             )
             # 恢复保存的列显示配置
             widget.restore_show_fields(self.other_info.saved_show_fields)
+            # 所有配置恢复完成后只执行一次启动查询
+            widget.run_startup_query()
 
         self._apply_migration_progress(widget)
         return widget
@@ -372,6 +455,12 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
 
     def _on_language_change(self, event: LanguageChangeEvent) -> None:
         self.run_on_widget(lambda widget: widget.retranslateUi())
+
+    @Slot()
+    def _on_compaction_requested(self) -> None:
+        worker = getattr(self, "_migrate_worker", None)
+        if worker is not None:
+            worker.request_compaction()
 
     def _on_filter_sort_state_changed(self, filter_json: str, sort_json: str) -> None:
         """保存排序和过滤状态"""
@@ -396,7 +485,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         self._init_db()
         self._cleanup_legacy_view()
         self._db_writer = DatabaseWriter(self.data_dir / "history.db")
-        self.run_on_widget(lambda widget: widget.load_data())
+        self.run_on_widget(lambda widget: widget.run_startup_query())
         self.register_service(self, protocol=HistoryService)
         self.logger.info("历史记录插件已初始化，HistoryService 已注册")
         # 后台静默压缩旧数据
@@ -406,8 +495,12 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         """旧数据迁移完成后继续等待新暂存数据，进度条仅用于旧数据。"""
         if self._db_writer is None:
             return
+        threshold = int(getattr(
+            getattr(self, "other_info", None),
+            "min_replay_solved_percent", 0))
         self._migrate_worker = _CompressionMigrateWorker(
-            self.data_dir / "history.db", self._db_writer, logger=self.logger)
+            self.data_dir / "history.db", self._db_writer, logger=self.logger,
+            min_solved_percent=threshold)
         self._migrate_worker.progress.connect(self._on_migration_progress)
         # 每次启动都尝试一次：即使没有旧数据迁移，也回收此前删除留下的空页。
         self._migrate_worker.reclaim_requested = True
@@ -562,11 +655,19 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         # raw_data/compressed 不写入 history 元数据表，拆到录像数据子表
         raw_data = data.pop("raw_data", None)
         data.pop("compressed", None)
-        # board 以雷图 BLOB 落盘；读取侧统一用 py_board_json() 展开
-        from .board_codec import board_json_to_blob
-        board_blob = board_json_to_blob(data.get("board"))
-        if board_blob is not None:
-            data["board"] = board_blob
+        threshold = int(getattr(
+            getattr(self, "other_info", None),
+            "min_replay_solved_percent", 0))
+        bbbv = data.get("bbbv")
+        solved = data.get("bbbv_solved")
+        if threshold > 0 and isinstance(bbbv, int) and bbbv > 0 \
+                and isinstance(solved, int) and solved * 100 < threshold * bbbv:
+            raw_data = None
+        # board 以每格一个字符的 ASCII 字符串落盘；查询无需 UDF 展开。
+        from .board_codec import board_json_to_ascii
+        board_ascii = board_json_to_ascii(data.get("board"))
+        if board_ascii is not None:
+            data["board"] = board_ascii
         columns = ", ".join(data.keys())
         placeholders = ", ".join(f":{k}" for k in data.keys())
 
@@ -675,6 +776,9 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         deleted = execute_write(db_path, lambda conn: delete_record_tx(conn, record_id))
         if deleted:
             self.logger.info(f"Deleted record: {record_id}")
+            worker = getattr(self, "_migrate_worker", None)
+            if worker is not None:
+                worker.request_compaction()
         return deleted
 
     def raw_query(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
@@ -716,6 +820,10 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         elif name == "saved_custom_functions":
             from .db import set_custom_script
             set_custom_script(value or "")
+        elif name == "min_replay_solved_percent":
+            worker = getattr(self, "_migrate_worker", None)
+            if worker is not None:
+                worker.request_cleanup(value)
 
     def _apply_runtime_config(self) -> None:
         """把配置中的界面相关设置同步到已创建的界面
@@ -727,6 +835,9 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         info = self.other_info
         if info is None:
             return
+        worker = getattr(self, "_migrate_worker", None)
+        if worker is not None:
+            worker.request_cleanup(info.min_replay_solved_percent)
 
         def apply(widget: HistoryMainWidget) -> None:
             widget.set_board_preview_enabled(bool(info.board_preview))

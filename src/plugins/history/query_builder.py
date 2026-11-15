@@ -27,7 +27,7 @@ _DATETIME_FORMATS = ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S")
 
 # board 物理列是雷图 BLOB；在 SQL 中引用该字段时必须用 UDF 展开成
 # JSON 文本，否则 LIKE / 排序会作用在二进制上，语义悄悄改变。
-_BOARD_FIELD_SQL = 'py_board_json("board")'
+BOARD_FIELD_SQL = '"board"'
 
 
 def _sql_field(field: str) -> str:
@@ -35,7 +35,7 @@ def _sql_field(field: str) -> str:
 
     其余字段返回原样字段名，保持既有 SQL 字符串形态不变。
     """
-    return _BOARD_FIELD_SQL if field == "board" else field
+    return BOARD_FIELD_SQL if field == "board" else field
 
 
 def _row_error(row: int, template: str, value: str = "") -> ValueError:

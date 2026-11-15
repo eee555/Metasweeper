@@ -46,7 +46,7 @@ _PHYSICAL_FIELDS = frozenset(HistoryData.fields())
 
 # 旧数据迁移阶段：稳定 token（插件线程/后端使用）→ 界面本地化文案。
 # token 不随语言变化，避免后端依赖某种语言的字符串。
-_MIGRATION_PHASE_TOKENS = ("replays", "verify", "boards")
+_MIGRATION_PHASE_TOKENS = ("replays", "verify", "boards", "cleanup")
 
 
 class HistoryMainWidget(QWidget):
@@ -60,6 +60,8 @@ class HistoryMainWidget(QWidget):
     computed_columns_changed = Signal(list)
     # 信号：自定义函数脚本变化 (script)
     custom_functions_changed = Signal(str)
+    # 信号：记录删除后请求后台回收分块内的墓碑槽位
+    compaction_requested = Signal()
 
     def __init__(
         self,
@@ -171,7 +173,9 @@ class HistoryMainWidget(QWidget):
         self.setLayout(layout)
 
         self._connect_signals()
-        self.load_data()
+        # 构造阶段只装配控件；计算列、过滤/排序、显示列恢复后由插件触发首次查询，
+        # 避免启动期对大表重复执行分页查询。
+        self._startup_query_pending = True
 
     def retranslateUi(self):
         self.setWindowTitle(_translate("Form", "历史记录"))
@@ -195,6 +199,8 @@ class HistoryMainWidget(QWidget):
             return _translate("Form", "校验迁移数据")
         if self._migration_phase == "boards":
             return _translate("Form", "压缩雷图数据")
+        if self._migration_phase == "cleanup":
+            return _translate("Form", "清理低完成率录像")
         return _translate("Form", "正在迁移旧数据")
 
     @staticmethod
@@ -278,8 +284,9 @@ class HistoryMainWidget(QWidget):
         except (json.JSONDecodeError, TypeError):
             pass
 
-        # 恢复后触发一次查询
-        self._on_query()
+        # 由插件在所有列配置恢复完成后统一调用 run_startup_query()；
+        # 这里不查询，避免构造阶段和恢复配置阶段重复扫描历史表。
+        self._startup_query_pending = True
 
     def _connect_signals(self):
         self.query_button.clicked.connect(self._on_query)
@@ -297,6 +304,7 @@ class HistoryMainWidget(QWidget):
         self.one_page_combo.currentTextChanged.connect(self.load_data)
         self.page_spin.valueChanged.connect(self.load_data)
         self.table.show_fields_changed.connect(self.show_fields_changed)
+        self.table.compaction_requested.connect(self.compaction_requested)
 
     def _show_filter_dialog(self):
         """显示过滤对话框，确认后执行查询"""
@@ -371,6 +379,12 @@ class HistoryMainWidget(QWidget):
         with open(self._config_path, "r") as f:
             return list(json.load(f))
 
+    def run_startup_query(self) -> None:
+        """插件恢复全部配置后执行首次查询；没有恢复流程时也能手动触发。"""
+        if getattr(self, "_startup_query_pending", False):
+            self._startup_query_pending = False
+            self._on_query()
+
     def load_data(self):
         if not self._db_path.exists():
             with QSignalBlocker(self.page_spin):
@@ -406,48 +420,54 @@ class HistoryMainWidget(QWidget):
                     for name in computed_names:
                         if name not in query_fields:
                             query_fields.append(name)
-                # board 物理列是雷图 BLOB，SELECT 时用 UDF 展开回 JSON 文本，
-                # 保证表格显示、悬浮预览、复制 JSON 拿到的仍是原字符串。
-                from .board_codec import BOARD_JSON_SQL
+                # board 是每格一个字符的 ASCII 字符串，直接显示和过滤。
                 select_fields = ','.join(
-                    BOARD_JSON_SQL if f == "board"
-                    else (f'"{f}"' if f not in _PHYSICAL_FIELDS else f)
+                    f'"{f}"' if f not in _PHYSICAL_FIELDS else f
                     for f in query_fields
                 )
-                # 有计算列时用子查询；子查询里把 board 展开，外层才能直接引用
                 subquery = ComputedColumn.build_subquery_sql(
                     self._computed_columns)
                 if subquery:
                     from_clause = f"({subquery})"
                 else:
                     from_clause = "history"
-                sql = f"SELECT {select_fields}, COUNT(*) OVER() AS total_count FROM {from_clause}"
-                if filter_str:
-                    sql += " WHERE " + filter_str
-                sql += order_str
-                # LIMIT/OFFSET 参数绑定
+                # 先用最便宜的 ORDER BY + LIMIT/OFFSET 选出本页 replay_id，
+                # 再只对这些行计算计算列和读取宽列。
                 per_page = int(self.one_page_combo.currentText())
                 offset = (self.page_spin.value() - 1) * per_page
-                sql += " LIMIT ? OFFSET ?"
-                cursor.execute(sql, (*filter_params, per_page, offset))
+                base_from = from_clause if subquery else "history"
+                page_sql = (
+                    "SELECT replay_id FROM " + base_from
+                    + ((" WHERE " + filter_str) if filter_str else "")
+                    + order_str + " LIMIT ? OFFSET ?"
+                )
+                sql = f"SELECT {select_fields} FROM {from_clause}"
+                page_where = "replay_id IN (" + page_sql + ")"
+                if filter_str:
+                    sql += " WHERE (" + filter_str + ") AND " + page_where
+                else:
+                    sql += " WHERE " + page_where
+                sql += order_str
+                page_params = (*filter_params, *filter_params,
+                               per_page, offset)
+                cursor.execute(sql, page_params)
                 datas = cursor.fetchall()
 
-                if datas:
-                    total = datas[0]["total_count"]
-                else:
-                    # 窗口函数在 OFFSET 越界时没有结果行，需要单独获取总数。
-                    count_sql = f"SELECT COUNT(*) FROM {from_clause}"
-                    if filter_str:
-                        count_sql += " WHERE " + filter_str
-                    cursor.execute(count_sql, filter_params)
-                    total = cursor.fetchone()[0]
+                # 行数单独查询。COUNT(*) OVER() 会迫使 SQLite 在 LIMIT 前
+                # 对全表计算列求值，大表启动时会卡住。
+                count_sql = f"SELECT COUNT(*) FROM {base_from}"
+                if filter_str:
+                    count_sql += " WHERE " + filter_str
+                total = cursor.execute(count_sql, filter_params).fetchone()[0]
 
                 max_page = math.ceil(total / per_page)
                 with QSignalBlocker(self.page_spin):
                     self.page_spin.setMaximum(max(1, max_page))
                 if total and not datas:
                     offset = (self.page_spin.value() - 1) * per_page
-                    cursor.execute(sql, (*filter_params, per_page, offset))
+                    page_params = (*filter_params, *filter_params,
+                                   per_page, offset)
+                    cursor.execute(sql, page_params)
                     datas = cursor.fetchall()
                 self.limit_label.setText(
                     _translate("Form", "共%1行,%2页").replace("%1", str(total)).replace("%2", str(max_page)))

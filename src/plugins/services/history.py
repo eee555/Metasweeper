@@ -29,10 +29,7 @@ Usage::
                 (1,)
             )
 
-注意：``history.board`` 物理列是雷图 BLOB，通过 ``raw_query`` 写
-``SELECT *`` 会拿到 ``bytes``；需要 JSON 文本请用 ``py_board_json(board)``
-展开。详见 ``HistoryService.raw_query`` 的说明或
-``docs/history-board-storage.md``。
+注意：``history.board`` 是每格一个字符的 ASCII 字符串；``*`` 表示雷，``0``~``8`` 表示数字，行列由 ``row`` / ``column`` 字段给出。详见 ``HistoryService.raw_query`` 说明。
 """
 from __future__ import annotations
 
@@ -80,8 +77,7 @@ class HistoryService(Protocol):
     实现此接口的插件可被其他插件通过 call_service() 调用。
     
     注意：此接口仅提供只读操作，删除等敏感操作不对外暴露。
-    注意：``history.board`` 是雷图 BLOB；通过 raw_query 取 JSON 文本需用
-          ``py_board_json(board)``，详见 raw_query 说明。
+    注意：``history.board`` 是每格一个字符的 ASCII 字符串，详见 raw_query 说明。
     
     类型安全：IDE 可完整推断返回类型和方法签名。
     """
@@ -119,21 +115,16 @@ class HistoryService(Protocol):
 
         重要约定 —— ``history.board`` 列：
 
-        该列物理存储的是**雷图 BLOB**（``[2B row][2B col][位图]``），
-        不是带数字的完成局面 JSON 文本。因此：
+        该列存储的是每格一个字符的 ASCII 字符串，按行优先排列：
+        ``*`` 表示雷，``0`` ~ ``8`` 表示空白格/周围雷数。行列数由同一
+        行的 ``row`` / ``column`` 字段给出，长度应为 ``row * column``。
 
-        - ``SELECT * FROM history`` 拿到的 ``board`` 是 ``bytes``。
-        - 需要 JSON 文本时用 ``py_board_json(board)`` 展开::
+        - ``SELECT * FROM history`` 拿到的 ``board`` 就是可直接用于
+          LIKE / 子串查询的字符串。
+        - 悬浮预览等二维展示按 ``row`` / ``column`` 切分字符串。
+        - 旧库中的 JSON / 雷图 BLOB 会在后台迁移成 ASCII；迁移前若需要
+          兼容读取，可调用 ``py_board_ascii(board, row, column)``。
 
-              SELECT replay_id, py_board_json(board) AS board FROM history
-
-        - 对局面做字符串比较/LIKE 时必须展开，否则会作用在二进制上::
-
-              SELECT ... WHERE py_board_json(board) LIKE ?
-
-        - 自定义计算列若引用 board，也应写 ``py_board_json(board)``。
-
-        以上 UDF 在每个连接上自动注册，无需调用方额外配置。
         其余所有列（rtime / level / bbbv / ...）类型与语义均未改变。
 
         Args:
@@ -146,7 +137,7 @@ class HistoryService(Protocol):
         Example:
             records = history.raw_query(
                 "SELECT replay_id, rtime, level, "
-                "py_board_json(board) AS board FROM history "
+                "board FROM history "
                 "WHERE level = ? AND rtime < ? ORDER BY rtime LIMIT 10",
                 (1, 60.0)
             )

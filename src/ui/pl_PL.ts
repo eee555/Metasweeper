@@ -3368,6 +3368,38 @@ nieśmiertelnego ciała</translation>
         <translation>Podgląd logów</translation>
     </message>
     <message>
+        <source>清理全部日志...</source>
+        <translation>Wyczyść wszystkie logi...</translation>
+    </message>
+    <message>
+        <source>清理全部日志</source>
+        <translation>Wyczyść wszystkie logi</translation>
+    </message>
+    <message>
+        <source>清空日志目录下的所有日志文件内容</source>
+        <translation>Wyczyść zawartość wszystkich plików logów w katalogu logów</translation>
+    </message>
+    <message>
+        <source>将清空日志目录下的所有日志文件内容：
+{path}
+
+该操作不可撤销，确定继续吗？</source>
+        <translation>Zawartość wszystkich plików logów w tym katalogu zostanie wyczyszczona:
+{path}
+
+Tej operacji nie można cofnąć. Kontynuować?</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件，{failed} 个清理失败。
+文件可能被其它程序占用。</source>
+        <translation>Wyczyszczono {n} plików logów, niepowodzeń: {failed}.
+Pliki mogą być używane przez inny program.</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件</source>
+        <translation>Wyczyszczono {n} plików logów</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1269"/>
         <location filename="../plugin_manager/main_window.py" line="1376"/>
         <source>工具栏</source>

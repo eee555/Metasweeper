@@ -2,8 +2,8 @@
 
 鼠标悬浮在历史记录表格的 `board` 列上时，弹出一个只读的局面预览窗口。
 
-`board` 字段存的是「带数字答案局面」的 JSON 文本
-（形如 ``[[0,0,1,-1,2], ...]``，见 GameFinishedEvent.board）：
+`board` 字段存的是每格一个字符的 ASCII 完成局面字符串，行列由同一记录的
+`row` / `column` 字段给出：
 
 - ``-1``          雷
 - ``0``           空白格
@@ -22,6 +22,8 @@ import json
 from PySide6.QtCore import QPoint, QRect, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QPolygon, QPaintEvent
 from PySide6.QtWidgets import QApplication, QWidget
+
+from .board_codec import board_ascii_to_matrix
 
 # ── 格子编码（与 config/constants.py、BoardUpdateEvent 文档保持一致）──
 CELL_MINE = -1
@@ -59,17 +61,19 @@ MAX_SCREEN_RATIO = 0.6    # 浮窗最多占屏幕可用区域的这个比例
 CURSOR_OFFSET = QPoint(18, 18)   # 相对光标的偏移，避免浮窗盖住光标
 
 
-def parse_board(text: object) -> list[list[int]] | None:
-    """把 board 字段（JSON 文本 / 二维列表）解析成规整的二维整数列表
+def parse_board(text: object, row: int = 0,
+                col: int = 0) -> list[list[int]] | None:
+    """把 board 字段解析成规整的二维整数列表。
 
-    Returns:
-        规整的二维列表（每行等长、元素为 int）；
-        解析失败或数据为空时返回 None。
+    新格式是每格一个字符的 ASCII 字符串，按 ``row`` / ``column`` 切分；
+    旧 JSON 文本仍按 JSON 解析，供迁移期间兼容。
     """
     if isinstance(text, str):
         text = text.strip()
         if not text:
             return None
+        if row > 0 and col > 0 and len(text) == row * col:
+            return board_ascii_to_matrix(text, row, col)
         try:
             data = json.loads(text)
         except (json.JSONDecodeError, TypeError, ValueError):
@@ -80,21 +84,20 @@ def parse_board(text: object) -> list[list[int]] | None:
     if not isinstance(data, (list, tuple)) or not data:
         return None
 
-    board: list[list[int]] = []
+    board = []
     width = 0
-    for row in data:
-        if not isinstance(row, (list, tuple)):
+    for row_data in data:
+        if not isinstance(row_data, (list, tuple)):
             return None
         cells: list[int] = []
-        for cell in row:
-            # 允许 bool/float 等数字形态，无法转成 int 的一律视为不可识别
+        for cell in row_data:
             if isinstance(cell, bool) or not isinstance(cell, (int, float)):
                 return None
             cells.append(int(cell))
         if not width:
             width = len(cells)
         if width == 0 or len(cells) != width:
-            return None   # 非矩形局面，不预览
+            return None
         board.append(cells)
     return board
 

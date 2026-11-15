@@ -1,32 +1,24 @@
-"""局面板（board）紧凑存储与 SQLite 自定义函数。
+"""局面板（board）紧凑 ASCII 存储与 SQLite 兼容函数。
 
-``history.board`` 物理列从「带数字的完成局面 JSON 文本」改为「雷图 BLOB」：
-数字格可由雷图通过 ``ms_toollib.cal_board_numbers`` 无损推导，无需落盘。
+``history.board`` 存储「每格一个 ASCII 字符」的完成局面：
+``0`` ~ ``8`` 分别表示空白格/周围雷数，``*`` 表示雷。字符串按行优先
+排列，没有分隔符；行列数由同一行的 ``history.row`` / ``history.column``
+给出，因此字符串长度应为 ``row * column``。
 
-BLOB 布局（小端）：
-    [2B row][2B col][ceil(row*col/8) B 雷图位图]
-位序：第 ``i*col+j`` 个格子对应 ``bits[i//8]`` 的 ``7 - i%8`` 位。
+示例：``[[-1,-1,-1],[2,3,2],[0,0,0]]`` 存为 ``"***232000"``。
 
-读取约定（**重要**）：
-- ``SELECT * FROM history`` 拿到的 ``board`` 是 **雷图 BLOB**，不是 JSON 文本。
-- 需要 JSON 文本时，用 SQLite 自定义函数 ``py_board_json(board)`` 展开，
-  例如 ``SELECT replay_id, py_board_json(board) AS board FROM history``。
-- 对 board 做 LIKE / 字符串比较时，必须写成
-  ``py_board_json(board) LIKE ?``，直接对 ``board`` 做 LIKE 无意义。
-- 写入时用 ``py_board_blob(json_text)`` 把 JSON 转成 BLOB；插件自身的
-  ``_on_video_save`` 已自动处理，第三方插件不要直接写 history 表。
+读取约定：
+- SELECT ``board`` 拿到的就是实际存储字符串，可直接 LIKE / 子串过滤。
+- 悬浮预览按同一记录的 row/column 把字符串切成二维整数列表；
+  ``*`` 转为 -1，数字字符转为对应整数。
+- 旧 JSON 文本和旧雷图 BLOB 会在后台迁移为 ASCII；迁移前仍可读，
+  但不能按新格式的子串语义查询。
 
-``db_connection`` 会在每个连接上注册这三个函数，因此
-``HistoryService.raw_query`` 也可直接使用它们。
-
-兼容性：若某条记录的 board 仍是旧 JSON 文本（未迁移的历史数据），
-``py_board_json`` 会原样返回，保证平滑过渡。
-
-迁移并发模型：``migrate_board_to_blob`` 把 JSON→BLOB 的解析与校验放在
-维护线程自己的连接上完成（CPU 密集），只把**短小**的条件 UPDATE 交给
-``write=writer.execute(...)``。每个 UPDATE 都带 ``WHERE replay_id = ? AND
-board = ?``（旧值精确匹配），因此并发改写/删除的行不会被覆盖，也不会
-被错误计入迁移数量。函数不自动 commit 调用方事务，也不自动 VACUUM。
+兼容性 UDF：
+- ``py_board_json(board)``：把旧 BLOB/JSON 转成旧 JSON 文本；ASCII 字符串
+  按 row/column 无法在此函数中恢复二维结构，仅作过渡兼容。
+- ``py_board_is_blob(board)`` / ``py_board_is_ascii(board)``：格式判断。
+- ``py_board_ascii(board, row, col)``：把 JSON/雷图 BLOB/ASCII 统一转为 ASCII。
 """
 
 from __future__ import annotations
@@ -40,12 +32,16 @@ from typing import Callable, TypeVar
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "board_json_to_blob",
-    "board_blob_to_json",
-    "register_board_functions",
+    "board_json_to_ascii",
+    "board_blob_to_ascii",
+    "board_to_ascii",
+    "board_ascii_to_matrix",
+    "is_board_ascii",
     "is_board_blob",
-    "migrate_board_to_blob",
-    "BOARD_JSON_SQL",
+    "board_blob_to_json",
+    "board_json_to_blob",
+    "register_board_functions",
+    "migrate_board_to_ascii",
 ]
 
 _U16 = struct.Struct("<HH")
@@ -56,82 +52,158 @@ WriteDispatch = Callable[[Callable[[sqlite3.Connection], T]], T]
 ProgressCallback = Callable[[int, int], None]
 CancelCallback = Callable[[], bool]
 
-# 在 SQL 里把 board 列展开成 JSON 文本的标准表达式，供各查询处复用
-BOARD_JSON_SQL = 'py_board_json("board") AS "board"'
-
 # board 迁移每批行数
 _BOARD_BATCH = 200
 
 
-def board_json_to_blob(text: str | bytes | None) -> bytes | None:
-    """把带数字的完成局面 JSON 文本转成雷图 BLOB。
+def _matrix_from_blob(blob: bytes) -> list[list[int]]:
+    row, col = _U16.unpack_from(blob, 0)
+    bits = blob[4:]
+    if row == 0 or col == 0 or len(bits) != (row * col + 7) // 8:
+        raise ValueError("invalid board bitmap")
+    matrix: list[list[int]] = []
+    for i in range(row):
+        line: list[int] = []
+        for j in range(col):
+            pos = i * col + j
+            mine = (bits[pos // 8] >> (7 - pos % 8)) & 1
+            line.append(-1 if mine else 0)
+        matrix.append(line)
+    import ms_toollib as ms
+    return ms.cal_board_numbers(matrix)
 
-    解析失败返回 None（调用方应保留原值，不静默丢弃数据）。
-    """
+
+def board_json_to_blob(text: str | bytes | None) -> bytes | None:
+    """兼容旧 API：把 JSON 文本转成旧雷图 BLOB。"""
     if text is None:
         return None
-    if isinstance(text, bytes):
-        # 已是紧凑 BLOB，直接返回（幂等）
+    if isinstance(text, bytes) and is_board_blob(text):
         return text
+    matrix = _matrix_from_json(text)
+    if matrix is None:
+        return None
+    return _blob_from_matrix(matrix)
+
+
+def _matrix_from_json(text: object) -> list[list[int]] | None:
     try:
-        matrix = json.loads(text)
+        data = json.loads(text) if isinstance(text, str) else text
     except (json.JSONDecodeError, TypeError, ValueError):
         return None
-    if not isinstance(matrix, list) or not matrix or not isinstance(matrix[0], list):
+    if not isinstance(data, (list, tuple)) or not data or not isinstance(data[0], (list, tuple)):
         return None
-    row = len(matrix)
-    col = len(matrix[0])
-    if row == 0 or col == 0 or row > 255 or col > 255:
+    col = len(data[0])
+    if col == 0:
         return None
-    for line in matrix:
-        if not isinstance(line, list) or len(line) != col:
+    matrix: list[list[int]] = []
+    for line in data:
+        if not isinstance(line, (list, tuple)) or len(line) != col:
             return None
+        values: list[int] = []
+        for cell in line:
+            if isinstance(cell, bool) or not isinstance(cell, int):
+                return None
+            if cell not in (-1, *range(0, 9)):
+                return None
+            values.append(cell)
+        matrix.append(values)
+    return matrix
+
+
+def _blob_from_matrix(matrix: list[list[int]]) -> bytes:
+    row, col = len(matrix), len(matrix[0])
     bits = bytearray((row * col + 7) // 8)
-    for i in range(row):
-        for j in range(col):
-            if matrix[i][j] == -1:
+    for i, line in enumerate(matrix):
+        for j, cell in enumerate(line):
+            if cell == -1:
                 pos = i * col + j
                 bits[pos // 8] |= 1 << (7 - pos % 8)
     return _U16.pack(row, col) + bytes(bits)
 
 
-def board_blob_to_json(blob: bytes | str | None) -> str | None:
-    """把雷图 BLOB 展开回带数字的完成局面 JSON 文本。
+def board_json_to_ascii(text: str | bytes | None) -> str | None:
+    """把带数字的完成局面 JSON 文本转成每格一个字符的字符串。"""
+    matrix = _matrix_from_json(text)
+    if matrix is None:
+        return None
+    return "".join("*" if cell == -1 else str(cell)
+                   for line in matrix for cell in line)
 
-    兼容旧数据：传入 str（旧 JSON 文本）时原样返回。
-    """
+
+def board_blob_to_ascii(blob: bytes | str | None) -> str | None:
+    """把旧雷图 BLOB 转成每格一个字符的字符串。"""
+    if isinstance(blob, str):
+        return board_json_to_ascii(blob)
+    if blob is None or not is_board_blob(blob):
+        return None
+    try:
+        matrix = _matrix_from_blob(blob)
+    except Exception:
+        return None
+    return "".join("*" if cell == -1 else str(cell)
+                   for line in matrix for cell in line)
+
+
+def board_ascii_to_matrix(text: object, row: int, col: int) -> list[list[int]] | None:
+    """按 row/column 把 ASCII 字符串切成二维整数列表。"""
+    if not isinstance(text, str) or row <= 0 or col <= 0:
+        return None
+    if len(text) != row * col:
+        return None
+    board: list[list[int]] = []
+    for i in range(row):
+        line: list[int] = []
+        for ch in text[i * col:(i + 1) * col]:
+            if ch == "*":
+                line.append(-1)
+            elif "0" <= ch <= "8":
+                line.append(ord(ch) - ord("0"))
+            else:
+                return None
+        board.append(line)
+    return board
+
+
+def is_board_ascii(value: object) -> bool:
+    """判断值是否为每格一个字符的 ASCII 局面。"""
+    return (isinstance(value, str) and value != ""
+            and all(ch == "*" or "0" <= ch <= "8" for ch in value))
+
+
+def board_to_ascii(value: object, row: int = 0, col: int = 0) -> str | None:
+    """把 JSON 文本 / 旧雷图 BLOB / ASCII 统一转成 ASCII。"""
+    if value is None:
+        return None
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        raw = bytes(value)
+        if is_board_blob(raw):
+            return board_blob_to_ascii(raw)
+        try:
+            return board_json_to_ascii(raw.decode("utf-8"))
+        except UnicodeDecodeError:
+            return None
+    if is_board_ascii(value):
+        return value
+    return board_json_to_ascii(value)
+
+
+def board_blob_to_json(blob: bytes | str | None) -> str | None:
+    """兼容旧 API：把旧雷图 BLOB 展开回 JSON 文本。"""
     if blob is None:
         return None
     if isinstance(blob, str):
         return blob
+    if not is_board_blob(blob):
+        return None
     try:
-        if len(blob) < 4:
-            return None
-        row, col = _U16.unpack_from(blob, 0)
-        bits = blob[4:]
-        if row == 0 or col == 0 or row > 255 or col > 255:
-            return None
-        expected = (row * col + 7) // 8
-        if len(bits) != expected:
-            return None
-        matrix: list[list[int]] = []
-        for i in range(row):
-            line: list[int] = []
-            for j in range(col):
-                pos = i * col + j
-                is_mine = (bits[pos // 8] >> (7 - pos % 8)) & 1
-                line.append(-1 if is_mine else 0)
-            matrix.append(line)
-        import ms_toollib as ms
-        solved = ms.cal_board_numbers(matrix)
-        return json.dumps(solved, separators=(",", ":"))
-    except Exception as exc:  # 解析/推导失败一律返回 None，不抛给 SQLite
+        return json.dumps(_matrix_from_blob(blob), separators=(",", ":"))
+    except Exception as exc:
         logger.warning("board 雷图展开失败: %s", exc)
         return None
 
 
 def is_board_blob(value: object) -> bool:
-    """判断值是否为紧凑雷图 BLOB（用于迁移时的幂等判断）。"""
+    """判断值是否为旧雷图 BLOB（供迁移兼容）。"""
     if not isinstance(value, (bytes, bytearray, memoryview)):
         return False
     try:
@@ -145,29 +217,34 @@ def is_board_blob(value: object) -> bool:
 
 
 def _py_board_json(value):
-    """SQLite UDF：board → JSON 文本。"""
     return board_blob_to_json(value)
 
 
 def _py_board_blob(value):
-    """SQLite UDF：JSON 文本 → 雷图 BLOB。"""
     result = board_json_to_blob(value)
     return result if result is not None else value
 
 
+def _py_board_ascii(value, row, col):
+    return board_to_ascii(value, row, col)
+
+
 def _py_board_is_blob(value):
-    """SQLite UDF：判断 board 是否已是紧凑 BLOB（迁移用）。"""
     return 1 if is_board_blob(value) else 0
 
 
+def _py_board_is_ascii(value):
+    return 1 if is_board_ascii(value) else 0
+
+
 def register_board_functions(conn) -> None:
-    """在 SQLite 连接上注册 board 相关自定义函数（幂等）。"""
+    """在 SQLite 连接上注册兼容 UDF（幂等）。"""
     conn.create_function("py_board_json", 1, _py_board_json)
     conn.create_function("py_board_blob", 1, _py_board_blob)
+    conn.create_function("py_board_ascii", 3, _py_board_ascii)
     conn.create_function("py_board_is_blob", 1, _py_board_is_blob)
+    conn.create_function("py_board_is_ascii", 1, _py_board_is_ascii)
 
-
-# ── 迁移 ──────────────────────────────────────────────────────
 
 def _board_columns(conn: sqlite3.Connection) -> set[str]:
     try:
@@ -177,35 +254,25 @@ def _board_columns(conn: sqlite3.Connection) -> set[str]:
 
 
 def _convert_batch(
-    rows: list[tuple[int, object]],
-) -> tuple[list[tuple[bytes, int, object]], int]:
-    """纯 CPU：解析 + 压缩 + 反向校验一批旧 JSON 文本。
-
-    Returns:
-        (``[(blob, replay_id, 原值), ...]``, 本批中**待迁移**的行数)。
-        无法压缩的异常数据保留原值、不计入待迁移，不阻断迁移。
-    """
-    pending: list[tuple[bytes, int, object]] = []
+    rows: list[tuple[int, object, int, int]],
+) -> tuple[list[tuple[str, int, object]], int]:
+    """准备一批待迁移行：JSON/旧雷图 BLOB → ASCII 字符串。"""
+    pending: list[tuple[str, int, object]] = []
     needed = 0
-    for replay_id, value in rows:
-        if is_board_blob(value):
+    for replay_id, value, row, col in rows:
+        if is_board_ascii(value):
             continue
         needed += 1
-        text = value.decode("utf-8") if isinstance(value, bytes) else value
-        if not isinstance(text, str):
+        ascii_board = board_to_ascii(value, row, col)
+        if ascii_board is None or int(row) <= 0 or int(col) <= 0 \
+                or len(ascii_board) != int(row) * int(col):
+            logger.warning("board %s 无法安全转成 ASCII，保留原值", replay_id)
             continue
-        blob = board_json_to_blob(text)
-        if blob is None:
-            continue
-        if board_blob_to_json(blob) != text:
-            raise ValueError(
-                f"board 迁移校验失败 replay_id={replay_id}: "
-                "展开结果与原 JSON 不一致")
-        pending.append((blob, replay_id, value))
+        pending.append((ascii_board, replay_id, value))
     return pending, needed
 
 
-def migrate_board_to_blob(
+def migrate_board_to_ascii(
     conn: sqlite3.Connection,
     batch_size: int = _BOARD_BATCH,
     *,
@@ -213,87 +280,49 @@ def migrate_board_to_blob(
     progress: ProgressCallback | None = None,
     cancelled: CancelCallback | None = None,
 ) -> int:
-    """把 ``history.board`` 中残留的 JSON 文本转成雷图 BLOB（幂等）。
-
-    解析/压缩/反向校验（CPU）在 ``conn``（维护线程连接）上完成；写线程
-    只执行带旧值精确匹配的短 ``UPDATE .. WHERE replay_id=? AND board=?``，
-    每条 UPDATE 独立条件判断，因此：
-
-    - 并发改写 board 的行不会被覆盖（条件不匹配 → 不计入转换数）。
-    - 并发删除的行自然跳过。
-    - 不 commit 调用方事务；``write`` 提供时由 writer 事务边界负责。
-
-    Args:
-        conn: 维护线程连接（读数据）。
-        batch_size: 每批读取行数。
-        write: ``writer.execute(callback, background=True)`` 调度器；
-            ``None`` 时直接在本连接执行短事务。
-        progress: ``(done, total)``，每批结束后回调；没有待迁移数据时
-            **不会**回调。
-        cancelled: 返回 True 时在批间停止，返回已转换行数。
-
-    Returns:
-        本函数实际转换的行数。
-    """
+    """把旧 JSON/雷图 BLOB 迁移为每格一个字符的 ASCII 字符串（幂等）。"""
     if batch_size <= 0:
         batch_size = _BOARD_BATCH
-    if "board" not in _board_columns(conn):
+    cols = _board_columns(conn)
+    if "board" not in cols or "row" not in cols or "column" not in cols:
         return 0
-    # 只统计「仍是旧 JSON 文本」的行；已是 BLOB 的行不算待办，
-    # 因此没有待迁移数据时 total=0，progress 完全不回调。
-    total = -1
     try:
         total = conn.execute(
-            "SELECT COUNT(*) FROM history "
-            "WHERE board IS NOT NULL AND py_board_is_blob(board) = 0"
-        ).fetchone()[0]
+            "SELECT COUNT(*) FROM history WHERE board IS NOT NULL "
+            "AND py_board_is_ascii(board) = 0").fetchone()[0]
     except sqlite3.OperationalError:
-        # 连接未注册 UDF：本地注册（幂等，只影响本连接）
-        try:
-            register_board_functions(conn)
-            total = conn.execute(
-                "SELECT COUNT(*) FROM history "
-                "WHERE board IS NOT NULL AND py_board_is_blob(board) = 0"
-            ).fetchone()[0]
-        except sqlite3.OperationalError:
-            return 0
+        register_board_functions(conn)
+        total = conn.execute(
+            "SELECT COUNT(*) FROM history WHERE board IS NOT NULL "
+            "AND py_board_is_ascii(board) = 0").fetchone()[0]
     if total <= 0:
         return 0
 
     converted = 0
-    processed = 0
     done_needed = 0
     last_id = -1
     while True:
         if cancelled is not None and cancelled():
             break
         rows = conn.execute(
-            "SELECT replay_id, board FROM history "
+            'SELECT replay_id, board, "row", "column" FROM history '
             "WHERE replay_id > ? AND board IS NOT NULL "
             "ORDER BY replay_id LIMIT ?",
-            (last_id, batch_size),
-        ).fetchall()
+            (last_id, batch_size)).fetchall()
         if not rows:
             break
         last_id = rows[-1][0]
-        processed += len(rows)
-        try:
-            pending, needed = _convert_batch(rows)
-        except ValueError as exc:
-            logger.warning("board 迁移中断: %s", exc)
-            break
+        pending, needed = _convert_batch(rows)
         done_needed += needed
-
         if pending:
             def _apply(w: sqlite3.Connection,
                        batch: tuple = tuple(pending)) -> int:
-                # 回调内只有 SQL，无解析/编码
                 done = 0
-                for blob, replay_id, original in batch:
+                for ascii_board, replay_id, original in batch:
                     cur = w.execute(
                         "UPDATE history SET board = ? "
                         "WHERE replay_id = ? AND board = ?",
-                        (blob, replay_id, original))
+                        (ascii_board, replay_id, original))
                     done += cur.rowcount
                 return done
 
@@ -304,7 +333,6 @@ def migrate_board_to_blob(
                     logger.warning("board 迁移写入失败，稍后重试: %s", exc)
                     break
             else:
-                # 无 writer：用短事务；调用方已有事务时不接管其提交边界
                 owned = not conn.in_transaction
                 if owned:
                     conn.execute("BEGIN IMMEDIATE")

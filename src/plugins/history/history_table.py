@@ -77,6 +77,8 @@ class HistoryTable(QWidget):
 
     # 信号：列显示配置变化 (show_fields_json)
     show_fields_changed = Signal(str)
+    # 信号：记录删除后请求后台重建含墓碑的分块
+    compaction_requested = Signal()
 
     NF_COLUMN_WIDTH = 50
 
@@ -163,7 +165,7 @@ class HistoryTable(QWidget):
         self._preview: BoardPreviewPopup | None = None
         self._preview_enabled = True      # 由插件配置「局面预览」控制
         self._preview_delay_ms = self.PREVIEW_DELAY_MS
-        self._hover_key: tuple[int, int, str] | None = None
+        self._hover_key: tuple[int, int, int] | None = None
         self._pending_pos: QPoint | None = None
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
@@ -254,20 +256,30 @@ class HistoryTable(QWidget):
         else:
             self._preview_timer.start(self._preview_delay_ms)
 
-    def _preview_key(self, index: QModelIndex) -> tuple[int, int, str] | None:
-        """可预览单元格的标识 (row, col, board 文本)；非 board 列或无效单元格返回 None"""
+    def _preview_key(self, index: QModelIndex) -> tuple[int, int, int] | None:
+        """可预览单元格的标识 (模型行, 列, replay_id)。"""
         if not index.isValid():
             return None
         if self.model.headerData(index.column(), Qt.Orientation.Horizontal) != "board":
             return None
-        text = self.model.data(index, Qt.ItemDataRole.DisplayRole)
-        return (index.row(), index.column(), text if isinstance(text, str) else "")
+        if index.row() >= len(self.model._data):
+            return None
+        rid = self.model._data[index.row()].replay_id
+        return (index.row(), index.column(), int(rid))
 
     def _show_preview(self) -> None:
-        """解析局面并弹出预览（计时结束或延迟为 0 时调用）"""
+        """直接查库读取 row/column/board 并弹出预览。"""
         if self._hover_key is None:
             return
-        board = parse_board(self._hover_key[2])
+        replay_id = self._hover_key[2]
+        with db_connection(self._db_path) as conn:
+            record = conn.execute(
+                'SELECT "row", "column", "board" FROM history '
+                "WHERE replay_id = ?", (replay_id,)).fetchone()
+        if record is None:
+            return
+        row, col, board_text = record
+        board = parse_board(board_text, int(row or 0), int(col or 0))
         if not board:
             return
         if self._preview is None:
@@ -316,6 +328,7 @@ class HistoryTable(QWidget):
             return
         try:
             execute_write(self._db_path, lambda conn: delete_record_tx(conn, replay_id))
+            self.compaction_requested.emit()
         except sqlite3.Error as e:
             QMessageBox.warning(
                 self, _translate("Form", "错误"),

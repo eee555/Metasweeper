@@ -3368,6 +3368,38 @@ Bild</translation>
         <translation>Log-Anzeige</translation>
     </message>
     <message>
+        <source>清理全部日志...</source>
+        <translation>Alle Protokolle löschen...</translation>
+    </message>
+    <message>
+        <source>清理全部日志</source>
+        <translation>Alle Protokolle löschen</translation>
+    </message>
+    <message>
+        <source>清空日志目录下的所有日志文件内容</source>
+        <translation>Den Inhalt aller Protokolldateien im Protokollverzeichnis löschen</translation>
+    </message>
+    <message>
+        <source>将清空日志目录下的所有日志文件内容：
+{path}
+
+该操作不可撤销，确定继续吗？</source>
+        <translation>Der Inhalt aller Protokolldateien in diesem Verzeichnis wird gelöscht:
+{path}
+
+Dies kann nicht rückgängig gemacht werden. Fortfahren?</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件，{failed} 个清理失败。
+文件可能被其它程序占用。</source>
+        <translation>{n} Protokolldateien gelöscht, {failed} fehlgeschlagen.
+Die Dateien werden möglicherweise von einem anderen Programm verwendet.</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件</source>
+        <translation>{n} Protokolldateien gelöscht</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1269"/>
         <location filename="../plugin_manager/main_window.py" line="1376"/>
         <source>工具栏</source>

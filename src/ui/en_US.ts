@@ -3365,6 +3365,38 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <translation>Log Viewer</translation>
     </message>
     <message>
+        <source>清理全部日志...</source>
+        <translation>Clear All Logs...</translation>
+    </message>
+    <message>
+        <source>清理全部日志</source>
+        <translation>Clear All Logs</translation>
+    </message>
+    <message>
+        <source>清空日志目录下的所有日志文件内容</source>
+        <translation>Clear the contents of every log file in the log directory</translation>
+    </message>
+    <message>
+        <source>将清空日志目录下的所有日志文件内容：
+{path}
+
+该操作不可撤销，确定继续吗？</source>
+        <translation>All log file contents in this directory will be cleared:
+{path}
+
+This cannot be undone. Continue?</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件，{failed} 个清理失败。
+文件可能被其它程序占用。</source>
+        <translation>Cleared {n} log files, {failed} failed.
+The files may be in use by another program.</translation>
+    </message>
+    <message>
+        <source>已清理 {n} 个日志文件</source>
+        <translation>Cleared {n} log files</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="1269"/>
         <location filename="../plugin_manager/main_window.py" line="1376"/>
         <source>工具栏</source>

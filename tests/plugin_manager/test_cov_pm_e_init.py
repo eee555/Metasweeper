@@ -271,6 +271,77 @@ def test_on_settings_changed_applies_level_and_status(qtbot, monkeypatch):
     assert w.statusBar().currentMessage() == "settings-saved"
 
 
+def test_clear_all_logs_confirms_and_truncates(qtbot, monkeypatch, tmp_path):
+    w = shell(qtbot)
+    log_dir = tmp_path / "logs"
+    (log_dir / "plugins").mkdir(parents=True)
+    (log_dir / "main.log").write_text("main", encoding="utf-8")
+    (log_dir / "plugins" / "alpha.log").write_text("alpha", encoding="utf-8")
+    monkeypatch.setattr(app_paths, "get_data_dir", lambda: tmp_path)
+    asked = []
+
+    def fake_question(*args, **kwargs):
+        asked.append(args)
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(mw.QMessageBox, "question", fake_question)
+    warnings = []
+    monkeypatch.setattr(mw.QMessageBox, "warning",
+                        lambda *a, **k: warnings.append(a))
+    cleared_viewer = []
+    w._log_viewer_dlg = SimpleNamespace(
+        clear_display=lambda: cleared_viewer.append(True))
+
+    w._clear_all_logs()
+
+    assert asked and "logs" in asked[0][2]
+    assert (log_dir / "main.log").read_text(encoding="utf-8") == ""
+    assert (log_dir / "plugins" / "alpha.log").read_text(encoding="utf-8") == ""
+    assert cleared_viewer == [True]
+    assert not warnings
+    assert w.statusBar().currentMessage() == w.tr("已清理 {n} 个日志文件").format(n=2)
+
+
+def test_clear_all_logs_cancelled_changes_nothing(qtbot, monkeypatch, tmp_path):
+    w = shell(qtbot)
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    target = log_dir / "main.log"
+    target.write_text("keep", encoding="utf-8")
+    monkeypatch.setattr(app_paths, "get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(mw.QMessageBox, "question",
+                        lambda *a, **k: QMessageBox.StandardButton.No)
+    cleared_viewer = []
+    w._log_viewer_dlg = SimpleNamespace(
+        clear_display=lambda: cleared_viewer.append(True))
+
+    w._clear_all_logs()
+
+    assert target.read_text(encoding="utf-8") == "keep"
+    assert cleared_viewer == []
+
+
+def test_clear_all_logs_reports_failures(qtbot, monkeypatch, tmp_path):
+    w = shell(qtbot)
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "main.log").write_text("main", encoding="utf-8")
+    monkeypatch.setattr(app_paths, "get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(mw.QMessageBox, "question",
+                        lambda *a, **k: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(
+        "plugin_manager.logging_setup.clear_all_logs",
+        lambda _dir: (1, ["C:/logs/locked.log"]))
+    warnings = []
+    monkeypatch.setattr(mw.QMessageBox, "warning",
+                        lambda *a, **k: warnings.append(a))
+
+    w._clear_all_logs()
+
+    assert warnings
+    assert "1" in warnings[0][2]
+
+
 def test_open_log_viewer_creates_then_reuses(qtbot, monkeypatch):
     w = shell(qtbot)
     w._settings_mgr = SimpleNamespace(

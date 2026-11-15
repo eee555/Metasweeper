@@ -29,7 +29,8 @@ def test_game_save_writes_only_durable_staging_and_survives_reopen(tmp_path):
         video_save_over=SimpleNamespace(emit=lambda: emitted.append(True)))
     writer = DatabaseWriter(path)
     try:
-        event = GameFinishedEvent(raw_data=b"preserved replay bytes", board=[[0]])
+        event = GameFinishedEvent(raw_data=b"preserved replay bytes", board=[[0]],
+                                  bbbv=100, bbbv_solved=1)
         HistoryPlugin._on_video_save(shell, event)
     finally:
         writer.close()
@@ -39,6 +40,27 @@ def test_game_save_writes_only_durable_staging_and_survives_reopen(tmp_path):
         assert reader.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == 0
         assert reader.execute("SELECT COUNT(*) FROM replay_staging").fetchone()[0] == 1
         assert read_raw_data(reader, 1) == event.raw_data
+
+
+def test_low_value_save_keeps_metadata_without_replay(tmp_path):
+    path = tmp_path / "history.db"
+    initialized_database(path)
+    shell = SimpleNamespace(
+        data_dir=tmp_path,
+        other_info=SimpleNamespace(min_replay_solved_percent=30),
+        _migrate_worker=None,
+        logger=SimpleNamespace(info=lambda *a: None),
+        video_save_over=SimpleNamespace(emit=lambda: None))
+    writer = DatabaseWriter(path)
+    try:
+        event = GameFinishedEvent(raw_data=b"replay", bbbv=100, bbbv_solved=29)
+        HistoryPlugin._on_video_save(shell, event)
+        with db_connection(path) as reader:
+            assert reader.execute("SELECT bbbv_solved FROM history").fetchone()[0] == 29
+            assert reader.execute("SELECT COUNT(*) FROM replay_index").fetchone()[0] == 0
+            assert reader.execute("SELECT COUNT(*) FROM replay_staging").fetchone()[0] == 0
+    finally:
+        writer.close()
 
 
 def test_save_failure_rolls_back_metadata_and_does_not_report_success(tmp_path, monkeypatch):
@@ -112,6 +134,65 @@ def test_worker_hides_progress_after_migration_failure(qtbot, tmp_path, monkeypa
                         timeout=10000)
         with db_connection(path) as reader:
             assert reader.execute("SELECT raw_data FROM replay_data").fetchone()[0] == b"broken"
+    finally:
+        worker.requestInterruption()
+        worker.notify()
+        assert worker.wait(10000)
+        writer.close()
+
+
+def test_delete_record_requests_background_compaction(tmp_path):
+    path = tmp_path / "history.db"
+    initialized_database(path)
+    with db_connection(path) as conn:
+        from plugins.history.replay_store import write_record
+        conn.execute("INSERT INTO history (replay_id) VALUES (1)")
+        write_record(conn, 1, b"staged replay")
+        conn.commit()
+    requested = []
+    shell = SimpleNamespace(
+        data_dir=tmp_path,
+        logger=SimpleNamespace(info=lambda *a: None),
+        _migrate_worker=SimpleNamespace(
+            request_compaction=lambda: requested.append(True)))
+    assert HistoryPlugin.delete_record(shell, 1) is True
+    assert requested == [True]
+    with db_connection(path) as reader:
+        assert reader.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 0
+        assert reader.execute("SELECT deleted FROM replay_index "
+                              "WHERE replay_id = 1").fetchone()[0] == 1
+        assert reader.execute("SELECT COUNT(*) FROM replay_staging "
+                              "WHERE replay_id = 1").fetchone()[0] == 0
+
+
+def test_worker_compacts_preexisting_tombstones_without_cleanup(qtbot, tmp_path):
+    from plugins.history import replay_store
+    from tests.replay.test_replay_store import make_evf
+
+    path = tmp_path / "history.db"
+    initialized_database(path)
+    raws = {rid: make_evf(checksum=bytes([rid]) * 32) for rid in (1, 2, 3)}
+    with db_connection(path) as conn:
+        for rid, raw in raws.items():
+            conn.execute("INSERT INTO history (replay_id) VALUES (?)", (rid,))
+            replay_store.write_record(conn, rid, raw)
+        conn.commit()
+        replay_store.seal_staging(conn, limit=3)
+        replay_store.mark_deleted(conn, 2)
+        conn.commit()
+    writer = DatabaseWriter(path)
+    worker = _CompressionMigrateWorker(path, writer, min_solved_percent=0)
+    try:
+        worker.start()
+        def compacted():
+            with db_connection(path) as reader:
+                return reader.execute(
+                    "SELECT record_count FROM replay_segment").fetchone()[0] == 2
+        qtbot.waitUntil(compacted, timeout=10000)
+        with db_connection(path) as reader:
+            assert read_raw_data(reader, 1) == raws[1]
+            assert read_raw_data(reader, 2) is None
+            assert read_raw_data(reader, 3) == raws[3]
     finally:
         worker.requestInterruption()
         worker.notify()

@@ -113,6 +113,7 @@ def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
             self._act_control_auth = QAction(self)
             self._act_dev_guide = QAction(self)
             self._act_log_viewer = QAction(self)
+            self._act_clear_logs = QAction(self)
             self._debug_act = QAction(self)
             self._toolbar = QToolBar(self)
             self._refresh_btn = QPushButton(self)

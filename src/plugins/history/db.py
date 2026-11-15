@@ -110,8 +110,8 @@ def db_connection(
     """
     conn = sqlite3.connect(str(db_path))
     try:
-        # board 雷图展开函数始终注册（与用户自定义 py_ 脚本无关），
-        # 任何连接上的 SELECT py_board_json(board) 都必须可用。
+        # board 兼容转换函数始终注册（与用户自定义 py_ 脚本无关），
+        # 旧库迁移和兼容查询仍可调用。
         from .board_codec import register_board_functions
         register_board_functions(conn)
         if register_custom_functions:
@@ -125,7 +125,9 @@ def delete_record_tx(conn: sqlite3.Connection, replay_id: int) -> bool:
     """删除指定记录（history 元数据 + replay_data 录像数据同一事务）
 
     供 plugin.delete_record 与 history_table.delete_row 复用；
-    不负责 commit，由调用方在同一事务内提交。
+    不负责 commit，由调用方在同一事务内提交。新分块存储只写
+    tombstone；调用方应在成功后唤醒后台 compact，重组含死槽位的
+    分块并回收 SQLite 空闲页。删除路径本身不做 LZMA 重编码。
 
     Returns:
         是否删除了 history 中的记录
@@ -142,6 +144,12 @@ def delete_record_tx(conn: sqlite3.Connection, replay_id: int) -> bool:
     # 新分块存储采用 tombstone（块内是绝对偏移，不能物理删）
     from .replay_store import mark_deleted
     mark_deleted(conn, replay_id)
+    # 删除历史记录不可撤销，同时删除暂存录像。
+    try:
+        cursor.execute(
+            "DELETE FROM replay_staging WHERE replay_id = ?", (replay_id,))
+    except sqlite3.OperationalError:
+        pass
     return deleted
 
 
@@ -150,6 +158,7 @@ def ensure_indexes(conn: sqlite3.Connection) -> None:
 
     - idx_history_level: WHERE level 过滤 + 按 replay_id 倒序
     - idx_history_start_time: ORDER BY start_time 排序
+    - idx_history_end_time: ORDER BY end_time 降序分页
     - idx_history_game_state: game_state 过滤 + start_time 排序
     - idx_replay_data_compressed: 压缩迁移 worker 扫描未压缩记录
     """
@@ -160,6 +169,9 @@ def ensure_indexes(conn: sqlite3.Connection) -> None:
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_history_start_time "
         "ON history (start_time)")
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_history_end_time "
+        "ON history (end_time DESC)")
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_history_game_state "
         "ON history (game_state, start_time)")

@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib
 import itertools
 from dataclasses import FrozenInstanceError
+from pathlib import Path
 from types import SimpleNamespace
 
 import loguru
@@ -221,6 +222,65 @@ def test_get_plugin_logger_default_dir_uses_app_paths(log_env, monkeypatch):
     finally:
         log_env.real_remove(sink_id)
         log_env.added_ids.remove(sink_id)
+
+
+# ── clear_all_logs ───────────────────────────────────────────────────────
+
+
+def test_clear_all_logs_truncates_only_log_files(log_env):
+    log_dir = log_env.tmp_path / "logs"
+    (log_dir / "plugins").mkdir(parents=True)
+    main_log = log_dir / "main.log"
+    plugin_log = log_dir / "plugins" / "alpha.log"
+    rotated = log_dir / "main.2026-01-01_00-00-00_000000.log"
+    untouched = log_dir / "screenshot.png"
+    for path in (main_log, plugin_log, rotated, untouched):
+        path.write_text("old content", encoding="utf-8")
+
+    cleared, failed = log_env.module.clear_all_logs(log_dir)
+
+    assert (cleared, failed) == (3, [])
+    for path in (main_log, plugin_log, rotated):
+        assert path.read_text(encoding="utf-8") == ""
+    assert untouched.read_text(encoding="utf-8") == "old content"
+
+
+def test_clear_all_logs_missing_dir(log_env):
+    assert log_env.module.clear_all_logs(log_env.tmp_path / "absent") == (0, [])
+
+
+def test_clear_all_logs_reports_unwritable_file(log_env, monkeypatch):
+    log_dir = log_env.tmp_path / "logs_locked"
+    log_dir.mkdir()
+    blocked = log_dir / "blocked.log"
+    blocked.write_text("x", encoding="utf-8")
+    real_open = Path.open
+
+    def fake_open(self, *args, **kwargs):
+        if self.name == "blocked.log":
+            raise PermissionError("locked")
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fake_open)
+    cleared, failed = log_env.module.clear_all_logs(log_dir)
+    assert cleared == 0 and failed == [str(blocked)]
+
+
+def test_clear_all_logs_keeps_active_sink_writable(log_env):
+    """截断而非删除：正被 loguru 追加写入的日志文件清空后仍能继续记录。"""
+    log_dir = log_env.tmp_path / "logs_active"
+    log_dir.mkdir()
+    sink_id = log_env.logger.add(str(log_dir / "main.log"), format="{message}")
+    log_env.added_ids.append(sink_id)
+    log_env.logger.info("before-clear")
+
+    assert log_env.module.clear_all_logs(log_dir) == (1, [])
+
+    log_env.logger.info("after-clear")
+    text = (log_dir / "main.log").read_text(encoding="utf-8")
+    assert "after-clear" in text
+    assert "before-clear" not in text
+    assert "\x00" not in text
 
 
 # ── 日志级别设置 ─────────────────────────────────────────────────────────

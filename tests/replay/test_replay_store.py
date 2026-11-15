@@ -35,15 +35,20 @@ from plugins.history.replay_store import (
     PreparedSeal,
     ReplayIntegrityError,
     apply_seal,
+    cleanup_low_value_replays,
+    compact_tombstone_segments,
+    count_sealable_staging,
     ensure_tables,
+    fill_incomplete_segments,
     finalize_migration,
     mark_deleted,
     migrate_from_replay_data,
     prepare_seal,
     read_raw_data,
-    restore_deleted,
     seal_staging,
     write_record,
+    batch_sealable_staging_max_id,
+    tombstone_segment_ids,
 )
 
 
@@ -210,6 +215,121 @@ def test_write_and_read_before_seal(conn):
     write_record(conn, 1, b)
     conn.commit()
     assert read_raw_data(conn, 1) == b
+
+
+def test_cleanup_compacts_segment_and_preserves_history_metadata(tmp_path):
+    from plugins.history.db import db_connection
+    path = tmp_path / "history.db"
+    with db_connection(path) as conn:
+        conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, bbbv INTEGER, bbbv_solved INTEGER)")
+        ensure_tables(conn)
+        raws = [make_evf(checksum=bytes([i]) * 32) for i in (1, 2, 3)]
+        for rid, raw, solved in zip((1, 2, 3), raws, (10, 30, 100)):
+            conn.execute("INSERT INTO history VALUES (?, 100, ?)", (rid, solved))
+            write_record(conn, rid, raw)
+        conn.commit()
+        assert seal_staging(conn, limit=3) == 3
+        progress = []
+        assert cleanup_low_value_replays(
+            conn, 30, progress=lambda done, total: progress.append((done, total))) == 1
+        assert progress[0] == (0, 1)
+        assert progress[-1] == (1, 1)
+        assert read_raw_data(conn, 1) is None
+        assert read_raw_data(conn, 2) == raws[1]
+        assert read_raw_data(conn, 3) == raws[2]
+        assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 3
+        assert conn.execute("SELECT record_count FROM replay_segment").fetchone()[0] == 2
+        assert cleanup_low_value_replays(conn, 30) == 0
+
+
+
+def test_compact_tombstone_segments_removes_dead_slots(conn):
+    raws = {rid: make_evf(checksum=bytes([rid]) * 32) for rid in range(1, 6)}
+    for rid, raw in raws.items():
+        write_record(conn, rid, raw)
+    conn.commit()
+    assert seal_staging(conn, limit=5) == 5
+    (seg_id,) = conn.execute("SELECT seg_id FROM replay_segment").fetchone()
+    mark_deleted(conn, 2)
+    mark_deleted(conn, 4)
+    conn.commit()
+
+    assert tombstone_segment_ids(conn) == [seg_id]
+    assert compact_tombstone_segments(conn) == 1
+    assert conn.execute(
+        "SELECT record_count FROM replay_segment WHERE seg_id = ?",
+        (seg_id,)).fetchone()[0] == 3
+    for rid in (1, 3, 5):
+        assert read_raw_data(conn, rid) == raws[rid]
+    for rid in (2, 4):
+        assert read_raw_data(conn, rid) is None
+    assert tombstone_segment_ids(conn) == []
+    assert compact_tombstone_segments(conn) == 0
+
+
+def test_compact_tombstone_segments_rechecks_snapshot(conn):
+    raws = {rid: make_evf(checksum=bytes([rid]) * 32) for rid in range(1, 4)}
+    for rid, raw in raws.items():
+        write_record(conn, rid, raw)
+    conn.commit()
+    assert seal_staging(conn, limit=3) == 3
+    (seg_id,) = conn.execute("SELECT seg_id FROM replay_segment").fetchone()
+    mark_deleted(conn, 2)
+    conn.commit()
+    original_blob = conn.execute(
+        "SELECT blob FROM replay_segment WHERE seg_id = ?",
+        (seg_id,)).fetchone()[0]
+    changed = []
+
+    def write(operation):
+        conn.execute(
+            "UPDATE replay_segment SET blob = ? WHERE seg_id = ?",
+            (b"changed", seg_id))
+        conn.commit()
+        changed.append(True)
+        try:
+            return operation(conn)
+        finally:
+            conn.execute(
+                "UPDATE replay_segment SET blob = ? WHERE seg_id = ?",
+                (original_blob, seg_id))
+            conn.commit()
+
+    assert compact_tombstone_segments(conn, write=write) == 0
+    assert changed == [True]
+    for rid, raw in raws.items():
+        if rid != 2:
+            assert read_raw_data(conn, rid) == raw
+
+
+def test_batch_sealable_staging_max_id_limits_watermark(conn):
+    for rid in range(1, 6):
+        write_record(conn, rid, make_evf(checksum=bytes([rid]) * 32))
+    conn.commit()
+    assert batch_sealable_staging_max_id(conn, 3) == 3
+    assert batch_sealable_staging_max_id(conn, 10) == 5
+
+def test_fill_incomplete_segments_keeps_remaining_staging(conn):
+    raw = make_evf()
+    for rid in range(1, 4):
+        write_record(conn, rid, make_evf(checksum=bytes([rid]) * 32))
+    conn.commit()
+    assert seal_staging(conn, limit=3) == 3
+    (seg_id,) = conn.execute("SELECT seg_id FROM replay_segment").fetchone()
+    for rid in range(4, 8):
+        write_record(conn, rid, make_evf(checksum=bytes([rid]) * 32))
+    conn.commit()
+    assert count_sealable_staging(conn) == 4
+    assert fill_incomplete_segments(conn, batch_size=4) == 1
+    assert conn.execute(
+        "SELECT record_count FROM replay_segment WHERE seg_id = ?",
+        (seg_id,)).fetchone()[0] == 4
+    assert count_sealable_staging(conn) == 3
+    assert conn.execute("SELECT COUNT(*) FROM replay_segment").fetchone()[0] == 1
+    for rid in range(1, 5):
+        assert read_raw_data(conn, rid) == make_evf(checksum=bytes([rid]) * 32)
+    for rid in range(5, 8):
+        assert read_raw_data(conn, rid) == make_evf(checksum=bytes([rid]) * 32)
 
 
 def test_write_record_never_seals(conn):
@@ -495,13 +615,10 @@ def test_tombstone_delete(conn):
     mark_deleted(conn, 1)
     conn.commit()
     assert read_raw_data(conn, 1) is None
-    restore_deleted(conn, 1)
-    conn.commit()
-    assert read_raw_data(conn, 1) == b
 
 
 def test_tombstoned_entry_not_sealed(conn):
-    """墓碑条目不得被封口（否则 restore_deleted 后索引会指向块）。"""
+    """墓碑条目不得被封口。"""
     for i in range(BLOCK_SIZE):
         write_record(conn, i + 1, make_evf())
     mark_deleted(conn, 3)
@@ -514,9 +631,6 @@ def test_tombstoned_entry_not_sealed(conn):
         "SELECT codec FROM replay_index WHERE replay_id = 3").fetchone()[0] \
         == CODEC_ZLIB
     assert read_raw_data(conn, 3) is None
-    restore_deleted(conn, 3)
-    conn.commit()
-    assert read_raw_data(conn, 3) == make_evf()
 
 
 def test_unsupported_replay_falls_back_to_zlib(conn):
@@ -633,8 +747,6 @@ def test_tombstone_never_falls_back_to_old_history(conn):
     mark_deleted(conn, 1)
     conn.execute("DELETE FROM replay_staging WHERE replay_id = 1")
     assert read_raw_data(conn, 1) is None
-    restore_deleted(conn, 1)
-    assert read_raw_data(conn, 1) == raw
 
 
 def test_finalize_preserves_caller_transaction(conn):

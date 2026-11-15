@@ -934,6 +934,10 @@ class LogViewerDialog(QDialog):
         """清空日志显示"""
         self._log_view.clear()
 
+    def clear_display(self) -> None:
+        """清空日志显示（供外部在日志文件被清理后同步界面）。"""
+        self._clear_log()
+
     def closeEvent(self, event) -> None:
         """关闭时移除 sink"""
         if self._sink_id is not None:
@@ -1578,6 +1582,15 @@ class PluginManagerWindow(QMainWindow):
         set_action_icon(self._act_log_viewer, "log")
         self._act_log_viewer.triggered.connect(lambda: self._open_log_viewer())
 
+        # 清理全部日志动作
+        self._menu_view.addSeparator()
+        self._act_clear_logs = self._menu_view.addAction(
+            self.tr("清理全部日志..."))
+        set_action_icon(self._act_clear_logs, "clear")
+        self._act_clear_logs.setToolTip(
+            self.tr("清空日志目录下的所有日志文件内容"))
+        self._act_clear_logs.triggered.connect(self._clear_all_logs)
+
         # ── 工具栏 ──
         self._toolbar = QToolBar(self.tr("工具栏"))
         self._toolbar.setMovable(False)
@@ -1690,6 +1703,9 @@ class PluginManagerWindow(QMainWindow):
         self._act_dev_guide.setText(self.tr("插件开发指南"))
         self._menu_view.setTitle(self.tr("查看"))
         self._act_log_viewer.setText(self.tr("日志查看"))
+        self._act_clear_logs.setText(self.tr("清理全部日志..."))
+        self._act_clear_logs.setToolTip(
+            self.tr("清空日志目录下的所有日志文件内容"))
         self._toolbar.setWindowTitle(self.tr("工具栏"))
         self._refresh_btn.setText(self.tr("刷新"))
         self._refresh_btn.setToolTip(self.tr("刷新插件列表"))
@@ -1853,6 +1869,53 @@ class PluginManagerWindow(QMainWindow):
         self._log_viewer_dlg.show()
         self._log_viewer_dlg.raise_()
         self._log_viewer_dlg.activateWindow()
+
+    def _clear_all_logs(self) -> None:
+        """清理日志目录下的全部日志文件内容。
+
+        日志文件被 loguru 的文件 sink 以追加模式持有，Windows 下删除会失败，
+        因此截断为空即可；之后新日志继续追加写入。清理后若日志查看器已打开，
+        一并清屏，避免界面仍显示已不存在的旧内容。
+        """
+        from .app_paths import get_log_dir
+        from .logging_setup import clear_all_logs
+
+        log_dir = get_log_dir()
+        reply = QMessageBox.question(
+            self,
+            self.tr("清理全部日志"),
+            self.tr("将清空日志目录下的所有日志文件内容：\n{path}\n\n"
+                    "该操作不可撤销，确定继续吗？").replace("{path}", str(log_dir)),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        cleared, failed = clear_all_logs(log_dir)
+        # 清屏要在清理成功后再做：失败时保留现场便于排查
+        if cleared:
+            viewer = getattr(self, "_log_viewer_dlg", None)
+            if viewer is not None:
+                try:
+                    viewer.clear_display()
+                except Exception:
+                    logger.warning("清理日志后刷新日志查看器失败", exc_info=True)
+
+        if failed:
+            logger.warning(f"部分日志文件清理失败: {failed}")
+            QMessageBox.warning(
+                self,
+                self.tr("清理全部日志"),
+                self.tr("已清理 {n} 个日志文件，{failed} 个清理失败。\n"
+                        "文件可能被其它程序占用。").format(
+                    n=cleared, failed=len(failed)),
+            )
+            return
+
+        logger.info(f"已清理 {cleared} 个日志文件: {log_dir}")
+        self.statusBar().showMessage(
+            self.tr("已清理 {n} 个日志文件").format(n=cleared), 3000)
 
     def _open_control_auth_dialog(self) -> None:
         """打开控制授权配置对话框"""
