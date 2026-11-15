@@ -15,7 +15,7 @@ from plugin_manager.plugin_download_dialog import PluginDownloadDialog
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return Path(__file__).resolve().parents[2]
 
 
 def test_action_qrc_matches_compiled_resource() -> None:

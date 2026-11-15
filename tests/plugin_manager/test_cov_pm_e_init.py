@@ -17,7 +17,7 @@ import plugin_manager.logging_setup as logging_setup
 import plugin_manager.app_paths as app_paths
 from plugin_manager.main_window import ConnectionStatusWidget, PluginManagerWindow
 from plugin_sdk.plugin_base import PluginLifecycle
-from test_cov_pm_e_helpers import (  # noqa: F401
+from tests.plugin_manager.test_cov_pm_e_helpers import (  # noqa: F401
     _offscreen, make_manager, make_plugin, real_window, shell,
 )
 
@@ -77,7 +77,7 @@ def test_full_init_without_tray_and_language_change(qtbot, monkeypatch, tmp_path
         # 无托盘时属性存在但为 None，retranslateUi 不应抛 AttributeError
         assert w._tray_icon is None
         w.retranslateUi()
-        assert w._status_bar_msg == w.tr("正在连接...")
+        assert w._status_bar_msg == w.tr("已连接到主进程")
         w.changeEvent(QEvent(QEvent.Type.LanguageChange))
         w.changeEvent(QEvent(QEvent.Type.Paint))
         assert w.windowTitle() == w.tr("插件管理器")

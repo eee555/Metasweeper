@@ -10,7 +10,7 @@ from PySide6.QtGui import QIcon
 import plugin_manager.main_window as mw
 from plugin_manager.plugin_state import PluginState
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode
-from test_cov_pm_e_helpers import (  # noqa: F401
+from tests.plugin_manager.test_cov_pm_e_helpers import (  # noqa: F401
     _offscreen, attach_list_state, make_plugin, shell,
 )
 

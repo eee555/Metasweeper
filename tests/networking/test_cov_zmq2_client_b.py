@@ -16,7 +16,7 @@ from lib_zmq_plugins.client.zmq_client import ZMQClient, _Outgoing
 from lib_zmq_plugins.shared.base import (
     BaseQueryResult, CommandResponse, SyncCommand,
 )
-from tests.test_cov_zmq2_common import (
+from tests.networking.test_cov_zmq2_common import (
     CovCommand, CovEvent, CovQuery, CovResult, FakeEvent, FakeFuture,
     FakeSocket, RecLog, encode, fake_time, fake_uuid, fake_zmq, tagged,
 )

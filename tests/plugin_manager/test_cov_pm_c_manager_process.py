@@ -9,7 +9,7 @@ import pytest
 
 from plugin_manager import plugin_manager as module
 
-from test_cov_pm_c_fakes import (  # noqa: F401  (fixtures and constants)
+from tests.plugin_manager.test_cov_pm_c_fakes import (  # noqa: F401  (fixtures and constants)
     SHUTDOWN_REGISTRATION,
     FakeClient,
     FakePlugin,

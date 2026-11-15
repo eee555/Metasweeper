@@ -14,7 +14,7 @@ from shared_types.events import (
     ShowPluginManagerEvent,
 )
 
-from test_cov_pm_c_fakes import (  # noqa: F401  (fixtures and constants)
+from tests.plugin_manager.test_cov_pm_c_fakes import (  # noqa: F401  (fixtures and constants)
     APPLY_SAVED_STATES,
     INITIALIZE_PLUGINS,
     SHUTDOWN_PLUGINS,

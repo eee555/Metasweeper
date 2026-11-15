@@ -254,7 +254,7 @@ def test_run_debugpy_listen_and_wait(run_entry, monkeypatch, capsys):
         "plugin_manager", "--debug", "--debug-port", "6001",
     ])
     assert run_entry.module.main() == 17
-    assert calls[0][1] == (("0.0.0.0", 6001),)
+    assert calls[0][1] == (("127.0.0.1", 6001),)
     assert calls[0][2] == {"in_process_debug_adapter": True}
     assert calls[1] == ("wait",)
     out = capsys.readouterr().out
@@ -271,7 +271,7 @@ def test_run_debugpy_default_port(run_entry, monkeypatch, capsys):
     monkeypatch.setitem(sys.modules, "debugpy", fake_debugpy)
     monkeypatch.setattr(sys, "argv", ["plugin_manager", "--debug"])
     assert run_entry.module.main() == 17
-    assert listens == [((("0.0.0.0", 5678),), {"in_process_debug_adapter": True})]
+    assert listens == [((("127.0.0.1", 5678),), {"in_process_debug_adapter": True})]
     assert "Waiting for debugger attach on port 5678" in capsys.readouterr().out
 
 

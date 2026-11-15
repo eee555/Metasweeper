@@ -18,7 +18,7 @@ from lib_zmq_plugins.server.zmq_server import (
 from lib_zmq_plugins.shared.base import (
     CommandResponse, SyncCommand,
 )
-from tests.test_cov_zmq2_common import (
+from tests.networking.test_cov_zmq2_common import (
     CovCommand, CovEvent, CovQuery, CovResult, FakeContext, FakeEvent,
     FakePoller, FakeSocket, InlineThread, RecLog, TagAsType, encode, fake_threading,
     fake_time, fake_zmq, tagged,
@@ -208,7 +208,7 @@ def test_start_raises_when_socket_creation_returns_none(monkeypatch, log):
 
 def test_stop_joins_alive_thread_and_clears_resources(monkeypatch, log):
     """stop() 对仍存活的 I/O 线程执行 join，随后关闭 socket / term context。"""
-    from tests.test_cov_zmq2_common import StubThread
+    from tests.networking.test_cov_zmq2_common import StubThread
     pub, router = FakeSocket("pub"), FakeSocket("router")
     ctx = FakeContext(socket_map={real_zmq.PUB: pub, real_zmq.ROUTER: router})
     server = _new_server(log)

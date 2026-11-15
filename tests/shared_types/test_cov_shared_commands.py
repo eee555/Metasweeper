@@ -152,16 +152,12 @@ def test_set_skin_and_set_sound_dict_defaults_are_independent(app):
     assert b.leds == {} and b.faces == {} and b.colors == {}
 
 
-def test_new_preset_game_default_board_does_not_roundtrip():
-    """记录源码现状：board 默认 None 与 List[List[int]] 类型注解不一致。
-
-    commands.py:51 声明 `board: List[List[int]] = None`，默认实例可被构造
-    但 encode→decode 会抛 ValidationError（Expected `array`, got `None`）。
-    这是源码缺陷，不是测试期望；按约束不改源码，仅在最终报告中说明。
-    """
+def test_new_preset_game_default_board_roundtrips_as_none():
+    """board 是可选字段，默认 None 应在 msgspec 往返中保持 None。"""
     import msgspec
+
     cmd = NewPresetGameCommand()
     assert cmd.board is None
     blob = msgspec.msgpack.encode(cmd)
-    with pytest.raises(msgspec.ValidationError, match="Expected `array`, got `None`"):
-        msgspec.msgpack.decode(blob, type=NewPresetGameCommand)
+    restored = msgspec.msgpack.decode(blob, type=NewPresetGameCommand)
+    assert restored.board is None

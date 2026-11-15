@@ -22,7 +22,7 @@ from lib_zmq_plugins.client.zmq_client import (
 from lib_zmq_plugins.shared.base import (
     BaseQueryResult, CommandResponse, SyncCommand,
 )
-from tests.test_cov_zmq2_common import (
+from tests.networking.test_cov_zmq2_common import (
     CovCommand, CovEvent, CovQuery, CovResult, FakeContext, FakeEvent,
     FakeFuture, FakePoller, FakeSocket, InlineThread, RecLog, StubThread,
     encode, fake_threading, fake_time, fake_uuid, fake_zmq, tagged,

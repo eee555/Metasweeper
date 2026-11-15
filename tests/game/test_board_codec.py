@@ -167,6 +167,136 @@ def test_migrate_board_to_blob(tmp_path, board_json):
         assert migrate_board_to_blob(c) == 0
 
 
+def test_migrate_board_no_rows_no_progress(tmp_path, board_json):
+    """没有待迁移数据时 progress 必须完全不回调（UI 不显示迁移中）。"""
+    db = tmp_path / "h.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
+    conn.execute("INSERT INTO history VALUES (1, ?)",
+                 (board_json_to_blob(board_json),))
+    conn.commit(); conn.close()
+
+    with db_connection(db) as c:
+        seen: list[tuple[int, int]] = []
+        assert migrate_board_to_blob(c, progress=lambda d, t: seen.append((d, t))) == 0
+        assert seen == []
+
+
+def test_migrate_board_missing_table_is_noop(tmp_path):
+    db = tmp_path / "h.db"
+    conn = sqlite3.connect(db)
+    conn.commit(); conn.close()
+    with db_connection(db) as c:
+        seen = []
+        assert migrate_board_to_blob(c, progress=lambda d, t: seen.append((d, t))) == 0
+        assert seen == []
+
+
+def test_migrate_board_progress_and_batches(tmp_path, board_json):
+    from plugins.history.board_codec import _BOARD_BATCH
+    db = tmp_path / "h.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
+    n = _BOARD_BATCH * 2 + 5
+    conn.executemany("INSERT INTO history VALUES (?, ?)",
+                     [(i, board_json) for i in range(1, n + 1)])
+    conn.commit(); conn.close()
+
+    with db_connection(db) as c:
+        seen: list[tuple[int, int]] = []
+        assert migrate_board_to_blob(
+            c, progress=lambda d, t: seen.append((d, t))) == n
+        assert seen and seen[-1] == (n, n)
+        assert all(is_board_blob(r[0]) for r in
+                   c.execute("SELECT board FROM history"))
+
+
+def test_migrate_board_uses_write_dispatch(tmp_path, board_json):
+    """write() 收到的是纯 SQL 回调：解析/校验都在维护线程完成。"""
+    db = tmp_path / "h.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
+    conn.executemany("INSERT INTO history VALUES (?, ?)",
+                     [(i, board_json) for i in range(1, 6)])
+    conn.commit(); conn.close()
+
+    with db_connection(db) as c:
+        calls = []
+
+        def dispatch(callback):
+            calls.append(True)
+            out = callback(c)
+            c.commit()
+            return out
+
+        assert migrate_board_to_blob(c, write=dispatch) == 5
+        assert calls
+        assert all(is_board_blob(r[0]) for r in
+                   c.execute("SELECT board FROM history"))
+
+
+def test_migrate_board_skips_concurrently_mutated_rows(tmp_path, board_json):
+    """迁移期间 board 被改写 → 条件 UPDATE 不覆盖新值、不计入数量。"""
+    import json as _json
+    import ms_toollib as ms
+    from plugins.history import board_codec
+
+    other_board = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+    other_board[0][1] = -1
+    other_json = _json.dumps(ms.cal_board_numbers(other_board), separators=(",", ":"))
+
+    db = tmp_path / "h.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
+    conn.executemany("INSERT INTO history VALUES (?, ?)",
+                     [(1, board_json), (2, board_json)])
+    conn.commit(); conn.close()
+
+    original_convert = board_codec._convert_batch
+
+    with db_connection(db) as c:
+        def racing_convert(rows):
+            out = original_convert(rows)
+            # 准备之后、写之前并发改写第 2 行
+            c.execute("UPDATE history SET board = ? WHERE replay_id = 2",
+                      (other_json,))
+            c.commit()
+            return out
+
+        import unittest.mock as mock
+        with mock.patch.object(board_codec, "_convert_batch", racing_convert):
+            converted = migrate_board_to_blob(c, write=lambda cb: cb(c))
+        assert converted == 1                      # 只有第 1 行被转换
+        assert c.execute("SELECT board FROM history WHERE replay_id = 2"
+                         ).fetchone()[0] == other_json   # 新值未被覆盖
+
+
+def test_migrate_board_honours_cancel(tmp_path, board_json):
+    from plugins.history.board_codec import _BOARD_BATCH
+    db = tmp_path / "h.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE history (replay_id INTEGER PRIMARY KEY, board)")
+    n = _BOARD_BATCH * 2
+    conn.executemany("INSERT INTO history VALUES (?, ?)",
+                     [(i, board_json) for i in range(1, n + 1)])
+    conn.commit(); conn.close()
+
+    state = {"n": 0}
+
+    def cancel() -> bool:
+        state["n"] += 1
+        return state["n"] > 1
+
+    with db_connection(db) as c:
+        migrate_board_to_blob(c, cancelled=cancel)
+        c.commit()
+        # 未完成即停止，剩余行仍是旧文本
+        remaining = c.execute(
+            "SELECT COUNT(*) FROM history WHERE py_board_is_blob(board) = 0"
+        ).fetchone()[0]
+        assert remaining > 0
+
+
 def test_migrate_keeps_legacy_text_readable(tmp_path, board_json):
     """迁移前后用 UDF 读到的 JSON 必须一致。"""
     db = tmp_path / "h.db"

@@ -137,7 +137,7 @@ def test_single_eligible_plugin_without_status_and_combo_change(qtbot, monkeypat
     granted = dlg._table.item(0, 2).text()
     assert granted != before
     combo.setCurrentIndex(0)
-    assert dlg._table.item(0, 2).text() == "无申请"
+    assert "未授权" in dlg._table.item(0, 2).text()
 
 
 def test_ineligible_existing_plugin_keeps_unauthorized(qtbot, monkeypatch):

@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import stat
@@ -330,9 +331,10 @@ def test_reject_ambiguous_or_mismatched_hosting(url, platform):
 ])
 def test_each_provider_downloads_selected_commit(tmp_path, url, platform, api, archive_suffix, archive_params, key, page_size):
     repository = PluginRepository.from_url(url, platform)
+    archive = make_archive([("repo-sha/__init__.py", "")])
     session = FakeSession(
         FakeResponse(data=[{"name": TAG.name, "commit": {key: TAG.commit}}], headers={"Link": ""}),
-        FakeResponse(body=make_archive([("repo-sha/__init__.py", "")])),
+        FakeResponse(body=archive),
     )
     client = PluginDownloader(session, lambda: False, lambda *_: None)
     tags = client.list_tags(repository)
@@ -344,7 +346,13 @@ def test_each_provider_downloads_selected_commit(tmp_path, url, platform, api, a
     assert session.calls[1][1]["params"] == archive_params
     assert ("X-GitHub-Api-Version" in session.calls[1][1]["headers"]) == (repository.platform == "github")
     metadata = json.loads((path / ".metasweeper-plugin.json").read_text())
-    assert metadata == {"repository": repository.url, "platform": repository.platform, "tag": TAG.name, "commit": TAG.commit}
+    assert metadata == {
+        "repository": repository.url,
+        "platform": repository.platform,
+        "tag": TAG.name,
+        "commit": TAG.commit,
+        "archive_sha256": hashlib.sha256(archive).hexdigest(),
+    }
 
 
 def test_gitlab_pagination_header():

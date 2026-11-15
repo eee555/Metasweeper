@@ -184,7 +184,7 @@ def test_get_plugin_classes_filters_base_imported_private_and_unrelated(monkeypa
     local = type("LocalPlugin", (BasePlugin,), {"__module__": module.__name__})
     module.LocalPlugin = local
 
-    assert PluginLoader().get_plugin_classes(module) == [imported, local]
+    assert PluginLoader().get_plugin_classes(module) == [local]
     assert PluginLoader().get_plugin_classes(SimpleNamespace()) == []
 
 
@@ -274,13 +274,21 @@ def test_load_all_loads_every_discovered_plugin(tmp_path, monkeypatch):
     assert [name for _, name in modules] == ["plain", "one", "two"]
 
 
-def test_reload_module_existing_and_missing(monkeypatch):
+def test_reload_module_only_reloads_modules_loaded_by_loader(tmp_path, monkeypatch):
     name = unique_module("reload", monkeypatch)
     loader = PluginLoader()
     assert loader.reload_module(name) is False
 
-    module = ModuleType(name)
-    monkeypatch.setitem(sys.modules, name, module)
+    # Merely inserting an unrelated module into sys.modules is insufficient.
+    external = ModuleType(name)
+    monkeypatch.setitem(sys.modules, name, external)
+    assert loader.reload_module(name) is False
+    monkeypatch.delitem(sys.modules, name)
+
+    source = tmp_path / "reload.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    module = loader.load_module(source, name)
+    assert module is not None
     monkeypatch.setattr(importlib, "reload", lambda value: value)
     assert loader.reload_module(name) is True
 
