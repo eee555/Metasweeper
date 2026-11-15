@@ -440,13 +440,13 @@ th { background: #F3E5F5; color: #6A1B9A; }
 <ul>
 <li>统计 3BV、Op、Isl、Cell1~Cell8 共 11 个指标在分布中的罕见程度</li>
 <li>对每个指标，取 <code>p = min(P(X≤v), P(X≥v))</code>（双向累积概率），<br>
-  累加 <code>(0.5 / p)^1.2</code></li>
+  累加 <code>(0.5 / p)</code></li>
 <li>高级：<code>稀有经验 = 累加值</code>；中级：<code>累加值 / 8</code>；初级：<code>累加值 / 100</code></li>
 </ul>
 
 <p><b>竞速经验</b>（仅标准难度）：</p>
 <ul>
-<li>初级：<code>(1/100) × (10/rtime)^3.5</code></li>
+<li>初级：<code>(1/100) × (10/(rtime+0.001))^3.5</code></li>
 <li>中级：<code>(1/8) × (60/rtime)^3.5</code></li>
 <li>高级：<code>(240/rtime)^3.5</code></li>
 </ul>

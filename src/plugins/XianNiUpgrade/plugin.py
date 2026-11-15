@@ -387,7 +387,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                 p = _cum_prob(prefix, field, val)
                 if 0 <= p <= 1.0:
                     p = max(p, 0.00000001)
-                    rare_sum += (0.5 / p) ** 1.2
+                    rare_sum += (0.5 / p)
             exp_r = (cells / 100.0) * rare_sum
             if level == 3:
                 exp_r = rare_sum / 100.0
@@ -398,7 +398,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
 
             # 竞速
             if level == 3:
-                exp_t = (1.0 / 100.0) * ((10.0 / rtime) ** 3.5)
+                exp_t = (1.0 / 100.0) * ((10.0 / (rtime+0.001)) ** 3.5) # 避免初级1bv抛ZeroDivisionError
             elif level == 4:
                 exp_t = (1.0 / 8.0) * ((60.0 / rtime) ** 3.5)
             elif level == 5:
