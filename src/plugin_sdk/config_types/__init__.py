@@ -5,7 +5,7 @@
 
 用法::
 
-    from plugin_manager.config_types import (
+    from plugin_sdk.config_types import (
         OtherInfoBase, BoolConfig, IntConfig, ChoiceConfig, TextConfig,
         ColorConfig, FileConfig, PathConfig, LongTextConfig, RangeConfig,
     )

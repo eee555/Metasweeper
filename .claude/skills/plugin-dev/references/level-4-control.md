@@ -14,6 +14,7 @@
 
 ```python
 from shared_types.commands import NewGameCommand, MouseClickCommand
+from shared_types.enums import GameLevel
 
 class MyPlugin(BasePlugin):
     
@@ -75,12 +76,17 @@ def on_control_auth_changed(
 
 ```python
 def _start_new_game(self) -> None:
+    # 自定义尺寸必须显式指定 level=GameLevel.CUSTOM.value
+    command = NewGameCommand(
+        level=GameLevel.CUSTOM.value, rows=16, cols=30, mines=99,
+    )
+
     # 方式一：直接发送（无权限时会被拒绝）
-    self.send_command(NewGameCommand(rows=16, cols=30, mines=99))
-    
+    self.send_command(command)
+
     # 方式二：检查权限后再发送
     if self.has_control_auth(NewGameCommand):
-        self.send_command(NewGameCommand(rows=16, cols=30, mines=99))
+        self.send_command(command)
     else:
         self.logger.warning("没有控制权限")
 ```

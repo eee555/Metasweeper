@@ -1215,7 +1215,7 @@ code <安装目录>
 8️⃣ 在插件代码打断点 → 触发事件 → 命中断点 ✅
 ```
 
-> 前提条件：`plugin_manager.spec` 的 `hiddenimports` 需包含 `debugpy`。
+> 打包调试版时，运行仓库根目录的 `build.bat`；它会把当前环境的 `debugpy` 复制到插件管理器产物，并添加对应的 PyInstaller runtime hook。由于构建配置由命令行生成，调试依赖应在 `build.bat` 中维护。
 
 ### 开发模式调试
 
@@ -1241,8 +1241,7 @@ code <安装目录>
 
 **方案 A：重新打包**（推荐）
 1. 在 `requirements.txt` 中添加依赖
-2. 在 `plugin_manager.spec` 的 `hiddenimports` 中添加模块名
-3. 重新执行 PyInstaller 打包
+2. 重新执行仓库根目录的 `build.bat`（构建参数由脚本生成，`.spec` 是产物，不要手改）
 
 **方案 B：放在插件旁边**
 某些纯 Python 库可以直接将源码放入插件的目录中（包形式插件），然后正常 import。但这不是长久之计。

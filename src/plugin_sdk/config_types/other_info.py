@@ -19,7 +19,7 @@ class OtherInfoBase:
 
     用法::
 
-        from plugin_manager.config_types import (
+        from plugin_sdk.config_types import (
             OtherInfoBase, BoolConfig, IntConfig, ChoiceConfig, TextConfig
         )
 
