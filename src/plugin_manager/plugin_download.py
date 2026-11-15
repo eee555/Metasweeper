@@ -1,12 +1,15 @@
 """Download tagged plugin packages without requiring a Git installation."""
 from __future__ import annotations
 
+import hashlib
+import ipaddress
 import json
 import re
 import stat
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Callable
+from urllib.parse import urljoin, urlsplit
 from zipfile import ZipFile
 
 import requests
@@ -18,10 +21,75 @@ from .plugin_repositories import PluginRepository, RepositoryTag
 _MAX_DOWNLOAD = 100 * 1024 * 1024
 _MAX_EXTRACTED = 500 * 1024 * 1024
 _CHUNK_SIZE = 64 * 1024
+_MAX_REDIRECTS = 5
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+
+# 「原始仓库主机 + 平台官方 API / 归档 CDN 主机」白名单。
+# 只用于校验请求地址与每一跳重定向目标，不参与 URL 拼接。
+_PLATFORM_CDN_HOSTS: dict[str, frozenset[str]] = {
+    "github": frozenset({
+        "github.com", "api.github.com", "codeload.github.com",
+        "objects.githubusercontent.com", "raw.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+    }),
+    "gitlab": frozenset({"gitlab.com"}),
+    "gitee": frozenset({"gitee.com"}),
+    "gitea": frozenset({"codeberg.org"}),
+}
 
 
 def _tr(text: str) -> str:
     return QCoreApplication.translate("PluginDownloadDialog", text)
+
+
+def _allowed_hosts(repository: PluginRepository) -> frozenset[str]:
+    """仓库允许的主机集合 = 原始 origin 主机 + 平台官方 API/CDN 主机。"""
+    origin_host = (urlsplit(repository.origin).hostname or "").lower()
+    return frozenset({origin_host, *_PLATFORM_CDN_HOSTS.get(repository.platform, ())})
+
+
+def _allowed_ports(repository: PluginRepository) -> dict[str, frozenset[int]]:
+    """只允许自建 origin 使用其配置端口，平台/CDN 主机使用标准 HTTPS 端口。"""
+    origin = urlsplit(repository.origin)
+    origin_host = (origin.hostname or "").lower()
+    ports = {host: frozenset({443}) for host in _allowed_hosts(repository)}
+    ports[origin_host] = frozenset({origin.port or 443})
+    return ports
+
+
+def _host_is_forbidden_ip(host: str) -> bool:
+    """IP 字面量若属于环回 / 链路本地 / 私有 / 保留网段则禁止。"""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False  # 域名：静态检查无法覆盖 DNS 解析结果
+    return any((address.is_loopback, address.is_link_local,
+                address.is_private, address.is_reserved))
+
+
+def _validate_url(
+    url: str,
+    *,
+    allowed_hosts: frozenset[str],
+    allowed_ports: dict[str, frozenset[int]],
+) -> None:
+    """校验单跳 URL 的 scheme / host / port / IP 类别。"""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    try:
+        port = parts.port or 443
+    except ValueError as exc:
+        raise ValueError(_tr("下载链接包含无效端口，已拒绝。")) from exc
+    if not host or parts.username or parts.password or re.search(r"[\s\\]", parts.netloc):
+        raise ValueError(_tr("下载链接包含非法主机，已拒绝。"))
+    if parts.scheme != "https":
+        raise ValueError(_tr("下载链接不是 HTTPS，已拒绝。"))
+    if host not in allowed_hosts:
+        raise ValueError(_tr("下载重定向到未授权的主机，已拒绝。"))
+    if port not in allowed_ports.get(host, frozenset()):
+        raise ValueError(_tr("下载链接使用未授权的端口，已拒绝。"))
+    if _host_is_forbidden_ip(host):
+        raise ValueError(_tr("自建站点不允许使用内网或保留 IP 地址。"))
 
 
 class DownloadCancelled(Exception):
@@ -54,15 +122,86 @@ class PluginDownloader:
             raise ValueError(_tr("托管平台拒绝请求或请求次数已达上限，请稍后重试。"))
         response.raise_for_status()
 
+    def _safe_get(
+        self,
+        repository: PluginRepository,
+        url: str,
+        *,
+        params: dict | None = None,
+        headers: dict | None = None,
+        stream: bool = False,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> requests.Response:
+        """Issue a request while validating every redirect hop.
+
+        A response without ``url`` is accepted for lightweight test doubles; its
+        effective URL is the request URL. Real requests responses always expose it.
+        The caller owns and must close the returned response.
+        """
+        allowed_hosts = _allowed_hosts(repository)
+        allowed_ports = _allowed_ports(repository)
+        current_url = url
+        request_params = params
+
+        for redirect_count in range(_MAX_REDIRECTS + 1):
+            self._check_cancelled()
+            _validate_url(
+                current_url,
+                allowed_hosts=allowed_hosts,
+                allowed_ports=allowed_ports,
+            )
+            response = self.session.get(
+                current_url,
+                params=request_params,
+                headers=headers,
+                stream=stream,
+                timeout=timeout,
+                allow_redirects=False,
+            )
+            request_params = None
+
+            try:
+                response_url = getattr(response, "url", None) or current_url
+                _validate_url(
+                    response_url,
+                    allowed_hosts=allowed_hosts,
+                    allowed_ports=allowed_ports,
+                )
+                if response.status_code not in _REDIRECT_STATUSES:
+                    self._check_response(response)
+                    return response
+
+                location = response.headers.get("Location")
+                if not location:
+                    raise ValueError(_tr("下载服务器返回了不完整的重定向。"))
+                if redirect_count >= _MAX_REDIRECTS:
+                    raise ValueError(_tr("下载重定向次数超过限制。"))
+                next_url = urljoin(response_url, location)
+                _validate_url(
+                    next_url, allowed_hosts=allowed_hosts, allowed_ports=allowed_ports,
+                )
+            except Exception:
+                close = getattr(response, "close", None)
+                if callable(close):
+                    close()
+                raise
+
+            close = getattr(response, "close", None)
+            if callable(close):
+                close()
+            current_url = next_url
+
+        raise ValueError(_tr("下载重定向次数超过限制。"))
+
     def list_tags(self, repository: PluginRepository) -> list[RepositoryTag]:
         tags = []
         page = 1
         while True:
             self._check_cancelled()
             url, params = repository.provider.tags_request(repository, page)
-            with self.session.get(
-                url, params=params, headers=repository.provider.headers, timeout=(
-                    5, 30),
+            with self._safe_get(
+                repository, url, params=params,
+                headers=repository.provider.headers,
             ) as response:
                 self._check_response(response)
                 items = response.json()
@@ -90,12 +229,13 @@ class PluginDownloader:
         with TemporaryDirectory(prefix="_download_", dir=plugin_dir) as temporary:
             work_dir = Path(temporary)
             archive = work_dir / "source.zip"
-            self._download(repository, tag, archive)
+            archive_sha256 = self._download(repository, tag, archive)
             package = self._extract(archive, work_dir / "source")
             if not (package / "__init__.py").is_file():
                 raise ValueError(_tr("仓库根目录缺少 __init__.py 插件入口。"))
             metadata = {"repository": repository.url, "platform": repository.platform,
-                        "tag": tag.name, "commit": tag.commit}
+                        "tag": tag.name, "commit": tag.commit,
+                        "archive_sha256": archive_sha256}
             (package / ".metasweeper-plugin.json").write_text(
                 json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8",
             )
@@ -104,10 +244,13 @@ class PluginDownloader:
             package.rename(destination)
         return destination
 
-    def _download(self, repository: PluginRepository, tag: RepositoryTag, archive: Path) -> None:
+    def _download(self, repository: PluginRepository, tag: RepositoryTag, archive: Path) -> str:
         url, params = repository.provider.archive_request(repository, tag)
-        with self.session.get(url, params=params, headers=repository.provider.headers, stream=True, timeout=(5, 30)) as response:
-            self._check_response(response)
+        digest = hashlib.sha256()
+        with self._safe_get(
+            repository, url, params=params,
+            headers=repository.provider.headers, stream=True,
+        ) as response:
             total = int(response.headers.get("Content-Length", 0))
             if total > _MAX_DOWNLOAD:
                 raise ValueError(_tr("插件压缩包超过 100 MiB。"))
@@ -119,8 +262,10 @@ class PluginDownloader:
                     received += len(chunk)
                     if received > _MAX_DOWNLOAD:
                         raise ValueError(_tr("插件压缩包超过 100 MiB。"))
+                    digest.update(chunk)
                     output.write(chunk)
                     self.progress(received, total)
+        return digest.hexdigest()
 
     def _extract(self, archive: Path, target: Path) -> Path:
         with ZipFile(archive) as source:

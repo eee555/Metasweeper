@@ -105,6 +105,15 @@ class HostingProvider:
         # Some installations cap the requested page size or omit pagination headers.
         return bool(items)
 
+    @staticmethod
+    def validate_commit(commit: str) -> str:
+        """归档链接只允许不可变的十六进制 commit，拒绝 main / v1.0 等可变引用。"""
+        if not isinstance(commit, str) or not re.fullmatch(
+            r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", commit
+        ):
+            raise ValueError(_tr("标签对应的 commit 不是有效的十六进制哈希，拒绝下载可变引用。"))
+        return commit
+
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
         raise NotImplementedError
 
@@ -120,6 +129,7 @@ class GitHubProvider(HostingProvider):
         return "next" in response.links
 
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
+        self.validate_commit(tag.commit)
         return self.api_url(repository) + "/zipball/" + quote(tag.commit, safe=""), {}
 
 
@@ -139,6 +149,7 @@ class GitLabProvider(HostingProvider):
         return super().has_next_page(response, items)
 
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
+        self.validate_commit(tag.commit)
         return self.api_url(repository) + "/archive.zip", {"sha": tag.commit}
 
 
@@ -146,6 +157,7 @@ class GiteeProvider(HostingProvider):
     api_prefix = "/api/v5/repos/"
 
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
+        self.validate_commit(tag.commit)
         return self.api_url(repository) + "/zipball", {"ref": tag.commit}
 
 
@@ -155,6 +167,7 @@ class GiteaProvider(HostingProvider):
     page_size = 50
 
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
+        self.validate_commit(tag.commit)
         return self.api_url(repository) + "/archive/" + quote(tag.commit, safe="") + ".zip", {}
 
 
