@@ -1,8 +1,8 @@
 [project]
 name = "Metasweeper"
-version = "3.3.2"
+version = "3.3.4"
 description = "Metasweeper - 元扫雷"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [tool.mypy]
 python_version = "3.12"

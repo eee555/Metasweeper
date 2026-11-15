@@ -5,7 +5,7 @@
 # 产物:  package_tool/macos/dist/Metasweeper.app
 #
 # 说明:
-# - 需要本机 Python 3.10–3.12（推荐 3.12），首次运行自动创建 .venv 并安装依赖
+# - 需要本机 Python 3.11–3.12（推荐 3.12），首次运行自动创建 .venv 并安装依赖
 # - pywin32 / debugpy 为 Windows 专用或可选依赖，macOS 构建不包含
 # - 自行打包的版本无法对录像做官方签名（metaminesweeper_checksum 闭源），
 #   其余功能与官方 Windows 版一致
@@ -22,7 +22,7 @@ PY="$ROOT/.venv/bin/python"
 
 # ── 1. 虚拟环境 ─────────────────────────────────────────
 if [ ! -x "$PY" ]; then
-    echo "[mac] 未找到 .venv，正在创建（需要 Python 3.10–3.12）..."
+    echo "[mac] 未找到 .venv，正在创建（需要 Python 3.11–3.12）..."
     if command -v python3.12 >/dev/null 2>&1; then
         python3.12 -m venv "$ROOT/.venv"
     else
@@ -39,8 +39,8 @@ fi
 
 "$PY" - <<'EOF'
 import sys
-if not (sys.version_info[:2] <= (3, 12) and sys.version_info >= (3, 10)):
-    print(f"[mac] Python 版本不支持: {sys.version}（项目要求 >=3.10, <=3.12）")
+if not (sys.version_info[:2] <= (3, 12) and sys.version_info >= (3, 11)):
+    print(f"[mac] Python 版本不支持: {sys.version}（项目要求 >=3.11, <=3.12）")
     sys.exit(1)
 EOF
 
