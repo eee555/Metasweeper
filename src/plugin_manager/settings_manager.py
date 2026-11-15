@@ -11,6 +11,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Literal
 
+from .atomic_json import atomic_write_json
+
 LogLevel = Literal["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
@@ -66,16 +68,15 @@ class SettingsManager:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     self._settings = BasicSettings.from_dict(data)
-            except (json.JSONDecodeError, KeyError, TypeError):
+            except (json.JSONDecodeError, KeyError, TypeError,
+                    ValueError, AttributeError, UnicodeDecodeError, OSError):
                 pass
-    
+
     def save(self) -> None:
         """保存设置到文件"""
-        path = self._settings_path()
-        path.write_text(
-            json.dumps(self._settings.to_dict(), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        atomic_write_json(
+            self._settings_path(), self._settings.to_dict(),
+            ensure_ascii=False, trailing_newline=False)
     
     @property
     def settings(self) -> BasicSettings:

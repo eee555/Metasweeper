@@ -16,6 +16,8 @@ from typing import Any
 import loguru
 from plugin_sdk.plugin_base import WindowMode, LogLevel
 
+from .atomic_json import atomic_write_json
+
 logger = loguru.logger.bind(name="PluginState")
 
 
@@ -43,7 +45,7 @@ class PluginStateManager:
     # ── 读写 ────────────────────────────────────────────
 
     def load(self) -> None:
-        """从 JSON 文件加载状态"""
+        """从 JSON 文件加载状态（逐条容错，坏条目单独丢弃）"""
         if not self._file.exists():
             logger.info(
                 f"State file not found: {self._file} (will create on save)")
@@ -51,24 +53,34 @@ class PluginStateManager:
         try:
             raw: dict[str, dict[str, Any]] = json.loads(
                 self._file.read_text("utf-8"))
-            for name, d in raw.items():
-                self._states[name] = PluginState(
-                    **{k: v for k, v in d.items() if k in asdict(_DEFAULT)})
-            logger.info(f"Loaded state for {len(self._states)} plugin(s)")
-        except Exception as e:
+        except (OSError, UnicodeDecodeError, ValueError) as e:
             logger.error(f"Failed to load state from {self._file}: {e}")
+            return
+        if not isinstance(raw, dict):
+            logger.error(
+                f"Failed to load state from {self._file}: "
+                f"expected object, got {type(raw).__name__}")
+            return
+
+        valid_fields = asdict(_DEFAULT)
+        for name, d in raw.items():
+            try:
+                if not isinstance(d, dict):
+                    raise TypeError(f"expected object, got {type(d).__name__}")
+                self._states[name] = PluginState(
+                    **{k: v for k, v in d.items() if k in valid_fields})
+            except (TypeError, ValueError, AttributeError) as e:
+                logger.warning(
+                    f"Skipping invalid state entry '{name}' in {self._file}: {e}")
+        logger.info(f"Loaded state for {len(self._states)} plugin(s)")
 
     def save(self) -> None:
         """写入 JSON 文件（仅在有变更时）"""
         if not self._dirty:
             return
         try:
-            self._file.parent.mkdir(parents=True, exist_ok=True)
             raw = {name: asdict(st) for name, st in self._states.items()}
-            self._file.write_text(
-                json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            atomic_write_json(self._file, raw, ensure_ascii=False)
             self._dirty = False
             logger.info(f"Saved state for {len(self._states)} plugin(s)")
         except Exception as e:

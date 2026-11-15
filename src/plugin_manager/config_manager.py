@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 
 from plugin_sdk.config_types.other_info import OtherInfoBase
 
+from .atomic_json import atomic_write_json
+
 if TYPE_CHECKING:
     pass
 
@@ -61,8 +63,22 @@ class PluginConfigManager:
 
         Returns:
             配置文件完整路径
+
+        Raises:
+            ValueError: 插件名导致路径逃逸出基础目录
         """
-        return self._base_dir / plugin_name / self.CONFIG_FILENAME
+        path = self._base_dir / plugin_name / self.CONFIG_FILENAME
+        base = self._base_dir.resolve()
+        try:
+            resolved = path.resolve()
+        except OSError as e:
+            raise ValueError(
+                f"Invalid plugin name {plugin_name!r}: {e}") from e
+        if not resolved.is_relative_to(base):
+            raise ValueError(
+                f"Invalid plugin name {plugin_name!r}: "
+                f"config path escapes {base}")
+        return path
 
     def config_path(self, plugin_name: str) -> Path:
         """返回插件配置文件的完整路径。"""
@@ -91,7 +107,8 @@ class PluginConfigManager:
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 config.from_dict(data)
-        except (json.JSONDecodeError, KeyError, TypeError):
+        except (json.JSONDecodeError, KeyError, TypeError,
+                ValueError, AttributeError, UnicodeDecodeError, OSError):
             # 加载失败，使用默认值
             # 可选：记录日志
             pass
@@ -107,13 +124,8 @@ class PluginConfigManager:
             config: 配置容器实例
         """
         path = self._config_path(plugin_name)
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        data = config.to_dict()
-        path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        atomic_write_json(
+            path, config.to_dict(), ensure_ascii=False, trailing_newline=False)
 
     def delete(self, plugin_name: str) -> None:
         """
