@@ -403,7 +403,7 @@ class ConnectionStatusWidget(QWidget):
                 "color: green; font-weight: bold;")
             if reconnect_count > 0:
                 self._reconnect_label.setText(
-                    self.tr("(重连 {n} 次").format(n=reconnect_count)
+                    self.tr("(重连 {n} 次)").format(n=reconnect_count)
                 )
                 self._reconnect_label.show()
             else:
@@ -945,7 +945,12 @@ class LogViewerDialog(QDialog):
         super().closeEvent(event)
 
     def show_log(self, log_name: str) -> None:
-        """切换到指定日志"""
+        """切换到指定日志，并确保 sink 存在。
+
+        对话框关闭后 ``closeEvent`` 会移除 sink；如果重开时日志源、
+        等级都没变化，``update_settings`` 也不会重建 sink。这里在切换
+        index 后兜底 attach（同时清屏），保证重开后日志继续刷新。
+        """
         # 如果日志源不在列表中，添加它
         index = self._log_combo.findData(log_name)
         if index < 0 and log_name != "main":
@@ -954,6 +959,9 @@ class LogViewerDialog(QDialog):
 
         if index >= 0:
             self._log_combo.setCurrentIndex(index)
+        # 源/等级未变的重开路径不会触发上述信号，也不进 update_settings
+        # 的 attach 分支；显式确保 sink 存在。
+        self.ensure_sink()
 
     def update_settings(self, level: str, auto_scroll: bool, show_source: bool) -> None:
         """更新设置"""
@@ -968,6 +976,16 @@ class LogViewerDialog(QDialog):
 
         # 更新显示来源
         self._show_source_cb.setChecked(show_source)
+
+    def ensure_sink(self) -> None:
+        """确保 sink 存在（对话框关闭后重开时调用）。
+
+        关闭时 ``closeEvent`` 会移除 sink；若重开时日志等级与日志源都没变，
+        ``update_settings`` / ``show_log`` 都不会触发 ``_attach_sink``，
+        日志将永久停更。这里显式重建 sink 并清屏。
+        """
+        if self._sink_id is None:
+            self._attach_sink(self._current_log)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -995,6 +1013,13 @@ class ControlAuthorizationDialog(QDialog):
         super().__init__(parent)
         self._plugin_controls = plugin_controls
         self._auth_manager = ControlAuthorizationManager.instance()
+        # 每行下拉框的初始值（row → plugin_name / None）。
+        # 确定时只保存「用户实际改动过」的行，避免把当前不在候选列表里的
+        # 既有授权静默撤销。
+        self._initial: dict[int, str | None] = {}
+        # 每行声明了该权限的候选插件（row → [plugin_name, ...]），
+        # 供下拉框变化时刷新状态列复用。
+        self._row_eligible: dict[int, list[str]] = {}
 
         self.setWindowTitle(self.tr("控制授权配置"))
         self.setWindowIcon(action_icon("app"))
@@ -1048,6 +1073,8 @@ class ControlAuthorizationDialog(QDialog):
 
         self._table.setRowCount(len(control_types))
         self._combos: list[QComboBox] = []
+        self._initial.clear()
+        self._row_eligible.clear()
 
         for row, cmd_type in enumerate(control_types):
             try:
@@ -1097,6 +1124,10 @@ class ControlAuthorizationDialog(QDialog):
             self._table.setCellWidget(row, 1, combo)
             self._combos.append(combo)
 
+            # 记录初始值与候选列表（按 row 索引，与 combo 数量对齐）
+            self._initial[row] = combo.currentData()
+            self._row_eligible[row] = eligible_plugins
+
             # 状态显示
             self._update_status(row, current_plugin, eligible_plugins)
 
@@ -1134,18 +1165,35 @@ class ControlAuthorizationDialog(QDialog):
     def _on_combo_changed(self, row: int) -> None:
         """下拉框变化时更新状态"""
         combo: QComboBox = self._table.cellWidget(row, 1)  # type: ignore
+        if combo is None:
+            return
         plugin_name = combo.currentData()
-        self._update_status(row, plugin_name, [])  # 简化，不重新计算 eligible_plugins
+        # 复用加载时缓存的候选列表，避免传空列表导致状态列恒显示「无申请」
+        eligible_plugins = self._row_eligible.get(row, [])
+        self._update_status(row, plugin_name, eligible_plugins)
 
     def _on_accept(self) -> None:
-        """确定按钮：保存授权"""
+        """确定按钮：只保存用户实际改动过的行。
+
+        未改动的行保持原授权不变：既不会撤销「已授权但当前不在候选列表」
+        的插件，也不会重复写入相同授权。
+        """
         for row in range(self._table.rowCount()):
             name_item: QTableWidgetItem = self._table.item(
                 row, 0)  # type: ignore
             combo: QComboBox = self._table.cellWidget(row, 1)  # type: ignore
+            if name_item is None or combo is None:
+                # 该行没有可编辑控件（例如 tag 解析失败），跳过
+                continue
 
             cmd_type = name_item.data(Qt.ItemDataRole.UserRole)
+            if cmd_type is None:
+                continue
+
             plugin_name = combo.currentData()
+            if row in self._initial and plugin_name == self._initial[row]:
+                # 用户未改动该行 → 保持原值
+                continue
 
             if plugin_name is None:
                 self._auth_manager.revoke(cmd_type)
@@ -1179,6 +1227,8 @@ class _PluginReadmeDialog(ConfirmDialog):
         self._content = content
         self._base_dir = base_dir or Path.cwd()
         self._browser: QTextBrowser | None = None
+        # 全局 styleHints 单例引用（用于断开 colorSchemeChanged 连接）
+        self._style_hints = None
         # 标题 slug → 文档位置，用于目录锚点跳转
         self._heading_positions: dict[str, int] = {}
         # 模块内导入，避免顶层引入 QTextBrowser/QFont/QPalette 影响冷启动
@@ -1205,12 +1255,42 @@ class _PluginReadmeDialog(ConfirmDialog):
             return False
 
     def _connect_theme_change(self) -> None:
-        """监听系统深浅色切换，实时刷新 Markdown 配色。"""
+        """监听系统深浅色切换，实时刷新 Markdown 配色。
+
+        ``QApplication.styleHints()`` 是进程级单例，连接必须显式断开，
+        否则对话框析构后主题切换会调用已删除的 C++ 对象。
+        """
         try:
             hints = QApplication.styleHints()
             hints.colorSchemeChanged.connect(self._apply_theme)
+            self._style_hints = hints
+            # C++ 对象被销毁时兜底断开（正常路径由 done/closeEvent 处理）
+            self.destroyed.connect(self._disconnect_theme_change)
         except Exception:
+            self._style_hints = None
             return
+
+    def _disconnect_theme_change(self, *_args) -> None:
+        """断开全局 styleHints 信号（幂等，可重复调用）。"""
+        hints = getattr(self, "_style_hints", None)
+        if hints is None:
+            return
+        self._style_hints = None
+        try:
+            hints.colorSchemeChanged.disconnect(self._apply_theme)
+        except Exception:
+            # 已断开、信号桩缺少 disconnect，或 C++ 对象已销毁
+            pass
+
+    def done(self, result: int) -> None:
+        """对话框结束（确定/取消/关闭）时断开全局信号。"""
+        self._disconnect_theme_change()
+        super().done(result)
+
+    def closeEvent(self, event) -> None:
+        """关闭时断开全局信号，避免残留连接。"""
+        self._disconnect_theme_change()
+        super().closeEvent(event)
 
     def _apply_theme(self, *_args) -> None:
         """按当前深浅色更新文本/链接配色。"""
@@ -1620,10 +1700,28 @@ class PluginManagerWindow(QMainWindow):
             self._tray_icon.setToolTip(self.tr("插件管理器 - 右键打开菜单"))
             self._tray_act_show.setText(self.tr("显示主窗口"))
             self._tray_act_quit.setText(self.tr("退出"))
-        self._status_bar_msg = self.tr("正在连接...")
+        # 语言切换时按当前连接状态重建状态栏消息，避免无条件重置为
+        # 启动时的「正在连接...」。
+        connected = bool(getattr(self._manager, "is_connected", False))
+        rc = int(getattr(self._manager, "reconnect_count", 0) or 0)
+        if connected:
+            msg = self.tr("已连接到主进程")
+        elif rc:
+            msg = self.tr("未连接 (重连 {n} 次)").format(n=rc)
+        else:
+            msg = self.tr("未连接到主进程")
+        self._status_bar_msg = msg
         bar = self.statusBar()
         if bar is not None:
-            bar.showMessage(self._status_bar_msg)
+            bar.showMessage(msg)
+        # 末尾刷新列表动态文本（初始化中/关闭中等）；刷新会写入插件计数，
+        # 因此之后再恢复连接状态消息。最小窗口壳缺少列表控件时忽略。
+        try:
+            self._refresh_plugin_list()
+        except (AttributeError, RuntimeError):
+            pass
+        if bar is not None:
+            bar.showMessage(msg)
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.LanguageChange:
@@ -1745,7 +1843,9 @@ class PluginManagerWindow(QMainWindow):
                 plugin_names, initial_log, viewer_level, auto_scroll, show_source, self
             )
         else:
-            # 更新设置并切换到指定日志
+            # 更新设置并切换到指定日志；show_log 在日志源未变化时也会
+            # 确保 sink 存在（重开后 closeEvent 已移除 sink，等级/源都没变
+            # 时 update_settings 不会重建）。
             self._log_viewer_dlg.update_settings(
                 viewer_level, auto_scroll, show_source)
             self._log_viewer_dlg.show_log(initial_log)
@@ -2143,29 +2243,39 @@ class PluginManagerWindow(QMainWindow):
             name, current, other_info, parent=self, plugin=plugin)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_state = dlg.result_state
-            self._state_mgr.set(name, new_state)
-            self._state_mgr.save()
+            try:
+                # 先应用/保存插件自定义配置；失败时不写状态，避免
+                # 「状态已落盘但配置未生效」的不一致。
+                if other_info:
+                    dlg.apply_config()
+                    plugin.save_config()  # type: ignore
 
-            # 应用插件自定义配置
-            if other_info:
-                dlg.apply_config()
-                plugin.save_config()  # type: ignore
+                # 立即应用启用/禁用
+                if current.enabled != new_state.enabled:
+                    if new_state.enabled:
+                        self._manager.enable_plugin(name)
+                    else:
+                        self._remove_plugin_window(name)
+                        self._manager.disable_plugin(name)
 
-            # 立即应用启用/禁用
-            if current.enabled != new_state.enabled:
-                if new_state.enabled:
-                    self._manager.enable_plugin(name)
-                else:
-                    self._remove_plugin_window(name)
-                    self._manager.disable_plugin(name)
+                # show_window 仅决定下次启动是否自动显示窗口。
+                # 在此勾选/取消勾选都不隐藏、关闭或重建任何当前窗口实例；
+                # 窗口模式变化同样只作为启动偏好保存，不驱动当前窗口生命周期。
 
-            # show_window 仅决定下次启动是否自动显示窗口。
-            # 在此勾选/取消勾选都不隐藏、关闭或重建任何当前窗口实例；
-            # 窗口模式变化同样只作为启动偏好保存，不驱动当前窗口生命周期。
+                # 立即应用日志级别
+                if plugin and current.log_level != new_state.log_level:
+                    plugin.set_log_level(new_state.log_level)
 
-            # 立即应用日志级别
-            if plugin and current.log_level != new_state.log_level:
-                plugin.set_log_level(new_state.log_level)
+                self._state_mgr.set(name, new_state)
+                self._state_mgr.save()
+            except Exception as e:  # noqa: BLE001
+                logger.exception(
+                    f"保存插件设置失败: {name}, error={e}")
+                QMessageBox.warning(
+                    self, self.tr("插件设置"),
+                    self.tr("保存插件设置失败：\n{err}").format(err=e))
+                return
+
             self._refresh_plugin_list()
 
     # ── 状态持久化辅助 ────────────────────────────────
