@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 from .widgets import HistoryMainWidget
-from .compression import compress, decompress
+from .compression import decompress
 from .computed_column import ComputedColumn, validate_column_name
 from .replay_store import (
     ensure_tables, write_record, migrate_from_replay_data, BLOCK_SIZE,
@@ -18,12 +18,14 @@ from plugin_sdk import (
 
 import sqlite3
 from pathlib import Path
+from threading import Event, Lock
 from typing import Any
 
 from .db import db_connection, delete_record_tx, ensure_indexes
+from .writer import DatabaseWriter, execute_write
 
 import msgspec
-from PySide6.QtCore import QCoreApplication, QThread, Signal
+from PySide6.QtCore import QCoreApplication, QThread, Signal, Slot
 from PySide6.QtWidgets import QWidget
 
 _translate = QCoreApplication.translate
@@ -33,49 +35,132 @@ _MIGRATE_BATCH = 100
 
 
 class _CompressionMigrateWorker(QThread):
-    """后台录像分块迁移线程。
+    """独立准备压缩数据，仅把短事务交给数据库写线程。"""
 
-    把旧 ``replay_data`` 的逐条 zlib 数据灌入分块列式存储；
-    逐条 bit-exact 校验通过后才清空旧表并 VACUUM 回收空间。
-    任何一步失败都保留旧表，下次启动继续，可安全回退。
-    """
+    progress = Signal(bool, int, int, str)
 
-    def __init__(self, db_path: Path, logger: Any = None,
+    def __init__(self, db_path: Path, writer: DatabaseWriter, logger: Any = None,
                  batch_size: int = BLOCK_SIZE, parent=None):
         super().__init__(parent)
         self._db_path = db_path
+        self._writer = writer
         self._logger = logger
         self._batch_size = batch_size
+        self._wakeup = Event()
+        self.reclaim_requested = False
+
+    def notify(self):
+        self._wakeup.set()
+
+    def _write(self, operation):
+        return self._writer.execute(operation, background=True)
+
+    def _progress(self, phase):
+        return lambda done, total: self.progress.emit(True, done, total, phase)
+
+    def _migrate_legacy_raw(self, conn):
+        """兼容极旧的 history.raw_data，每批快照复核后再转存。"""
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(history)")}
+        if "raw_data" not in columns:
+            return
+        total = conn.execute(
+            "SELECT COUNT(*) FROM history WHERE raw_data IS NOT NULL").fetchone()[0]
+        done = 0
+        while done < total and not self.isInterruptionRequested():
+            rows = conn.execute(
+                "SELECT replay_id, raw_data, compressed FROM history "
+                "WHERE raw_data IS NOT NULL ORDER BY replay_id LIMIT ?",
+                (_MIGRATE_BATCH,)).fetchall()
+            if not rows:
+                break
+            self.progress.emit(True, done, total, "replays")
+
+            def apply(target):
+                target.execute("BEGIN IMMEDIATE")
+                moved = 0
+                for replay_id, raw, compressed in rows:
+                    current = target.execute(
+                        "SELECT raw_data, compressed FROM history WHERE replay_id = ?",
+                        (replay_id,)).fetchone()
+                    if current != (raw, compressed):
+                        continue
+                    target.execute(
+                        "INSERT OR IGNORE INTO replay_data "
+                        "(replay_id, raw_data, compressed) VALUES (?, ?, ?)",
+                        (replay_id, raw, int(bool(compressed))))
+                    # 不覆盖已有但内容不同的旧副本。
+                    stored = target.execute(
+                        "SELECT raw_data, compressed FROM replay_data WHERE replay_id = ?",
+                        (replay_id,)).fetchone()
+                    if stored == (raw, int(bool(compressed))):
+                        target.execute("UPDATE history SET raw_data = NULL WHERE replay_id = ?",
+                                       (replay_id,))
+                        moved += 1
+                return moved
+
+            moved = self._write(apply)
+            if not moved:
+                raise ValueError("旧录像副本发生变化，暂缓迁移以保留原始数据")
+            done += moved
+        if total:
+            self.progress.emit(True, done, total, "replays")
+
+    def _migrate(self, conn):
+        from .replay_store import finalize_migration
+        from .board_codec import migrate_board_to_blob
+
+        try:
+            self._migrate_legacy_raw(conn)
+            if self.isInterruptionRequested():
+                return
+            count = conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0]
+            if count:
+                self.progress.emit(True, 0, count, "replays")
+                migrate_from_replay_data(
+                    conn, batch_size=self._batch_size, write=self._write,
+                    progress=self._progress("replays"),
+                    cancelled=self.isInterruptionRequested)
+                if not self.isInterruptionRequested():
+                    finalize_migration(
+                        conn, write=self._write, progress=self._progress("verify"),
+                        cancelled=self.isInterruptionRequested)
+            if not self.isInterruptionRequested():
+                migrate_board_to_blob(
+                    conn, write=self._write, progress=self._progress("boards"),
+                    cancelled=self.isInterruptionRequested)
+        except Exception as exc:
+            if self._logger is not None:
+                self._logger.warning(f"后台迁移未完成，保留数据供下次继续: {exc}")
+        finally:
+            self.progress.emit(False, 0, 0, "")
 
     def run(self):
-        with db_connection(self._db_path, register_custom_functions=False) as conn:
-            try:
-                from .replay_store import finalize_migration
-                from .board_codec import migrate_board_to_blob
-                ensure_tables(conn)
-                migrated, sealed = migrate_from_replay_data(
-                    conn, batch_size=self._batch_size)
-                if self._logger is not None and migrated:
-                    self._logger.info(
-                        f"后台录像分块迁移完成: {migrated} 条, {sealed} 块")
-                # 只有全部校验通过才清空旧表；否则旧表保留作回退
-                if finalize_migration(conn):
-                    if self._logger is not None:
-                        self._logger.info("旧 replay_data 表已清空并回收空间")
-                elif self._logger is not None:
-                    self._logger.warning("迁移校验未通过，保留旧 replay_data 表")
-                # board 列 JSON → 雷图 BLOB（幂等，逐条校验）
-                board_n = migrate_board_to_blob(conn)
-                if board_n:
-                    conn.commit()
-                    conn.execute("VACUUM")
-                    if self._logger is not None:
-                        self._logger.info(
-                            f"board 列压缩完成: {board_n} 条")
-            except Exception as e:
-                # 静默失败但记录警告，下次启动继续
-                if self._logger is not None:
-                    self._logger.warning(f"后台录像分块迁移失败: {e}")
+        from .replay_store import prepare_seal, apply_seal
+
+        try:
+            with db_connection(self._db_path, register_custom_functions=False) as conn:
+                self._migrate(conn)
+                while not self.isInterruptionRequested():
+                    self._wakeup.clear()
+                    try:
+                        while not self.isInterruptionRequested():
+                            prepared = prepare_seal(conn, limit=self._batch_size)
+                            if prepared is None:
+                                break
+                            if not self._write(lambda target: apply_seal(target, prepared)):
+                                break
+                        if self.reclaim_requested and not self.isInterruptionRequested():
+                            self.reclaim_requested = False
+                            self._writer.reclaim_once()
+                    except Exception as exc:
+                        if self._logger is not None:
+                            self._logger.warning(f"后台压缩暂缓，已落盘的录像不受影响: {exc}")
+                    self._wakeup.wait(1.0)
+        except Exception as exc:
+            if self._logger is not None:
+                self._logger.warning(f"后台数据库整理已停止: {exc}")
+        finally:
+            self.progress.emit(False, 0, 0, "")
 
 
 class HistoryConfig(OtherInfoBase):
@@ -185,6 +270,19 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     """
     video_save_over = Signal()
 
+    @Slot(bool, int, int, str)
+    def _on_migration_progress(self, active: bool, done: int, total: int,
+                               phase: str) -> None:
+        with self._migration_state_lock:
+            self._migration_state = (active, done, total, phase)
+        # 读取最新状态再投递，窗口关闭/重建后也能恢复正在进行的任务。
+        self.run_on_widget(self._apply_migration_progress)
+
+    def _apply_migration_progress(self, widget) -> None:
+        with self._migration_state_lock:
+            state = self._migration_state
+        widget.set_migration_progress(*state)
+
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
@@ -199,6 +297,10 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
 
     def __init__(self, info):
         super().__init__(info)
+        self._migration_state_lock = Lock()
+        self._migration_state = (False, 0, 0, "")
+        self._db_writer: DatabaseWriter | None = None
+        self._migrate_worker: _CompressionMigrateWorker | None = None
         # 只连接一次；投递到 GUI 时再读取当前窗口，避免持有已关闭的视图。
         self.video_save_over.connect(self._refresh_widget)
         # 尽早加载自定义函数脚本，确保后续所有 db_connection 都能注册
@@ -262,6 +364,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             # 恢复保存的列显示配置
             widget.restore_show_fields(self.other_info.saved_show_fields)
 
+        self._apply_migration_progress(widget)
         return widget
 
     def _refresh_widget(self) -> None:
@@ -292,6 +395,7 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     def on_initialized(self) -> None:
         self._init_db()
         self._cleanup_legacy_view()
+        self._db_writer = DatabaseWriter(self.data_dir / "history.db")
         self.run_on_widget(lambda widget: widget.load_data())
         self.register_service(self, protocol=HistoryService)
         self.logger.info("历史记录插件已初始化，HistoryService 已注册")
@@ -299,34 +403,15 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         self._start_compression_migrate()
 
     def _start_compression_migrate(self) -> None:
-        """启动后台压缩迁移线程"""
-        db_path = self.data_dir / "history.db"
-        if not db_path.exists():
+        """旧数据迁移完成后继续等待新暂存数据，进度条仅用于旧数据。"""
+        if self._db_writer is None:
             return
-        # 检查是否还有待迁移的旧录像数据或未压缩的 board
-        with db_connection(db_path, register_custom_functions=False) as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute(
-                    "SELECT COUNT(*) FROM replay_data "
-                    "WHERE replay_id NOT IN (SELECT replay_id FROM replay_index)"
-                )
-                count = cursor.fetchone()[0]
-            except sqlite3.OperationalError:
-                count = 0
-            try:
-                cursor.execute(
-                    "SELECT COUNT(*) FROM history WHERE board IS NOT NULL "
-                    "AND py_board_is_blob(board) = 0"
-                )
-                board_count = cursor.fetchone()[0]
-            except sqlite3.OperationalError:
-                board_count = 0
-        if count > 0 or board_count > 0:
-            self._migrate_worker = _CompressionMigrateWorker(
-                db_path, logger=self.logger)
-            self._migrate_worker.start()
-            self.logger.info(f"后台录像分块迁移启动，待处理 {count} 条记录")
+        self._migrate_worker = _CompressionMigrateWorker(
+            self.data_dir / "history.db", self._db_writer, logger=self.logger)
+        self._migrate_worker.progress.connect(self._on_migration_progress)
+        # 每次启动都尝试一次：即使没有旧数据迁移，也回收此前删除留下的空页。
+        self._migrate_worker.reclaim_requested = True
+        self._migrate_worker.start()
 
     def _cleanup_legacy_view(self) -> None:
         """清理旧版本遗留的 VIEW（子查询方式不再需要）"""
@@ -366,13 +451,17 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             columns)
 
     def on_shutdown(self) -> None:
-        """插件关闭（卸载/禁用/退出）前等待后台压缩迁移线程结束，
-        避免线程仍在写库时连接被中断"""
-        worker = getattr(self, '_migrate_worker', None)
-        if worker is not None and worker.isRunning():
-            self.logger.info("等待后台压缩迁移线程结束...")
+        """在批次边界停止整理，再排空已接收的数据库写入。"""
+        worker = self._migrate_worker
+        if worker is not None:
+            worker.requestInterruption()
+            worker.notify()
             worker.wait()
-            self.logger.info("后台压缩迁移线程已结束")
+            self._migrate_worker = None
+        if self._db_writer is not None:
+            self._db_writer.close()
+            self._db_writer = None
+        self._on_migration_progress(False, 0, 0, "")
 
     # ── 数据库 ──────────────────────────────────────────────
 
@@ -394,8 +483,12 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
                     # 清理旧版本遗留的 VIEW（改用子查询方式不再需要）
                     cursor.execute("DROP VIEW IF EXISTS history_view")
                     conn.commit()
-                    # 拆分 raw_data 到 replay_data 子表
-                    self._migrate_raw_data_to_replay(conn)
+                    # 极旧 raw_data 留给后台逐批迁移，启动阶段只确保表结构。
+                    cursor.execute(
+                        "CREATE TABLE IF NOT EXISTS replay_data ("
+                        "replay_id INTEGER PRIMARY KEY, raw_data BLOB, "
+                        "compressed INTEGER DEFAULT 0)")
+                    conn.commit()
                     # 确保查询索引存在
                     ensure_indexes(conn)
                     # 分块列式存储表（幂等，不改 history 任何列）
@@ -458,54 +551,6 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
             ensure_tables(conn)
             self.logger.info(f"Database created: {db_path}")
 
-    def _migrate_raw_data_to_replay(self, conn: sqlite3.Connection) -> None:
-        """将 history.raw_data 中的录像数据分批迁移到 replay_data 子表（幂等）
-
-        迁移后 history.raw_data 置 NULL 但列保留（回退兼容中间态旧库）。
-        """
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS replay_data (
-                replay_id  INTEGER PRIMARY KEY,
-                raw_data   BLOB,
-                compressed INTEGER DEFAULT 0
-            )
-        """)
-        conn.commit()
-        # history 没有 raw_data 列说明已是新结构，无需迁移
-        cursor.execute("PRAGMA table_info(history)")
-        cols = {row[1] for row in cursor.fetchall()}
-        if "raw_data" not in cols:
-            return
-        migrated = 0
-        while True:
-            cursor.execute(
-                "SELECT replay_id, raw_data, compressed FROM history "
-                "WHERE raw_data IS NOT NULL LIMIT ?",
-                (_MIGRATE_BATCH,),
-            )
-            rows = cursor.fetchall()
-            if not rows:
-                break
-            for replay_id, raw_data, compressed in rows:
-                cursor.execute(
-                    "INSERT OR REPLACE INTO replay_data "
-                    "(replay_id, raw_data, compressed) VALUES (?, ?, ?)",
-                    (replay_id, raw_data, int(bool(compressed))),
-                )
-                # 置 NULL 标记已迁移（幂等），列保留供回退读取
-                cursor.execute(
-                    "UPDATE history SET raw_data = NULL WHERE replay_id = ?",
-                    (replay_id,),
-                )
-            conn.commit()
-            migrated += len(rows)
-        if migrated:
-            self.logger.info(
-                f"已迁移 {migrated} 条录像数据到 replay_data 子表")
-            # 迁移完成后 VACUUM 回收磁盘空间
-            cursor.execute("VACUUM")
-
     # ── 事件处理 ──────────────────────────────────────────
 
     def _on_video_save(self, event: GameFinishedEvent) -> None:
@@ -522,34 +567,28 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
         board_blob = board_json_to_blob(data.get("board"))
         if board_blob is not None:
             data["board"] = board_blob
-        raw_compressed = compress(raw_data) if raw_data is not None else None
         columns = ", ".join(data.keys())
         placeholders = ", ".join(f":{k}" for k in data.keys())
 
-        db_path = self.data_dir / "history.db"
-        with db_connection(db_path, register_custom_functions=False) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                f"INSERT INTO history ({columns}) VALUES ({placeholders})",
-                data,
-            )
+        # 单条压缩在写线程外完成，写锁只覆盖元数据、暂存数据及索引落盘。
+        import zlib
+        staged = zlib.compress(raw_data, 6) if raw_data is not None else None
+
+        def save(conn):
+            cursor = conn.execute(
+                f"INSERT INTO history ({columns}) VALUES ({placeholders})", data)
             replay_id = cursor.lastrowid
             if replay_id is None:
                 raise RuntimeError("插入 history 后未取得 replay_id")
-            # 旧 replay_data 子表：保留作回退（迁移稳定后由 finalize 清空）
-            if raw_compressed is not None:
-                cursor.execute(
-                    "INSERT INTO replay_data (replay_id, raw_data, compressed) "
-                    "VALUES (?, ?, 1)",
-                    (replay_id, raw_compressed),
-                )
-            # 新分块列式存储：先落 staging，攒够一块自动封口
             if raw_data is not None:
-                write_record(conn, replay_id, raw_data)
-            conn.commit()
-            self.logger.info(
-                f"Saved: game_state={event.game_state} time={event.rtime:.1f}s"
-            )
+                write_record(conn, replay_id, raw_data, staged=staged)
+
+        execute_write(self.data_dir / "history.db", save)
+        worker = getattr(self, "_migrate_worker", None)
+        if worker is not None:
+            worker.notify()
+        self.logger.info(
+            f"Saved: game_state={event.game_state} time={event.rtime:.1f}s")
         self.video_save_over.emit()
 
     # ═══════════════════════════════════════════════════════════════════
@@ -633,12 +672,10 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     def delete_record(self, record_id: int) -> bool:
         """删除指定记录（元数据 + 录像数据同一事务）"""
         db_path = self.data_dir / "history.db"
-        with db_connection(db_path) as conn:
-            deleted = delete_record_tx(conn, record_id)
-            conn.commit()
-            if deleted:
-                self.logger.info(f"Deleted record: {record_id}")
-            return deleted
+        deleted = execute_write(db_path, lambda conn: delete_record_tx(conn, record_id))
+        if deleted:
+            self.logger.info(f"Deleted record: {record_id}")
+        return deleted
 
     def raw_query(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
         """

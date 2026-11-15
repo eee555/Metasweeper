@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QSpinBox,
     QMessageBox,
+    QProgressBar,
 )
 
 from .columns_dialog import ColumnsDialog
@@ -42,6 +43,10 @@ _translate = QCoreApplication.translate
 
 # history 表物理字段集合（SELECT 拼接时非物理字段需双引号包裹）
 _PHYSICAL_FIELDS = frozenset(HistoryData.fields())
+
+# 旧数据迁移阶段：稳定 token（插件线程/后端使用）→ 界面本地化文案。
+# token 不随语言变化，避免后端依赖某种语言的字符串。
+_MIGRATION_PHASE_TOKENS = ("replays", "verify", "boards")
 
 
 class HistoryMainWidget(QWidget):
@@ -134,7 +139,31 @@ class HistoryMainWidget(QWidget):
         limit_layout.addWidget(self.next_button)
         limit_layout.addWidget(self.one_page_combo)
 
+        # 旧数据迁移进度条：默认隐藏，仅在后端确认存在旧数据迁移时显示。
+        # 通过 set_migration_progress() 由 GUI 线程更新（父插件经 run_on_widget 投递）。
+        self.migration_progress_row = QWidget(self)
+        migration_row = QHBoxLayout(self.migration_progress_row)
+        migration_row.setContentsMargins(0, 0, 0, 0)
+        self.migration_label = QLabel("", self.migration_progress_row)
+        self.migration_label.setWordWrap(False)
+        self.migration_progress = QProgressBar(self.migration_progress_row)
+        self.migration_progress.setObjectName("migrationProgress")
+        self.migration_progress.setTextVisible(True)
+        self.migration_progress.setRange(0, 1)
+        self.migration_progress.setValue(0)
+        self.migration_progress.setFormat("")
+        self.migration_progress.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        migration_row.addWidget(self.migration_label)
+        migration_row.addWidget(self.migration_progress, 1)
+        self.migration_progress.setVisible(False)
+        self.migration_progress_row.setVisible(False)
+        self._migration_phase = ""
+        self._migration_active = False
+
         layout.addLayout(btn_layout)
+        layout.addWidget(self.migration_progress_row)
         layout.addWidget(self.filter_label)
         layout.addWidget(self.sort_label)
         layout.addWidget(self.table)
@@ -153,6 +182,85 @@ class HistoryMainWidget(QWidget):
         self.computed_columns_button.setText(_translate("Form", "计算列"))
         self.previous_button.setText(_translate("Form", "上一页"))
         self.next_button.setText(_translate("Form", "下一页"))
+        # 迁移进行中：按缓存 token 重新生成文案，保留进度与总量
+        if self._migration_active:
+            self.migration_label.setText(self._migration_phase_text())
+            self.migration_progress.setFormat(self._migration_progress_format())
+
+    def _migration_phase_text(self) -> str:
+        """把稳定 phase token 映射为当前语言下的文案（重译时重新调用）。"""
+        if self._migration_phase == "replays":
+            return _translate("Form", "迁移旧录像数据")
+        if self._migration_phase == "verify":
+            return _translate("Form", "校验迁移数据")
+        if self._migration_phase == "boards":
+            return _translate("Form", "压缩雷图数据")
+        return _translate("Form", "正在迁移旧数据")
+
+    @staticmethod
+    def _coerce_count(value: object) -> int:
+        """把后端传入的计数转成非负整数，非法值当作 0。"""
+        try:
+            return max(0, int(value))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 0
+
+    def _migration_progress_format(self) -> str:
+        """有界进度显示百分比；不确定进度不显示文本。"""
+        if self.migration_progress.maximum() <= 0:
+            return ""
+        # Qt 进度条占位符，不是用户可见文案，无需翻译
+        return "%p%"
+
+    def set_migration_progress(
+        self,
+        active: bool,
+        done: int = 0,
+        total: int = 0,
+        phase: str = "",
+    ) -> None:
+        """更新旧数据迁移进度条（仅 GUI 线程调用）。
+
+        父插件应在插件线程中通过 ``run_on_widget`` 投递到 GUI 线程。
+
+        Args:
+            active: 是否正在迁移。为 ``False`` 时隐藏进度条（成功、失败、
+                取消都走这个分支），不保留任何进度状态。
+            done: 已完成数量；会被夹取到 ``[0, total]``。
+            total: 总数量。``<= 0`` 表示不确定进度（indeterminate），
+                ``> 0`` 表示有界进度。
+            phase: 稳定阶段 token，目前支持 ``"replays"``、``"verify"``、
+                ``"boards"``；未知 token 使用兜底文案。
+        """
+        if not active:
+            self._migration_phase = ""
+            self._migration_active = False
+            self.migration_progress.setRange(0, 1)
+            self.migration_progress.setValue(0)
+            self.migration_progress.setFormat("")
+            self.migration_label.setText("")
+            self.migration_progress.setVisible(False)
+            self.migration_progress_row.setVisible(False)
+            return
+
+        # 夹取输入，容忍后端传入负值、字符串或超出总量的 done
+        total = self._coerce_count(total)
+        done = self._coerce_count(done)
+        self._migration_phase = phase if phase in _MIGRATION_PHASE_TOKENS else ""
+        self._migration_active = True
+        self.migration_label.setText(self._migration_phase_text())
+
+        if total > 0:
+            done = min(done, total)
+            self.migration_progress.setRange(0, total)
+            self.migration_progress.setValue(done)
+        else:
+            # Qt 的 0/0 区间即不确定进度（繁忙指示）
+            self.migration_progress.setRange(0, 0)
+            self.migration_progress.setValue(0)
+        self.migration_progress.setFormat(self._migration_progress_format())
+        self.migration_progress_row.setVisible(True)
+        self.migration_progress.setVisible(True)
 
     def set_filter_sort_state(self, filter_json: str, sort_json: str) -> None:
         """设置排序和过滤状态（由插件调用）"""

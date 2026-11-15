@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .db import db_connection, delete_record_tx
+from .writer import execute_write
 
 from PySide6.QtCore import (
     QEvent, QModelIndex, QPoint, Qt, QCoreApplication, Signal, QTimer,
@@ -314,9 +315,7 @@ class HistoryTable(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:
-            with db_connection(self._db_path) as conn:
-                delete_record_tx(conn, replay_id)
-                conn.commit()
+            execute_write(self._db_path, lambda conn: delete_record_tx(conn, replay_id))
         except sqlite3.Error as e:
             QMessageBox.warning(
                 self, _translate("Form", "错误"),
