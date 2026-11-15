@@ -191,6 +191,10 @@ class ZMQServer:
         self._router_socket = self._ctx.socket(zmq.ROUTER)
         if self._pub_socket is None or self._router_socket is None:
             raise RuntimeError("Failed to create socket")
+        # 显式固定 PUB 发送水位（#27）：PUB/SUB 在高负载下会静默丢弃事件，
+        # 设为 1000（ZMQ 默认量级）使背压边界明确可观测；不改消息帧格式、
+        # 不改 tag、不动心跳/重连语义。
+        self._pub_socket.setsockopt(zmq.SNDHWM, 1000)
         # 启用 ZMQ 原生心跳，与客户端匹配
         # HEARTBEAT_IVL: 每 5 秒发送心跳
         # HEARTBEAT_TIMEOUT: 5 秒内没收到回复视为断连

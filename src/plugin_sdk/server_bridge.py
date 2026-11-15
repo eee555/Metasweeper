@@ -45,6 +45,13 @@ _E = TypeVar("_E", bound=BaseEvent)
 _Q = TypeVar("_Q", bound=BaseQuery)
 
 
+def _safe_tag(cmd: BaseCommand) -> str:
+    """取命令 tag 用于日志；非 msgspec 命令（如测试桩）时回退类名，绝不抛错。"""
+    cfg = getattr(type(cmd), "__struct_config__", None)
+    tag = getattr(cfg, "tag", None)
+    return str(tag) if tag else type(cmd).__name__
+
+
 class GameServerBridge(QObject):
     """
     游戏服务端桥接器（全局单例）
@@ -155,15 +162,30 @@ class GameServerBridge(QObject):
         cmd: BaseCommand,
         future: Future | None,
     ) -> None:
-        """在主线程执行处理器"""
+        """在主线程执行处理器。
+
+        future 非 None 为同步请求（结果经 future 回传 I/O 线程）；
+        future 为 None 为异步命令，调用方不阻塞、也不回传 CommandResponse。
+        #26 兜底：异步命令没有 request_id，服务端不会回响应，失败原本被静默
+        丢弃——这里把 handler 异常与 success=False 明确记录，便于排障。不新增
+        request_id、不改帧格式/tag，避免把异步命令误判为同步阻塞请求。
+        """
         try:
             result = handler(cmd)
             if future is not None:
                 future.set_result(result)
+            elif result is not None and getattr(result, "success", True) is False:
+                logger.warning(
+                    f"Async command failed (no response sent): tag={_safe_tag(cmd)}, "
+                    f"error={getattr(result, 'error', None)!r}")
         except Exception as e:
             logger.error(f"Handler error: {e}", exc_info=True)
             if future is not None:
                 future.set_exception(e)
+            else:
+                logger.warning(
+                    f"Async command raised (no response sent): "
+                    f"tag={_safe_tag(cmd)}, error={e!r}")
 
     def register_query_handler(
         self,

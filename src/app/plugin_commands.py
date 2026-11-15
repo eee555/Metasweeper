@@ -68,6 +68,23 @@ def register_plugin_commands(bridge, ui):
     def handle_new_preset_game(cmd: NewPresetGameCommand):
         from lib_zmq_plugins.shared.base import CommandResponse
 
+        # board 声明为 Optional，默认值 None。跨进程传入的脏数据（None、
+        # 空、或非二维 list）会让下方 len(cmd.board) / len(cmd.board[0])
+        # 抛 TypeError，进而在 I/O 线程上失败。入口先做纯内存校验，失败时
+        # 返回 success=False 而不是让 handler 抛异常。
+        board = cmd.board
+        valid = (
+            isinstance(board, list)
+            and len(board) > 0
+            and all(isinstance(row, list) and len(row) > 0 for row in board)
+        )
+        if valid:
+            width = len(board[0])
+            valid = all(len(row) == width for row in board)
+        if not valid:
+            return CommandResponse(
+                request_id=cmd.request_id, success=False,
+                error="NewPresetGameCommand.board 必须是非空且等宽的二维 list")
         logger.info(
             f"[NewPresetGameCommand] board={cmd.board}, mode={cmd.mode}")
         ui.engine.pending_boards.append(

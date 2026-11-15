@@ -217,6 +217,10 @@ class ZMQClient:
         self._dealer_socket.setsockopt(zmq.HEARTBEAT_TTL, 10000)
         if self._sub_socket is None:
             return
+        # 显式固定 SUB 接收水位（#27），与服务端 PUB 的 SNDHWM 对齐，
+        # 必须在 connect 之前设置。放在两处提前 return 之后，保证
+        # dealer/sub 为 None 的降级路径不产生额外的 setsockopt 副作用。
+        self._sub_socket.setsockopt(zmq.RCVHWM, 1000)
         self._sub_socket.connect(self._pub_endpoint)
         self._dealer_socket.connect(self._ctrl_endpoint)
 
