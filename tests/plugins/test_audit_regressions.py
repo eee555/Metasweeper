@@ -309,7 +309,7 @@ def test_finding_11_package_init_is_lazy():
 
 def test_finding_14_event_doc_uses_real_class_name():
     """#14：事件文档必须使用真实存在的 GameFinishedEvent。"""
-    doc = _read(".claude/skills/plugin-dev/references/level-2-events.md")
+    doc = _read(".github/skills/plugin-dev/references/level-2-events.md")
     events = _read("src/shared_types/events.py")
     assert "GameFinishedEvent" in doc
     assert "from shared_types.events import GameFinishedEvent" in doc

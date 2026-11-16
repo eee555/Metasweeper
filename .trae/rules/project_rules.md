@@ -104,7 +104,7 @@ mypy src
 - ZMQ 通信，主进程 `GameServerBridge`（单例）
 - 插件管理器作为独立子进程运行
 - `src/plugin_sdk/` 定义 BasePlugin API
-- 插件模板与参考文档在 `.claude/skills/plugin-dev/`（历史资源，可直接使用）
+- 插件模板与参考文档在 `.github/skills/plugin-dev/`，按需读取 `SKILL.md` 中的相对链接
 
 ## 提交与推送门禁
 - 提交或推送前必须先运行测试；本次改动涉及的测试必须全部通过。其他测试可运行时，必须运行完整套件并要求全部通过。
