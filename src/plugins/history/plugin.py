@@ -22,6 +22,7 @@ from threading import Event, Lock
 from typing import Any
 
 from .db import db_connection, delete_record_tx, ensure_indexes
+from .parallel_prepare import DEFAULT_WORKERS, PreparePool
 from .writer import DatabaseWriter, execute_write
 
 import msgspec
@@ -41,12 +42,13 @@ class _CompressionMigrateWorker(QThread):
 
     def __init__(self, db_path: Path, writer: DatabaseWriter, logger: Any = None,
                  batch_size: int = BLOCK_SIZE, min_solved_percent: int = 0,
-                 parent=None):
+                 workers: int = DEFAULT_WORKERS, parent=None):
         super().__init__(parent)
         self._db_path = db_path
         self._writer = writer
         self._logger = logger
         self._batch_size = batch_size
+        self._workers = max(1, int(workers))
         self._min_solved_percent = max(0, min(100, int(min_solved_percent)))
         self._wakeup = Event()
         self._cleanup_requested = self._min_solved_percent > 0
@@ -54,6 +56,18 @@ class _CompressionMigrateWorker(QThread):
         self._fill_only_batch = False
         self._compact_requested = True
         self.reclaim_requested = False
+        self._prepare: PreparePool | None = None
+        self.stats: dict[str, int] = {}
+
+    def _prepare_pool(self) -> PreparePool:
+        """维护任务专用的有界准备池（线程池不跨任务复用结果）。"""
+        if self._prepare is None:
+            self._prepare = PreparePool(self._workers)
+        return self._prepare
+
+    def _record_stats(self, values: dict[str, int]) -> None:
+        for key, value in values.items():
+            self.stats[key] = self.stats.get(key, 0) + value
 
     def request_cleanup(self, threshold: int) -> None:
         self._min_solved_percent = max(0, min(100, int(threshold)))
@@ -120,32 +134,46 @@ class _CompressionMigrateWorker(QThread):
         if total:
             self.progress.emit(True, done, total, "replays")
 
-    def _migrate(self, conn):
+    def _migrate(self, conn) -> bool:
+        """执行旧数据迁移；返回旧表是否已全部完成迁移与校验。"""
         from .replay_store import finalize_migration
         from .board_codec import migrate_board_to_ascii
 
+        complete = True
         try:
             self._migrate_legacy_raw(conn)
             if self.isInterruptionRequested():
-                return
+                return False
             count = conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0]
             if count:
                 self.progress.emit(True, 0, count, "replays")
+                stats: dict[str, int] = {}
                 migrate_from_replay_data(
                     conn, batch_size=self._batch_size, write=self._write,
                     progress=self._progress("replays"),
+                    cancelled=self.isInterruptionRequested,
+                    prepare=self._prepare_pool(), stats=stats)
+                self._record_stats(stats)
+                if self.isInterruptionRequested():
+                    return False
+                finalized = finalize_migration(
+                    conn, write=self._write, progress=self._progress("verify"),
                     cancelled=self.isInterruptionRequested)
-                if not self.isInterruptionRequested():
-                    finalize_migration(
-                        conn, write=self._write, progress=self._progress("verify"),
-                        cancelled=self.isInterruptionRequested)
+                self.stats["finalized"] = int(bool(finalized))
+                if not finalized:
+                    complete = False
+                    if self._logger is not None:
+                        self._logger.info("旧录像表未通过校验，保留数据供下次继续")
+            # board 迁移与旧录像表互不影响，校验失败时也应继续
             if not self.isInterruptionRequested():
-                migrate_board_to_ascii(
+                self.stats["boards"] = migrate_board_to_ascii(
                     conn, write=self._write, progress=self._progress("boards"),
                     cancelled=self.isInterruptionRequested)
+            return complete and not self.isInterruptionRequested()
         except Exception as exc:
             if self._logger is not None:
                 self._logger.warning(f"后台迁移未完成，保留数据供下次继续: {exc}")
+            return False
         finally:
             self.progress.emit(False, 0, 0, "")
 
@@ -159,7 +187,12 @@ class _CompressionMigrateWorker(QThread):
 
         try:
             with db_connection(self._db_path, register_custom_functions=False) as conn:
-                self._migrate(conn)
+                migration_complete = self._migrate(conn)
+                if (not migration_complete
+                        and not self.isInterruptionRequested()
+                        and self._logger is not None):
+                    self._logger.info(
+                        "旧数据迁移未全部完成，本次仍运行不依赖旧表的后台维护")
                 while not self.isInterruptionRequested():
                     self._wakeup.clear()
                     try:
@@ -167,9 +200,12 @@ class _CompressionMigrateWorker(QThread):
                             self._cleanup_requested = False
                             try:
                                 cleanup_low_value_replays(
-                                    conn, self._min_solved_percent, write=self._write,
+                                    conn, self._min_solved_percent,
+                                    write=self._write,
                                     progress=self._progress("cleanup"),
-                                    cancelled=self.isInterruptionRequested)
+                                    cancelled=self.isInterruptionRequested,
+                                    prepare=self._prepare_pool(),
+                                    stats=self.stats)
                             finally:
                                 self.progress.emit(False, 0, 0, "")
                         if (self._compact_requested
@@ -229,6 +265,12 @@ class _CompressionMigrateWorker(QThread):
             if self._logger is not None:
                 self._logger.warning(f"后台数据库整理已停止: {exc}")
         finally:
+            # 先停止接收准备任务并等待运行中的准备结束；数据库连接与写线程
+            # 由外层（on_shutdown）顺序关闭。准备任务不持有连接，故此处
+            # 关闭不影响已提交的数据。
+            pool, self._prepare = self._prepare, None
+            if pool is not None:
+                pool.close()
             self.progress.emit(False, 0, 0, "")
 
 

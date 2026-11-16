@@ -37,7 +37,8 @@ sha256 / codec / deleted 全部必须与准备阶段捕获的值逐字节相同�
 把短写回调调度到写线程；读/解压/压缩都在维护线程自己的连接上完成）::
 
     migrate_from_replay_data(conn, batch_size, *, write=None,
-                             progress=None, cancelled=None) -> (migrated, sealed)
+                             progress=None, cancelled=None,
+                             prepare=None, stats=None) -> (migrated, sealed)
     finalize_migration(conn, expected=None, *, batch_size=BLOCK_SIZE,
                        write=None, progress=None, cancelled=None) -> bool
     migrate_board_to_ascii(conn, batch_size, *, write=None,
@@ -45,6 +46,13 @@ sha256 / codec / deleted 全部必须与准备阶段捕获的值逐字节相同�
     fill_incomplete_segments(conn, *, write=None, batch_size=BLOCK_SIZE,
                              after_id=0) -> int
     compact_tombstone_segments(conn, *, write=None, cancelled=None) -> int
+    cleanup_low_value_replays(conn, min_solved_percent, *, write=None,
+                              progress=None, cancelled=None,
+                              prepare=None, stats=None) -> int
+
+``prepare`` 是 :class:`parallel_prepare.PreparePool`：迁移按批次、清理按
+``seg_id`` 在池里并行完成解压/编码/压缩，协调线程仍按顺序把短事务交给
+写线程。``stats`` 收集冲突、失败与剩余数量，便于判断是否真正完成。
 """
 
 from __future__ import annotations
@@ -54,10 +62,12 @@ import logging
 import lzma
 import sqlite3
 import zlib
-from collections import OrderedDict
+from collections import OrderedDict, deque
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Sequence, TypeVar
 
+from .parallel_prepare import PreparePool
 from .replay_codec import (
     CODEC_LZMA_COLUMNAR,
     CODEC_RAW,
@@ -202,6 +212,13 @@ def _run_short(write: WriteDispatch | None, conn: sqlite3.Connection,
     if write is not None:
         return write(fn)
     return _in_short_write(conn, lambda: fn(conn))
+
+
+def _completed_future(value: T) -> Future[T]:
+    """把同步准备结果包装成已完成 Future，供流水线统一按序消费。"""
+    future: Future[T] = Future()
+    future.set_result(value)
+    return future
 
 
 def _data_version(conn: sqlite3.Connection) -> int | None:
@@ -1135,6 +1152,28 @@ def _apply_prepared(write: WriteDispatch | None, conn: sqlite3.Connection,
         return 0
 
 
+@dataclass(frozen=True)
+class _MigrationBatch:
+    """一批旧表的 CPU 准备结果（可在准备线程里生成）。"""
+
+    usable: tuple[_Usable, ...]
+    snapshots: dict[int, tuple[bytes, bool]]
+    prepared: PreparedSeal | None
+
+
+def _prepare_migration_batch(rows: Sequence[tuple],
+                             block_size: int,
+                             prepare_owner: object) -> _MigrationBatch:
+    """纯 CPU：解压旧行、重压 staging、编码预热块（不碰数据库）。"""
+    usable, snapshots = _prepare_staging_batch(rows)
+    prepared = (
+        _build_prepared(usable, limit=block_size,
+                        prepare_owner=prepare_owner)
+        if len(usable) >= block_size else None)
+    return _MigrationBatch(usable=tuple(usable), snapshots=snapshots,
+                           prepared=prepared)
+
+
 def migrate_from_replay_data(
     conn: sqlite3.Connection,
     batch_size: int = BLOCK_SIZE,
@@ -1142,14 +1181,17 @@ def migrate_from_replay_data(
     write: WriteDispatch | None = None,
     progress: ProgressCallback | None = None,
     cancelled: CancelCallback | None = None,
+    prepare: PreparePool | None = None,
+    stats: dict[str, int] | None = None,
 ) -> tuple[int, int]:
     """把旧 ``replay_data`` 表的数据灌入 staging 并封口（幂等）。
 
     不删除旧的 ``replay_data`` 行 —— 保留作回退，由
     :func:`finalize_migration` 分小批、逐行复核后清理。
 
-    读/解压/编码全部在 ``conn``（维护线程的只读连接）上完成；
-    ``write`` 提供时，只有毫秒级的插入/封口在写线程事务内执行。
+    读/解压/编码全部在 ``conn``（维护线程的只读连接）上完成；``write``
+    提供时，只有毫秒级的插入/封口在写线程事务内执行。``prepare`` 提供时，
+    批次的解压/编码/压缩在有界线程池中并行完成，提交仍按顺序进行。
 
     Args:
         batch_size: 每批处理的旧记录数。
@@ -1158,6 +1200,11 @@ def migrate_from_replay_data(
         progress: ``(done, total)``，每批结束后回调；``total`` 为开始时
             旧表总行数，``done`` 为已迁移行数。旧表为空时**不会**回调。
         cancelled: 返回 True 时在批间安全停止。
+        prepare: 有界并行准备池；``None`` 时串行准备。
+        stats: 可选统计字典，累加 ``migrated`` / ``sealed`` /
+            ``conflicts`` / ``failed_batches`` / ``abandoned_records``。
+            冲突记录会在流水线排空后重扫一次，仍失败才计入
+            ``abandoned_records`` 并留给下次启动。
 
     Returns:
         ``(已迁移条数, 成功封口的块数)``。
@@ -1174,9 +1221,17 @@ def migrate_from_replay_data(
     migrated = 0
     sealed = 0
     last_id = -1
-    while True:
+    owner = _owner_key(conn)
+    depth = prepare.max_in_flight if prepare is not None else 1
+    pending: deque[Future[_MigrationBatch]] = deque()
+    # 因并发改动被跳过的 id：流水线排空后统一重扫一次
+    skipped: set[int] = set()
+
+    def _submit_next() -> bool:
+        """读一批旧行并提交准备任务；无可读行时返回 False。"""
+        nonlocal last_id
         if cancelled is not None and cancelled():
-            break
+            return False
         try:
             rows = cursor.execute(
                 "SELECT d.replay_id, d.raw_data, d.compressed "
@@ -1189,29 +1244,115 @@ def migrate_from_replay_data(
             ).fetchall()
         except sqlite3.OperationalError as exc:
             logger.warning("读取旧录像表失败，停止迁移: %s", exc)
-            break
+            return False
         if not rows:
-            break
+            return False
         last_id = rows[-1][0]
+        if prepare is not None:
+            try:
+                pending.append(prepare.submit(
+                    _prepare_migration_batch, rows, BLOCK_SIZE, owner))
+            except RuntimeError as exc:
+                # 准备池在关闭过程中：已读到的批次留待下次重试
+                logger.info("准备池已关闭，停止派发迁移批次: %s", exc)
+                return False
+        else:
+            pending.append(_completed_future(
+                _prepare_migration_batch(rows, BLOCK_SIZE, owner)))
+        return True
 
-        # 准备：解压 + 重压 + （可能）编码压缩整块（纯 CPU，写线程不参与）
-        usable, snapshots = _prepare_staging_batch(rows)
-        prepared = (
-            _build_prepared(usable, limit=BLOCK_SIZE,
-                            prepare_owner=_owner_key(conn))
-            if len(usable) >= BLOCK_SIZE else None)
+    while True:
+        if cancelled is not None and cancelled():
+            break
+        # 有界流水线：先尽量填满在途批次，再按提交顺序应用最早的一批。
+        while len(pending) < depth and _submit_next():
+            pass
+        if not pending:
+            break
+        future = pending.popleft()
+        try:
+            batch = future.result()
+        except BaseException as exc:  # 准备失败只影响本批，源数据保持不变
+            logger.warning("迁移准备失败，停止本批之后的重试: %s", exc)
+            if stats is not None:
+                stats["failed_batches"] = stats.get("failed_batches", 0) + 1
+            break
+
         try:
             inserted, did_seal = _run_short(
                 write, conn,
-                lambda w, u=tuple(usable), s=dict(snapshots), p=prepared:
-                _apply_staging_batch(w, u, s, p))
+                lambda w, b=batch: _apply_staging_batch(
+                    w, b.usable, b.snapshots, b.prepared))
         except sqlite3.OperationalError as exc:
             logger.warning("迁移批次写入失败，稍后重试: %s", exc)
+            if stats is not None:
+                stats["failed_batches"] = stats.get("failed_batches", 0) + 1
             break
+        if stats is not None:
+            stats["conflicts"] = stats.get("conflicts", 0) + max(
+                0, len(batch.usable) - inserted)
         migrated += inserted
         sealed += 1 if did_seal else 0
+        if inserted < len(batch.usable):
+            # 记录被并发改动跳过的 id：等流水线排空后统一重扫一次即可，
+            # 不在仍有在途批次时回头扫，避免重复派发。
+            for item in batch.usable:
+                exists = conn.execute(
+                    "SELECT 1 FROM replay_index WHERE replay_id = ?",
+                    (item.replay_id,)).fetchone()
+                if exists is None:
+                    skipped.add(item.replay_id)
         if progress is not None and total > 0:
             progress(migrated, total)
+
+    # 重试一次：只重扫曾因并发改动被跳过的 id，仍冲突则留给下次启动
+    if skipped and (cancelled is None or not cancelled()):
+        ids = sorted(skipped)
+        for start in range(0, len(ids), batch_size):
+            if cancelled is not None and cancelled():
+                break
+            chunk = ids[start:start + batch_size]
+            placeholders = ",".join("?" * len(chunk))
+            try:
+                rows = cursor.execute(
+                    "SELECT d.replay_id, d.raw_data, d.compressed "
+                    "FROM replay_data AS d "
+                    f"WHERE d.replay_id IN ({placeholders}) "
+                    "AND NOT EXISTS ("
+                    "  SELECT 1 FROM replay_index AS i "
+                    "  WHERE i.replay_id = d.replay_id) "
+                    "ORDER BY d.replay_id",
+                    chunk).fetchall()
+            except sqlite3.OperationalError:
+                break
+            if not rows:
+                continue
+            batch = _prepare_migration_batch(rows, BLOCK_SIZE, owner)
+            try:
+                inserted, did_seal = _run_short(
+                    write, conn,
+                    lambda w, b=batch: _apply_staging_batch(
+                        w, b.usable, b.snapshots, b.prepared))
+            except sqlite3.OperationalError:
+                break
+            migrated += inserted
+            sealed += 1 if did_seal else 0
+            if inserted and progress is not None and total > 0:
+                progress(migrated, total)
+        if stats is not None:
+            remaining = 0
+            for rid in ids:
+                still_legacy = conn.execute(
+                    "SELECT 1 FROM replay_data WHERE replay_id = ?",
+                    (rid,)).fetchone()
+                if still_legacy is None:
+                    continue
+                if conn.execute(
+                        "SELECT 1 FROM replay_index WHERE replay_id = ?",
+                        (rid,)).fetchone() is None:
+                    remaining += 1
+            if remaining:
+                stats["abandoned_records"] = remaining
 
     # 收尾：把剩余 staging（含不足一整块的尾批）强制封口
     if cancelled is None or not cancelled():
@@ -1222,6 +1363,9 @@ def migrate_from_replay_data(
             if _apply_prepared(write, conn, prepared) <= 0:
                 break
             sealed += 1
+    if stats is not None:
+        stats["migrated"] = stats.get("migrated", 0) + migrated
+        stats["sealed"] = stats.get("sealed", 0) + sealed
     return migrated, sealed
 
 
@@ -1373,6 +1517,114 @@ def finalize_migration(
     return remaining == 0
 
 
+@dataclass(frozen=True)
+class _CleanupPlan:
+    """一个分块的清理计划（纯 CPU 准备结果，可跨线程传递）。"""
+
+    seg_id: int
+    old_blob: bytes
+    old_indexes: tuple[tuple, ...]
+    removed_rows: tuple[tuple, ...]
+    kept_rows: tuple[tuple, ...]
+    packed: bytes | None
+    raw_size: int
+
+    @property
+    def removable(self) -> int:
+        return sum(1 for row in self.removed_rows if row[5] == 0)
+
+
+def _plan_segment_cleanup(
+    seg_id: int,
+    blob: bytes,
+    count: int,
+    indexes: Sequence[tuple],
+    low_ids: frozenset[int] | set[int],
+) -> _CleanupPlan | None:
+    """解压分块、筛掉低完成率槽位并重新压缩（纯 CPU，不碰数据库）。"""
+    try:
+        triples = decode_group(lzma.decompress(blob), count)
+        snapshots = tuple(tuple(row) for row in indexes)
+        if len(snapshots) != count:
+            return None
+        removed_rows = tuple(row for row in snapshots
+                             if row[5] or row[0] in low_ids)
+        kept_rows = tuple(row for row in snapshots
+                          if not row[5] and row[0] not in low_ids)
+        kept_triples = [triples[row[1]] for row in kept_rows]
+        if kept_triples:
+            packed = lzma.compress(encode_group(kept_triples),
+                                  preset=_LZMA_PRESET)
+            if decode_group(lzma.decompress(packed),
+                            len(kept_triples)) != kept_triples:
+                logger.warning("分块 %s 清理后自检失败，保留原数据", seg_id)
+                return None
+        else:
+            packed = None
+    except (lzma.LZMAError, UnsupportedReplayError, ValueError,
+            TypeError, IndexError) as exc:
+        logger.warning("分块 %s 清理准备失败，保留原数据: %s", seg_id, exc)
+        return None
+    return _CleanupPlan(
+        seg_id=seg_id,
+        old_blob=blob,
+        old_indexes=snapshots,
+        removed_rows=removed_rows,
+        kept_rows=kept_rows,
+        packed=packed,
+        raw_size=sum(int(row[2] or 0) for row in kept_rows),
+    )
+
+
+def _apply_cleanup_plan(write: WriteDispatch | None,
+                        conn: sqlite3.Connection,
+                        plan: _CleanupPlan) -> bool:
+    """短写事务内复核快照并落地一个分块的清理结果。"""
+    def apply(target, p=plan):
+        current = target.execute(
+            "SELECT blob FROM replay_segment WHERE seg_id = ?",
+            (p.seg_id,)).fetchone()
+        if current is None or current[0] != p.old_blob:
+            return False
+        current_indexes = tuple(tuple(row) for row in target.execute(
+            "SELECT replay_id, slot, length, sha256, codec, deleted "
+            "FROM replay_index WHERE seg_id = ? ORDER BY slot",
+            (p.seg_id,)))
+        if current_indexes != p.old_indexes:
+            return False
+        for rid, *_ in p.removed_rows:
+            target.execute(
+                "UPDATE replay_index SET deleted=1, seg_id=NULL, slot=NULL "
+                "WHERE replay_id=?", (rid,))
+            try:
+                target.execute("DELETE FROM replay_data WHERE replay_id=?",
+                               (rid,))
+            except sqlite3.OperationalError:
+                pass
+        if p.packed is None:
+            target.execute("DELETE FROM replay_segment WHERE seg_id=?",
+                           (p.seg_id,))
+        else:
+            (new_id,) = target.execute(
+                "SELECT COALESCE(MAX(seg_id), -1) + 1 FROM replay_segment"
+            ).fetchone()
+            target.execute(
+                "INSERT INTO replay_segment"
+                "(seg_id,blob,codec,record_count,raw_size) "
+                "VALUES(?,?,?,?,?)",
+                (new_id, p.packed, CODEC_LZMA_COLUMNAR,
+                 len(p.kept_rows), p.raw_size))
+            for slot, row in enumerate(p.kept_rows):
+                target.execute(
+                    "UPDATE replay_index SET seg_id=?, slot=? "
+                    "WHERE replay_id=?", (new_id, slot, row[0]))
+            target.execute("DELETE FROM replay_segment WHERE seg_id=?",
+                           (p.seg_id,))
+        return True
+
+    return bool(_run_short(write, conn, apply))
+
+
 def cleanup_low_value_replays(
     conn: sqlite3.Connection,
     min_solved_percent: int,
@@ -1380,8 +1632,27 @@ def cleanup_low_value_replays(
     write: WriteDispatch | None = None,
     progress: ProgressCallback | None = None,
     cancelled: CancelCallback | None = None,
+    prepare: PreparePool | None = None,
+    stats: dict[str, int] | None = None,
 ) -> int:
-    """清理低 3BV 完成率录像并紧凑受影响分块；保留 history 元数据。"""
+    """清理低 3BV 完成率录像并紧凑受影响分块；保留 history 元数据。
+
+    不同分块的解压与重新压缩在 ``prepare`` 线程池里并行完成；每个分块的
+    提交仍由协调线程按序交由写线程执行。进度只累计**实际删除成功**的
+    录像数，扫描到的候选数不等于完成数。
+
+    Args:
+        min_solved_percent: 完成率阈值（0-100）；0 表示不清理。
+        write: 短写事务调度器；``None`` 时在本连接执行。
+        progress: ``(done, total)``，``done`` 为已实际删除的录像数。
+        cancelled: 返回 True 时在分块间停止。
+        prepare: 有界并行准备池；``None`` 时串行准备。
+        stats: 可选统计字典，累加 ``removed`` / ``conflict_segments`` /
+            ``failed_segments`` / ``pending_segments``。
+
+    Returns:
+        实际删除的录像数。
+    """
     threshold = max(0, min(100, int(min_solved_percent)))
     if threshold == 0 or conn.in_transaction:
         return 0
@@ -1425,6 +1696,8 @@ def cleanup_low_value_replays(
             removed_ids.append(rid)
         return removed_ids
     removed_staged = _run_short(write, conn, remove_staged) if staged else []
+    if removed_staged:
+        low_ids -= set(removed_staged)
 
     segments = conn.execute(
         "SELECT DISTINCT i.seg_id FROM replay_index i "
@@ -1433,73 +1706,92 @@ def cleanup_low_value_replays(
         "AND h.bbbv_solved IS NOT NULL AND h.bbbv_solved * 100 < ? * h.bbbv",
         (threshold,)).fetchall()
     removed = len(removed_staged)
-    progress_done = len(removed_staged)
     if progress is not None and total:
-        progress(min(progress_done, total), total)
-    for (seg_id,) in segments:
-        if cancelled is not None and cancelled():
-            break
-        segment = conn.execute(
+        progress(min(removed, total), total)
+
+    cancelled_now = (lambda: cancelled is not None and cancelled())
+    depth = prepare.max_in_flight if prepare is not None else 1
+    queue: deque[int] = deque(int(row[0]) for row in segments)
+    frozen_ids = frozenset(low_ids)
+    pending: deque[tuple[int, Future[_CleanupPlan | None]]] = deque()
+    retries: dict[int, int] = {}
+    max_retries = 1
+
+    def _submit_next() -> bool:
+        if not queue or cancelled_now():
+            return False
+        seg_id = queue.popleft()
+        row = conn.execute(
             "SELECT blob, record_count FROM replay_segment WHERE seg_id = ?",
             (seg_id,)).fetchone()
-        if segment is None:
-            continue
-        blob, count = segment
-        triples = decode_group(lzma.decompress(blob), count)
+        if row is None:
+            return True
+        blob, count = row
         indexes = conn.execute(
             "SELECT replay_id, slot, length, sha256, codec, deleted "
-            "FROM replay_index WHERE seg_id = ? ORDER BY slot", (seg_id,)).fetchall()
-        snapshots = tuple(tuple(row) for row in indexes)
-        removed_rows = [row for row in indexes if row[5] or row[0] in low_ids]
-        kept_rows = [row for row in indexes if not row[5] and row[0] not in low_ids]
-        kept_triples = [triples[row[1]] for row in kept_rows]
-        new_blob = lzma.compress(encode_group(kept_triples), preset=_LZMA_PRESET) if kept_rows else None
-        raw_size = sum(row[2] for row in kept_rows)
+            "FROM replay_index WHERE seg_id = ? ORDER BY slot",
+            (seg_id,)).fetchall()
+        if prepare is not None:
+            try:
+                future = prepare.submit(
+                    _plan_segment_cleanup, seg_id, blob, count, indexes,
+                    frozen_ids)
+            except RuntimeError as exc:
+                logger.info("准备池已关闭，停止派发清理分块: %s", exc)
+                queue.appendleft(seg_id)
+                return False
+        else:
+            future = _completed_future(
+                _plan_segment_cleanup(seg_id, blob, count, indexes, frozen_ids))
+        pending.append((seg_id, future))
+        return True
 
-        def apply(target, sid=seg_id, old_blob=blob, old_indexes=snapshots,
-                  removed_rows=tuple(removed_rows), kept_rows=tuple(kept_rows),
-                  packed=new_blob, size=raw_size):
-            current = target.execute(
-                "SELECT blob FROM replay_segment WHERE seg_id = ?", (sid,)).fetchone()
-            if current is None or current[0] != old_blob:
-                return False
-            current_indexes = tuple(tuple(row) for row in target.execute(
-                "SELECT replay_id, slot, length, sha256, codec, deleted "
-                "FROM replay_index WHERE seg_id = ? ORDER BY slot", (sid,)))
-            if current_indexes != old_indexes:
-                return False
-            for rid, *_ in removed_rows:
-                target.execute(
-                    "UPDATE replay_index SET deleted=1, seg_id=NULL, slot=NULL "
-                    "WHERE replay_id=?", (rid,))
-                try:
-                    target.execute("DELETE FROM replay_data WHERE replay_id=?", (rid,))
-                except sqlite3.OperationalError:
-                    pass
-            if packed is None:
-                target.execute("DELETE FROM replay_segment WHERE seg_id=?", (sid,))
-            else:
-                (new_id,) = target.execute(
-                    "SELECT COALESCE(MAX(seg_id), -1) + 1 FROM replay_segment").fetchone()
-                target.execute(
-                    "INSERT INTO replay_segment(seg_id,blob,codec,record_count,raw_size) "
-                    "VALUES(?,?,?,?,?)", (new_id, packed, CODEC_LZMA_COLUMNAR,
-                                            len(kept_rows), size))
-                for slot, row in enumerate(kept_rows):
-                    target.execute(
-                        "UPDATE replay_index SET seg_id=?,slot=? WHERE replay_id=?",
-                        (new_id, slot, row[0]))
-                target.execute("DELETE FROM replay_segment WHERE seg_id=?", (sid,))
-            return True
-        applied = _run_short(write, conn, apply)
-        candidates = sum(row[0] in low_ids and not row[5] for row in indexes)
-        progress_done += candidates
-        if progress is not None and total:
-            progress(min(progress_done, total), total)
+    while True:
+        if cancelled_now():
+            break
+        while len(pending) < depth and queue and _submit_next():
+            pass
+        if not pending:
+            break
+        seg_id, future = pending.popleft()
+        try:
+            plan = future.result()
+        except BaseException as exc:
+            logger.warning("分块 %s 清理准备失败，保留原数据: %s", seg_id, exc)
+            if stats is not None:
+                stats["failed_segments"] = stats.get("failed_segments", 0) + 1
+            continue
+        if plan is None:
+            if stats is not None:
+                stats["failed_segments"] = stats.get("failed_segments", 0) + 1
+            continue
+        try:
+            applied = _apply_cleanup_plan(write, conn, plan)
+        except sqlite3.OperationalError as exc:
+            logger.warning("分块 %s 清理提交失败，保留原数据: %s", seg_id, exc)
+            applied = False
         if applied:
-            removed += candidates
-    if progress is not None and total and (cancelled is None or not cancelled()):
+            removed += plan.removable
+            if progress is not None and total:
+                progress(min(removed, total), total)
+        else:
+            # 快照冲突：重新读取该分块再试一次，之后放弃并保留原数据
+            used = retries.get(seg_id, 0)
+            if used < max_retries and not cancelled_now():
+                retries[seg_id] = used + 1
+                queue.append(seg_id)
+            elif stats is not None:
+                stats["conflict_segments"] = stats.get(
+                    "conflict_segments", 0) + 1
+
+    if (stats is not None and (queue or pending)):
+        stats["pending_segments"] = stats.get("pending_segments", 0) + \
+            len(queue) + len(pending)
+    if (progress is not None and total and removed >= total
+            and not queue and not pending):
         progress(total, total)
+    if stats is not None:
+        stats["removed"] = stats.get("removed", 0) + removed
     return removed
 
 
