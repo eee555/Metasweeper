@@ -1079,3 +1079,180 @@ def test_vacuum_is_not_automatic(conn):
                            side_effect=AssertionError("不得自动 VACUUM")) as m:
         assert finalize_migration(conn) is True
     assert not m.called
+
+
+# ── 有界并行准备（迁移 / 清理）────────────────────────────────
+
+def _legacy_data(conn, raws):
+    """只建旧表数据，不写新存储，供迁移测试使用。"""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS replay_data ("
+        "replay_id INTEGER PRIMARY KEY, raw_data BLOB, compressed INTEGER)")
+    for i, raw in enumerate(raws, 1):
+        conn.execute("INSERT INTO replay_data VALUES (?, ?, 0)", (i, raw))
+    conn.commit()
+
+
+def test_migrate_with_prepare_pool_keeps_bit_exact_data(legacy_replay_data):
+    """并行准备多个批次后按序提交，数据仍需逐字节一致。"""
+    from plugins.history.parallel_prepare import PreparePool
+
+    conn = legacy_replay_data
+    raws = [make_evf(events=_ALL_EVENTS * (i % 4 + 1))
+            for i in range(BLOCK_SIZE * 3 + 5)]
+    _legacy_data(conn, raws)
+
+    stats: dict[str, int] = {}
+    seen: list[tuple[int, int]] = []
+    with PreparePool(workers=2, max_in_flight=3) as pool:
+        migrated, sealed = migrate_from_replay_data(
+            conn, progress=lambda d, t: seen.append((d, t)),
+            prepare=pool, stats=stats)
+
+    assert migrated == len(raws)
+    assert sealed >= 1
+    assert seen[-1] == (len(raws), len(raws))
+    assert stats.get("conflicts", 0) == 0
+    assert stats.get("failed_batches", 0) == 0
+    for i, raw in enumerate(raws, 1):
+        assert read_raw_data(conn, i) == raw
+
+
+def test_migrate_prepare_failure_keeps_legacy_rows(legacy_replay_data,
+                                                   monkeypatch):
+    """准备阶段抛异常时停止提交，旧表数据原样保留。"""
+    from plugins.history import replay_store
+    from plugins.history.parallel_prepare import PreparePool
+
+    conn = legacy_replay_data
+    raws = [make_evf() for _ in range(BLOCK_SIZE * 2)]
+    _legacy_data(conn, raws)
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("prepare failed")
+
+    monkeypatch.setattr(replay_store, "_prepare_migration_batch", boom)
+    stats: dict[str, int] = {}
+    with PreparePool(workers=2) as pool:
+        migrated, _sealed = migrate_from_replay_data(
+            conn, prepare=pool, stats=stats)
+
+    assert migrated == 0
+    assert stats.get("failed_batches") == 1
+    assert conn.execute(
+        "SELECT COUNT(*) FROM replay_data").fetchone()[0] == len(raws)
+
+
+def test_cleanup_with_prepare_pool_removes_only_low_value(tmp_path):
+    """并行清理多个分块只删除低完成率录像，其余可原样读出。"""
+    from plugins.history.db import db_connection
+    from plugins.history.parallel_prepare import PreparePool
+
+    path = tmp_path / "history.db"
+    with db_connection(path) as conn:
+        conn.execute(
+            "CREATE TABLE history ("
+            "replay_id INTEGER PRIMARY KEY, bbbv INTEGER, bbbv_solved INTEGER)")
+        ensure_tables(conn)
+        raws = {rid: make_evf(checksum=bytes([rid]) * 32)
+                for rid in range(1, 9)}
+        solved = {1: 5, 2: 100, 3: 10, 4: 100, 5: 100, 6: 1, 7: 100, 8: 100}
+        for rid, raw in raws.items():
+            conn.execute("INSERT INTO history VALUES (?, 100, ?)",
+                         (rid, solved[rid]))
+            write_record(conn, rid, raw)
+        conn.commit()
+        # 每块 2 条 → 4 个分块，便于并行准备
+        while seal_staging(conn, limit=2) > 0:
+            conn.commit()
+        total = len(conn.execute(
+            "SELECT seg_id FROM replay_segment").fetchall())
+        assert total >= 2
+
+        progress: list[tuple[int, int]] = []
+        stats: dict[str, int] = {}
+        with PreparePool(workers=2, max_in_flight=3) as pool:
+            removed = cleanup_low_value_replays(
+                conn, 30, progress=lambda d, t: progress.append((d, t)),
+                prepare=pool, stats=stats)
+
+        assert removed == 3
+        assert stats.get("conflict_segments", 0) == 0
+        assert progress[-1] == (3, 3)
+        for rid, raw in raws.items():
+            if rid in (1, 3, 6):
+                assert read_raw_data(conn, rid) is None
+            else:
+                assert read_raw_data(conn, rid) == raw
+        assert conn.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 8
+
+
+def test_cleanup_reports_progress_only_for_actual_removals(
+        tmp_path, monkeypatch):
+    """提交被拒时不得把候选计数当成已删除数上报。"""
+    from plugins.history import replay_store
+    from plugins.history.db import db_connection
+    from plugins.history.parallel_prepare import PreparePool
+
+    path = tmp_path / "history.db"
+    with db_connection(path) as conn:
+        conn.execute(
+            "CREATE TABLE history ("
+            "replay_id INTEGER PRIMARY KEY, bbbv INTEGER, bbbv_solved INTEGER)")
+        ensure_tables(conn)
+        for rid, solved in ((1, 1), (2, 100), (3, 1)):
+            conn.execute("INSERT INTO history VALUES (?, 100, ?)", (rid, solved))
+            write_record(conn, rid, make_evf(checksum=bytes([rid]) * 32))
+        conn.commit()
+        while seal_staging(conn, limit=3) > 0:
+            conn.commit()
+
+        # 模拟写事务内的快照复核失败：计划不得被计为已删除
+        monkeypatch.setattr(
+            replay_store, "_apply_cleanup_plan",
+            lambda *args, **kwargs: False)
+
+        progress: list[tuple[int, int]] = []
+        stats: dict[str, int] = {}
+        with PreparePool(workers=2) as pool:
+            removed = cleanup_low_value_replays(
+                conn, 30, progress=lambda d, t: progress.append((d, t)),
+                prepare=pool, stats=stats)
+
+        assert removed == 0
+        assert stats.get("conflict_segments", 0) >= 1
+        assert all(done == 0 for done, _total in progress)
+        assert read_raw_data(conn, 1) is not None
+
+
+def test_migration_retries_records_skipped_by_concurrent_change(
+        legacy_replay_data, monkeypatch):
+    """批次内被并发改动跳过的录像，应在流水线排空后重扫补齐。"""
+    from plugins.history import replay_store
+    from plugins.history.parallel_prepare import PreparePool
+
+    conn = legacy_replay_data
+    raws = [make_evf(checksum=bytes([i]) * 32) for i in range(1, 10)]
+    _legacy_data(conn, raws)
+
+    original = replay_store._apply_staging_batch
+    state = {"first": True}
+
+    def partial(target, usable, snapshots, prepared):
+        if state["first"] and len(usable) > 1:
+            state["first"] = False
+            # 模拟其中一条在准备后被改写：只插入其余记录
+            return original(target, usable[:-2], snapshots, prepared)
+        return original(target, usable, snapshots, prepared)
+
+    monkeypatch.setattr(replay_store, "_apply_staging_batch", partial)
+    stats: dict[str, int] = {}
+    with PreparePool(workers=2) as pool:
+        migrated, _sealed = migrate_from_replay_data(
+            conn, prepare=pool, stats=stats)
+
+    assert stats.get("conflicts", 0) == 2
+    assert "abandoned_records" not in stats
+    assert migrated >= len(raws) - 2
+    for i, raw in enumerate(raws, 1):
+        assert read_raw_data(conn, i) == raw

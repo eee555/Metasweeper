@@ -282,3 +282,47 @@ def test_new_block_compression_does_not_block_saving_or_show_migration(qtbot, tm
         worker.notify()
         assert worker.wait(10000)
         writer.close()
+
+
+def test_worker_migrates_with_parallel_prepare_and_closes_pool(qtbot, tmp_path):
+    """维护线程用有界准备池并行准备批次，停止后池被关闭。"""
+    from plugins.history import replay_store
+    from tests.replay.test_replay_store import make_evf
+
+    path = tmp_path / "history.db"
+    initialized_database(path)
+    raws = [make_evf(checksum=bytes([i % 200]) * 32) for i in range(1, 301)]
+    with db_connection(path) as conn:
+        for i, raw in enumerate(raws, 1):
+            conn.execute("INSERT INTO history (replay_id) VALUES (?)", (i,))
+            conn.execute("INSERT INTO replay_data VALUES (?, ?, 1)",
+                         (i, zlib.compress(raw, 6)))
+        conn.commit()
+
+    writer = DatabaseWriter(path)
+    worker = _CompressionMigrateWorker(path, writer, workers=2)
+    try:
+        worker.start()
+        qtbot.waitUntil(
+            lambda: _legacy_table_empty(path), timeout=20000)
+        with db_connection(path) as reader:
+            for i, raw in enumerate(raws, 1):
+                assert read_raw_data(reader, i) == raw
+        assert worker.stats.get("failed_batches", 0) == 0
+        assert worker.stats.get("conflicts", 0) == 0
+        assert worker.stats.get("finalized") == 1
+    finally:
+        worker.requestInterruption()
+        worker.notify()
+        assert worker.wait(20000)
+        assert worker._prepare is None
+        writer.close()
+
+
+def _legacy_table_empty(path) -> bool:
+    try:
+        with db_connection(path) as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM replay_data").fetchone()[0] == 0
+    except Exception:
+        return False
