@@ -114,16 +114,47 @@ def test_event_size_table_covers_all_known_events():
         8: 6, 9: 6, 10: 6, 11: 6, 12: 6,
         81: 2, 82: 2, 83: 2, 99: 2,
         100: 4, 101: 4, 102: 4, 103: 4, 104: 4, 105: 4, 106: 4,
-        107: 4, 108: 4, 109: 4, 110: 4, 111: 4, 112: 4, 113: 4,
-        114: 4, 115: 4, 116: 4, 117: 4, 118: 4, 119: 4, 120: 4, 121: 4,
+        107: 4, 108: 4, 110: 4, 111: 4, 114: 4, 115: 4, 116: 4,
+        118: 4, 120: 4, 121: 4,
         200: 12,
         255: 3,
     }
     assert replay_codec._EVENT_SIZES == expected
     # 变长字符串指标不得进入定长表
     assert replay_codec._INDEX_STRING not in replay_codec._EVENT_SIZES
+    # 保留编号不参与新编码，但旧列式块仍由单独的兼容路径解码。
+    assert replay_codec._LEGACY_RESERVED_BOARD_EVENTS == {
+        109, 112, 113, 117, 119,
+    }
     # 结束标记不是事件
     assert replay_codec._END_MARK not in replay_codec._EVENT_SIZES
+
+
+def test_reserved_board_events_are_rejected_for_new_encoding():
+    from plugins.history import replay_codec
+
+    for etype in replay_codec._LEGACY_RESERVED_BOARD_EVENTS:
+        event = bytes((etype, 1, 2, 3))
+        bad = make_evf(events=event)
+        with pytest.raises(UnsupportedReplayError):
+            split_evf(bad)
+        with pytest.raises(UnsupportedReplayError):
+            encode_group([(b"head", event, b"tail")])
+
+
+def test_decode_keeps_compatibility_with_legacy_reserved_events(monkeypatch):
+    from plugins.history import replay_codec
+
+    triple = (b"legacy head", bytes((109, 1, 2, 3)), b"legacy tail")
+    current_sizes = replay_codec._EVENT_SIZES
+    legacy_sizes = {**current_sizes, **{code: 4 for code in
+                                        replay_codec._LEGACY_RESERVED_BOARD_EVENTS}}
+    with monkeypatch.context() as patcher:
+        patcher.setattr(replay_codec, "_EVENT_SIZES", legacy_sizes)
+        old_payload = encode_group([triple])
+
+    assert replay_codec._EVENT_SIZES is current_sizes
+    assert decode_group(old_payload, 1) == [triple]
 
 
 def test_encode_is_not_quadratic_in_event_count():

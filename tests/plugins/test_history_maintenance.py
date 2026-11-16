@@ -286,7 +286,6 @@ def test_new_block_compression_does_not_block_saving_or_show_migration(qtbot, tm
 
 def test_worker_migrates_with_parallel_prepare_and_closes_pool(qtbot, tmp_path):
     """维护线程用有界准备池并行准备批次，停止后池被关闭。"""
-    from plugins.history import replay_store
     from tests.replay.test_replay_store import make_evf
 
     path = tmp_path / "history.db"
@@ -303,8 +302,10 @@ def test_worker_migrates_with_parallel_prepare_and_closes_pool(qtbot, tmp_path):
     worker = _CompressionMigrateWorker(path, writer, workers=2)
     try:
         worker.start()
+        # 旧表清空的提交先于 finalized 状态发布，必须等待两者都完成。
         qtbot.waitUntil(
-            lambda: _legacy_table_empty(path), timeout=20000)
+            lambda: worker.stats.get("finalized") == 1
+            and _legacy_table_empty(path), timeout=20000)
         with db_connection(path) as reader:
             for i, raw in enumerate(raws, 1):
                 assert read_raw_data(reader, i) == raw
@@ -312,11 +313,14 @@ def test_worker_migrates_with_parallel_prepare_and_closes_pool(qtbot, tmp_path):
         assert worker.stats.get("conflicts", 0) == 0
         assert worker.stats.get("finalized") == 1
     finally:
-        worker.requestInterruption()
-        worker.notify()
-        assert worker.wait(20000)
-        assert worker._prepare is None
-        writer.close()
+        try:
+            worker.requestInterruption()
+            worker.notify()
+            assert worker.wait(20000)
+            assert worker._prepare is None
+        finally:
+            # 关闭状态断言失败也不能遗留非 daemon 的数据库写线程。
+            writer.close()
 
 
 def _legacy_table_empty(path) -> bool:

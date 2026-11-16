@@ -1114,6 +1114,9 @@ def test_migrate_with_prepare_pool_keeps_bit_exact_data(legacy_replay_data):
     assert seen[-1] == (len(raws), len(raws))
     assert stats.get("conflicts", 0) == 0
     assert stats.get("failed_batches", 0) == 0
+    assert finalize_migration(conn) is True
+    assert conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == 0
+    # 清空旧表后，逐字节读取验证的是新存储路径。
     for i, raw in enumerate(raws, 1):
         assert read_raw_data(conn, i) == raw
 
@@ -1253,6 +1256,10 @@ def test_migration_retries_records_skipped_by_concurrent_change(
 
     assert stats.get("conflicts", 0) == 2
     assert "abandoned_records" not in stats
-    assert migrated >= len(raws) - 2
+    assert migrated == len(raws)
+    assert conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == len(raws)
+    assert finalize_migration(conn) is True
+    assert conn.execute("SELECT COUNT(*) FROM replay_data").fetchone()[0] == 0
+    # 旧表已清空，读取只能从迁移后的新存储成功。
     for i, raw in enumerate(raws, 1):
         assert read_raw_data(conn, i) == raw

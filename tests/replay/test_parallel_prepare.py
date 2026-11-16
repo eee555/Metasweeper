@@ -35,20 +35,45 @@ def test_pool_rejects_new_tasks_after_close():
 def test_pool_close_waits_for_running_task():
     started = threading.Event()
     release = threading.Event()
+    shutdown_started = threading.Event()
+    close_finished = threading.Event()
+    shutdown_wait: list[bool] = []
 
     def slow() -> str:
         started.set()
-        release.wait(5)
+        assert release.wait(5)
         return "done"
 
     pool = PreparePool(workers=1)
+    executor = pool._executor
+    assert executor is not None
+    original_shutdown = executor.shutdown
+
+    def observed_shutdown(*, wait: bool = True, cancel_futures: bool = False) -> None:
+        shutdown_wait.append(wait)
+        shutdown_started.set()
+        original_shutdown(wait=wait, cancel_futures=cancel_futures)
+
+    executor.shutdown = observed_shutdown
+
+    def close_pool() -> None:
+        pool.close()
+        close_finished.set()
+
     future = pool.submit(slow)
     assert started.wait(5)
-    closer = threading.Thread(target=pool.close)
+    closer = threading.Thread(target=close_pool)
     closer.start()
-    release.set()
+    try:
+        assert shutdown_started.wait(5)
+        # 任务仍被阻塞时，close 必须保持等待。
+        assert not close_finished.wait(0.1)
+    finally:
+        release.set()
     closer.join(5)
     assert not closer.is_alive()
+    assert close_finished.is_set()
+    assert shutdown_wait == [True]
     assert future.result() == "done"
 
 

@@ -41,13 +41,16 @@ _U16 = struct.Struct(">H")
 
 _MOUSE = frozenset(range(1, 13))          # mv/lc/lr/rc/rr/mc/mr/pf/cc/l/r/m
 _GAME_STATE = frozenset({81, 82, 83, 99})  # replay/win/fail/error
-_BOARD_EVENT = frozenset(range(100, 122)) | frozenset(
-    {110, 111, 114, 115, 116, 118, 120, 121}
-)
+_BOARD_EVENT = frozenset({
+    100, 101, 102, 103, 104, 105, 106, 107, 108,
+    110, 111, 114, 115, 116, 118, 120, 121,
+})
 _PAUSE = 255
 _INDEX_NUMBER = 200
 _INDEX_STRING = 201
 _END_MARK = 0
+# 旧版本错误地把保留编号当作局面事件写入列式块；仅解码时兼容。
+_LEGACY_RESERVED_BOARD_EVENTS = frozenset({109, 112, 113, 117, 119})
 
 # 事件类型 → 事件总字节数（含 1B 类型字节）。
 # 变长字符串指标事件（_INDEX_STRING）不在表中，需按 \0 外推。
@@ -328,6 +331,9 @@ def decode_group(blob: bytes, record_count: int) -> list[tuple[bytes, bytes, byt
                 yp += 2
             else:
                 step = sizes.get(etype)
+                if step is None and etype in _LEGACY_RESERVED_BOARD_EVENTS:
+                    # 旧编码器将保留事件作为 4 字节局面事件写入块。
+                    step = 4
                 if step is None:
                     # 变长事件：载荷以 dt(1B)+index(2B) 开头，这三字节可能
                     # 含 \0，必须从字符串起点（op+3）开始找终止符。
