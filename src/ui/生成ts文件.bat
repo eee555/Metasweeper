@@ -30,10 +30,9 @@ set XIANNI_PLUGIN=../plugins/XianNiUpgrade/config.py ../plugins/XianNiUpgrade/mo
 set CHALLENGE_PLUGIN=../plugins/challenge_mode/plugin.py ../plugins/challenge_mode/widgets.py
 set CLIPBOARD_PLUGIN=../plugins/clipboard_replay/widgets.py
 set SAOLEI_PLUGIN=../plugins/SaoleiWebsite/config.py
-set STATS_PLUGIN=../plugins/stats/plugin.py
 set SKINMANAGER_PLUGIN=../plugins/skin_manager/config.py ../plugins/skin_manager/plugin.py ../plugins/skin_manager/widgets.py ../plugins/skin_manager/sound.py ../plugins/skin_manager/zip_import.py
 
-set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER% %HISTORY_PLUGIN% %LLM_PLUGIN% %XIANNI_PLUGIN% %CHALLENGE_PLUGIN% %CLIPBOARD_PLUGIN% %SAOLEI_PLUGIN% %STATS_PLUGIN% %SKINMANAGER_PLUGIN%
+set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER% %HISTORY_PLUGIN% %LLM_PLUGIN% %XIANNI_PLUGIN% %CHALLENGE_PLUGIN% %CLIPBOARD_PLUGIN% %SAOLEI_PLUGIN% %SKINMANAGER_PLUGIN%
 
 pyside6-lupdate %ALL_SOURCES% -ts en_US.ts -noobsolete -tr-function-alias translate+=_translate
 

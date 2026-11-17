@@ -2,10 +2,13 @@ from pathlib import Path
 from threading import Event
 
 import pytest
-from PySide6.QtCore import QPoint, QThread
+from PySide6.QtCore import QPoint, QThread, Qt
+from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QListWidgetItem
 
 import plugin_manager.main_window as mw
 from plugin_manager.dependency_scan import DependencyDiagnostic, PluginDependencyStatus
+from plugin_manager.icons import action_icon
 from tests.plugin_manager.test_cov_pm_e_helpers import _offscreen, make_plugin, shell  # noqa: F401
 from tests.plugin_manager.test_cov_pm_e_list import _capture_menu, _install
 
@@ -35,6 +38,51 @@ def test_failed_plugin_shows_dependency_detail(qtbot, monkeypatch, tmp_path):
     assert shown[0].windowTitle().endswith("broken")
     assert any("ModuleNotFoundError" in label.text()
                for label in shown[0].findChildren(mw.QLabel))
+
+
+@pytest.mark.parametrize("loaded", [False, True], ids=["failed", "loaded"])
+@pytest.mark.parametrize("color", ["#123456", "#eeeeee"], ids=["light", "dark"])
+def test_dependency_context_menu_icon_and_action(qtbot, qapp, monkeypatch, loaded, color):
+    w = shell(qtbot)
+    plugins = {"demo": make_plugin(qtbot, "demo")} if loaded else {}
+    _install(w, qtbot, plugins)
+    item = QListWidgetItem("demo")
+    item.setData(Qt.ItemDataRole.UserRole, "demo")
+    item.setData(Qt.ItemDataRole.UserRole + 1, "demo_module")
+    w._list.addItem(item)
+    monkeypatch.setattr(w._list, "itemAt", lambda pos: item)
+    shown = []
+    monkeypatch.setattr(w, "_show_dependency_details", shown.append)
+
+    original_palette = QPalette(qapp.palette())
+    palette = QPalette(original_palette)
+    palette.setColor(QPalette.ColorGroup.Active, QPalette.ColorRole.ButtonText, QColor(color))
+    qapp.setPalette(palette)
+    try:
+        def inspect_menu(menu, pos):
+            actions = menu.actions()
+            action = actions[0]
+            assert action.text() == w.tr("查看依赖详情")
+            assert action.isEnabled() and action.isIconVisibleInMenu()
+            assert not action.icon().isNull()
+            assert action.icon().pixmap(16, 16).toImage() == (
+                action_icon("dependency").pixmap(16, 16).toImage())
+            if loaded:
+                assert actions[1].isSeparator()
+                assert actions[2].text() == w.tr("启用")
+            else:
+                assert len(actions) == 1
+            action.trigger()
+
+        class TestMenu(mw.QMenu):
+            def exec(self, pos):
+                inspect_menu(self, pos)
+
+        monkeypatch.setattr(mw, "QMenu", TestMenu)
+        w._on_list_context_menu(QPoint(1, 1))
+        assert shown == ["demo_module"]
+    finally:
+        qapp.setPalette(original_palette)
 
 
 def test_dependency_details_show_each_installed_and_missing_package(qtbot, tmp_path):
