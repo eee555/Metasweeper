@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,11 +19,8 @@ from plugin_sdk.plugin_base import PluginLifecycle, WindowMode
 
 def compile_catalog(ts: Path, qm: Path) -> Path:
     """用 pyside6-lrelease 把 .ts 编译成 .qm（.qm 是构建产物，不入库）。"""
-    name = "pyside6-lrelease.exe" if sys.platform == "win32" else "pyside6-lrelease"
-    python_dir = Path(sys.executable).parent
-    compiler = next(path for path in (python_dir / name, python_dir / "Scripts" / name)
-                    if path.is_file())
-    subprocess.run([str(compiler), str(ts), "-qm", str(qm)], check=True,
+    from tests.plugin_manager.test_menu_layout import find_lrelease
+    subprocess.run([str(find_lrelease()), str(ts), "-qm", str(qm)], check=True,
                    capture_output=True)
     return qm
 

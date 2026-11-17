@@ -1,5 +1,6 @@
 """插件管理器菜单布局、动作绑定和运行时翻译。"""
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -9,6 +10,17 @@ from PySide6.QtWidgets import QApplication
 
 from plugin_manager.main_window import PluginManagerWindow
 from tests.plugin_manager.test_cov_pm_e_helpers import real_window
+
+
+def find_lrelease() -> Path:
+    """定位 pyside6-lrelease（兼容 venv 单目录与 setup-python 的 Scripts 布局）。"""
+    name = "pyside6-lrelease.exe" if sys.platform == "win32" else "pyside6-lrelease"
+    python_dir = Path(sys.executable).parent
+    candidates = [python_dir / name, python_dir / "Scripts" / name]
+    which = shutil.which(name)
+    if which:
+        candidates.append(Path(which))
+    return next(path for path in candidates if path.is_file())
 
 
 def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
@@ -68,9 +80,7 @@ def test_menu_runtime_language_change_during_debug_install(
     translator = QTranslator()
     ts = Path(__file__).resolve().parents[2] / "src" / "ui" / f"{locale}.ts"
     qm = tmp_path / f"{locale}.qm"
-    lrelease = Path(sys.executable).parent / (
-        "pyside6-lrelease.exe" if sys.platform == "win32" else "pyside6-lrelease")
-    subprocess.run([str(lrelease), str(ts), "-qm", str(qm)], check=True,
+    subprocess.run([str(find_lrelease()), str(ts), "-qm", str(qm)], check=True,
                    capture_output=True, text=True)
     assert translator.load(str(qm))
     app = QApplication.instance()
@@ -121,9 +131,7 @@ def test_menu_runtime_language_change_during_debug_install(
 def test_menu_initial_language(qtbot, monkeypatch, tmp_path, locale, titles):
     ts = Path(__file__).resolve().parents[2] / "src" / "ui" / f"{locale}.ts"
     qm = tmp_path / f"{locale}.qm"
-    lrelease = Path(sys.executable).parent / (
-        "pyside6-lrelease.exe" if sys.platform == "win32" else "pyside6-lrelease")
-    subprocess.run([str(lrelease), str(ts), "-qm", str(qm)], check=True,
+    subprocess.run([str(find_lrelease()), str(ts), "-qm", str(qm)], check=True,
                    capture_output=True, text=True)
     translator = QTranslator()
     assert translator.load(str(qm))
