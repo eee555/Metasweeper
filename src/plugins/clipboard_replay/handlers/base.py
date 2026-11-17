@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 from PySide6.QtCore import QObject, Signal
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("ClipboardReplay")
 
 if TYPE_CHECKING:
     from loguru import Logger
@@ -78,7 +81,7 @@ class ClipboardHandler(QObject, Generic[MatchT]):
         self.reset_match()
         if not self.enabled:
             self.cancel()
-        self.report("已启用" if self.enabled else "已停用",
+        self.report(_translate("ClipboardReplay", "已启用") if self.enabled else _translate("ClipboardReplay", "已停用"),
                     kind="state", enabled=self.enabled)
 
     def cancel(self) -> None:

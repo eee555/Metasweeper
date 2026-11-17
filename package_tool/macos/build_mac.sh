@@ -44,6 +44,12 @@ if not (sys.version_info[:2] <= (3, 12) and sys.version_info >= (3, 11)):
     sys.exit(1)
 EOF
 
+# 编译主程序和内置插件翻译；插件目录随管理器一起打包。
+for locale in en_US de_DE pl_PL ja_JP; do
+    "$ROOT/.venv/bin/pyside6-lrelease" "$SRC/ui/$locale.ts" -qm "$SRC/$locale.qm"
+done
+"$PY" "$ROOT/develop_tools/compile_plugin_translations.py"
+
 # ── 2. 图标资源（cat.svg → iconset / cat.ico） ──────────
 QT_QPA_PLATFORM=offscreen "$PY" "$MACOS_DIR/make_assets.py"
 if [ ! -f "$BUILD/Metasweeper.icns" ]; then

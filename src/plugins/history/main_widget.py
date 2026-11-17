@@ -13,7 +13,7 @@ from typing import cast
 
 from .db import db_connection
 
-from PySide6.QtCore import QCoreApplication, QSignalBlocker, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QSignalBlocker, Signal
 from PySide6.QtGui import QCloseEvent as _QCloseEvent
 from PySide6.QtWidgets import (
     QWidget,
@@ -32,14 +32,16 @@ from PySide6.QtWidgets import (
 from .columns_dialog import ColumnsDialog
 from .filter_dialog import FilterDialog
 from .history_table import HistoryTable
-from .models import HistoryData
+from .models import HistoryData, CompareSymbol, LogicSymbol, SortOrder
 from .query_builder import build_where, build_order_by
 from .table_views import SortModel
 from .sort_dialog import SortDialog
 from .table_views import FilterModel
 from .computed_column import ComputedColumn
+from utils.plugin_i18n import PluginTranslate
+from utils.translated_widgets import TranslatedLabel as QLabel
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("HistoryPlugin")
 
 # history 表物理字段集合（SELECT 拼接时非物理字段需双引号包裹）
 _PHYSICAL_FIELDS = frozenset(HistoryData.fields())
@@ -84,18 +86,18 @@ class HistoryMainWidget(QWidget):
         self._filter_rows: list[dict] = []
         self._sort_rows: list[dict] = []
 
-        self.setWindowTitle(_translate("Form", "历史记录"))
+        self.setWindowTitle(_translate("HistoryPlugin", "历史记录"))
         self.resize(800, 600)
 
         layout = QVBoxLayout(self)
 
         # 查询按钮 + 过滤/排序按钮
         btn_layout = QHBoxLayout()
-        self.query_button = QPushButton(_translate("Form", "查询"))
-        self.filter_button = QPushButton(_translate("Form", "过滤"))
-        self.sort_button = QPushButton(_translate("Form", "排序"))
-        self.columns_button = QPushButton(_translate("Form", "列设置"))
-        self.computed_columns_button = QPushButton(_translate("Form", "计算列"))
+        self.query_button = QPushButton(_translate("HistoryPlugin", "查询"))
+        self.filter_button = QPushButton(_translate("HistoryPlugin", "过滤"))
+        self.sort_button = QPushButton(_translate("HistoryPlugin", "排序"))
+        self.columns_button = QPushButton(_translate("HistoryPlugin", "列设置"))
+        self.computed_columns_button = QPushButton(_translate("HistoryPlugin", "计算列"))
         btn_layout.addWidget(self.query_button)
         btn_layout.addWidget(self.filter_button)
         btn_layout.addWidget(self.sort_button)
@@ -118,11 +120,11 @@ class HistoryMainWidget(QWidget):
 
         # 分页
         limit_layout = QHBoxLayout()
-        self.previous_button = QPushButton(_translate("Form", "上一页"))
+        self.previous_button = QPushButton(_translate("HistoryPlugin", "上一页"))
         self.page_spin = QSpinBox()
         self.page_spin.setMinimum(1)
         self.page_spin.setValue(1)
-        self.next_button = QPushButton(_translate("Form", "下一页"))
+        self.next_button = QPushButton(_translate("HistoryPlugin", "下一页"))
         self.one_page_combo = QComboBox()
         self.one_page_combo.addItems(
             ["10", "20", "50", "100", "200", "500", "1000"])
@@ -176,32 +178,56 @@ class HistoryMainWidget(QWidget):
         # 构造阶段只装配控件；计算列、过滤/排序、显示列恢复后由插件触发首次查询，
         # 避免启动期对大表重复执行分页查询。
         self._startup_query_pending = True
+        # 最近一次查询的总行/总页数，语言切换时用于重建分页标签
+        self._total_rows: int | None = None
+        self._max_pages: int | None = None
+        self._retranslate_ready = True
+
+    def changeEvent(self, event: QEvent) -> None:
+        # 语言切换事件由 Qt 投递；构造未完成时控件尚未装配，跳过重译。
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange and getattr(
+                self, "_retranslate_ready", False):
+            self.retranslateUi()
 
     def retranslateUi(self):
-        self.setWindowTitle(_translate("Form", "历史记录"))
-        self.query_button.setText(_translate("Form", "查询"))
-        self.filter_button.setText(_translate("Form", "过滤"))
-        self.sort_button.setText(_translate("Form", "排序"))
-        self.columns_button.setText(_translate("Form", "列设置"))
-        self.computed_columns_button.setText(_translate("Form", "计算列"))
-        self.previous_button.setText(_translate("Form", "上一页"))
-        self.next_button.setText(_translate("Form", "下一页"))
+        self.setWindowTitle(_translate("HistoryPlugin", "历史记录"))
+        self.query_button.setText(_translate("HistoryPlugin", "查询"))
+        self.filter_button.setText(_translate("HistoryPlugin", "过滤"))
+        self.sort_button.setText(_translate("HistoryPlugin", "排序"))
+        self.columns_button.setText(_translate("HistoryPlugin", "列设置"))
+        self.computed_columns_button.setText(_translate("HistoryPlugin", "计算列"))
+        self.previous_button.setText(_translate("HistoryPlugin", "上一页"))
+        self.next_button.setText(_translate("HistoryPlugin", "下一页"))
+        # 分页/过滤/排序标签由运行期数据拼装，需按当前语言重新生成
+        self._render_limit_label()
+        self._render_filter_sort_labels()
         # 迁移进行中：按缓存 token 重新生成文案，保留进度与总量
         if self._migration_active:
             self.migration_label.setText(self._migration_phase_text())
             self.migration_progress.setFormat(self._migration_progress_format())
 
+    def _render_limit_label(self) -> None:
+        """按缓存的总行/总页重建分页标签；尚未查询时保持空白。"""
+        total = self._total_rows
+        max_page = self._max_pages
+        if total is None or max_page is None:
+            return
+        self.limit_label.setText(
+            _translate("HistoryPlugin", "共%1行,%2页")
+            .replace("%1", str(total)).replace("%2", str(max_page)))
+
     def _migration_phase_text(self) -> str:
         """把稳定 phase token 映射为当前语言下的文案（重译时重新调用）。"""
         if self._migration_phase == "replays":
-            return _translate("Form", "迁移旧录像数据")
+            return _translate("HistoryPlugin", "迁移旧录像数据")
         if self._migration_phase == "verify":
-            return _translate("Form", "校验迁移数据")
+            return _translate("HistoryPlugin", "校验迁移数据")
         if self._migration_phase == "boards":
-            return _translate("Form", "压缩雷图数据")
+            return _translate("HistoryPlugin", "压缩雷图数据")
         if self._migration_phase == "cleanup":
-            return _translate("Form", "清理低完成率录像")
-        return _translate("Form", "正在迁移旧数据")
+            return _translate("HistoryPlugin", "清理低完成率录像")
+        return _translate("HistoryPlugin", "正在迁移旧数据")
 
     @staticmethod
     def _coerce_count(value: object) -> int:
@@ -273,20 +299,62 @@ class HistoryMainWidget(QWidget):
         try:
             filter_rows = json.loads(filter_json)
             if filter_rows:
-                self._filter_rows = filter_rows
+                self._filter_rows = self._normalize_filter_rows(filter_rows)
         except (json.JSONDecodeError, TypeError):
             pass
 
         try:
             sort_rows = json.loads(sort_json)
             if sort_rows:
-                self._sort_rows = sort_rows
+                self._sort_rows = self._normalize_sort_rows(sort_rows)
         except (json.JSONDecodeError, TypeError):
             pass
 
         # 由插件在所有列配置恢复完成后统一调用 run_startup_query()；
         # 这里不查询，避免构造阶段和恢复配置阶段重复扫描历史表。
         self._startup_query_pending = True
+
+    @staticmethod
+    def _normalize_filter_rows(rows: list[dict]) -> list[dict]:
+        """把旧版按译文持久化的比较符/逻辑符迁移到稳定编号。
+
+        旧配置可能保存任意内置语言的译文（如英文 "equals"），
+        甚至在当前语言切换后才读取；无法识别的值保持原样，
+        交由查询构建器给出带上下文的错误提示。
+        """
+        normalized: list[dict] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            row = dict(row)
+            compare = row.get("compare")
+            if compare:
+                stable = CompareSymbol.to_stable(compare)
+                if stable is not None:
+                    row["compare"] = stable
+            logic = row.get("logic")
+            if logic:
+                stable = LogicSymbol.to_stable(logic)
+                if stable is not None:
+                    row["logic"] = stable
+            normalized.append(row)
+        return normalized
+
+    @staticmethod
+    def _normalize_sort_rows(rows: list[dict]) -> list[dict]:
+        """把旧版按译文持久化的排序方向迁移到稳定编号。"""
+        normalized: list[dict] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            row = dict(row)
+            order = row.get("order")
+            if order:
+                stable = SortOrder.to_stable(order)
+                if stable is not None:
+                    row["order"] = stable
+            normalized.append(row)
+        return normalized
 
     def _connect_signals(self):
         self.query_button.clicked.connect(self._on_query)
@@ -389,7 +457,9 @@ class HistoryMainWidget(QWidget):
         if not self._db_path.exists():
             with QSignalBlocker(self.page_spin):
                 self.page_spin.setMaximum(1)
-            self.limit_label.setText(_translate("Form", "共0行,0页"))
+            self._total_rows, self._max_pages = 0, 0
+            self.limit_label.setText(
+                _translate("HistoryPlugin", "共%1行,%2页").replace("%1", "0").replace("%2", "0"))
             self.table.load([])
             return
 
@@ -470,13 +540,14 @@ class HistoryMainWidget(QWidget):
                     cursor.execute(sql, page_params)
                     datas = cursor.fetchall()
                 self.limit_label.setText(
-                    _translate("Form", "共%1行,%2页").replace("%1", str(total)).replace("%2", str(max_page)))
+                    _translate("HistoryPlugin", "共%1行,%2页").replace("%1", str(total)).replace("%2", str(max_page)))
+                self._total_rows, self._max_pages = total, max_page
 
                 history_data = [HistoryData.from_dict(dict(d)) for d in datas]
         except sqlite3.Error as e:
             QMessageBox.warning(
-                self, _translate("Form", "错误"),
-                _translate("Form", "加载历史记录失败: %1").replace("%1", str(e)))
+                self, _translate("HistoryPlugin", "错误"),
+                _translate("HistoryPlugin", "加载历史记录失败: %1").replace("%1", str(e)))
             # 查询出错也要更新过滤/排序标签
             self._save_filter_sort_state()
             return
@@ -502,6 +573,21 @@ class HistoryMainWidget(QWidget):
             if not field or not compare_text:
                 continue
 
+            # 稳定编号（或旧版译文）统一按当前语言显示
+            compare_display = compare_text
+            try:
+                compare_display = CompareSymbol.from_display_name(
+                    compare_text).display_name
+            except (TypeError, ValueError):
+                pass
+            logic_display = ""
+            if logic_text:
+                try:
+                    logic_display = LogicSymbol.from_display_name(
+                        logic_text).display_name
+                except (TypeError, ValueError):
+                    logic_display = logic_text
+
             # 格式化值：日期时间戳转为可读格式
             field_value = self._get_field_value_type(field)
             if isinstance(field_value, datetime) and value:
@@ -517,9 +603,9 @@ class HistoryMainWidget(QWidget):
                     pass
 
             parts.append(
-                f"{left_bracket}{field} {compare_text} {value}{right_bracket}")
-            if logic_text:
-                parts.append(logic_text)
+                f"{left_bracket}{field} {compare_display} {value}{right_bracket}")
+            if logic_display:
+                parts.append(logic_display)
 
         return " ".join(parts)
 
@@ -533,6 +619,10 @@ class HistoryMainWidget(QWidget):
             order = row_data.get("order") or ""
             if not field:
                 continue
+            try:
+                order = SortOrder.from_text(order).display_name
+            except (TypeError, ValueError):
+                pass
             parts.append(f"{field} {order}")
         return ", ".join(parts)
 
@@ -578,7 +668,7 @@ class HistoryMainWidget(QWidget):
                 self._get_field_types(),
             )
         except ValueError as e:
-            QMessageBox.warning(self, _translate("Form", "错误"), str(e))
+            QMessageBox.warning(self, _translate("HistoryPlugin", "错误"), str(e))
             return None
 
     def _gen_order_str(self) -> str | None:
@@ -593,7 +683,7 @@ class HistoryMainWidget(QWidget):
                 self._sort_rows, self._get_known_fields()
             ) or " ORDER BY replay_id DESC"
         except ValueError as e:
-            QMessageBox.warning(self, _translate("Form", "错误"), str(e))
+            QMessageBox.warning(self, _translate("HistoryPlugin", "错误"), str(e))
             return None
 
     def _save_filter_sort_state(self, filter_str: str = "", order_str: str = "") -> None:
@@ -603,21 +693,25 @@ class HistoryMainWidget(QWidget):
             json.dumps(self._sort_rows, ensure_ascii=False)
         )
 
+        self._render_filter_sort_labels()
+
+    def _render_filter_sort_labels(self) -> None:
+        """按当前语言与已保存条件重建过滤/排序标签（语言切换时复用）。"""
         # 更新过滤条件标签（易读格式）
         filter_display = self._format_filter_display(self._filter_rows)
         if filter_display:
             self.filter_label.setText(
-                _translate("Form", "过滤: %1").replace("%1", filter_display))
+                _translate("HistoryPlugin", "过滤: %1").replace("%1", filter_display))
         else:
-            self.filter_label.setText(_translate("Form", "过滤: 无"))
+            self.filter_label.setText(_translate("HistoryPlugin", "过滤: 无"))
 
         # 更新排序条件标签（易读格式）
         sort_display = self._format_sort_display(self._sort_rows)
         if sort_display:
             self.sort_label.setText(
-                _translate("Form", "排序: %1").replace("%1", sort_display))
+                _translate("HistoryPlugin", "排序: %1").replace("%1", sort_display))
         else:
-            self.sort_label.setText(_translate("Form", "排序: 无"))
+            self.sort_label.setText(_translate("HistoryPlugin", "排序: 无"))
 
     def closeEvent(self, event: _QCloseEvent):
         """关闭事件"""

@@ -17,10 +17,11 @@ from PySide6.QtWidgets import (
     QStyle,
     QToolButton,
 )
-from PySide6.QtCore import Signal, Slot, Qt, QCoreApplication, QRect
+from PySide6.QtCore import Signal, Slot, Qt, QCoreApplication, QEvent, QRect
 from PySide6.QtGui import QIcon, QPainter, QPixmap
+from utils.plugin_i18n import PluginTranslate, translated
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("MinesweeperMcp")
 
 
 class McpControlWidget(QWidget):
@@ -36,6 +37,7 @@ class McpControlWidget(QWidget):
         self._state = "stopped"
         self._endpoint = ""
         self._error_text = ""
+        self._prompt_text = ""
 
         layout = QVBoxLayout(self)
         controls = QHBoxLayout()
@@ -107,14 +109,20 @@ class McpControlWidget(QWidget):
         self._port_received.connect(self._apply_port)
         self.retranslateUi()
 
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange:
+            self.retranslateUi()
+
     def retranslateUi(self) -> None:
-        self._port_label.setText(_translate("Form", "监听端口"))
-        self.port_spin.setAccessibleName(_translate("Form", "监听端口"))
-        self._prompt_label.setText(_translate("Form", "配置提示词"))
-        self.prompt_edit.setAccessibleName(_translate("Form", "配置提示词"))
-        copy_text = _translate("Form", "复制配置提示词")
+        self._port_label.setText(_translate("MinesweeperMcp", "监听端口"))
+        self.port_spin.setAccessibleName(_translate("MinesweeperMcp", "监听端口"))
+        self._prompt_label.setText(_translate("MinesweeperMcp", "配置提示词"))
+        self.prompt_edit.setAccessibleName(_translate("MinesweeperMcp", "配置提示词"))
+        copy_text = _translate("MinesweeperMcp", "复制配置提示词")
         self.copy_button.setToolTip(copy_text)
         self.copy_button.setAccessibleName(copy_text)
+        self.prompt_edit.setPlainText(translated(self._prompt_text))
         self._render_state()
 
     @Slot(int)
@@ -143,10 +151,10 @@ class McpControlWidget(QWidget):
         endpoint = payload.get("endpoint")
         self._endpoint = endpoint.strip() if isinstance(endpoint, str) else ""
         error = payload.get("error")
-        self._error_text = error.strip() if isinstance(error, str) else ""
+        self._error_text = error if isinstance(error, str) else ""
         prompt = payload.get("prompt")
-        self.prompt_edit.setPlainText(
-            prompt if isinstance(prompt, str) else "")
+        self._prompt_text = prompt if isinstance(prompt, str) else ""
+        self.prompt_edit.setPlainText(translated(self._prompt_text))
         self.copy_button.setEnabled(bool(self.prompt_edit.toPlainText()))
         self._render_state()
 
@@ -154,8 +162,8 @@ class McpControlWidget(QWidget):
         running = self._state == "running"
         transitioning = self._state in ("starting", "stopping")
         self.action_button.setText(
-            _translate("Form", "停止MCP") if running or self._state == "stopping"
-            else _translate("Form", "启动MCP")
+            _translate("MinesweeperMcp", "停止MCP") if running or self._state == "stopping"
+            else _translate("MinesweeperMcp", "启动MCP")
         )
         self.action_button.setIcon(self.style().standardIcon(
             QStyle.StandardPixmap.SP_MediaStop if running or self._state == "stopping"
@@ -164,18 +172,18 @@ class McpControlWidget(QWidget):
         self.action_button.setEnabled(not transitioning)
         self.port_spin.setEnabled(self._state in ("stopped", "error"))
         status_text = {
-            "stopped": _translate("Form", "已停止"),
-            "starting": _translate("Form", "正在启动"),
-            "running": _translate("Form", "运行中"),
-            "stopping": _translate("Form", "正在停止"),
-            "error": _translate("Form", "启动失败"),
+            "stopped": _translate("MinesweeperMcp", "已停止"),
+            "starting": _translate("MinesweeperMcp", "正在启动"),
+            "running": _translate("MinesweeperMcp", "运行中"),
+            "stopping": _translate("MinesweeperMcp", "正在停止"),
+            "error": _translate("MinesweeperMcp", "启动失败"),
         }[self._state]
         if running and self._endpoint:
-            status_text = _translate("Form", "运行中：{endpoint}").format(
+            status_text = _translate("MinesweeperMcp", "运行中：{endpoint}").format(
                 endpoint=self._endpoint
             )
         if self._state == "error" and self._error_text:
-            status_text = _translate("Form", "错误：{reason}").format(
+            status_text = _translate("MinesweeperMcp", "错误：{reason}").format(
                 reason=self._error_text
             )
         self.status_label.setText(status_text)

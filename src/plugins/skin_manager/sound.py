@@ -25,6 +25,9 @@ from shared_types.sounds import (
 )
 from utils.app_logger import logger
 from .zip_import import imported_dir
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("SkinManagerPlugin")
 
 # 随插件一起分发的示例/内置音效包（只读）
 BUILTIN_SOUND_DIR = Path(__file__).resolve().parent / "sounds"
@@ -75,7 +78,7 @@ def discover_sound_choices() -> list[tuple[str, str]]:
     choices: dict[str, str] = dict(
         list_packs(imported_sound_dir(), SOUND_META_FILE))
     return [
-        ("", default_pack_label()),
+        ("", _translate("SkinManagerPlugin", "默认音效")),
         *[(name, choices[name]) for name in sorted(choices)],
     ]
 
@@ -90,11 +93,11 @@ def build_sound_command(
 ) -> SetSoundCommand:
     """构造 `SetSoundCommand`（只传参数，不传输 wav 字节）。"""
     if play_event is not None and play_event not in SOUND_EVENT_NAMES:
-        raise ValueError(f"未知音效事件: {play_event!r}")
+        raise ValueError(_translate("SkinManagerPlugin", "未知音效事件: {event}").format(event=repr(play_event)))
     if volume is not None and not (0 <= volume <= 100):
-        raise ValueError(f"音量超出范围: {volume}")
+        raise ValueError(_translate("SkinManagerPlugin", "音量超出范围: {volume}").format(volume=volume))
     if pack and not is_safe_pack_name(pack):
-        raise ValueError(f"非法音效包名: {pack!r}")
+        raise ValueError(_translate("SkinManagerPlugin", "非法音效包名: {pack}").format(pack=repr(pack)))
     # 未显式指定时，始终把「插件数据目录 sounds/」作为主进程的额外音效库，
     # 这样 zip 导入的包主进程也能 resolve 到（主进程自己不读插件目录）。
     if extra_dir is None:

@@ -3,12 +3,15 @@ from __future__ import annotations
 import copy
 import http.client
 import json
+import os
 import queue
 import socket
+import subprocess
 import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
@@ -41,6 +44,32 @@ def free_port():
     with socket.socket() as connection:
         connection.bind(("127.0.0.1", 0))
         return connection.getsockname()[1]
+
+
+def assert_widgets_not_imported_by_plugin():
+    """在干净的子进程中确认插件模块链不会导入 GUI 控件。
+
+    直接在当前进程检查 ``sys.modules`` 会受其它测试文件的模块级导入影响，
+    断言结果取决于执行顺序；子进程保证起点是全新的解释器。
+    """
+    source = (
+        "import sys\n"
+        "from plugins.llm_minesweeper_controller import plugin\n"
+        "plugin.make_plugin_icon = lambda *args: None\n"
+        "info = plugin.LlmMinesweeperControllerPlugin.plugin_info()\n"
+        "assert info.name\n"
+        "loaded = sorted(name for name in sys.modules "
+        "if name.startswith('plugins.llm_minesweeper_controller'))\n"
+        "assert 'plugins.llm_minesweeper_controller.widgets' not in sys.modules, loaded\n"
+    )
+    root = Path(__file__).resolve().parents[2]
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(root / "src")
+    environment.setdefault("QT_QPA_PLATFORM", "offscreen")
+    result = subprocess.run(
+        [sys.executable, "-c", source], capture_output=True, text=True,
+        cwd=str(root), env=environment, timeout=120)
+    assert result.returncode == 0, result.stderr
 
 
 def set_board(registry, status=1):
@@ -1693,7 +1722,9 @@ def test_plugin_contract_without_gui_or_real_control(monkeypatch, zmq_main, offi
     assert info.name == "元扫雷 MCP 服务"
     assert info.required_controls == [NewGameCommand, MouseClickCommand]
     assert LlmMinesweeperControllerConfig().port == 8765
-    assert "plugins.llm_minesweeper_controller.widgets" not in sys.modules
+    # 模块级导入是本测试无法控制的：其它测试文件可能在模块作用域
+    # 导入 McpControlWidget。改在子进程中验证插件本身不会拉起 GUI。
+    assert_widgets_not_imported_by_plugin()
     states, queued = [], []
     owner = cast(plugin.LlmMinesweeperControllerPlugin,
                  SimpleNamespace(_server=None, _io=None, _state="stopped", _config_error="",

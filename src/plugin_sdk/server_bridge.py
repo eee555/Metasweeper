@@ -23,7 +23,9 @@ import os
 from typing import TYPE_CHECKING, Callable, TypeVar
 import threading
 from concurrent.futures import Future
+from uuid import uuid4
 
+from msgspec.structs import replace
 from PySide6.QtCore import QObject, Signal, Qt
 
 from lib_zmq_plugins.server.zmq_server import ZMQServer
@@ -32,6 +34,7 @@ from lib_zmq_plugins.shared.base import (
 )
 
 from shared_types import COMMAND_TYPES, EVENT_TYPES, QUERY_RESULT_TYPES, QUERY_TYPES
+from shared_types.events import LanguageChangeEvent
 
 if TYPE_CHECKING:
     from lib_zmq_plugins.log import LogHandler
@@ -124,6 +127,10 @@ class GameServerBridge(QObject):
 
         # 保存处理器
         self._handlers: dict[str, Callable] = {}
+        self._language_lock = threading.Lock()
+        self._language_source_id = uuid4().hex
+        self._language_revision = 0
+        self._last_language_event: LanguageChangeEvent | None = None
 
         # 连接内部信号
         self._execute_signal.connect(
@@ -134,6 +141,9 @@ class GameServerBridge(QObject):
         self._server.register_command_types(*COMMAND_TYPES)
         self._server.register_query_types(*QUERY_TYPES)
         self._server.register_query_result_types(*QUERY_RESULT_TYPES)
+        # 预先注册，主进程须在启动插件管理器之前缓存实际语言。
+        self._server.register_snapshot_provider(
+            LanguageChangeEvent, self._language_snapshot)
 
         self._initialized = True
 
@@ -277,6 +287,23 @@ class GameServerBridge(QObject):
         Args:
             event: 事件对象
         """
+        if isinstance(event, LanguageChangeEvent):
+            # 缓存和发布在同一临界区内完成。快照返回独立副本，
+            # 不让后续 publish 对 timestamp 的写入改变已取出的快照。
+            with self._language_lock:
+                self._language_revision += 1
+                current = replace(event, source_id=self._language_source_id,
+                                  revision=self._language_revision)
+                self._last_language_event = current
+                if self._server._pub_socket is not None:
+                    self._server.publish(LanguageChangeEvent, current)
+            return
         if self._server._pub_socket is None:  # type: ignore[attr-defined]
             return  # 服务未启动，跳过（如命令行加载录像时）
         self._server.publish(event.__class__, event)
+
+    def _language_snapshot(self) -> LanguageChangeEvent:
+        with self._language_lock:
+            if self._last_language_event is None:
+                raise RuntimeError("Language has not been synchronized yet")
+            return replace(self._last_language_event)

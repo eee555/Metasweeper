@@ -37,6 +37,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pyside6-lrelease src/ui/ja_JP.ts -qm src/ja_JP.qm
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python develop_tools/compile_plugin_translations.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Generate metasweeper_checksum.pyd
         run: |

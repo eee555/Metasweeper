@@ -45,7 +45,10 @@ from .table_model import HistoryTableModel
 from .compression import decompress
 from .computed_column import ComputedColumn
 
-_translate = QCoreApplication.translate
+from utils.plugin_i18n import PluginTranslate
+from utils.translated_widgets import TranslatedLabel as QLabel
+
+_translate = PluginTranslate("HistoryPlugin")
 
 
 class _DeleteConfirmDialog(ConfirmDialog):
@@ -54,7 +57,7 @@ class _DeleteConfirmDialog(ConfirmDialog):
     def __init__(self, parent=None):
         super().__init__(
             parent,
-            title=_translate("Form", "删除确认"),
+            title=_translate("HistoryPlugin", "删除确认"),
             buttons=QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No,
         )
         self.resize(320, 120)
@@ -62,7 +65,7 @@ class _DeleteConfirmDialog(ConfirmDialog):
     def _create_content(self):
         layout = QVBoxLayout()
         label = QLabel(
-            _translate("Form", "确定要删除选中的这条历史记录吗？\n该操作不可恢复。"))
+            _translate("HistoryPlugin", "确定要删除选中的这条历史记录吗？\n该操作不可恢复。"))
         label.setWordWrap(True)
         layout.addWidget(label)
         return layout
@@ -311,11 +314,11 @@ class HistoryTable(QWidget):
 
     def show_context_menu(self, pos):
         menu = QMenu(self)
-        menu.addAction(_translate("Form", "播放"), self.play_row)
-        menu.addAction(_translate("Form", "导出录像"), self.export_row)
-        menu.addAction(_translate("Form", "复制JSON"), self.export_row_json)
-        menu.addAction(_translate("Form", "删除"), self.delete_row)
-        menu.addAction(_translate("Form", "刷新"), self.refresh)
+        menu.addAction(_translate("HistoryPlugin", "播放"), self.play_row)
+        menu.addAction(_translate("HistoryPlugin", "导出录像"), self.export_row)
+        menu.addAction(_translate("HistoryPlugin", "复制JSON"), self.export_row_json)
+        menu.addAction(_translate("HistoryPlugin", "删除"), self.delete_row)
+        menu.addAction(_translate("HistoryPlugin", "刷新"), self.refresh)
         menu.exec(self.table.mapToGlobal(pos))
 
     def delete_row(self):
@@ -331,8 +334,8 @@ class HistoryTable(QWidget):
             self.compaction_requested.emit()
         except sqlite3.Error as e:
             QMessageBox.warning(
-                self, _translate("Form", "错误"),
-                _translate("Form", "删除记录失败: %1").replace("%1", str(e)))
+                self, _translate("HistoryPlugin", "错误"),
+                _translate("HistoryPlugin", "删除记录失败: %1").replace("%1", str(e)))
             return
         self.refresh()
 
@@ -424,8 +427,8 @@ class HistoryTable(QWidget):
         # 主程序不存在时直接提示，避免白写临时文件
         if not main_py.is_file() and not exe.is_file():
             QMessageBox.warning(
-                self, _translate("Form", "错误"), _translate(
-                    "Form", "找不到主程序 (main.py 或 metasweeper.exe)")
+                self, _translate("HistoryPlugin", "错误"), _translate(
+                    "HistoryPlugin", "找不到主程序 (main.py 或 metasweeper.exe)")
             )
             return
 
@@ -436,8 +439,8 @@ class HistoryTable(QWidget):
             temp_filename = Path(tmp.name)
         if not self.save_evf(str(temp_filename)):
             QMessageBox.warning(
-                self, _translate("Form", "错误"), _translate(
-                    "Form", "保存 evf 文件失败")
+                self, _translate("HistoryPlugin", "错误"), _translate(
+                    "HistoryPlugin", "保存 evf 文件失败")
             )
             return
         if main_py.is_file():
@@ -458,7 +461,7 @@ class HistoryTable(QWidget):
     def export_row(self):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            _translate("Form", "导出evf文件"),
+            _translate("HistoryPlugin", "导出evf文件"),
             str(get_executable_dir()),
             "evf文件 (*.evf)",
         )

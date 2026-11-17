@@ -162,6 +162,8 @@ def base_env(monkeypatch, tmp_path):
     """Isolate PluginManager.__init__ from signals, atexit, data dir and ZMQ."""
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     monkeypatch.setattr(module, "ZMQClient", FakeClient)
+    monkeypatch.setattr(module, "_GuiExecutor", lambda: SimpleNamespace(submit=lambda action: action()))
+    monkeypatch.setattr(module.PluginManager, "_start_language_sync", lambda self: None)
     monkeypatch.setattr(module, "patch_sys_path_for_frozen", lambda: None)
     monkeypatch.setattr(module, "get_data_dir", lambda: tmp_path)
     monkeypatch.setattr(module, "get_all_plugin_dirs", lambda: [tmp_path / "plugins"])
@@ -169,8 +171,10 @@ def base_env(monkeypatch, tmp_path):
     monkeypatch.setattr(module.signal, "signal", lambda *args: None)
     monkeypatch.setattr(module.atexit, "register", lambda *args: None)
     monkeypatch.setattr(module.sys, "platform", "win32")
-    monkeypatch.setattr(module, "_TranslatorInstaller", lambda: SimpleNamespace(
-        install=lambda language: None,
+    monkeypatch.setattr(module, "TranslationManager", lambda: SimpleNamespace(
+        install=lambda language, done: done(),
+        set_catalogs=lambda catalogs: None,
+        close=lambda: None,
     ))
     monkeypatch.setattr(module.PluginManager, "_register_shutdown_handlers",
                         lambda self: None)

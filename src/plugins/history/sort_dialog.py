@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtCore import Qt, QCoreApplication, QEvent
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QMenu,
@@ -18,8 +18,9 @@ from .delegates import ComboBoxDelegate, EditableComboBoxDelegate
 from .models import HistoryData
 from .table_views import AutoEditTableView, SortModel
 from .computed_column import ComputedColumn
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("HistoryPlugin")
 
 
 class SortDialog(ConfirmDialog):
@@ -27,8 +28,22 @@ class SortDialog(ConfirmDialog):
 
     def __init__(self, computed_columns: list[ComputedColumn] | None = None, parent=None):
         self._computed_columns = computed_columns or []
-        super().__init__(parent, title=_translate("Form", "排序条件"))
+        super().__init__(parent, title=_translate("HistoryPlugin", "排序条件"))
         self.resize(400, 300)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange and hasattr(self, "sort_table"):
+            self.retranslateUi()
+
+    def retranslateUi(self) -> None:
+        """语言切换后重建表头与升/降序选项（已选的排序条件保持不变）。"""
+        self.setWindowTitle(_translate("HistoryPlugin", "排序条件"))
+        model = self.sort_table.model()
+        refresh = getattr(model, "retranslate_headers", None)
+        if callable(refresh):
+            refresh()
+        self._setup_delegates()
 
     def _create_content(self):
         layout = QVBoxLayout()
@@ -69,16 +84,16 @@ class SortDialog(ConfirmDialog):
         self.sort_table.setItemDelegateForColumn(
             SortModel.COL_ORDER,
             ComboBoxDelegate(
-                [_translate("Form", "升序"), _translate("Form", "降序")], self
+                [_translate("HistoryPlugin", "升序"), _translate("HistoryPlugin", "降序")], self
             )
         )
 
     def show_sort_context_menu(self, pos):
         """排序列表右键菜单"""
         menu = QMenu(self)
-        menu.addAction(_translate("Form", "添加"), self._add_sort_row)
-        menu.addAction(_translate("Form", "插入"), self._insert_sort_row)
-        menu.addAction(_translate("Form", "删除"), self._del_sort_row)
+        menu.addAction(_translate("HistoryPlugin", "添加"), self._add_sort_row)
+        menu.addAction(_translate("HistoryPlugin", "插入"), self._insert_sort_row)
+        menu.addAction(_translate("HistoryPlugin", "删除"), self._del_sort_row)
         menu.exec(self.sort_table.mapToGlobal(pos))
 
     def _add_sort_row(self):
@@ -89,7 +104,7 @@ class SortDialog(ConfirmDialog):
         model.setData(model.index(row, SortModel.COL_FIELD),
                       HistoryData.fields()[0])
         model.setData(model.index(row, SortModel.COL_ORDER),
-                      _translate("Form", "升序"))
+                      _translate("HistoryPlugin", "升序"))
 
     def _add_sort_row_at(self, row: int, field: str | None = None, order: str | None = None):
         """在指定位置添加排序行"""
@@ -97,7 +112,7 @@ class SortDialog(ConfirmDialog):
         if field is None:
             field = HistoryData.fields()[0]
         if order is None:
-            order = _translate("Form", "升序")
+            order = _translate("HistoryPlugin", "升序")
 
         self.sort_table.insertRow(row)
         model.setData(model.index(row, SortModel.COL_FIELD), field)
@@ -133,7 +148,7 @@ class SortDialog(ConfirmDialog):
             field = model.data(model.index(row, SortModel.COL_FIELD))
             order_text = model.data(model.index(row, SortModel.COL_ORDER))
             order_sql = "ASC" if order_text == _translate(
-                "Form", "升序") else "DESC"
+                "HistoryPlugin", "升序") else "DESC"
             orders.append(f"{field} {order_sql}")
 
         if orders:

@@ -338,51 +338,13 @@ def test_exec_gui_uses_existing_app(manager, monkeypatch, qapp):
     assert stops == [True]
 
 
-def test_install_translator_creates_installer_when_needed(manager, monkeypatch):
-    calls = []
-    monkeypatch.setattr(module, "_TranslatorInstaller", lambda: SimpleNamespace(
-        install=lambda language: calls.append(language),
-    ))
-    manager._translator_installer = None
-    manager._install_translator("de_DE")
-    assert calls == ["de_DE"]
-    manager._install_translator("zh_CN")
-    assert calls == ["de_DE", "zh_CN"]
-
-
-def test_translator_installer_install_and_idle(qapp, qtbot, tmp_path, monkeypatch):
-    from PySide6.QtCore import QCoreApplication, QTranslator
-
-    monkeypatch.setattr(module, "get_bundle_dir", lambda: tmp_path)
-    (tmp_path / "de_DE.qm").write_bytes(b"fake-translation")
-    (tmp_path / "ja_JP.qm").write_bytes(b"fake-translation")
-    installer = module._TranslatorInstaller()
-    loaded = []
-    installed = []
-    monkeypatch.setattr(QTranslator, "load",
-                        lambda self, path: loaded.append(path) or True)
-    monkeypatch.setattr(QCoreApplication, "installTranslator",
-                        lambda self, translator: installed.append(translator) or True)
-    monkeypatch.setattr(QCoreApplication, "removeTranslator",
-                        lambda self, translator: installed.append("removed") or True)
-
-    installer.install("zh_CN")
-    qtbot.waitUntil(lambda: installer._translator is None, timeout=500)
-    installer.install("de_DE")
-    qtbot.waitUntil(lambda: len(installed) == 1, timeout=500)
-    assert loaded == [str(tmp_path / "de_DE.qm")]
-    installer.install("ja_JP")
-    qtbot.waitUntil(lambda: len(installed) == 3, timeout=500)
-    assert installed[1] == "removed"
-    installer.install("missing_language")
-    qtbot.waitUntil(lambda: installer._translator is None, timeout=500)
-    installer.deleteLater()
-
-
-def test_translator_installer_without_app(monkeypatch, qapp):
-    installer = module._TranslatorInstaller()
+def test_translation_manager_without_app(monkeypatch, qapp):
+    installer = module.TranslationManager()
     monkeypatch.setattr("PySide6.QtCore.QCoreApplication.instance", lambda: None)
-    assert installer._install("de_DE") is None
+    calls = []
+    installer.install("de_DE", lambda: calls.append(True))
+    assert calls == [True]
+    installer.close()
     installer.deleteLater()
 
 
@@ -455,8 +417,10 @@ def test_drain_language_show_and_dispatch_error(manager, monkeypatch, qapp):
     from lib_zmq_plugins.shared.base import get_event_tag
 
     received = []
-    monkeypatch.setattr(manager, "_install_translator",
-                        lambda language: received.append(("lang", language)))
+    manager._translator_installer = SimpleNamespace(
+        install=lambda language, done: (received.append(("lang", language)), done()),
+        close=lambda: None,
+    )
     window = FakeWindow(manager)
     manager._main_window = window
     monkeypatch.setattr(manager.dispatcher, "dispatch",
@@ -598,7 +562,10 @@ def test_on_language_change_installs_and_dispatches(manager, monkeypatch):
     from lib_zmq_plugins.shared.base import get_event_tag
 
     languages, dispatched = [], []
-    monkeypatch.setattr(manager, "_install_translator", languages.append)
+    manager._translator_installer = SimpleNamespace(
+        install=lambda language, done: (languages.append(language), done()),
+        close=lambda: None,
+    )
     monkeypatch.setattr(manager.dispatcher, "dispatch",
                         lambda tag, event: dispatched.append((tag, event)))
     event = LanguageChangeEvent(language="ja_JP")

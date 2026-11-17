@@ -4,6 +4,9 @@ import re
 from urllib.parse import urlsplit
 
 from ..download import ReplayDownloadHandler
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("ClipboardReplay")
 
 
 def find_video_id(text: str) -> str | None:
@@ -23,7 +26,7 @@ def find_video_id(text: str) -> str | None:
 
 class OpenmsHandler(ReplayDownloadHandler):
     handler_id = "openms"
-    display_name = "开源扫雷网录像"
+    display_name = _translate("ClipboardReplay", "开源扫雷网录像")
     download_url_template = "https://openms.top/api/video/download/{video_id}"
 
     def match(self, text: str) -> str | None:

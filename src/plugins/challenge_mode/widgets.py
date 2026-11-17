@@ -7,9 +7,10 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QPushButton, QCheckBox, QMessageBox, QSpinBox,
 )
-from PySide6.QtCore import Qt, Signal, Slot, QCoreApplication
+from PySide6.QtCore import Qt, Signal, Slot, QCoreApplication, QEvent
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("ChallengeMode")
 
 
 class ChallengeModeUI(QWidget):
@@ -25,6 +26,7 @@ class ChallengeModeUI(QWidget):
         self._reset_cb = None
         self._select_cb = None
         self._level_num = 1
+        self._last_update = None
         self._setup_ui()
         self._signal_update.connect(self._do_update)
 
@@ -57,7 +59,7 @@ class ChallengeModeUI(QWidget):
         )
         info_layout = QVBoxLayout(info_frame)
 
-        self._level_label = QLabel(_translate("Form", "第 1 关"))
+        self._level_label = QLabel(_translate("ChallengeMode", "第 1 关"))
         self._level_label.setStyleSheet(
             "font-size: 20px; font-weight: bold; color: #333333; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
@@ -73,7 +75,7 @@ class ChallengeModeUI(QWidget):
 
         select_layout = QHBoxLayout()
         select_layout.addStretch()
-        self._select_label = QLabel(_translate("Form", "选择关卡:"))
+        self._select_label = QLabel(_translate("ChallengeMode", "选择关卡:"))
         self._select_label.setStyleSheet(
             "font-size: 13px; color: #666666; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
@@ -91,7 +93,7 @@ class ChallengeModeUI(QWidget):
         info_layout.addLayout(select_layout)
 
         btn_layout = QHBoxLayout()
-        self._start_btn = QPushButton(_translate("Form", "开始本关"))
+        self._start_btn = QPushButton(_translate("ChallengeMode", "开始本关"))
         self._start_btn.setStyleSheet(
             "QPushButton { padding: 6px 18px; font-size: 13px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
             "QPushButton:hover { background-color: #E3F2FD; }"
@@ -99,7 +101,7 @@ class ChallengeModeUI(QWidget):
         self._start_btn.clicked.connect(self._on_start)
         btn_layout.addWidget(self._start_btn)
 
-        self._next_btn = QPushButton(_translate("Form", "下一关"))
+        self._next_btn = QPushButton(_translate("ChallengeMode", "下一关"))
         self._next_btn.setEnabled(False)
         self._next_btn.setStyleSheet(
             "QPushButton { padding: 6px 18px; font-size: 13px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
@@ -108,7 +110,7 @@ class ChallengeModeUI(QWidget):
         self._next_btn.clicked.connect(self._on_next)
         btn_layout.addWidget(self._next_btn)
 
-        self._auto_next_cb = QCheckBox(_translate("Form", "自动下一关"))
+        self._auto_next_cb = QCheckBox(_translate("ChallengeMode", "自动下一关"))
         self._auto_next_cb.setStyleSheet(
             "font-size: 12px; color: #888888; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
@@ -124,7 +126,7 @@ class ChallengeModeUI(QWidget):
             "QFrame { border: 2px solid #4CAF50; border-radius: 8px; padding: 16px; background-color: #E8F5E9; }"
         )
         congrats_layout = QVBoxLayout(self._congrats_frame)
-        self._congrats_label = QLabel(_translate("Form", "恭喜通关！"))
+        self._congrats_label = QLabel(_translate("ChallengeMode", "恭喜通关！"))
         self._congrats_label.setStyleSheet(
             "font-size: 22px; font-weight: bold; color: #2E7D32; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;"
         )
@@ -138,7 +140,7 @@ class ChallengeModeUI(QWidget):
         bottom_layout.addStretch()
         self._reset_btn = QPushButton("\u2699")
         self._reset_btn.setFixedSize(28, 28)
-        self._reset_btn.setToolTip(_translate("Form", "重置闯关进度"))
+        self._reset_btn.setToolTip(_translate("ChallengeMode", "重置闯关进度"))
         self._reset_btn.setStyleSheet(
             "QPushButton { border: none; color: #AAAAAA; font-size: 18px; }"
             "QPushButton:hover { color: #666666; }"
@@ -147,16 +149,23 @@ class ChallengeModeUI(QWidget):
         bottom_layout.addWidget(self._reset_btn)
         layout.addLayout(bottom_layout)
 
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange:
+            self.retranslateUi()
+
     def retranslateUi(self):
+        if self._last_update is not None:
+            self._do_update(self._last_update)
         self._level_label.setText(
-            _translate("Form", "第 %1 关").replace("%1", str(self._level_num))
+            _translate("ChallengeMode", "第 %1 关").replace("%1", str(self._level_num))
         )
-        self._start_btn.setText(_translate("Form", "开始本关"))
-        self._next_btn.setText(_translate("Form", "下一关"))
-        self._select_label.setText(_translate("Form", "选择关卡:"))
-        self._auto_next_cb.setText(_translate("Form", "自动下一关"))
-        self._reset_btn.setToolTip(_translate("Form", "重置闯关进度"))
-        self._congrats_label.setText(_translate("Form", "恭喜通关！"))
+        self._start_btn.setText(_translate("ChallengeMode", "开始本关"))
+        self._next_btn.setText(_translate("ChallengeMode", "下一关"))
+        self._select_label.setText(_translate("ChallengeMode", "选择关卡:"))
+        self._auto_next_cb.setText(_translate("ChallengeMode", "自动下一关"))
+        self._reset_btn.setToolTip(_translate("ChallengeMode", "重置闯关进度"))
+        self._congrats_label.setText(_translate("ChallengeMode", "恭喜通关！"))
 
     def _on_start(self):
         if self._start_cb:
@@ -169,8 +178,8 @@ class ChallengeModeUI(QWidget):
     def _on_reset(self):
         ret = QMessageBox.question(
             self,
-            _translate("Form", "重置闯关进度"),
-            _translate("Form", "确认重置闯关进度？此操作不可撤销。"),
+            _translate("ChallengeMode", "重置闯关进度"),
+            _translate("ChallengeMode", "确认重置闯关进度？此操作不可撤销。"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -179,6 +188,7 @@ class ChallengeModeUI(QWidget):
 
     @Slot(object)
     def _do_update(self, data: dict):
+        self._last_update = dict(data)
         idx = data["current_level"]
         total = data["total_levels"]
         row = data["row"]
@@ -190,10 +200,10 @@ class ChallengeModeUI(QWidget):
 
         self._level_num = idx + 1
         self._level_label.setText(
-            _translate("Form", "第 %1 关").replace("%1", str(idx + 1))
+            _translate("ChallengeMode", "第 %1 关").replace("%1", str(idx + 1))
         )
         self._info_label.setText(
-            _translate("Form", "行: %1  列: %2  雷: %3")
+            _translate("ChallengeMode", "行: %1  列: %2  雷: %3")
             .replace("%1", str(row))
             .replace("%2", str(col))
             .replace("%3", str(mines))

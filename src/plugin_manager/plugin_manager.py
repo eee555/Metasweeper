@@ -13,13 +13,14 @@ import sys
 import threading
 from collections import deque
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import loguru
+import msgspec
+from PySide6.QtCore import QCoreApplication, QObject, QThread, Qt, Signal, Slot
 from lib_zmq_plugins.client.zmq_client import ZMQClient
 from lib_zmq_plugins.log import LogHandler
-from lib_zmq_plugins.shared.base import BaseEvent, get_event_tag
-from PySide6.QtCore import QObject, Qt, Signal
+from lib_zmq_plugins.shared.base import BaseEvent, SyncCommand, get_event_tag
 
 from shared_types import COMMAND_TYPES, EVENT_TYPES, QUERY_RESULT_TYPES, QUERY_TYPES
 from shared_types.events import LanguageChangeEvent
@@ -32,6 +33,7 @@ from .app_paths import get_all_plugin_dirs, get_bundle_dir, get_data_dir, patch_
 from .plugin_lib_env import apply_plugin_lib_dir
 from .plugin_state import PluginState, PluginStateManager
 from .settings_manager import SettingsManager
+from .translations import TranslationManager
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication, QWidget
@@ -39,32 +41,26 @@ if TYPE_CHECKING:
 logger = loguru.logger.bind(name="PluginManager")
 
 
-class _TranslatorInstaller(QObject):
-    """线程安全地在主线程安装 QTranslator"""
-    _signal = Signal(str)
+class _GuiExecutor(QObject):
+    """将事件投递和连接状态更新送到同一个 Qt 应用线程。"""
+    _requested = Signal(object)
 
     def __init__(self):
         super().__init__()
-        self._translator = None
-        self._signal.connect(self._install, Qt.ConnectionType.QueuedConnection)
-
-    def install(self, language: str) -> None:
-        self._signal.emit(language)
-
-    def _install(self, language: str) -> None:
-        from PySide6.QtCore import QCoreApplication, QTranslator
         app = QCoreApplication.instance()
-        if app is None:
-            return
-        if self._translator is not None:
-            app.removeTranslator(self._translator)
-            self._translator = None
-        if language != "zh_CN":
-            qm_path = get_bundle_dir() / f"{language}.qm"
-            if qm_path.exists():
-                self._translator = QTranslator()
-                self._translator.load(str(qm_path))
-                app.installTranslator(self._translator)
+        if app is not None and self.thread() != app.thread():
+            self.moveToThread(app.thread())
+        self._requested.connect(self._execute, Qt.ConnectionType.QueuedConnection)
+
+    def submit(self, action: Callable[[], None]) -> None:
+        if QCoreApplication.instance() is None or QThread.currentThread() == self.thread():
+            action()
+        else:
+            self._requested.emit(action)
+
+    @Slot(object)
+    def _execute(self, action: Callable[[], None]) -> None:
+        action()
 
 
 class _LogHandler(LogHandler):
@@ -97,6 +93,8 @@ class PluginManager:
 
     # 共享的 Manager 实例（用于信号处理器和 atexit 回调）
     _instance: "PluginManager | None" = None
+    _LANGUAGE_SYNC_INTERVAL = 5.0
+    _LANGUAGE_SYNC_TIMEOUT = 2.0
 
     def __init__(
         self,
@@ -146,6 +144,13 @@ class PluginManager:
         self._events_ready = False
         self._events_draining = False
         self._starting = False
+        self._language_source_id = ""
+        self._language_revision = 0
+        self._retired_language_sources: set[str] = set()
+        self._language_sync_stop = threading.Event()
+        self._language_sync_wakeup = threading.Event()
+        self._language_sync_thread: threading.Thread | None = None
+        self._gui_executor: _GuiExecutor | None = None
 
         # 主窗口
         self._main_window = None
@@ -268,6 +273,8 @@ class PluginManager:
             self._events_ready = False
             self._pending_events.clear()
 
+        self._language_sync_stop.set()
+        self._language_sync_wakeup.set()
         logger.info("开始优雅关闭...")
 
         # 1. 关闭所有插件（让插件保存状态等）
@@ -285,8 +292,15 @@ class PluginManager:
         except Exception as e:
             logger.error(f"断开 ZMQ 连接失败: {e}")
 
-        # 4. 清理事件分发器
+        # disconnect 会唤醒正在等响应的同步线程；避免停止后遗留后台任务。
+        sync_thread = self._language_sync_thread
+        if sync_thread is not None and sync_thread is not threading.current_thread():
+            sync_thread.join(timeout=3.0)
+
+        # 4. 清理事件分发器和翻译器；跨线程关闭时由应用线程执行移除。
         self._dispatcher.clear()
+        if self._translator_installer is not None:
+            self._translator_installer.close()
 
         self._started = False
         logger.info("优雅关闭完成")
@@ -301,11 +315,13 @@ class PluginManager:
             self._starting = True
 
         try:
-            # 在主线程创建，确保 QueuedConnection 投递到主线程事件循环
-            self._translator_installer = _TranslatorInstaller()
+            # 两者归属同一应用线程，翻译安装完成后才继续分发队列。
+            self._gui_executor = _GuiExecutor()
+            self._translator_installer = TranslationManager()
 
             self._load_plugins()
             self._apply_saved_plugin_states()
+            self._refresh_plugin_translations()
             # 在 connect 启动接收线程前注册回调，覆盖首次快照和实时事件。
             self._setup_zmq_subscriptions()
             if self._shutdown_requested:
@@ -313,6 +329,7 @@ class PluginManager:
             self._client.connect()
             if self._shutdown_requested:
                 return
+            self._start_language_sync()
             # initialize 同步注册订阅并启动 QThread；on_initialized 异步执行。
             self._initialize_plugins()
             if self._shutdown_requested:
@@ -423,11 +440,17 @@ class PluginManager:
     # ZMQ 订阅（使用事件类）
     # ═══════════════════════════════════════════════════════════════════
 
-    def _install_translator(self, language: str) -> None:
-        """在插件进程的 QApplication 上安装对应语言的翻译器（线程安全）"""
+    def _refresh_plugin_translations(self, include: str | None = None) -> None:
         if self._translator_installer is None:
-            self._translator_installer = _TranslatorInstaller()
-        self._translator_installer.install(language)
+            return
+        catalogs = {}
+        with self._plugins_lock:
+            for name, plugin in self._plugins.items():
+                if plugin.is_enabled or name == include:
+                    path = self._loader.get_plugin_translation_dir(name)
+                    if path is not None:
+                        catalogs[name] = path
+        self._translator_installer.set_catalogs(catalogs)
 
     def _setup_zmq_subscriptions(self) -> None:
         """设置 ZMQ 事件订阅"""
@@ -438,15 +461,40 @@ class PluginManager:
                 lambda event, t=tag: self._queue_zmq_event(t, event),
             )
 
+    def _accept_language_event(self, event: LanguageChangeEvent) -> bool:
+        """在入口锁内过滤跨 PUB/CTRL 通道迟到的快照、实时事件和重复同步。"""
+        if not event.source_id or event.revision <= 0:
+            return not getattr(self, "_language_source_id", "")
+        if event.source_id in self._retired_language_sources:
+            return False
+        if event.source_id != self._language_source_id:
+            if self._language_source_id:
+                self._retired_language_sources.add(self._language_source_id)
+            self._language_source_id = event.source_id
+            self._language_revision = 0
+        if event.revision <= self._language_revision:
+            return False
+        self._language_revision = event.revision
+        return True
+
+    def _post_gui(self, action: Callable[[], None]) -> None:
+        executor = getattr(self, "_gui_executor", None)
+        if executor is None:
+            action()
+        else:
+            executor.submit(action)
+
     def _queue_zmq_event(self, tag: str, event: BaseEvent) -> None:
         with self._events_lock:
             if self._shutdown_requested:
+                return
+            if isinstance(event, LanguageChangeEvent) and not self._accept_language_event(event):
                 return
             self._pending_events.append((tag, event))
             if not self._events_ready or self._events_draining:
                 return
             self._events_draining = True
-        self._drain_zmq_events()
+        self._post_gui(self._drain_zmq_events)
 
     def _release_startup_events(self) -> None:
         with self._events_lock:
@@ -456,7 +504,7 @@ class PluginManager:
             if self._events_draining:
                 return
             self._events_draining = True
-        self._drain_zmq_events()
+        self._post_gui(self._drain_zmq_events)
 
     def _drain_zmq_events(self) -> None:
         from shared_types.events import ShowPluginManagerEvent
@@ -471,7 +519,9 @@ class PluginManager:
             # 不持有入口锁：回调可查询、接收新事件或触发 stop()。
             try:
                 if isinstance(event, LanguageChangeEvent):
-                    self._on_language_change(event)
+                    # 同步完成就迭代继续；异步完成回调保留并交还 drainer 所有权。
+                    if not self._on_language_change(event):
+                        return
                 elif isinstance(event, ShowPluginManagerEvent):
                     with self._events_lock:
                         window = self._main_window
@@ -501,8 +551,15 @@ class PluginManager:
                 self._plugins[plugin.name] = plugin
                 plugin.set_client(self._client)
                 plugin.set_event_dispatcher(self._dispatcher)
+                stopped = getattr(plugin, "stopped", None)
+                if stopped is not None:
+                    stopped.connect(self._on_plugin_stopped)
 
         logger.info(f"Loaded {len(plugins)} plugin(s)")
+
+    def _on_plugin_stopped(self, plugin: BasePlugin) -> None:
+        if not self._shutdown_requested and not plugin.is_enabled:
+            self._refresh_plugin_translations()
 
     def _apply_saved_plugin_states(self) -> None:
         """在创建窗口、启动插件线程之前应用持久化启用状态。"""
@@ -559,7 +616,12 @@ class PluginManager:
     def enable_plugin(self, name: str) -> bool:
         plugin = self._plugins.get(name)
         if plugin:
-            plugin.enable()
+            # enable() 会立即创建窗口，先安装对应翻译。
+            self._refresh_plugin_translations(include=name)
+            try:
+                plugin.enable()
+            finally:
+                self._refresh_plugin_translations()
             return True
         return False
 
@@ -567,6 +629,7 @@ class PluginManager:
         plugin = self._plugins.get(name)
         if plugin:
             plugin.disable()
+            self._refresh_plugin_translations()
             return True
         return False
 
@@ -586,20 +649,86 @@ class PluginManager:
     # ZMQ 回调
     # ═══════════════════════════════════════════════════════════════════
 
-    def _on_language_change(self, event: LanguageChangeEvent) -> None:
-        self._install_translator(event.language)
+    def _on_language_change(self, event: LanguageChangeEvent) -> bool:
+        # TranslationManager 在应用线程同步完成；无 GUI / 测试适配器也可异步完成。
+        # 用握手区分两者，避免连续语言快照递归调用 drain 而耗尽调用栈。
+        completion_lock = threading.Lock()
+        installing = True
+        completed = False
+
+        def finished() -> None:
+            nonlocal completed
+            try:
+                if not self._shutdown_requested:
+                    self._dispatcher.dispatch(get_event_tag(LanguageChangeEvent), event)
+            except Exception:
+                logger.exception("Failed to dispatch language change")
+            finally:
+                with completion_lock:
+                    completed = True
+                    resume = not installing
+                if resume:
+                    self._post_gui(self._drain_zmq_events)
+
+        try:
+            if self._translator_installer is None:
+                finished()
+            else:
+                self._translator_installer.install(event.language, finished)
+        except BaseException:
+            with completion_lock:
+                installing = False
+            raise
+        with completion_lock:
+            installing = False
+            return completed
+
+    def _start_language_sync(self) -> None:
+        with self._events_lock:
+            if self._shutdown_requested or self._language_sync_thread is not None:
+                return
+            worker = threading.Thread(
+                target=self._language_sync_loop, name="PluginLanguageSync", daemon=True,
+            )
+            worker.start()
+            self._language_sync_thread = worker
+
+    def _language_sync_loop(self) -> None:
+        """复用 __sync__，修复失败快照或订阅建立期间遗漏的 PUB 更新。
+
+        单个后台线程等待响应，I/O 线程和 GUI 线程均不阻塞；重复版本在入口丢弃。
+        连接回调立即唤醒，之后每 5 秒校准一次。关闭时 disconnect 会取消等待中的请求。
+        """
         tag = get_event_tag(LanguageChangeEvent)
-        self._dispatcher.dispatch(tag, event)
+        while not self._language_sync_stop.is_set():
+            self._language_sync_wakeup.wait(timeout=self._LANGUAGE_SYNC_INTERVAL)
+            self._language_sync_wakeup.clear()
+            if self._language_sync_stop.is_set():
+                return
+            if not self._client.is_connected:
+                continue
+            try:
+                response = self._client.request(
+                    SyncCommand(topic=tag), timeout=self._LANGUAGE_SYNC_TIMEOUT)
+                if response.success and response.data:
+                    event = msgspec.msgpack.decode(response.data, type=LanguageChangeEvent)
+                    self._queue_zmq_event(tag, event)
+            except Exception:
+                if not self._language_sync_stop.is_set():
+                    logger.debug("Language snapshot unavailable; will retry")
+
+    def _set_connection_state(self, connected: bool) -> None:
+        if not self._shutdown_requested and self._main_window:
+            self._main_window.set_connected(connected)
 
     def _on_connected(self) -> None:
         logger.info("Connected to main process")
-        if self._main_window:
-            self._main_window.set_connected(True)
+        self._language_sync_wakeup.set()
+        self._post_gui(lambda: self._set_connection_state(True))
 
     def _on_disconnected(self) -> None:
         logger.warning("Disconnected from main process")
-        if self._main_window:
-            self._main_window.set_connected(False)
+        self._post_gui(lambda: self._set_connection_state(False))
 
     def __repr__(self) -> str:
         return f"<PluginManager: {len(self._plugins)} plugins, started={self._started}>"

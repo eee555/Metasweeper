@@ -18,9 +18,10 @@ from PySide6.QtCore import QCoreApplication
 
 from shared_types.enums import BaseDiaPlayEnum
 
-from .models import CompareSymbol, LogicSymbol
+from .models import CompareSymbol, LogicSymbol, SortOrder
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("HistoryPlugin")
 
 # 日期时间支持的解析格式（与旧版行为一致）
 _DATETIME_FORMATS = ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S")
@@ -40,7 +41,7 @@ def _sql_field(field: str) -> str:
 
 def _row_error(row: int, template: str, value: str = "") -> ValueError:
     """构造带行号的校验错误（模板使用 %1/%2 占位，与 UI 提示风格一致）"""
-    message = _translate("Form", template).replace("%1", str(row))
+    message = _translate("HistoryPlugin", template).replace("%1", str(row))
     if value:
         message = message.replace("%2", value)
     return ValueError(message)
@@ -260,8 +261,18 @@ def build_where(
             raise _row_error(row, "第%1行 字段 %2 不是有效的字段名", field)
 
         field_type = field_types.get(field)
-        compare = CompareSymbol.from_display_name(compare_text)
-        logic = LogicSymbol.from_display_name(data.get("logic") or "").to_sql
+        try:
+            compare = CompareSymbol.from_display_name(compare_text)
+        except ValueError:
+            raise _row_error(row, "第%1行 比较符 %2 无法识别", compare_text)
+        logic_text = data.get("logic") or ""
+        try:
+            # 末行可能没有逻辑符；其余行空值视为默认“与”，
+            # 旧版按译文持久化的值由别名表兼容。
+            logic = (LogicSymbol.from_display_name(logic_text).to_sql
+                     if logic_text else "and")
+        except ValueError:
+            raise _row_error(row, "第%1行 逻辑符 %2 无法识别", logic_text)
 
         left_bracket = data.get("left_bracket") or ""
         right_bracket = data.get("right_bracket") or ""
@@ -292,7 +303,7 @@ def build_where(
 
     if left_count != right_count:
         raise ValueError(
-            _translate("Form", "左括号数量和右括号数量不匹配，请检查"))
+            _translate("HistoryPlugin", "左括号数量和右括号数量不匹配，请检查"))
 
     return "".join(clauses), params
 
@@ -320,7 +331,12 @@ def build_order_by(sort_rows: list[dict], known_fields: set[str]) -> str:
         if field not in known_fields:
             raise _row_error(row, "第%1行 排序字段 %2 不是有效的字段名", field)
 
-        order_sql = "ASC" if order_text == _translate("Form", "升序") else "DESC"
+        # 稳定编号、当前语言及旧版各语言译文均可解析；
+        # 无法识别时保持旧行为（降序），不阻断查询。
+        try:
+            order_sql = SortOrder.from_text(order_text).to_sql
+        except ValueError:
+            order_sql = "DESC"
         orders.append(f"{_sql_field(field)} {order_sql}")
 
     if orders:

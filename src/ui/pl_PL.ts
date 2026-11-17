@@ -6,64 +6,18 @@
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="243"/>
         <location filename="../dialogs/CheckUpdateGui.py" line="250"/>
-        <source>CheckUpdate</source>
-        <translation type="unfinished"></translation>
+        <source>检查更新</source>
+        <translation>Sprawdź aktualizacje</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="354"/>
-        <source>Error</source>
-        <translation type="unfinished"></translation>
+        <source>错误</source>
+        <translation>Błąd</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="365"/>
-        <source>{release.tag_name} Downloading...</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ClipboardReplayWidget</name>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="23"/>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="42"/>
-        <source>运行日志</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="24"/>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="62"/>
-        <source>已暂停</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="32"/>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="33"/>
-        <source>清空日志</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="41"/>
-        <source>暂无日志</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="57"/>
-        <source>系统</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="62"/>
-        <source>监听中</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="71"/>
-        <source>错误</source>
-        <translation type="unfinished">Błąd</translation>
-    </message>
-    <message>
-        <location filename="../plugins/clipboard_replay/widgets.py" line="71"/>
-        <source>信息</source>
-        <translation type="unfinished"></translation>
+        <source>{name} 下载中…</source>
+        <translation>Pobieranie {name}…</translation>
     </message>
 </context>
 <context>
@@ -145,7 +99,7 @@
     <message>
         <location filename="../plugin_manager/main_window.py" line="499"/>
         <source>(重连 {n} 次)</source>
-        <translation type="unfinished"></translation>
+        <translation>(ponowne połączenie: {n})</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="509"/>
@@ -210,27 +164,27 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     <message>
         <location filename="../utils/csv_export.py" line="400"/>
         <source>导出 CSV</source>
-        <translation type="unfinished"></translation>
+        <translation>Eksportuj CSV</translation>
     </message>
     <message>
         <location filename="../utils/csv_export.py" line="401"/>
         <source>正在读取 stats.dat...</source>
-        <translation type="unfinished"></translation>
+        <translation>Odczyt stats.dat...</translation>
     </message>
     <message>
         <location filename="../utils/csv_export.py" line="419"/>
         <source>正在读取并解密记录... {n}%</source>
-        <translation type="unfinished"></translation>
+        <translation>Odczyt i odszyfrowywanie rekordów... {n}%</translation>
     </message>
     <message>
         <location filename="../utils/csv_export.py" line="423"/>
         <source>正在计算并导出记录... {cur}/{total}</source>
-        <translation type="unfinished"></translation>
+        <translation>Obliczanie i eksport rekordów... {cur}/{total}</translation>
     </message>
     <message>
         <location filename="../utils/csv_export.py" line="436"/>
         <source>正在导出 {name}（{stage}/2）... {percent}%</source>
-        <translation type="unfinished"></translation>
+        <translation>Eksport {name} ({stage}/2)... {percent}%</translation>
     </message>
 </context>
 <context>
@@ -272,7 +226,7 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
 <context>
     <name>Dialog</name>
     <message>
-        <location filename="../shared_types/widgets/confirm_dialog.py" line="54"/>
+        <location filename="../shared_types/widgets/confirm_dialog.py" line="56"/>
         <source>对话框</source>
         <translation>Dialog</translation>
     </message>
@@ -305,7 +259,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="54"/>
         <location filename="../../uiFiles/ui_advanced.ui" line="174"/>
         <location filename="../../uiFiles/ui_import.ui" line="344"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="308"/>
         <source>取消</source>
         <translation>Anuluj</translation>
     </message>
@@ -348,7 +301,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../mineSweeperGUI.py" line="930"/>
         <location filename="../shared_types/enums.py" line="170"/>
         <location filename="../utils/helpers.py" line="25"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="302"/>
         <source>标准</source>
         <translation>norma</translation>
     </message>
@@ -358,7 +310,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="578"/>
         <location filename="../../uiFiles/ui_gs_shortcuts.ui" line="1052"/>
         <location filename="../mineSweeperGUI.py" line="933"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="303"/>
         <source>Win7</source>
         <translation>Win7</translation>
     </message>
@@ -370,7 +321,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../mineSweeperGUI.py" line="939"/>
         <location filename="../shared_types/enums.py" line="178"/>
         <location filename="../utils/helpers.py" line="37"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="305"/>
         <source>强无猜</source>
         <translation>Silny, bez zgadywania</translation>
     </message>
@@ -382,7 +332,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../mineSweeperGUI.py" line="942"/>
         <location filename="../shared_types/enums.py" line="180"/>
         <location filename="../utils/helpers.py" line="39"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="306"/>
         <source>弱无猜</source>
         <translation>Słaby bez zgadywania</translation>
     </message>
@@ -394,7 +343,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../mineSweeperGUI.py" line="936"/>
         <location filename="../shared_types/enums.py" line="176"/>
         <location filename="../utils/helpers.py" line="35"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="304"/>
         <source>经典无猜</source>
         <translation>Klasyczna niewinność</translation>
     </message>
@@ -406,7 +354,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../mineSweeperGUI.py" line="945"/>
         <location filename="../shared_types/enums.py" line="182"/>
         <location filename="../utils/helpers.py" line="41"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="307"/>
         <source>准无猜</source>
         <translation>Quasi-zgadywanie</translation>
     </message>
@@ -418,7 +365,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../mineSweeperGUI.py" line="948"/>
         <location filename="../shared_types/enums.py" line="184"/>
         <location filename="../utils/helpers.py" line="43"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="308"/>
         <source>强可猜</source>
         <translation>Mocne odgadnięcie</translation>
     </message>
@@ -430,7 +376,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../mineSweeperGUI.py" line="951"/>
         <location filename="../shared_types/enums.py" line="186"/>
         <location filename="../utils/helpers.py" line="45"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="309"/>
         <source>弱可猜</source>
         <translation>Słabe do odgadnięcia</translation>
     </message>
@@ -658,7 +603,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     <message>
         <location filename="../../uiFiles/ui_record_pop.ui" line="727"/>
         <location filename="../shared_types/enums.py" line="218"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="298"/>
         <source>初级</source>
         <translation>młodszy</translation>
     </message>
@@ -672,14 +616,12 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     <message>
         <location filename="../../uiFiles/ui_record_pop.ui" line="850"/>
         <location filename="../shared_types/enums.py" line="220"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="299"/>
         <source>中级</source>
         <translation>pośredni</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_record_pop.ui" line="973"/>
         <location filename="../shared_types/enums.py" line="222"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="300"/>
         <source>高级</source>
         <translation>Starszy</translation>
     </message>
@@ -777,12 +719,12 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     <message>
         <location filename="../../uiFiles/ui_about.ui" line="177"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/guide/minesweeper/metasweeper&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/guide/minesweeper/metasweeper&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/guide/minesweeper/metasweeper&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/guide/minesweeper/metasweeper&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_about.ui" line="217"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/guide/minesweeper/terminology&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/guide/minesweeper/terminology&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://openms.top/docs/guide/minesweeper/terminology&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://openms.top/docs/guide/minesweeper/terminology&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_about.ui" line="253"/>
@@ -830,207 +772,12 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Umowa</translation>
     </message>
     <message>
-        <location filename="../plugins/history/history_table.py" line="57"/>
-        <source>删除确认</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="65"/>
-        <source>确定要删除选中的这条历史记录吗？
-该操作不可恢复。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="314"/>
-        <source>播放</source>
-        <translation>Odtwórz</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="318"/>
-        <source>刷新</source>
-        <translation>Odśwież</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="335"/>
-        <source>删除记录失败: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="427"/>
-        <source>找不到主程序 (main.py 或 metasweeper.exe)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="439"/>
-        <source>保存 evf 文件失败</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="461"/>
-        <source>导出evf文件</source>
-        <translation>Eksportuj plik EVF</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="87"/>
-        <location filename="../plugins/history/main_widget.py" line="181"/>
-        <location filename="../plugins/history/plugin.py" line="409"/>
-        <source>历史记录</source>
-        <translation>Historia</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="24"/>
-        <source>与</source>
-        <translation>and</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="24"/>
-        <source>或</source>
-        <translation>or</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="65"/>
-        <source>等于</source>
-        <translation>Równe</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="66"/>
-        <source>不等于</source>
-        <translation>Różne</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="67"/>
-        <source>大于</source>
-        <translation>Większe niż</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="68"/>
-        <source>小于</source>
-        <translation>Mniejsze niż</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="69"/>
-        <source>大于等于</source>
-        <translation>Większe lub równe niż</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="70"/>
-        <source>小于等于</source>
-        <translation>Mniejsze lub równe niż</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="71"/>
-        <source>包含</source>
-        <translation>Zawiera</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="72"/>
-        <source>不包含</source>
-        <translation>Nie zawiera</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="73"/>
-        <source>包含子串</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/models.py" line="74"/>
-        <source>不含子串</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="48"/>
-        <source>计算列管理</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="58"/>
-        <source>列名</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="59"/>
-        <source>SQL表达式</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="60"/>
-        <source>结果类型</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="75"/>
-        <location filename="../plugins/history/filter_dialog.py" line="197"/>
-        <location filename="../plugins/history/sort_dialog.py" line="79"/>
-        <source>添加</source>
-        <translation>Dodaj</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="76"/>
-        <location filename="../plugins/history/filter_dialog.py" line="202"/>
-        <location filename="../plugins/history/history_table.py" line="317"/>
-        <location filename="../plugins/history/sort_dialog.py" line="81"/>
-        <source>删除</source>
-        <translation>Usuń</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="77"/>
-        <source>验证</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="86"/>
-        <source>自定义 Python 函数（可在 SQL 表达式中调用）:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="152"/>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="162"/>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="199"/>
-        <source>验证失败</source>
-        <translation type="unfinished">Weryfikacja nieudana</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="163"/>
-        <source>无法验证：数据库不存在</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/computed_columns_dialog.py" line="200"/>
-        <source>SQL 错误: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="199"/>
-        <location filename="../plugins/history/sort_dialog.py" line="80"/>
-        <source>插入</source>
-        <translation>Wstaw</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="94"/>
-        <location filename="../plugins/history/main_widget.py" line="182"/>
-        <source>查询</source>
-        <translation>Zapytanie</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="121"/>
-        <location filename="../plugins/history/main_widget.py" line="187"/>
-        <source>上一页</source>
-        <translation>Poprzednia strona</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="125"/>
-        <location filename="../plugins/history/main_widget.py" line="188"/>
-        <source>下一页</source>
-        <translation>Następna strona</translation>
-    </message>
-    <message>
         <location filename="../../uiFiles/ui_about.ui" line="263"/>
         <source>致谢：濮天羿、向飞宇、钟言、翁逸杰、张砷镓、Thomas Kolar</source>
         <translation>Podziękowania: 濮天羿, 向飞宇, 钟言, 翁逸杰, 张砷镓, Thomas Kolar</translation>
     </message>
     <message>
         <location filename="../dialogs/videoControl.py" line="187"/>
-        <location filename="../plugins/history/columns_dialog.py" line="67"/>
         <source>全选</source>
         <translation>Zaznacz wszystko</translation>
     </message>
@@ -1053,236 +800,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_advanced.ui" line="72"/>
         <source>算法类</source>
         <translation>Algorytm</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="282"/>
-        <source>小数位数</source>
-        <translation>Miejsca dziesiętne</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="283"/>
-        <source>查询窗口中浮点数显示的小数位数</source>
-        <translation>Liczba miejsc dziesiętnych dla liczb zmiennoprzecinkowych w oknie zapytań</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="290"/>
-        <source>录像最低 3BV 完成率（%）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="291"/>
-        <source>清理低于此完成率的录像并保留历史统计；设为 0 则保留全部录像</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="362"/>
-        <source>每页条数</source>
-        <translation>Wierszy na stronę</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="372"/>
-        <source>每页显示的历史记录条数</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="377"/>
-        <source>局面预览</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="378"/>
-        <source>鼠标悬浮在表格 board 列上时弹出该局的局面预览浮窗</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/plugin.py" line="410"/>
-        <source>游戏历史记录（SQLite 持久化）</source>
-        <translation>Historia gry (SQLite)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="95"/>
-        <location filename="../plugins/history/main_widget.py" line="183"/>
-        <source>过滤</source>
-        <translation>Filtr</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="96"/>
-        <location filename="../plugins/history/main_widget.py" line="184"/>
-        <source>排序</source>
-        <translation>Sortuj</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="97"/>
-        <location filename="../plugins/history/main_widget.py" line="185"/>
-        <source>列设置</source>
-        <translation>Ustawienia kolumn</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="271"/>
-        <location filename="../plugins/history/filter_dialog.py" line="290"/>
-        <location filename="../plugins/history/filter_dialog.py" line="321"/>
-        <location filename="../plugins/history/filter_dialog.py" line="340"/>
-        <location filename="../plugins/history/filter_dialog.py" line="367"/>
-        <location filename="../plugins/history/filter_dialog.py" line="373"/>
-        <location filename="../plugins/history/filter_dialog.py" line="388"/>
-        <location filename="../plugins/history/history_table.py" line="334"/>
-        <location filename="../plugins/history/history_table.py" line="427"/>
-        <location filename="../plugins/history/history_table.py" line="439"/>
-        <location filename="../plugins/history/main_widget.py" line="478"/>
-        <location filename="../plugins/history/main_widget.py" line="581"/>
-        <location filename="../plugins/history/main_widget.py" line="596"/>
-        <source>错误</source>
-        <translation>Błąd</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="392"/>
-        <source>共0行,0页</source>
-        <translation>0 wierszy, 0 stron</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="473"/>
-        <source>共%1行,%2页</source>
-        <translation>%1 wierszy, %2 stron</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="479"/>
-        <source>加载历史记录失败: %1</source>
-        <translation>Nie można załadować historii: %1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="389"/>
-        <location filename="../plugins/history/query_builder.py" line="295"/>
-        <source>左括号数量和右括号数量不匹配，请检查</source>
-        <translation>Niezgodność liczby nawiasów otwierających i zamykających</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/query_builder.py" line="323"/>
-        <location filename="../plugins/history/sort_dialog.py" line="72"/>
-        <location filename="../plugins/history/sort_dialog.py" line="92"/>
-        <location filename="../plugins/history/sort_dialog.py" line="100"/>
-        <location filename="../plugins/history/sort_dialog.py" line="135"/>
-        <source>升序</source>
-        <translation>Rosnąco</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="197"/>
-        <source>迁移旧录像数据</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="199"/>
-        <source>校验迁移数据</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="201"/>
-        <source>压缩雷图数据</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="203"/>
-        <source>清理低完成率录像</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="204"/>
-        <source>正在迁移旧数据</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="610"/>
-        <source>过滤: %1</source>
-        <translation>Filtr: %1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="612"/>
-        <source>过滤: 无</source>
-        <translation>Filtr: brak</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="618"/>
-        <source>排序: %1</source>
-        <translation>Sortuj: %1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="620"/>
-        <source>排序: 无</source>
-        <translation>Sortuj: brak</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="143"/>
-        <source>左括号</source>
-        <translation>Nawias otw.</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="144"/>
-        <source>字段</source>
-        <translation>Pole</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="145"/>
-        <source>比较符</source>
-        <translation>Operator por.</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="146"/>
-        <source>值</source>
-        <translation>Wartość</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="147"/>
-        <source>右括号</source>
-        <translation>Nawias zam.</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="148"/>
-        <source>逻辑符</source>
-        <translation>Operator</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="222"/>
-        <source>排序字段</source>
-        <translation>Pole sort.</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/table_views.py" line="223"/>
-        <source>升序/降序</source>
-        <translation>Rosnąco/Malejąco</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="35"/>
-        <source>过滤条件</source>
-        <translation>Warunki filtru</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/sort_dialog.py" line="30"/>
-        <source>排序条件</source>
-        <translation>Warunki sort.</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/sort_dialog.py" line="72"/>
-        <source>降序</source>
-        <translation>Malejąco</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/columns_dialog.py" line="57"/>
-        <source>列设置（右键/Ctrl+Shift+↑↓ 排序）</source>
-        <translation>Ustawienia kolumn (prawy przycisk/Ctrl+Shift+góra/dół aby sortować)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/columns_dialog.py" line="68"/>
-        <source>取消全选</source>
-        <translation>Odznacz wszystko</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/columns_dialog.py" line="126"/>
-        <source>上移 (Ctrl+Shift+↑)</source>
-        <translation>Przesuń w górę (Ctrl+Shift+strzałka góra)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/columns_dialog.py" line="127"/>
-        <source>下移 (Ctrl+Shift+↓)</source>
-        <translation>Przesuń w dół (Ctrl+Shift+strzałka dół)</translation>
     </message>
     <message>
         <location filename="../shared_types/enums.py" line="77"/>
@@ -1315,918 +832,24 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Tryb nauki</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="137"/>
-        <source>仙逆背景的修炼体系 - 每局扫雷胜利获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者</source>
-        <translation>System kultivacji Xian Ni - zdobywaj PD za każdą wygraną. Wznieś się ze śmiertelnika do istoty niszczącej 108 gwiazd jednym ruchem.</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="240"/>
-        <source>当前仍是默认匿名标识，请先在游戏设置中修改玩家标识后再开启自动上传。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="288"/>
-        <source>令牌与当前玩家标识不匹配。请确认上传令牌，或更换玩家标识后重试。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="292"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="303"/>
-        <source>无法校验上传令牌（HTTP %1）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="297"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="300"/>
-        <source>无法校验上传令牌，请检查网络。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="456"/>
-        <source>匿名玩家</source>
-        <translation>Anonimowy gracz</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="820"/>
-        <source>当前玩家标识为空或仍是默认「匿名玩家」，无法上传排行。请先在游戏设置中修改玩家标识。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="892"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="977"/>
-        <source>上传失败: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="925"/>
-        <source>排行已上传。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="933"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1015"/>
-        <source>上传失败（HTTP %1）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="959"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="969"/>
-        <source>上传超时，请检查网络或排行站地址。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="962"/>
-        <source>无法连接排行站，请检查网络或 API 地址。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="991"/>
-        <source>排行站 Cloudflare 拦截了上传（1010）。请在 Pages 项目关闭 Bot Fight Mode 后重试。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="999"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1005"/>
-        <source>令牌不匹配，无法更新该标识。请确认上传令牌，或更换玩家标识后重试。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1004"/>
-        <source>上传被拒绝：%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1010"/>
-        <source>上传过于频繁，请稍后再试。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1013"/>
-        <source>服务器拒绝了本次数据：%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1014"/>
-        <source>服务器拒绝了本次数据（校验失败）。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1045"/>
-        <location filename="../plugins/XianNiUpgrade/plugin.py" line="1050"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="580"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="608"/>
-        <source>上传排行</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="253"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="569"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="607"/>
-        <source>吸收灵气</source>
-        <translation>Absorbuj Qi Duchową</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="264"/>
-        <source>选择验证法器...</source>
-        <translation>Wybierz artefakt weryfikacji...</translation>
-    </message>
-    <message>
         <location filename="../../uiFiles/ui_import.ui" line="111"/>
         <location filename="../plugin_sdk/config_types/file_config.py" line="60"/>
         <location filename="../plugin_sdk/config_types/path_config.py" line="53"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="265"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="275"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="290"/>
         <source>浏览</source>
         <translation>Przeglądaj</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="267"/>
-        <source>验证法器:</source>
-        <translation>Artefakt weryfikacji:</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="274"/>
-        <source>选择灵箓目录...</source>
-        <translation>Wybierz katalog talizmanów...</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="277"/>
-        <source>灵箓目录:</source>
-        <translation>Katalog talizmanów:</translation>
-    </message>
-    <message>
         <location filename="../../uiFiles/ui_import.ui" line="310"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="306"/>
         <source>确认</source>
         <translation>Potwierdź</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="315"/>
-        <source>选择验证法器</source>
-        <translation>Wybierz artefakt weryfikacji</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="316"/>
-        <source>法器 (*.exe);;所有文件 (*)</source>
-        <translation>Artefakt (*.exe);;Wszystkie pliki (*)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="322"/>
-        <source>选择灵箓目录</source>
-        <translation>Wybierz katalog talizmanów</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="344"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="558"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="606"/>
-        <source>天地法则</source>
-        <translation>Niebiańskie prawa</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="197"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="525"/>
-        <source>凡人</source>
-        <translation>Śmiertelnik</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="364"/>
-        <source>
-&lt;style&gt;
-h2 { color: #6A1B9A; border-bottom: 2px solid #CE93D8; padding-bottom: 4px; }
-h3 { color: #8E24AA; margin-top: 16px; }
-b { color: #4A148C; }
-code { background: #F3E5F5; padding: 1px 4px; border-radius: 2px; }
-ul { margin: 4px 0; }
-li { margin: 2px 0; }
-ol { margin: 4px 0; padding-left: 22px; }
-table { border-collapse: collapse; margin: 8px 0; }
-td, th { border: 1px solid #E1BEE7; padding: 4px 10px; text-align: center; }
-th { background: #F3E5F5; color: #6A1B9A; }
-&lt;/style&gt;
-
-&lt;div style=&quot;color:#4A148C; font-style:italic; font-size:14px; line-height:1.8; padding:12px 16px; border-radius:6px; margin-bottom:16px;&quot;&gt;
-&lt;p style=&quot;margin:8px 0;&quot;&gt;顺则凡，逆则仙，只在心中一念间。&lt;br&gt;
-吾辈修士，逆天而行，与天争命。&lt;/p&gt;
-&lt;p style=&quot;margin:8px 0;&quot;&gt;扫雷一途，亦如修道——&lt;br&gt;
-步步惊心，一念生，一念死；&lt;br&gt;
-勘破迷障，洞悉本源，方得超脱。&lt;/p&gt;
-&lt;p style=&quot;margin:8px 0;&quot;&gt;今有《仙逆》之法则，立此天地道统：&lt;br&gt;
-胜则增道行，积修为，破境界，证长生；&lt;br&gt;
-败则归凡尘，从头越，砺道心。&lt;/p&gt;
-&lt;p style=&quot;margin:8px 0; text-align:right;&quot;&gt;—— 道不可须臾离也&lt;/p&gt;
-&lt;/div&gt;
-
-&lt;h2&gt;📜 天地法则 · 修仙要义&lt;/h2&gt;
-
-&lt;h3&gt;一、道行修为&lt;/h3&gt;
-&lt;p&gt;每局&lt;b&gt;扫雷胜利&lt;/b&gt;（游戏状态转为胜利）后获得道行经验。经验累计提升境界等级，共&lt;b&gt;100级&lt;/b&gt;：&lt;/p&gt;
-&lt;table&gt;
-&lt;tr&gt;&lt;th&gt;等级&lt;/th&gt;&lt;th&gt;境界名称&lt;/th&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.0&lt;/td&gt;&lt;td&gt;凡人&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.1-15&lt;/td&gt;&lt;td&gt;凝气一层 ~ 凝气十五层&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.16-19&lt;/td&gt;&lt;td&gt;筑基初期 ~ 筑基大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.20-23&lt;/td&gt;&lt;td&gt;结丹初期 ~ 结丹大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.24-27&lt;/td&gt;&lt;td&gt;元婴初期 ~ 元婴大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.28-31&lt;/td&gt;&lt;td&gt;化神初期 ~ 化神大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.32-35&lt;/td&gt;&lt;td&gt;婴变初期 ~ 婴变大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.36-39&lt;/td&gt;&lt;td&gt;问鼎初期 ~ 问鼎大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.40-41&lt;/td&gt;&lt;td&gt;阴虚 ~ 阳实&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.42-45&lt;/td&gt;&lt;td&gt;窥涅初期 ~ 窥涅大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.46-49&lt;/td&gt;&lt;td&gt;净涅初期 ~ 净涅大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.50-53&lt;/td&gt;&lt;td&gt;碎涅初期 ~ 碎涅大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.54-58&lt;/td&gt;&lt;td&gt;天人一衰 ~ 天人五衰&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.59-62&lt;/td&gt;&lt;td&gt;空涅初期 ~ 空涅大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.63-66&lt;/td&gt;&lt;td&gt;空灵初期 ~ 空灵大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.67-79&lt;/td&gt;&lt;td&gt;空玄初期 ~ 空玄九劫&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.80-83&lt;/td&gt;&lt;td&gt;空劫初期 ~ 空劫大圆满&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.84-88&lt;/td&gt;&lt;td&gt;大尊 ~ 大天尊&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Lv.89-100&lt;/td&gt;&lt;td&gt;踏天一桥 ~ 煌天境&lt;/td&gt;&lt;/tr&gt;
-&lt;/table&gt;
-
-&lt;h3&gt;二、经验计算公式&lt;/h3&gt;
-
-&lt;p&gt;&lt;b&gt;基础经验&lt;/b&gt;（所有模式/难度均有效）：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;若雷密度 ≤ 80％（标准/Win7/弱无猜）或 ≤ 30％（经典无猜/强无猜）：&lt;br&gt;
-  &lt;code&gt;基础 = k × 1.08^(雷数/格数 × 341) × min(行,列)^1.2 × max(行,列)^1.6 / 17411&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;其余情况：基础 = 0&lt;/li&gt;
-&lt;li&gt;k 为模式系数：标准=1、Win7=0.8、经典无猜=0.2、强无猜=0.25、弱无猜=2，其他=0（无经验）&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;b&gt;稀有局面经验&lt;/b&gt;（仅标准模式·标准难度）：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;统计 3BV、Op、Isl、Cell1~Cell8 共 11 个指标在分布中的罕见程度&lt;/li&gt;
-&lt;li&gt;对每个指标，取 &lt;code&gt;p = min(P(X≤v), P(X≥v))&lt;/code&gt;（双向累积概率），&lt;br&gt;
-  累加 &lt;code&gt;(0.5 / p)^1.2&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;高级：&lt;code&gt;稀有经验 = 累加值&lt;/code&gt;；中级：&lt;code&gt;累加值 / 8&lt;/code&gt;；初级：&lt;code&gt;累加值 / 100&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;b&gt;竞速经验&lt;/b&gt;（仅标准模式·标准难度）：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;初级：&lt;code&gt;(1/100) × (10/rtime)^3.5&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;中级：&lt;code&gt;(1/8) × (60/rtime)^3.5&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;高级：&lt;code&gt;(240/rtime)^3.5&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;b&gt;效率经验&lt;/b&gt;（仅标准模式·标准难度）：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;效率指标 &lt;code&gt;IOE = 3BV / (lefts + rights + chordings)&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;初级：IOE ≥ 0.95 时 &lt;code&gt;IOE^3.5&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;中级：IOE ≥ 0.9 时 &lt;code&gt;10 × IOE^4&lt;/code&gt;（标雷）/ &lt;code&gt;20 × IOE^5&lt;/code&gt;（盲扫）&lt;/li&gt;
-&lt;li&gt;高级：IOE ≥ 0.8 时 &lt;code&gt;1 × IOE^20&lt;/code&gt;（标雷）/ &lt;code&gt;1200 × IOE^50&lt;/code&gt;（盲扫）&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;b&gt;总经验&lt;/b&gt; = 基础 + 稀有 + 竞速 + 效率，上限 99999/局。&lt;/p&gt;
-
-&lt;h3&gt;三、多修分身&lt;/h3&gt;
-&lt;p&gt;插件支持&lt;b&gt;多玩家标识&lt;/b&gt;。每局游戏会根据主标识独立计算等级和道行。修改标识将自动切换对应玩家各自的修行数据。&lt;/p&gt;
-
-&lt;h3&gt;四、吸收灵气&lt;/h3&gt;
-&lt;p&gt;可通过导入其他扫雷版本的录像获得经验：&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;点击「吸收灵气」按钮&lt;/li&gt;
-&lt;li&gt;选择对应版本的 &lt;b&gt;exe 校验程序&lt;/b&gt;（如 metasweeper.exe）&lt;/li&gt;
-&lt;li&gt;选择 &lt;b&gt;录像目录&lt;/b&gt;（replay 文件夹）&lt;/li&gt;
-&lt;li&gt;插件自动校验 exe MD5 → 运行 exe 生成报告 → 解析有效录像 → 去重后加经验&lt;/li&gt;
-&lt;/ol&gt;
-&lt;p&gt;目前支持的版本：&lt;/p&gt;
-&lt;table&gt;
-&lt;tr&gt;&lt;th&gt;版本&lt;/th&gt;&lt;th&gt;MD5&lt;/th&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Metasweeper 3.2.2&lt;/td&gt;&lt;td&gt;&lt;code&gt;3271d11bab9afc8b0a2b9546e13d46cd&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
-&lt;/table&gt;
-
-&lt;h3&gt;五、存档说明&lt;/h3&gt;
-&lt;p&gt;存档文件 &lt;code&gt;player_data.dat&lt;/code&gt; 保存在插件数据目录，包含多玩家信息、修行日志和已导入录像记录（最多保存 1000 条）。不可轻易删除，否则只能在下个版本中用“吸收灵气”重新导入录像。&lt;/p&gt;
-
-&lt;h3&gt;六、排行榜&lt;/h3&gt;
-&lt;p&gt;排行榜地址：&lt;a href=&quot;{rank_url}&quot;&gt;{rank_url}&lt;/a&gt;&lt;/p&gt;
-
-&lt;h3&gt;第一步：改游戏玩家标识&lt;/h3&gt;
-&lt;ol&gt;
-&lt;li&gt;打开主进程「&lt;b&gt;设置&lt;/b&gt;」→「&lt;b&gt;游戏设置&lt;/b&gt;」→「&lt;b&gt;标识&lt;/b&gt;」&lt;/li&gt;
-&lt;li&gt;默认「匿名玩家」&lt;b&gt;不能上榜&lt;/b&gt;，请先改成你自己的标识&lt;/li&gt;
-&lt;li&gt;在开源扫雷网个人主页「概览」底部&lt;b&gt;添加并绑定&lt;/b&gt;相同标识&lt;/li&gt;
-&lt;/ol&gt;
-
-&lt;h3&gt;第二步：上传方式&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;b&gt;手动&lt;/b&gt;：点击「&lt;b&gt;上传排行&lt;/b&gt;」按钮&lt;/li&gt;
-&lt;li&gt;&lt;b&gt;自动&lt;/b&gt;：设置里勾选「&lt;b&gt;自动上传排行&lt;/b&gt;」→ 每局公平胜利后静默上传&lt;/li&gt;
-&lt;li&gt;首次实际上传时会自动生成「&lt;b&gt;上传令牌&lt;/b&gt;」并保存到设置&lt;/li&gt;
-&lt;li&gt;手动上传时，可设置「&lt;b&gt;上传成功后打开排行榜页&lt;/b&gt;」&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h3&gt;务必注意&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;须启用插件管理器中的「&lt;b&gt;SaoleiWebsite&lt;/b&gt;」插件以解析网内昵称&lt;/li&gt;
-&lt;li&gt;&lt;b&gt;换电脑&lt;/b&gt;须在设置里点「复制」拷贝「上传令牌」，粘贴到新电脑设置，否则无法继续更新同一标识&lt;/li&gt;
-&lt;li&gt;建议生成后立即点「&lt;b&gt;复制&lt;/b&gt;」备份；如果不慎丢失，可加入开源扫雷网公测群（群号832072126）联系管理员找回&lt;/li&gt;
-&lt;li&gt;令牌丢失则无法覆盖已有排行记录&lt;/li&gt;
-&lt;/ul&gt;
-</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="538"/>
-        <source>修为: 0</source>
-        <translation>Kultivacja: 0</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="602"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="609"/>
-        <source>等待仙躯
-形象加载...</source>
-        <translation>Oczekiwanie na nieśmiertelne ciało
-Ładowanie...</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="619"/>
-        <source>暂无仙躯
-形象</source>
-        <translation>Brak obrazu
-nieśmiertelnego ciała</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="625"/>
-        <source>修为: %1</source>
-        <translation>Kultivacja: %1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="630"/>
-        <source>%1% | 还需 %2 道行</source>
-        <translation>%1% | %2 PD zostało</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="634"/>
-        <source>已圆满</source>
-        <translation>Doskonały</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="708"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="789"/>
-        <source>修行日志</source>
-        <translation>Dziennik kultivacji</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="719"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="791"/>
-        <source>时刻</source>
-        <translation>Czas</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="719"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="792"/>
-        <source>境阶</source>
-        <translation>Etap</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="719"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="793"/>
-        <source>法式</source>
-        <translation>Metoda</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="720"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="794"/>
-        <source>耗时</source>
-        <translation>Czas trwania</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="720"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="795"/>
-        <source>衍数</source>
-        <translation>Liczba</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="203"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="720"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="796"/>
-        <source>道行</source>
-        <translation>PD</translation>
-    </message>
-    <message>
         <location filename="../mainWindowGUIImportExport.py" line="702"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="822"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="834"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="879"/>
         <source>提示</source>
         <translation>Uwaga</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="823"/>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="835"/>
-        <source>插件未就绪</source>
-        <translation>Wtyczka niegotowa</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="882"/>
-        <source>吸收灵气完成</source>
-        <translation>Absorpcja Qi Duchowej zakończona</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="198"/>
-        <source>凝气一层</source>
-        <translation>Kondensacja Qi P.1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="199"/>
-        <source>凝气二层</source>
-        <translation>Kondensacja Qi P.2</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="200"/>
-        <source>凝气三层</source>
-        <translation>Kondensacja Qi P.3</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="201"/>
-        <source>凝气四层</source>
-        <translation>Kondensacja Qi P.4</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="202"/>
-        <source>凝气五层</source>
-        <translation>Kondensacja Qi P.5</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="203"/>
-        <source>凝气六层</source>
-        <translation>Kondensacja Qi P.6</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="204"/>
-        <source>凝气七层</source>
-        <translation>Kondensacja Qi P.7</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="205"/>
-        <source>凝气八层</source>
-        <translation>Kondensacja Qi P.8</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="206"/>
-        <source>凝气九层</source>
-        <translation>Kondensacja Qi P.9</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="207"/>
-        <source>凝气十层</source>
-        <translation>Kondensacja Qi P.10</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="208"/>
-        <source>凝气十一层</source>
-        <translation>Kondensacja Qi P.11</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="209"/>
-        <source>凝气十二层</source>
-        <translation>Kondensacja Qi P.12</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="210"/>
-        <source>凝气十三层</source>
-        <translation>Kondensacja Qi P.13</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="211"/>
-        <source>凝气十四层</source>
-        <translation>Kondensacja Qi P.14</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="212"/>
-        <source>凝气十五层</source>
-        <translation>Kondensacja Qi P.15</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="213"/>
-        <source>筑基初期</source>
-        <translation>Fundament. (Wczesny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="214"/>
-        <source>筑基中期</source>
-        <translation>Fundament. (Średni)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="215"/>
-        <source>筑基后期</source>
-        <translation>Fundament. (Późny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="216"/>
-        <source>筑基大圆满</source>
-        <translation>Fundament. (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="217"/>
-        <source>结丹初期</source>
-        <translation>Rdzeń (Wczesny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="218"/>
-        <source>结丹中期</source>
-        <translation>Rdzeń (Średni)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="219"/>
-        <source>结丹后期</source>
-        <translation>Rdzeń (Późny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="220"/>
-        <source>结丹大圆满</source>
-        <translation>Rdzeń (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="221"/>
-        <source>元婴初期</source>
-        <translation>Dusza (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="222"/>
-        <source>元婴中期</source>
-        <translation>Dusza (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="223"/>
-        <source>元婴后期</source>
-        <translation>Dusza (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="224"/>
-        <source>元婴大圆满</source>
-        <translation>Dusza (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="225"/>
-        <source>化神初期</source>
-        <translation>Trans. Boska (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="226"/>
-        <source>化神中期</source>
-        <translation>Trans. Boska (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="227"/>
-        <source>化神后期</source>
-        <translation>Trans. Boska (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="228"/>
-        <source>化神大圆满</source>
-        <translation>Trans. Boska (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="229"/>
-        <source>婴变初期</source>
-        <translation>Mut. Dziecięca (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="230"/>
-        <source>婴变中期</source>
-        <translation>Mut. Dziecięca (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="231"/>
-        <source>婴变后期</source>
-        <translation>Mut. Dziecięca (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="232"/>
-        <source>婴变大圆满</source>
-        <translation>Mut. Dziecięca (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="233"/>
-        <source>问鼎初期</source>
-        <translation>Pyt. Naczynia (Wczesne)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="234"/>
-        <source>问鼎中期</source>
-        <translation>Pyt. Naczynia (Średnie)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="235"/>
-        <source>问鼎后期</source>
-        <translation>Pyt. Naczynia (Późne)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="236"/>
-        <source>问鼎大圆满</source>
-        <translation>Pyt. Naczynia (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="237"/>
-        <source>阴虚</source>
-        <translation>Pusta Yin</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="238"/>
-        <source>阳实</source>
-        <translation>Puste Yang</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="239"/>
-        <source>窥涅初期</source>
-        <translation>Wgląd Nirwany (Wczesny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="240"/>
-        <source>窥涅中期</source>
-        <translation>Wgląd Nirwany (Średni)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="241"/>
-        <source>窥涅后期</source>
-        <translation>Wgląd Nirwany (Późny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="242"/>
-        <source>窥涅大圆满</source>
-        <translation>Wgląd Nirwany (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="243"/>
-        <source>净涅初期</source>
-        <translation>Czysta Nirw. (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="244"/>
-        <source>净涅中期</source>
-        <translation>Czysta Nirw. (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="245"/>
-        <source>净涅后期</source>
-        <translation>Czysta Nirw. (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="246"/>
-        <source>净涅大圆满</source>
-        <translation>Czysta Nirw. (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="247"/>
-        <source>碎涅初期</source>
-        <translation>Rozbita Nirw. (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="248"/>
-        <source>碎涅中期</source>
-        <translation>Rozbita Nirw. (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="249"/>
-        <source>碎涅后期</source>
-        <translation>Rozbita Nirw. (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="250"/>
-        <source>碎涅大圆满</source>
-        <translation>Rozbita Nirw. (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="251"/>
-        <source>天人一衰</source>
-        <translation>Niebiańska Trib. 1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="252"/>
-        <source>天人二衰</source>
-        <translation>Niebiańska Trib. 2</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="253"/>
-        <source>天人三衰</source>
-        <translation>Niebiańska Trib. 3</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="254"/>
-        <source>天人四衰</source>
-        <translation>Niebiańska Trib. 4</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="255"/>
-        <source>天人五衰</source>
-        <translation>Niebiańska Trib. 5</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="256"/>
-        <source>空涅初期</source>
-        <translation>Pustelna Nirw. (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="257"/>
-        <source>空涅中期</source>
-        <translation>Pustelna Nirw. (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="258"/>
-        <source>空涅后期</source>
-        <translation>Pustelna Nirw. (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="259"/>
-        <source>空涅大圆满</source>
-        <translation>Pustelna Nirw. (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="260"/>
-        <source>空灵初期</source>
-        <translation>Pustelny Duch (Wczesny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="261"/>
-        <source>空灵中期</source>
-        <translation>Pustelny Duch (Średni)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="262"/>
-        <source>空灵后期</source>
-        <translation>Pustelny Duch (Późny)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="263"/>
-        <source>空灵大圆满</source>
-        <translation>Pustelny Duch (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="264"/>
-        <source>空玄初期</source>
-        <translation>Pustelna Mityczność (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="265"/>
-        <source>空玄中期</source>
-        <translation>Pustelna Mityczność (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="266"/>
-        <source>空玄后期</source>
-        <translation>Pustelna Mityczność (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="267"/>
-        <source>空玄大圆满</source>
-        <translation>Pustelna Mityczność (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="268"/>
-        <source>空玄一劫</source>
-        <translation>Pustelna Mityczna Trib. 1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="269"/>
-        <source>空玄二劫</source>
-        <translation>Pustelna Mityczna Trib. 2</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="270"/>
-        <source>空玄三劫</source>
-        <translation>Pustelna Mityczna Trib. 3</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="271"/>
-        <source>空玄四劫</source>
-        <translation>Pustelna Mityczna Trib. 4</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="272"/>
-        <source>空玄五劫</source>
-        <translation>Pustelna Mityczna Trib. 5</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="273"/>
-        <source>空玄六劫</source>
-        <translation>Pustelna Mityczna Trib. 6</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="274"/>
-        <source>空玄七劫</source>
-        <translation>Pustelna Mityczna Trib. 7</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="275"/>
-        <source>空玄八劫</source>
-        <translation>Pustelna Mityczna Trib. 8</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="276"/>
-        <source>空玄九劫</source>
-        <translation>Pustelna Mityczna Trib. 9</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="277"/>
-        <source>空劫初期</source>
-        <translation>Pustelna Trib. (Wczesna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="278"/>
-        <source>空劫中期</source>
-        <translation>Pustelna Trib. (Średnia)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="279"/>
-        <source>空劫后期</source>
-        <translation>Pustelna Trib. (Późna)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="280"/>
-        <source>空劫大圆满</source>
-        <translation>Pustelna Trib. (Szczyt)</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="281"/>
-        <source>大尊</source>
-        <translation>Wielki Czcigodny</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="282"/>
-        <source>金尊</source>
-        <translation>Złoty Czcigodny</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="283"/>
-        <source>天尊</source>
-        <translation>Niebiański Czcigodny</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="284"/>
-        <source>跃天尊</source>
-        <translation>Skaczący Niebiański Czcigodny</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="285"/>
-        <source>大天尊</source>
-        <translation>Wielki Niebiański Czcigodny</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="286"/>
-        <source>踏天一桥</source>
-        <translation>Niebiański Most Krok 1</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="287"/>
-        <source>踏天二桥</source>
-        <translation>Niebiański Most Krok 2</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="288"/>
-        <source>踏天三桥</source>
-        <translation>Niebiański Most Krok 3</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="289"/>
-        <source>踏天四桥</source>
-        <translation>Niebiański Most Krok 4</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="290"/>
-        <source>踏天五桥</source>
-        <translation>Niebiański Most Krok 5</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="291"/>
-        <source>踏天六桥</source>
-        <translation>Niebiański Most Krok 6</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="292"/>
-        <source>踏天七桥</source>
-        <translation>Niebiański Most Krok 7</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="293"/>
-        <source>踏天八桥</source>
-        <translation>Niebiański Most Krok 8</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="294"/>
-        <source>踏天九桥</source>
-        <translation>Niebiański Most Krok 9</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="295"/>
-        <source>踏天境</source>
-        <translation>Królestwo Stąpania po Niebie</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="296"/>
-        <source>厚土境</source>
-        <translation>Królestwo Stałej Ziemi</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="297"/>
-        <source>煌天境</source>
-        <translation>Królestwo Promiennego Nieba</translation>
-    </message>
-    <message>
         <location filename="../shared_types/enums.py" line="224"/>
-        <location filename="../plugins/XianNiUpgrade/models.py" line="301"/>
         <source>自定义</source>
         <translation>Niestandardowy</translation>
     </message>
@@ -2312,33 +935,6 @@ nieśmiertelnego ciała</translation>
         <location filename="../plugin_sdk/config_types/file_config.py" line="78"/>
         <source>选择文件</source>
         <translation>Wybierz plik</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="271"/>
-        <source>第{n}行 右括号数量大于左括号数量，请检查</source>
-        <translation>Wiersz {n}: więcej nawiasów zamykających niż otwierających</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="290"/>
-        <source>第{n}行 {val} 不是数字</source>
-        <translation>Wiersz {n}: {val} nie jest liczbą</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="321"/>
-        <location filename="../plugins/history/filter_dialog.py" line="367"/>
-        <location filename="../plugins/history/filter_dialog.py" line="373"/>
-        <source>第{n}行 {val} 不是合法的日期时间</source>
-        <translation>Wiersz {n}: {val} nie jest poprawną datą/czasem</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/filter_dialog.py" line="340"/>
-        <source>第{n}行 {val} 不是合法的枚举选项</source>
-        <translation>Wiersz {n}: {val} nie jest poprawną opcją wyliczenia</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="316"/>
-        <source>复制JSON</source>
-        <translation>Kopiuj JSON</translation>
     </message>
     <message>
         <location filename="../shared_types/enums.py" line="85"/>
@@ -2493,376 +1089,31 @@ nieśmiertelnego ciała</translation>
         <translation>Directory</translation>
     </message>
     <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="37"/>
-        <source>基础经验</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="38"/>
-        <source>稀有局面</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="39"/>
-        <source>竞速经验</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="40"/>
-        <source>效率经验</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="167"/>
-        <source>道行构成</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="228"/>
-        <source>本局已达 99999 上限，分项按比例折算</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="230"/>
-        <source>分项按最终道行等比折算，合计即本局道行</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="257"/>
-        <source>━━━ 元扫雷 3.2.2 ━━━</source>
-        <translation>━━━ Metasweeper 3.2.2 ━━━</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="282"/>
-        <source>━━━ 元扫雷 3.3.1+ ━━━</source>
-        <translation>━━━ Metasweeper 3.3.1+ ━━━</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="289"/>
-        <source>选择道藏目录...</source>
-        <translation>Wybierz katalog dao-kanonu...</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="292"/>
-        <source>导入道行存档:</source>
-        <translation>Importuj zapis dao:</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="297"/>
-        <source>提示：请选择旧版安装目录下 data/plugin_data/XianNiUpgrade/ 文件夹</source>
-        <translation>Wskazówka: wybierz folder data/plugin_data/XianNiUpgrade/ w starym katalogu instalacji</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="328"/>
-        <source>选择道藏目录</source>
-        <translation>Wybierz katalog dao-kanonu</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="849"/>
-        <source>3.2.2 验证失败，查看日志</source>
-        <translation>3.2.2 walidacja nie powiodła się, sprawdź dziennik</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="851"/>
-        <source>3.2.2 没有新的灵箓</source>
-        <translation>3.2.2 brak nowych talizmanów ducha</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="855"/>
-        <source>3.2.2 新增 %1 道灵箓，获 %2 道行</source>
-        <translation>3.2.2 wchłonięto %1 talizman(ów) ducha, zdobyto %2 dao</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="863"/>
-        <source>3.3.1+ 未找到有效道藏</source>
-        <translation>3.3.1+ nie znaleziono prawidłowego dao-kanonu</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="867"/>
-        <source>导入道藏</source>
-        <translation>Importuj dao-kanon</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="868"/>
-        <source>发现 %1 位道友，共 %2 道行，确认导入？</source>
-        <translation>Znaleziono %1 towarzyszy dao, łącznie %2 dao. Zaimportować?</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="875"/>
-        <source>3.3.1+ 导入 %1 位道友，获 %2 道行</source>
-        <translation>3.3.1+ zaimportowano %1 towarzyszy dao, zdobyto %2 dao</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="880"/>
-        <source>请填写至少一种吸收方式</source>
-        <translation>Podaj co najmniej jedną metodę absorpcji</translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/widgets.py" line="929"/>
-        <source>此记录未保存分项数据</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../shared_types/enums.py" line="172"/>
         <source>UPK</source>
         <translation>UPK</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/main_widget.py" line="98"/>
-        <location filename="../plugins/history/main_widget.py" line="186"/>
-        <source>计算列</source>
-        <translation>Kolumny obliczeniowe</translation>
-    </message>
-    <message>
-        <location filename="../plugins/history/history_table.py" line="315"/>
-        <source>导出录像</source>
-        <translation>Eksportuj nagrania</translation>
     </message>
     <message>
         <location filename="../plugin_sdk/config_types/base_config.py" line="170"/>
         <location filename="../plugin_sdk/config_types/base_config.py" line="172"/>
         <location filename="../plugin_sdk/config_types/base_config.py" line="173"/>
         <source>该值无效</source>
-        <translation type="unfinished"></translation>
+        <translation>Nieprawidłowa wartość</translation>
     </message>
     <message>
         <location filename="../plugin_sdk/config_types/path_config.py" line="65"/>
         <source>选择目录</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybierz katalog</translation>
     </message>
     <message>
         <location filename="../plugin_sdk/config_types/text_config.py" line="66"/>
         <source>复制</source>
-        <translation type="unfinished"></translation>
+        <translation>Kopiuj</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/config_widget.py" line="150"/>
+        <location filename="../plugin_manager/config_widget.py" line="180"/>
         <source>插件</source>
-        <translation type="unfinished">Wtyczki</translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="111"/>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="112"/>
-        <source>监听端口</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="113"/>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="114"/>
-        <source>配置提示词</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="115"/>
-        <source>复制配置提示词</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="157"/>
-        <source>停止MCP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="158"/>
-        <source>启动MCP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="167"/>
-        <source>已停止</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="168"/>
-        <source>正在启动</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="169"/>
-        <source>运行中</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="170"/>
-        <source>正在停止</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="171"/>
-        <source>启动失败</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="174"/>
-        <source>运行中：{endpoint}</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/llm_minesweeper_controller/widgets.py" line="178"/>
-        <source>错误：{reason}</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="63"/>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="65"/>
-        <source>排行站地址无效</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="67"/>
-        <source>排行站地址须使用 HTTPS</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="99"/>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="102"/>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="105"/>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="110"/>
-        <source>无法连接排行站</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="112"/>
-        <source>该地址不是雷修排行站</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="121"/>
-        <source>排行站地址</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="122"/>
-        <source>官方排行站地址（固定），上传时会 POST 到 {地址}/api/upload</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="131"/>
-        <source>自动上传排行</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="132"/>
-        <source>每局胜利后静默上传。60 秒内不连发；成功不弹窗、不打开浏览器</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="140"/>
-        <source>上传令牌</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="143"/>
-        <source>首次上传前自动生成。换电脑请点击右侧「复制」，在新电脑设置里粘贴。建议生成后立即备份；误改且已保存后，只有旧备份或旧 config 能恢复</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="148"/>
-        <source>首次上传前自动生成</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="155"/>
-        <source>配置文件：{path}</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="156"/>
-        <source>建议生成后立即点「复制」备份；误改且已保存后，只有旧备份或旧 config 能恢复。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="164"/>
-        <source>上传成功后打开排行页</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/XianNiUpgrade/config.py" line="165"/>
-        <source>成功上传后用系统浏览器打开排行站（仅手动上传）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/plugin.py" line="64"/>
-        <source>顺序闯关模式 - 共1000个精心设计的关卡</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="60"/>
-        <source>第 1 关</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="76"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="156"/>
-        <source>选择关卡:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="94"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="154"/>
-        <source>开始本关</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="102"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="155"/>
-        <source>下一关</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="111"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="157"/>
-        <source>自动下一关</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="127"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="159"/>
-        <source>恭喜通关！</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="141"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="158"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="172"/>
-        <source>重置闯关进度</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="152"/>
-        <location filename="../plugins/challenge_mode/widgets.py" line="193"/>
-        <source>第 %1 关</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="173"/>
-        <source>确认重置闯关进度？此操作不可撤销。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/challenge_mode/widgets.py" line="196"/>
-        <source>行: %1  列: %2  雷: %3</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/SaoleiWebsite/config.py" line="21"/>
-        <source>API 根地址</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/SaoleiWebsite/config.py" line="22"/>
-        <source>开源扫雷网站点根地址，用于查询标识绑定与用户信息</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/SaoleiWebsite/config.py" line="31"/>
-        <source>请求超时（秒）</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../plugins/SaoleiWebsite/config.py" line="32"/>
-        <source>HTTP 请求超时时间</source>
-        <translation type="unfinished"></translation>
+        <translation>Wtyczka</translation>
     </message>
     <message>
         <location filename="../dialogs/gameAdvancedSettings.py" line="64"/>
@@ -3192,38 +1443,39 @@ nieśmiertelnego ciała</translation>
         <location filename="../mainWindowGUIImportExport.py" line="530"/>
         <location filename="../mainWindowGUIImportExport.py" line="577"/>
         <source>导出 CSV 失败：{error}</source>
-        <translation type="unfinished"></translation>
+        <translation>Eksport CSV nieudany: {error}</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="546"/>
         <source>选择 CSV 导出目录</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybierz katalog eksportu CSV</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="555"/>
         <source>确认覆盖</source>
-        <translation type="unfinished"></translation>
+        <translation>Potwierdź nadpisanie</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="556"/>
         <source>以下文件已存在，是否覆盖？
 {paths}</source>
-        <translation type="unfinished"></translation>
+        <translation>Te pliki już istnieją. Nadpisać?
+{paths}</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="571"/>
         <source>{path}：{n} 条记录</source>
-        <translation type="unfinished"></translation>
+        <translation>{path}: {n} rekordów</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="579"/>
         <source>已导出：</source>
-        <translation type="unfinished"></translation>
+        <translation>Wyeksportowano:</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="581"/>
         <source>未导出：</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie wyeksportowano:</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="632"/>
@@ -3241,7 +1493,7 @@ nieśmiertelnego ciała</translation>
         <location filename="../mainWindowGUIImportExport.py" line="39"/>
         <location filename="../mainWindowGUIImportExport.py" line="59"/>
         <source>导出全部 CSV</source>
-        <translation type="unfinished"></translation>
+        <translation>Eksportuj wszystkie CSV</translation>
     </message>
     <message>
         <location filename="../mainWindowGUIImportExport.py" line="534"/>
@@ -3405,145 +1657,145 @@ nieśmiertelnego ciała</translation>
         <location filename="../plugin_manager/main_window.py" line="1179"/>
         <location filename="../plugin_manager/main_window.py" line="1183"/>
         <source>插件依赖环境</source>
-        <translation type="unfinished"></translation>
+        <translation>Środowisko zależności wtyczek</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1007"/>
         <source>选择已有库目录或虚拟环境目录。依赖包需手动安装；目录变更后需重启插件管理器。</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybierz katalog bibliotek lub środowiska wirtualnego. Zależności zainstaluj ręcznie; po zmianie uruchom ponownie menedżer wtyczek.</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1012"/>
         <source>依赖下载源（每行一个，第一行为主源，其余为备用源）：</source>
-        <translation type="unfinished"></translation>
+        <translation>Źródła pobierania zależności (jedno w wierszu, pierwsze główne, kolejne zapasowe):</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1021"/>
         <source>当前运行环境：{tag}</source>
-        <translation type="unfinished"></translation>
+        <translation>Bieżące środowisko: {tag}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1024"/>
         <source>匹配的 Python：</source>
-        <translation type="unfinished"></translation>
+        <translation>Pasujący Python:</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1028"/>
         <source>正在检测…</source>
-        <translation type="unfinished"></translation>
+        <translation>Wykrywanie…</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1036"/>
         <location filename="../plugin_manager/main_window.py" line="1135"/>
         <source>选择插件依赖环境目录</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybierz katalog zależności wtyczek</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1038"/>
         <source>选择…</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybierz…</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1041"/>
         <source>清空</source>
-        <translation type="unfinished">Wyczyść</translation>
+        <translation>Wyczyść</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1049"/>
         <source>创建虚拟环境</source>
-        <translation type="unfinished"></translation>
+        <translation>Utwórz środowisko wirtualne</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1052"/>
         <source>查看已安装的包</source>
-        <translation type="unfinished"></translation>
+        <translation>Pokaż zainstalowane pakiety</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1081"/>
         <source>未找到匹配的 Python</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie znaleziono pasującego Pythona</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1088"/>
         <location filename="../plugin_manager/main_window.py" line="1151"/>
         <source>创建虚拟环境失败</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie udało się utworzyć środowiska wirtualnego</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1089"/>
         <source>无法创建虚拟环境：{error}</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie można utworzyć środowiska wirtualnego: {error}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1092"/>
         <source>虚拟环境已创建。依赖包需手动安装。</source>
-        <translation type="unfinished"></translation>
+        <translation>Utworzono środowisko wirtualne. Zależności zainstaluj ręcznie.</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1102"/>
         <source>未选择依赖环境目录</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie wybrano katalogu zależności</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1104"/>
         <source>所选目录是虚拟环境</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybrany katalog jest środowiskiem wirtualnym</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1106"/>
         <source>所选目录不是虚拟环境（可作为普通库目录）</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybrany katalog nie jest środowiskiem wirtualnym (może służyć jako zwykły katalog bibliotek)</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1109"/>
         <source>所选路径不是目录</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybrana ścieżka nie jest katalogiem</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1112"/>
         <source>目录尚不存在；可点击“创建虚拟环境”手动创建</source>
-        <translation type="unfinished"></translation>
+        <translation>Katalog jeszcze nie istnieje; utwórz go przyciskiem „Utwórz środowisko wirtualne”</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1113"/>
         <source>目录及其父目录不存在</source>
-        <translation type="unfinished"></translation>
+        <translation>Katalog i jego katalog nadrzędny nie istnieją</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1115"/>
         <source>无法检查目录：{error}</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie można sprawdzić katalogu: {error}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1122"/>
         <source>已安装的包</source>
-        <translation type="unfinished">Zainstalowane pakiety</translation>
+        <translation>Zainstalowane pakiety</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1122"/>
         <source>请先选择依赖目录。</source>
-        <translation type="unfinished"></translation>
+        <translation>Najpierw wybierz katalog zależności.</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1127"/>
         <location filename="../plugin_manager/main_window.py" line="1169"/>
         <source>无效的依赖下载源</source>
-        <translation type="unfinished"></translation>
+        <translation>Nieprawidłowe źródło pobierania zależności</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1147"/>
         <source>目标目录必须为空</source>
-        <translation type="unfinished"></translation>
+        <translation>Katalog docelowy musi być pusty</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1149"/>
         <source>目标目录的父目录不存在</source>
-        <translation type="unfinished"></translation>
+        <translation>Katalog nadrzędny celu nie istnieje</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1184"/>
         <source>所选目录不存在，且其父目录也不存在。</source>
-        <translation type="unfinished"></translation>
+        <translation>Wybrany katalog i jego katalog nadrzędny nie istnieją.</translation>
     </message>
 </context>
 <context>
@@ -3551,53 +1803,53 @@ nieśmiertelnego ciała</translation>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="71"/>
         <source>插件详情 - {name}</source>
-        <translation type="unfinished"></translation>
+        <translation>Szczegóły wtyczki - {name}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="87"/>
         <source>基本信息</source>
-        <translation type="unfinished"></translation>
+        <translation>Podstawowe informacje</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="89"/>
         <source>名称</source>
-        <translation type="unfinished"></translation>
+        <translation>Nazwa</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="90"/>
         <source>版本</source>
-        <translation type="unfinished">Wersja</translation>
+        <translation>Wersja</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="91"/>
         <source>作者</source>
-        <translation type="unfinished">Autor</translation>
+        <translation>Autor</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="93"/>
         <source>暂无描述</source>
-        <translation type="unfinished">Brak opisu</translation>
+        <translation>Brak opisu</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="95"/>
         <source>描述</source>
-        <translation type="unfinished"></translation>
+        <translation>Opis</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="100"/>
         <source>订阅的事件</source>
-        <translation type="unfinished"></translation>
+        <translation>Subskrybowane zdarzenia</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="102"/>
         <source>权限</source>
-        <translation type="unfinished"></translation>
+        <translation>Uprawnienia</translation>
     </message>
     <message>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="124"/>
         <location filename="../plugin_manager/plugin_info_dialog.py" line="191"/>
         <source>无</source>
-        <translation type="unfinished"></translation>
+        <translation>Brak</translation>
     </message>
 </context>
 <context>
@@ -3824,23 +2076,23 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2442"/>
         <source>依赖环境设置已保存；下载源用于后续手动安装，目录变更重启后生效。</source>
-        <translation type="unfinished"></translation>
+        <translation>Zapisano ustawienia zależności; źródła dotyczą późniejszych instalacji ręcznych, zmiany katalogu po restarcie.</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2600"/>
         <location filename="../plugin_manager/main_window.py" line="2608"/>
         <source>安装调试依赖</source>
-        <translation type="unfinished"></translation>
+        <translation>Zainstaluj zależność debugowania</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2601"/>
         <source>调试库 debugpy 尚未安装。现在手动安装吗？</source>
-        <translation type="unfinished"></translation>
+        <translation>Biblioteka debugpy nie jest zainstalowana. Zainstalować teraz?</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2628"/>
         <source>debugpy 安装后仍无法导入：{error}。请重启插件管理器后重试。</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie można zaimportować debugpy po instalacji: {error}. Uruchom ponownie menedżer wtyczek i spróbuj ponownie.</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2641"/>
@@ -3850,12 +2102,12 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2645"/>
         <source>调试</source>
-        <translation type="unfinished"></translation>
+        <translation>Debugowanie</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2646"/>
         <source>启动调试服务失败：{error}</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie udało się uruchomić usługi debugowania: {error}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2657"/>
@@ -3875,22 +2127,22 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2706"/>
         <source>（缺少依赖）</source>
-        <translation type="unfinished"></translation>
+        <translation>(brak zależności)</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2707"/>
         <source>（依赖版本冲突）</source>
-        <translation type="unfinished"></translation>
+        <translation>(konflikt wersji zależności)</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2708"/>
         <source>（依赖待检查）</source>
-        <translation type="unfinished"></translation>
+        <translation>(zależność niesprawdzona)</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2731"/>
         <source>{name}（加载失败）</source>
-        <translation type="unfinished"></translation>
+        <translation>{name} (nie udało się wczytać)</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2757"/>
@@ -3900,107 +2152,107 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2764"/>
         <source>未声明 requirements.txt</source>
-        <translation type="unfinished"></translation>
+        <translation>Brak pliku requirements.txt</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2765"/>
         <location filename="../plugin_manager/main_window.py" line="2820"/>
         <source>已安装</source>
-        <translation type="unfinished"></translation>
+        <translation>Zainstalowano</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2766"/>
         <location filename="../plugin_manager/main_window.py" line="2821"/>
         <source>未安装</source>
-        <translation type="unfinished"></translation>
+        <translation>Niezainstalowano</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2767"/>
         <source>版本不符合要求</source>
-        <translation type="unfinished"></translation>
+        <translation>Wersja nie spełnia wymagań</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2768"/>
         <location filename="../plugin_manager/main_window.py" line="2823"/>
         <source>无法确认</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie można ustalić</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2769"/>
         <source>当前环境不适用</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie dotyczy tego środowiska</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2777"/>
         <source>没有声明第三方依赖</source>
-        <translation type="unfinished"></translation>
+        <translation>Brak zależności zewnętrznych</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2785"/>
         <location filename="../plugin_manager/main_window.py" line="2844"/>
         <source>插件加载失败：{error}</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie udało się wczytać wtyczki: {error}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2795"/>
         <source>插件依赖</source>
-        <translation type="unfinished"></translation>
+        <translation>Zależności wtyczki</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2807"/>
         <source>依赖</source>
-        <translation type="unfinished"></translation>
+        <translation>Zależność</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2807"/>
         <source>已安装版本</source>
-        <translation type="unfinished"></translation>
+        <translation>Zainstalowana wersja</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2807"/>
         <source>状态</source>
-        <translation type="unfinished">Stan</translation>
+        <translation>Stan</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2822"/>
         <source>版本不符</source>
-        <translation type="unfinished"></translation>
+        <translation>Niezgodna wersja</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2824"/>
         <source>不适用</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie dotyczy</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2832"/>
         <source>—</source>
-        <translation type="unfinished"></translation>
+        <translation>—</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2838"/>
         <source>此插件没有额外依赖。</source>
-        <translation type="unfinished"></translation>
+        <translation>Ta wtyczka nie ma dodatkowych zależności.</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2856"/>
         <source>手动安装此插件依赖</source>
-        <translation type="unfinished"></translation>
+        <translation>Ręcznie zainstaluj zależności tej wtyczki</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2871"/>
         <source>安装插件依赖</source>
-        <translation type="unfinished"></translation>
+        <translation>Zainstaluj zależności wtyczki</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2877"/>
         <source>{name} 的依赖已安装。重启插件管理器后重新加载插件。</source>
-        <translation type="unfinished"></translation>
+        <translation>Zainstalowano zależności dla {name}. Uruchom ponownie menedżer wtyczek, aby wczytać wtyczkę.</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2896"/>
         <location filename="../plugin_manager/main_window.py" line="2903"/>
         <source>查看依赖详情</source>
-        <translation type="unfinished"></translation>
+        <translation>Pokaż szczegóły zależności</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2911"/>
@@ -4035,12 +2287,12 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2952"/>
         <source>查看 README</source>
-        <translation type="unfinished"></translation>
+        <translation>Pokaż README</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2965"/>
         <source>一键授权控制权限</source>
-        <translation type="unfinished"></translation>
+        <translation>Przyznaj uprawnienia sterowania jednym kliknięciem</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2971"/>
@@ -4050,28 +2302,29 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2994"/>
         <source>已授权 {n} 个控制命令给插件 {name}</source>
-        <translation type="unfinished"></translation>
+        <translation>Przyznano {n} poleceń sterowania wtyczce {name}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="3098"/>
         <source>README</source>
-        <translation type="unfinished"></translation>
+        <translation>README</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="3099"/>
         <source>读取 README 失败: {err}</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie udało się odczytać README: {err}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="3157"/>
         <source>插件设置</source>
-        <translation type="unfinished"></translation>
+        <translation>Ustawienia wtyczki</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="3158"/>
         <source>保存插件设置失败：
 {err}</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie udało się zapisać ustawień wtyczki:
+{err}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="3298"/>
@@ -4145,17 +2398,17 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="629"/>
         <source>配置文件：{path}</source>
-        <translation type="unfinished"></translation>
+        <translation>Plik konfiguracyjny: {path}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="667"/>
         <source>{label}：{reason}</source>
-        <translation type="unfinished"></translation>
+        <translation>{label}: {reason}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="675"/>
         <source>配置无效</source>
-        <translation type="unfinished"></translation>
+        <translation>Nieprawidłowa konfiguracja</translation>
     </message>
 </context>
 <context>
@@ -4163,63 +2416,63 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="69"/>
         <location filename="../dialogs/CheckUpdateGui.py" line="179"/>
-        <source>unfold</source>
-        <translation type="unfinished"></translation>
+        <source>展开</source>
+        <translation>Rozwiń</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="76"/>
-        <source>Download</source>
-        <translation type="unfinished"></translation>
+        <source>下载</source>
+        <translation>Pobierz</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="109"/>
-        <source>open external links</source>
-        <translation type="unfinished"></translation>
+        <source>打开外部链接</source>
+        <translation>Otwórz link zewnętrzny</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="111"/>
-        <source>html_url</source>
-        <translation type="unfinished"></translation>
+        <source>项目主页</source>
+        <translation>Strona projektu</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="112"/>
-        <source>name</source>
-        <translation type="unfinished"></translation>
+        <source>文件名</source>
+        <translation>Nazwa pliku</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="115"/>
-        <source>content_type</source>
-        <translation type="unfinished"></translation>
+        <source>文件类型</source>
+        <translation>Typ pliku</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="118"/>
-        <source>size</source>
-        <translation type="unfinished"></translation>
+        <source>大小</source>
+        <translation>Rozmiar</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="121"/>
-        <source>download_count</source>
-        <translation type="unfinished"></translation>
+        <source>下载次数</source>
+        <translation>Liczba pobrań</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="124"/>
-        <source>created_at</source>
-        <translation type="unfinished"></translation>
+        <source>发布时间</source>
+        <translation>Opublikowano</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="129"/>
-        <source>open download links</source>
-        <translation type="unfinished"></translation>
+        <source>打开下载链接</source>
+        <translation>Otwórz link pobierania</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="131"/>
-        <source>browser_download_url</source>
-        <translation type="unfinished"></translation>
+        <source>下载地址</source>
+        <translation>Adres pobierania</translation>
     </message>
     <message>
         <location filename="../dialogs/CheckUpdateGui.py" line="173"/>
-        <source>fold</source>
-        <translation type="unfinished"></translation>
+        <source>折叠</source>
+        <translation>Zwiń</translation>
     </message>
 </context>
 <context>
@@ -4232,7 +2485,7 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../replay_analysis/guess.py" line="53"/>
         <source>pluck={pluck}(+{pluck_diff})，雷{mine}，最小{minimum}，密度{density}</source>
-        <translation type="unfinished"></translation>
+        <translation>pluck={pluck}(+{pluck_diff}), miny {mine}, min. {minimum}, gęstość {density}</translation>
     </message>
     <message>
         <location filename="../replay_analysis/combo_click.py" line="38"/>
@@ -4242,7 +2495,7 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../replay_analysis/combo_click.py" line="41"/>
         <source>长度{length}，间隔最大{max_interval}，最小{min_interval}，平均{average_interval}</source>
-        <translation type="unfinished"></translation>
+        <translation>Długość {length}, maks. odstęp {max_interval}, min. {min_interval}, średni {average_interval}</translation>
     </message>
     <message>
         <location filename="../replay_analysis/flag.py" line="46"/>
@@ -4263,7 +2516,7 @@ Pliki mogą być używane przez inny program.</translation>
     <message>
         <location filename="../replay_analysis/one_point_five_click.py" line="45"/>
         <source>右左间隔{right_left}，标双间隔{flag_double}</source>
-        <translation type="unfinished"></translation>
+        <translation>Odstęp prawo-lewo {right_left}, odstęp flagowania {flag_double}</translation>
     </message>
 </context>
 <context>
@@ -4308,190 +2561,6 @@ Pliki mogą być używane przez inny program.</translation>
         <location filename="../plugin_manager/main_window.py" line="1277"/>
         <source>显示来源</source>
         <translation>Pokaż źródło</translation>
-    </message>
-</context>
-<context>
-    <name>SkinManager</name>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="75"/>
-        <location filename="../plugins/skin_manager/config.py" line="96"/>
-        <source>当前皮肤</source>
-        <translation>Bieżąca skórka&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="76"/>
-        <location filename="../plugins/skin_manager/config.py" line="133"/>
-        <source>当前音效包</source>
-        <translation>Bieżąca paczka dźwięków&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="77"/>
-        <location filename="../plugins/skin_manager/config.py" line="98"/>
-        <source>选择后立即生效（纯内存热替换，不重启）；选「默认皮肤」即还原</source>
-        <translation>Działa natychmiast (w pamięci, bez restartu); domyślne przywraca&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="79"/>
-        <location filename="../plugins/skin_manager/config.py" line="135"/>
-        <source>选择后立即生效（纯内存热替换，不重启）；选「默认音效」即还原</source>
-        <translation>Działa natychmiast (w pamięci, bez restartu); domyślne przywraca&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="88"/>
-        <source>启动时自动应用</source>
-        <translation>Zastosuj automatycznie przy starcie&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="89"/>
-        <source>插件启动并连接主进程后，自动应用上次选择的皮肤与音效设置</source>
-        <translation>Po połączeniu ponownie zastosuj ostatnie ustawienia skórki i dźwięków&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="105"/>
-        <source>导入皮肤包</source>
-        <translation>Importuj paczkę skórki&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="107"/>
-        <source>导入皮肤 zip</source>
-        <translation>Importuj zip skórki&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="108"/>
-        <source>选择 zip 自动解压到本插件数据目录 skins/，随后即可在下拉框选择</source>
-        <translation>Rozpakuj zip do skins/; paczka pojawi się na liście&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="116"/>
-        <source>启用游戏音效</source>
-        <translation>Włącz dźwięki gry&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="117"/>
-        <source>通过 SetSoundCommand 独立控制；不影响主程序设置页里的开关</source>
-        <translation>Sterowane niezależnie przez SetSoundCommand; osobne od ustawień gry&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="124"/>
-        <source>音效音量</source>
-        <translation>Głośność dźwięków&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="128"/>
-        <source>0~100，选择后立即生效</source>
-        <translation>0–100, działa natychmiast&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="142"/>
-        <source>导入音效包</source>
-        <translation>Importuj paczkę dźwięków&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="144"/>
-        <source>导入音效 zip</source>
-        <translation>Importuj zip dźwięków&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/config.py" line="145"/>
-        <source>选择 zip 自动解压到本插件数据目录 sounds/，随后即可在下拉框选择</source>
-        <translation>Rozpakuj zip do sounds/; paczka pojawi się na liście&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="27"/>
-        <source>就绪</source>
-        <translation>Gotowy&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="28"/>
-        <source>开局</source>
-        <translation>Start&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="29"/>
-        <source>开格</source>
-        <translation>Odkryj&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="30"/>
-        <source>双击</source>
-        <translation>Chord&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="31"/>
-        <source>插旗</source>
-        <translation>Flaga wł.&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="32"/>
-        <source>拔旗</source>
-        <translation>Flaga wył.&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="33"/>
-        <source>胜利</source>
-        <translation type="unfinished">Zwycięstwo</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="34"/>
-        <source>失败</source>
-        <translation type="unfinished">Porażka</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="50"/>
-        <source>皮肤管理</source>
-        <translation>Zarządzanie skórkami&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="54"/>
-        <source>在插件列表里右键本插件 →「设置...」，从「当前皮肤」下拉框选择，选择后立即生效，无需重启。
-选「默认皮肤」即可还原。</source>
-        <translation>Prawy przycisk na wtyczce → Ustawienia, wybierz skórkę. Działa od razu, bez restartu.
-Domyślna przywraca.&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="62"/>
-        <source>尚未应用皮肤</source>
-        <translation>Nie zastosowano jeszcze skórki&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="65"/>
-        <source>重新应用</source>
-        <translation>Zastosuj ponownie&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="66"/>
-        <source>强制把当前选中的皮肤重新发送到主进程</source>
-        <translation>Wymuś ponowne wysłanie skórki do procesu gry&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="72"/>
-        <source>在插件「设置...」里用「导入皮肤包」按钮安装 zip，或把资源放到插件目录 skins/&lt;名称&gt;/ 下，导入后即自动出现在下拉框里。</source>
-        <translation>Użyj przycisku importu w Ustawieniach lub umieść pliki w skins/&lt;nazwa&gt;/.&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="82"/>
-        <source>音效</source>
-        <translation>Dźwięki&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="85"/>
-        <source>在插件「设置...」里分别设置「启用游戏音效」「音效音量」「当前音效包」，与皮肤设置相互独立，互不影响。授权也是独立的 SetSoundCommand。</source>
-        <translation>W Ustawieniach skonfiguruj niezależnie włączenie, głośność i paczkę. Osobna autoryzacja SetSoundCommand.&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="93"/>
-        <source>试听：</source>
-        <translation>Podgląd:&gt;</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="102"/>
-        <source>播放</source>
-        <translation type="unfinished">Odtwórz</translation>
-    </message>
-    <message>
-        <location filename="../plugins/skin_manager/widgets.py" line="103"/>
-        <source>按当前音效设置发送试听请求（需已授权 SetSoundCommand）</source>
-        <translation>Wyślij żądanie podglądu z bieżącymi ustawieniami (wymaga autoryzacji SetSoundCommand)&gt;</translation>
     </message>
 </context>
 <context>
@@ -4595,7 +2664,7 @@ Domyślna przywraca.&gt;</translation>
     <message>
         <location filename="../mineSweeperVideoPlayer.py" line="228"/>
         <source>正在分析本地事件... ({current}/{total})</source>
-        <translation type="unfinished"></translation>
+        <translation>Analizowanie zdarzeń lokalnych... ({current}/{total})</translation>
     </message>
     <message>
         <location filename="../mineSweeperVideoPlayer.py" line="242"/>
@@ -4697,17 +2766,17 @@ Domyślna przywraca.&gt;</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2019"/>
         <source>README</source>
-        <translation type="unfinished"></translation>
+        <translation>README</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2020"/>
         <source>读取文件失败: {err}</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie udało się odczytać pliku: {err}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2054"/>
         <source>该插件目录下未找到 README.md</source>
-        <translation type="unfinished"></translation>
+        <translation>Nie znaleziono README.md w katalogu wtyczki</translation>
     </message>
 </context>
 <context>
@@ -4715,7 +2784,7 @@ Domyślna przywraca.&gt;</translation>
     <message>
         <location filename="../plugin_manager/main_window.py" line="1844"/>
         <source>{name} - README</source>
-        <translation type="unfinished"></translation>
+        <translation>{name} - README</translation>
     </message>
 </context>
 <context>

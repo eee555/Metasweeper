@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import cast
 
-from PySide6.QtCore import Qt, QCoreApplication, QTimer
+from PySide6.QtCore import Qt, QCoreApplication, QEvent, QTimer
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QMenu,
@@ -22,8 +22,9 @@ from .delegates import ComboBoxDelegate, EditableComboBoxDelegate, FilterValueDe
 from .models import HistoryData, LogicSymbol, CompareSymbol
 from .table_views import AutoEditTableView, FilterModel
 from .computed_column import ComputedColumn
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("HistoryPlugin")
 
 
 class FilterDialog(ConfirmDialog):
@@ -32,8 +33,22 @@ class FilterDialog(ConfirmDialog):
     def __init__(self, float_decimals: int = 2, computed_columns: list[ComputedColumn] | None = None, parent=None):
         self._float_decimals = float_decimals
         self._computed_columns = computed_columns or []
-        super().__init__(parent, title=_translate("Form", "过滤条件"))
+        super().__init__(parent, title=_translate("HistoryPlugin", "过滤条件"))
         self.resize(700, 300)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange and hasattr(self, "table"):
+            self.retranslateUi()
+
+    def retranslateUi(self) -> None:
+        """语言切换后重建表头与代理选项（已输入的筛选值不受影响）。"""
+        self.setWindowTitle(_translate("HistoryPlugin", "过滤条件"))
+        model = self.table.model()
+        refresh = getattr(model, "retranslate_headers", None)
+        if callable(refresh):
+            refresh()
+        self._setup_delegates()
 
     def _create_content(self):
         layout = QVBoxLayout()
@@ -194,12 +209,12 @@ class FilterDialog(ConfirmDialog):
 
     def show_context_menu(self, pos):
         menu = QMenu(self)
-        menu.addAction(_translate("Form", "添加"), self.add_row)
+        menu.addAction(_translate("HistoryPlugin", "添加"), self.add_row)
         menu.addAction(
-            _translate("Form", "插入"), lambda: self.insert_row(
+            _translate("HistoryPlugin", "插入"), lambda: self.insert_row(
                 self.table.currentIndex().row())
         )
-        menu.addAction(_translate("Form", "删除"), self.del_row)
+        menu.addAction(_translate("HistoryPlugin", "删除"), self.del_row)
         menu.exec(self.table.mapToGlobal(pos))
 
     def add_row(self):
@@ -254,8 +269,23 @@ class FilterDialog(ConfirmDialog):
             if not field or not compare_text:
                 continue
 
-            compare = CompareSymbol.from_display_name(compare_text)
-            logic = LogicSymbol.from_display_name(logic_text).to_sql
+            try:
+                compare = CompareSymbol.from_display_name(compare_text)
+            except (TypeError, ValueError):
+                QMessageBox.warning(
+                    self, _translate("HistoryPlugin", "错误"),
+                    _translate("HistoryPlugin", "第%1行 比较符 %2 无法识别")
+                    .replace("%1", str(row)).replace("%2", compare_text))
+                return None
+            try:
+                logic = (LogicSymbol.from_display_name(logic_text).to_sql
+                         if logic_text else "and")
+            except (TypeError, ValueError):
+                QMessageBox.warning(
+                    self, _translate("HistoryPlugin", "错误"),
+                    _translate("HistoryPlugin", "第%1行 逻辑符 %2 无法识别")
+                    .replace("%1", str(row)).replace("%2", logic_text))
+                return None
 
             if left_bracket == "(":
                 left_count += 1
@@ -268,8 +298,8 @@ class FilterDialog(ConfirmDialog):
 
             if right_count > left_count:
                 QMessageBox.warning(
-                    self, _translate("Form", "错误"), _translate(
-                        "Form", "第{n}行 右括号数量大于左括号数量，请检查").replace("{n}", str(row))
+                    self, _translate("HistoryPlugin", "错误"), _translate(
+                        "HistoryPlugin", "第{n}行 右括号数量大于左括号数量，请检查").replace("{n}", str(row))
                 )
                 return None
 
@@ -287,8 +317,8 @@ class FilterDialog(ConfirmDialog):
                     for v in values:
                         if not v.replace("-", "").replace(".", "").isdigit():
                             QMessageBox.warning(
-                                self, _translate("Form", "错误"), _translate(
-                                    "Form", "第{n}行 {val} 不是数字").replace("{n}", str(row)).replace("{val}", v)
+                                self, _translate("HistoryPlugin", "错误"), _translate(
+                                    "HistoryPlugin", "第{n}行 {val} 不是数字").replace("{n}", str(row)).replace("{val}", v)
                             )
                             return None
                     value = ",".join(v for v in values)
@@ -318,8 +348,8 @@ class FilterDialog(ConfirmDialog):
                                     raise ValueError(f"无法解析日期: {v}")
                             except ValueError as e:
                                 QMessageBox.warning(
-                                    self, _translate("Form", "错误"), _translate(
-                                        "Form", "第{n}行 {val} 不是合法的日期时间").replace("{n}", str(row)).replace("{val}", v)
+                                    self, _translate("HistoryPlugin", "错误"), _translate(
+                                        "HistoryPlugin", "第{n}行 {val} 不是合法的日期时间").replace("{n}", str(row)).replace("{val}", v)
                                 )
                                 return None
                     value = ",".join(parsed_values) if parsed_values else ""
@@ -337,8 +367,8 @@ class FilterDialog(ConfirmDialog):
                                 break
                         else:
                             QMessageBox.warning(
-                                self, _translate("Form", "错误"), _translate(
-                                    "Form", "第{n}行 {val} 不是合法的枚举选项").replace("{n}", str(row)).replace("{val}", v)
+                                self, _translate("HistoryPlugin", "错误"), _translate(
+                                    "HistoryPlugin", "第{n}行 {val} 不是合法的枚举选项").replace("{n}", str(row)).replace("{val}", v)
                             )
                             return None
                     value = ",".join(parsed_values) if parsed_values else ""
@@ -364,14 +394,14 @@ class FilterDialog(ConfirmDialog):
                                 continue
                         else:
                             QMessageBox.warning(
-                                self, _translate("Form", "错误"), _translate(
-                                    "Form", "第{n}行 {val} 不是合法的日期时间").replace("{n}", str(row)).replace("{val}", value)
+                                self, _translate("HistoryPlugin", "错误"), _translate(
+                                    "HistoryPlugin", "第{n}行 {val} 不是合法的日期时间").replace("{n}", str(row)).replace("{val}", value)
                             )
                             return None
                     except ValueError:
                         QMessageBox.warning(
-                            self, _translate("Form", "错误"), _translate(
-                                "Form", "第{n}行 {val} 不是合法的日期时间").replace("{n}", str(row)).replace("{val}", value)
+                            self, _translate("HistoryPlugin", "错误"), _translate(
+                                "HistoryPlugin", "第{n}行 {val} 不是合法的日期时间").replace("{n}", str(row)).replace("{val}", value)
                         )
                         return None
             elif value and not value.startswith("'"):
@@ -386,6 +416,6 @@ class FilterDialog(ConfirmDialog):
 
         if left_count != right_count:
             QMessageBox.warning(self, _translate(
-                "Form", "错误"), _translate("Form", "左括号数量和右括号数量不匹配，请检查"))
+                "HistoryPlugin", "错误"), _translate("HistoryPlugin", "左括号数量和右括号数量不匹配，请检查"))
             return None
         return filter_str

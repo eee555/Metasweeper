@@ -10,10 +10,11 @@ from PySide6.QtCore import QCoreApplication, Qt, QModelIndex, QTimer, QItemSelec
 from PySide6.QtGui import QStandardItemModel
 from PySide6.QtWidgets import QTableView
 
-from .models import HistoryData
+from .models import HistoryData, CompareSymbol, LogicSymbol, SortOrder
 from .computed_column import ComputedColumn
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("HistoryPlugin")
 
 
 class AutoEditTableView(QTableView):
@@ -139,13 +140,17 @@ class FilterModel(QStandardItemModel):
     def __init__(self, computed_columns: list[ComputedColumn] | None = None, parent=None):
         super().__init__(0, 6, parent)
         self._computed_columns = computed_columns or []
+        self.retranslate_headers()
+
+    def retranslate_headers(self) -> None:
+        """按当前语言重建表头（语言切换后由对话框调用）。"""
         self.setHorizontalHeaderLabels([
-            _translate("Form", "左括号"),
-            _translate("Form", "字段"),
-            _translate("Form", "比较符"),
-            _translate("Form", "值"),
-            _translate("Form", "右括号"),
-            _translate("Form", "逻辑符"),
+            _translate("HistoryPlugin", "左括号"),
+            _translate("HistoryPlugin", "字段"),
+            _translate("HistoryPlugin", "比较符"),
+            _translate("HistoryPlugin", "值"),
+            _translate("HistoryPlugin", "右括号"),
+            _translate("HistoryPlugin", "逻辑符"),
         ])
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
@@ -156,6 +161,20 @@ class FilterModel(QStandardItemModel):
         if role == Qt.ItemDataRole.DisplayRole:
             column = index.column()
             raw_data = super().data(index, Qt.ItemDataRole.EditRole)
+
+            # 比较符和逻辑符以稳定编号存储，显示时按当前语言翻译
+            if column == self.COL_COMPARE:
+                try:
+                    return CompareSymbol.from_display_name(
+                        raw_data).display_name if raw_data else ""
+                except ValueError:
+                    return raw_data or ""
+            if column == self.COL_LOGIC:
+                try:
+                    return LogicSymbol.from_display_name(
+                        raw_data).display_name if raw_data else ""
+                except ValueError:
+                    return raw_data or ""
 
             # 值列需要格式化显示
             if column == self.COL_VALUE:
@@ -186,15 +205,36 @@ class FilterModel(QStandardItemModel):
         return super().data(index, role)
 
     def get_row_data(self, row: int) -> dict:
-        """获取指定行的所有数据"""
+        """获取指定行的所有数据；符号保存稳定编号而非界面译文。"""
+        base_data = super().data
+
+        def raw(column: int):
+            return base_data(self.index(row, column), Qt.ItemDataRole.EditRole)
+
         return {
             "left_bracket": self.data(self.index(row, self.COL_LBRACKET)),
             "field": self.data(self.index(row, self.COL_FIELD)),
-            "compare": self.data(self.index(row, self.COL_COMPARE)),
+            "compare": raw(self.COL_COMPARE),
             "value": self.data(self.index(row, self.COL_VALUE)),
             "right_bracket": self.data(self.index(row, self.COL_RBRACKET)),
-            "logic": self.data(self.index(row, self.COL_LOGIC)),
+            "logic": raw(self.COL_LOGIC),
         }
+
+    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
+        """比较符和逻辑符列以选项索引保存，避免持久化语言相关译文。"""
+        if role == Qt.ItemDataRole.EditRole and index.isValid():
+            column = index.column()
+            if column == self.COL_COMPARE and value:
+                try:
+                    value = str(CompareSymbol.from_display_name(value).value)
+                except ValueError:
+                    return False
+            elif column == self.COL_LOGIC and value:
+                try:
+                    value = str(LogicSymbol.from_display_name(value).value)
+                except ValueError:
+                    return False
+        return super().setData(index, value, role)
 
     def _get_field_value(self, field_name: str):
         """获取字段值类型（支持计算列）"""
@@ -218,14 +258,43 @@ class SortModel(QStandardItemModel):
 
     def __init__(self, parent=None):
         super().__init__(0, 2, parent)
+        self.retranslate_headers()
+
+    def retranslate_headers(self) -> None:
+        """按当前语言重建表头（语言切换后由对话框调用）。"""
         self.setHorizontalHeaderLabels([
-            _translate("Form", "排序字段"),
-            _translate("Form", "升序/降序"),
+            _translate("HistoryPlugin", "排序字段"),
+            _translate("HistoryPlugin", "升序/降序"),
         ])
 
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        """排序方向以稳定编号存储，显示时按当前语言翻译。"""
+        if (index.isValid() and index.column() == self.COL_ORDER
+                and role in (Qt.ItemDataRole.DisplayRole,
+                             Qt.ItemDataRole.EditRole)):
+            raw = super().data(index, Qt.ItemDataRole.EditRole)
+            if not raw:
+                return "" if role == Qt.ItemDataRole.DisplayRole else raw
+            try:
+                return SortOrder.from_text(raw).display_name
+            except ValueError:
+                return raw
+        return super().data(index, role)
+
+    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
+        """排序方向列以选项索引保存，避免持久化语言相关译文。"""
+        if (role == Qt.ItemDataRole.EditRole and index.isValid()
+                and index.column() == self.COL_ORDER and value):
+            stable = SortOrder.to_stable(value)
+            if stable is None:
+                return False
+            value = stable
+        return super().setData(index, value, role)
+
     def get_row_data(self, row: int) -> dict:
-        """获取指定行的所有数据"""
+        """获取指定行的所有数据；排序方向保存稳定编号。"""
         return {
             "field": self.data(self.index(row, self.COL_FIELD)),
-            "order": self.data(self.index(row, self.COL_ORDER)),
+            "order": super().data(self.index(row, self.COL_ORDER),
+                                  Qt.ItemDataRole.EditRole),
         }

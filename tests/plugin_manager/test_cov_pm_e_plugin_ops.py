@@ -171,7 +171,8 @@ def _settings_dialog(monkeypatch, result, new_state):
     made = []
 
     class Dialog:
-        def __init__(self, name, current, other_info, parent=None, plugin=None):
+        def __init__(self, name, current, other_info, parent=None, plugin=None,
+                     display_name=None):
             made.append((name, current, other_info, parent, plugin))
             self.result_state = new_state
 

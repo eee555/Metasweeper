@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
 )
 
 
+from utils.translated_widgets import TranslatedDialog as QDialog
+
 _translate = QCoreApplication.translate
 
 

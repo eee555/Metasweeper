@@ -24,16 +24,13 @@ set SHARED=../shared_types/enums.py ../shared_types/commands.py ../shared_types/
 set PLUGIN_SDK=../plugin_sdk/config_types/base_config.py ../plugin_sdk/config_types/file_config.py ../plugin_sdk/config_types/path_config.py ../plugin_sdk/config_types/text_config.py
 set PLUGIN_MANAGER=../plugin_manager/config_widget.py ../plugin_manager/main_window.py ../plugin_manager/plugin_download.py ../plugin_manager/plugin_download_dialog.py ../plugin_manager/plugin_info_dialog.py ../plugin_manager/plugin_repositories.py
 
-@REM ---------- 插件 ----------
-set HISTORY_PLUGIN=../plugins/history/columns_dialog.py ../plugins/history/computed_columns_dialog.py ../plugins/history/filter_dialog.py ../plugins/history/history_table.py ../plugins/history/main_widget.py ../plugins/history/models.py ../plugins/history/plugin.py ../plugins/history/query_builder.py ../plugins/history/sort_dialog.py ../plugins/history/table_views.py
-set LLM_PLUGIN=../plugins/llm_minesweeper_controller/config.py ../plugins/llm_minesweeper_controller/widgets.py ../plugins/llm_minesweeper_controller/plugin.py
-set XIANNI_PLUGIN=../plugins/XianNiUpgrade/config.py ../plugins/XianNiUpgrade/models.py ../plugins/XianNiUpgrade/plugin.py ../plugins/XianNiUpgrade/widgets.py
-set CHALLENGE_PLUGIN=../plugins/challenge_mode/plugin.py ../plugins/challenge_mode/widgets.py
-set CLIPBOARD_PLUGIN=../plugins/clipboard_replay/widgets.py
-set SAOLEI_PLUGIN=../plugins/SaoleiWebsite/config.py
-set SKINMANAGER_PLUGIN=../plugins/skin_manager/config.py ../plugins/skin_manager/plugin.py ../plugins/skin_manager/widgets.py ../plugins/skin_manager/sound.py ../plugins/skin_manager/zip_import.py
+@REM ---------- 插件全部独立提取（递归扫描包内源码，绑定唯一上下文） ----------
+@REM 插件源码及其翻译由下方脚本单独处理，不再并入主清单；
+@REM 主清单只负责主程序、对话框、SDK 与插件管理器。
+set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %CONFIG% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER%
 
-set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %CONFIG% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER% %HISTORY_PLUGIN% %LLM_PLUGIN% %XIANNI_PLUGIN% %CHALLENGE_PLUGIN% %CLIPBOARD_PLUGIN% %SAOLEI_PLUGIN% %SKINMANAGER_PLUGIN%
+python ../../develop_tools/update_plugin_translations.py
+if errorlevel 1 exit /b 1
 
 pyside6-lupdate %ALL_SOURCES% -ts en_US.ts -noobsolete -tr-function-alias translate+=_translate
 

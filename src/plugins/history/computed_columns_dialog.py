@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .db import db_connection
 
-from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtCore import Qt, QCoreApplication, QEvent
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
@@ -29,8 +29,10 @@ from shared_types.widgets import ConfirmDialog
 from .computed_column import (
     RESULT_TYPES, ComputedColumn, normalize_result_type, validate_column_name,
 )
+from utils.plugin_i18n import PluginTranslate
+from utils.translated_widgets import TranslatedLabel as QLabel, TranslatedPushButton as QPushButton
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("HistoryPlugin")
 
 
 class ComputedColumnsDialog(ConfirmDialog):
@@ -45,8 +47,21 @@ class ComputedColumnsDialog(ConfirmDialog):
         ]
         self._db_path = db_path
         self._custom_functions = custom_functions
-        super().__init__(parent, title=_translate("Form", "计算列管理"))
+        super().__init__(parent, title=_translate("HistoryPlugin", "计算列管理"))
         self.resize(650, 550)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange and hasattr(self, "table"):
+            self._retranslate_table_headers()
+
+    def _retranslate_table_headers(self) -> None:
+        """表头用 setHorizontalHeaderLabels 设置，不会自动跟随语言切换。"""
+        self.table.setHorizontalHeaderLabels([
+            _translate("HistoryPlugin", "列名"),
+            _translate("HistoryPlugin", "SQL表达式"),
+            _translate("HistoryPlugin", "结果类型"),
+        ])
 
     def _create_content(self):
         layout = QVBoxLayout()
@@ -55,9 +70,9 @@ class ComputedColumnsDialog(ConfirmDialog):
         # 表格
         self.table = QTableWidget(0, 3, self)
         self.table.setHorizontalHeaderLabels([
-            _translate("Form", "列名"),
-            _translate("Form", "SQL表达式"),
-            _translate("Form", "结果类型"),
+            _translate("HistoryPlugin", "列名"),
+            _translate("HistoryPlugin", "SQL表达式"),
+            _translate("HistoryPlugin", "结果类型"),
         ])
         self.table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.ResizeToContents)
@@ -72,9 +87,9 @@ class ComputedColumnsDialog(ConfirmDialog):
 
         # 按钮
         btn_layout = QHBoxLayout()
-        self.add_btn = QPushButton(_translate("Form", "添加"))
-        self.del_btn = QPushButton(_translate("Form", "删除"))
-        self.validate_btn = QPushButton(_translate("Form", "验证"))
+        self.add_btn = QPushButton(_translate("HistoryPlugin", "添加"))
+        self.del_btn = QPushButton(_translate("HistoryPlugin", "删除"))
+        self.validate_btn = QPushButton(_translate("HistoryPlugin", "验证"))
         btn_layout.addWidget(self.add_btn)
         btn_layout.addWidget(self.del_btn)
         btn_layout.addWidget(self.validate_btn)
@@ -83,7 +98,7 @@ class ComputedColumnsDialog(ConfirmDialog):
 
         # 自定义函数编辑区
         func_label = QLabel(
-            _translate("Form", "自定义 Python 函数（可在 SQL 表达式中调用）:"))
+            _translate("HistoryPlugin", "自定义 Python 函数（可在 SQL 表达式中调用）:"))
         layout.addWidget(func_label)
         self.func_edit = QPlainTextEdit(self)
         self.func_edit.setPlaceholderText(
@@ -149,8 +164,8 @@ class ComputedColumnsDialog(ConfirmDialog):
             if error:
                 QMessageBox.warning(
                     self,
-                    _translate("Form", "验证失败"),
-                    _translate("Form", error).replace("%1", col.name),
+                    _translate("HistoryPlugin", "验证失败"),
+                    _translate("HistoryPlugin", error).replace("%1", col.name),
                 )
                 return False
 
@@ -159,8 +174,8 @@ class ComputedColumnsDialog(ConfirmDialog):
         if not subquery or not self._db_path.exists():
             QMessageBox.warning(
                 self,
-                _translate("Form", "验证失败"),
-                _translate("Form", "无法验证：数据库不存在"),
+                _translate("HistoryPlugin", "验证失败"),
+                _translate("HistoryPlugin", "无法验证：数据库不存在"),
             )
             return False
 
@@ -196,8 +211,8 @@ class ComputedColumnsDialog(ConfirmDialog):
                 conn.rollback()
                 QMessageBox.warning(
                     self,
-                    _translate("Form", "验证失败"),
-                    _translate("Form", "SQL 错误: %1").replace("%1", str(e)),
+                    _translate("HistoryPlugin", "验证失败"),
+                    _translate("HistoryPlugin", "SQL 错误: %1").replace("%1", str(e)),
                 )
                 return False
 

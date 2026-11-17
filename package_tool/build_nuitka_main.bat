@@ -76,6 +76,11 @@ for %%L in (en_US de_DE pl_PL ja_JP) do (
         exit /b 1
     )
 )
+"%PYTHON%" develop_tools\compile_plugin_translations.py
+if errorlevel 1 (
+    popd
+    exit /b 1
+)
 
 rem src\media\cat.ico is gitignored. build.bat generates it before PyInstaller;
 rem Nuitka needs the same file both for the exe resource icon and at runtime

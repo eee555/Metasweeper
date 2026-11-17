@@ -25,6 +25,9 @@ from .sound import (
 )
 from .zip_import import imported_dir
 from .widgets import SkinManagerWidget
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("SkinManagerPlugin")
 
 
 def _safe_disconnect(signal, slot) -> None:
@@ -59,9 +62,11 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
+            # name 是配置目录、日志、状态键与授权记录的稳定标识，不随语言变化
             name="皮肤与音效",
+            display_name=_translate("SkinManagerPlugin", "皮肤与音效"),
             version="1.1.0",
-            description=(
+            description=_translate("SkinManagerPlugin",
                 "设置页分别选择皮肤与音效包，运行时热替换（纯内存、不重启）；"
                 "两者为相互独立的功能与授权"
             ),
@@ -118,31 +123,29 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
         roots = self._roots()
         if not skin_name:
             cmd = SetSkinCommand(reset=True)
-            detail = "默认皮肤"
+            detail = _translate("SkinManagerPlugin", "默认皮肤")
         else:
             cmd = build_command(roots, skin_name)
             if cmd.reset:
                 self.logger.warning(f"皮肤目录不存在: {skin_name}")
-                self._notify(f"皮肤目录不存在：{skin_name}")
+                self._notify(_translate("SkinManagerPlugin", "皮肤目录不存在：{name}").format(name=skin_name))
                 return False
-            detail = (
-                f"{skin_name}（格子 {len(cmd.cells)}、LED {len(cmd.leds)}、"
-                f"笑脸 {len(cmd.faces)}）"
-            )
+            detail = _translate("SkinManagerPlugin", "{name}（格子 {cells}、LED {leds}、笑脸 {faces}）").format(
+                name=skin_name, cells=len(cmd.cells), leds=len(cmd.leds), faces=len(cmd.faces))
 
         resp = self.request(cmd, timeout=10.0)
         if resp is None:
-            self._notify("主进程未响应（可能尚未连接或未授权）")
+            self._notify(_translate("SkinManagerPlugin", "主进程未响应（可能尚未连接或未授权）"))
             self.logger.warning("SetSkinCommand 无响应，请检查连接与控制授权")
             return False
         if not resp.success:
-            self._notify(f"应用失败：{resp.error}")
+            self._notify(_translate("SkinManagerPlugin", "应用失败：{error}").format(error=resp.error))
             self.logger.warning(f"SetSkinCommand 被拒绝: {resp.error}")
             return False
 
         self._applied = skin_name
         self.logger.info(f"已应用皮肤: {detail}")
-        self._notify(f"已应用：{detail}")
+        self._notify(_translate("SkinManagerPlugin", "已应用：{detail}").format(detail=detail))
         return True
 
     def _notify(self, text: str) -> None:
@@ -187,23 +190,25 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
                 enabled=state[0], volume=state[1], pack=state[2],
                 extra_dir=state[3], play_event=play_event)
         except ValueError as exc:
-            self._notify(f"音效参数无效：{exc}")
+            self._notify(_translate("SkinManagerPlugin", "音效参数无效：{error}").format(error=exc))
             return False
 
         resp = self.request(cmd, timeout=10.0)
         if resp is None:
-            self._notify("主进程未响应（可能尚未连接或未授权 SetSoundCommand）")
+            self._notify(_translate("SkinManagerPlugin", "主进程未响应（可能尚未连接或未授权 SetSoundCommand）"))
             self.logger.warning("SetSoundCommand 无响应，请检查连接与控制授权")
             return False
         if not resp.success:
-            self._notify(f"音效应用失败：{resp.error}")
+            self._notify(_translate("SkinManagerPlugin", "音效应用失败：{error}").format(error=resp.error))
             self.logger.warning(f"SetSoundCommand 被拒绝: {resp.error}")
             return False
 
         self._sound_applied = state
-        label = f"音效（{'开' if state[0] else '关'}，音量 {state[1]}，包 {state[2] or '默认'}）"
+        label = _translate("SkinManagerPlugin", "音效（{state}，音量 {volume}，包 {pack}）").format(
+            state=_translate("SkinManagerPlugin", "开") if state[0] else _translate("SkinManagerPlugin", "关"),
+            volume=state[1], pack=state[2] or _translate("SkinManagerPlugin", "默认"))
         self.logger.info(f"已应用{label}")
-        self._notify(f"已应用：{label}")
+        self._notify(_translate("SkinManagerPlugin", "已应用：{detail}").format(detail=label))
         return True
 
     def _on_sound_preview_requested(self, event: str) -> None:

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QVBoxLayout,
@@ -17,8 +17,10 @@ from PySide6.QtWidgets import (
 )
 
 from shared_types.widgets import ConfirmDialog
+from utils.plugin_i18n import PluginTranslate
+from utils.translated_widgets import TranslatedPushButton as QPushButton
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("HistoryPlugin")
 
 
 class ColumnListWidget(QListWidget):
@@ -54,9 +56,18 @@ class ColumnsDialog(ConfirmDialog):
         self._show_fields = show_fields
         super().__init__(
             parent,
-            title=_translate("Form", "列设置（右键/Ctrl+Shift+↑↓ 排序）"),
+            title=_translate("HistoryPlugin", "列设置（右键/Ctrl+Shift+↑↓ 排序）"),
         )
         self.resize(300, 500)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange:
+            self.retranslateUi()
+
+    def retranslateUi(self) -> None:
+        """按钮文字由 TranslatedPushButton 自动刷新，这里只需重建标题。"""
+        self.setWindowTitle(_translate("HistoryPlugin", "列设置（右键/Ctrl+Shift+↑↓ 排序）"))
 
     def _create_content(self):
         layout = QVBoxLayout()
@@ -64,8 +75,8 @@ class ColumnsDialog(ConfirmDialog):
 
         # 全选/取消全选
         select_layout = QHBoxLayout()
-        self.select_all_btn = QPushButton(_translate("Form", "全选"))
-        self.deselect_all_btn = QPushButton(_translate("Form", "取消全选"))
+        self.select_all_btn = QPushButton(_translate("HistoryPlugin", "全选"))
+        self.deselect_all_btn = QPushButton(_translate("HistoryPlugin", "取消全选"))
         select_layout.addWidget(self.select_all_btn)
         select_layout.addWidget(self.deselect_all_btn)
         layout.addLayout(select_layout)
@@ -123,9 +134,9 @@ class ColumnsDialog(ConfirmDialog):
     def _show_context_menu(self, pos):
         """显示右键菜单"""
         menu = QMenu(self)
-        menu.addAction(_translate("Form", "上移 (Ctrl+Shift+↑)"), self._move_up)
+        menu.addAction(_translate("HistoryPlugin", "上移 (Ctrl+Shift+↑)"), self._move_up)
         menu.addAction(_translate(
-            "Form", "下移 (Ctrl+Shift+↓)"), self._move_down)
+            "HistoryPlugin", "下移 (Ctrl+Shift+↓)"), self._move_down)
         menu.exec(self.list_widget.mapToGlobal(pos))
 
     def _move_up(self):

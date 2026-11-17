@@ -54,7 +54,13 @@ from .plugin_info_dialog import PluginInfoDialog
 from .plugin_download_dialog import PluginDownloadDialog
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager, normalize_pip_indexes
-from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
+from plugin_sdk.plugin_base import (
+    PluginLifecycle,
+    WindowMode,
+    LogLevel,
+    BasePlugin,
+    resolve_display_name,
+)
 from shared_types.widgets.toggle_switch import ToggleSwitch
 from shared_types.widgets.confirm_dialog import ConfirmDialog
 from shared_types.commands import command_hint, command_label
@@ -111,20 +117,23 @@ class DetachedPluginWindow(QDialog):
     - 用户点击窗口 X 关闭时，走 close_requested 请求析构插件 widget（不嵌回标签页）
     - 程序化把独立窗口切回标签页由 _open_tab_window 直接调用 _attach_tab
     - 标题栏显示"关闭即释放窗口"提示
+    - ``_plugin_name`` 始终是稳定标识；窗口标题使用可本地化的显示名
     """
 
     # 用户主动关闭窗口：请求释放插件视图（不嵌回、不回写配置）
     close_requested = Signal(str)
 
-    def __init__(self, plugin_name: str, widget: QWidget, parent=None):
+    def __init__(self, plugin_name: str, widget: QWidget, parent=None,
+                 title: str | None = None):
         super().__init__(parent)
         self._plugin_name = plugin_name
         self._widget = widget
+        self._display_title = title or plugin_name
         self._icon: QIcon | None = None
         self._dragging = False
         self._drag_offset = QPoint()
 
-        self.setWindowTitle(f"{plugin_name} - {self.tr('插件')}")
+        self._apply_title()
         self.setMinimumSize(400, 300)
         self.resize(600, 450)
 
@@ -149,6 +158,24 @@ class DetachedPluginWindow(QDialog):
         layout.addWidget(widget)
         widget.setVisible(True)
         widget.show()
+
+    def _apply_title(self) -> None:
+        """按当前显示名重建窗口标题；稳定标识不参与显示。"""
+        self.setWindowTitle(
+            self.tr("{name} - 插件").format(name=self._display_title))
+
+    def set_display_title(self, title: str) -> None:
+        """更新显示名（语言切换时由管理器调用），保持稳定标识不变。"""
+        if not title or title == self._display_title:
+            return
+        self._display_title = title
+        self._apply_title()
+
+    def changeEvent(self, event) -> None:
+        """语言切换时刷新标题中的固定文本。"""
+        if event.type() == QEvent.Type.LanguageChange:
+            self._apply_title()
+        super().changeEvent(event)
 
     def start_drag(self, global_pos: QPoint) -> None:
         """启动拖拽模式（从外部调用）"""
@@ -190,13 +217,22 @@ class DetachedPluginWindow(QDialog):
 
 
 class _DetachableTabBar(QTabBar):
-    """支持拖拽弹出的标签栏"""
+    """支持拖拽弹出的标签栏。
 
-    drag_initiated = Signal(int, str, QPoint)  # index, name, global_pos
+    ``tabText`` 是当前语言下的显示名；稳定标识存放在 ``tabData``，
+    拖拽信号只携带稳定标识，避免显示名影响任何查找逻辑。
+    """
+
+    drag_initiated = Signal(int, str, QPoint)  # index, plugin_key, global_pos
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._drag_start_pos: QPoint | None = None
+
+    def _key_at(self, index: int) -> str:
+        """读取标签的稳定标识，未显式设置时回退到显示名。"""
+        data = self.tabData(index)
+        return str(data) if data is not None else self.tabText(index)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -216,8 +252,8 @@ class _DetachableTabBar(QTabBar):
                     # 判断是否向下拖出了标签栏区域（垂直偏移大）
                     delta_y = event.globalPos().y() - self._drag_start_pos.y()
                     if abs(delta_y) > QApplication.startDragDistance():
-                        name = self.tabText(idx)
-                        self.drag_initiated.emit(idx, name, event.globalPos())
+                        key = self._key_at(idx)
+                        self.drag_initiated.emit(idx, key, event.globalPos())
                         self._drag_start_pos = None
                         return
         super().mouseMoveEvent(event)
@@ -226,8 +262,8 @@ class _DetachableTabBar(QTabBar):
         if event.button() == Qt.MouseButton.LeftButton:
             idx = self.tabAt(event.pos())
             if idx >= 0:
-                name = self.tabText(idx)
-                self.drag_initiated.emit(idx, name, event.globalPos())
+                self.drag_initiated.emit(
+                    idx, self._key_at(idx), event.globalPos())
                 return
         super().mouseDoubleClickEvent(event)
 
@@ -243,10 +279,10 @@ class DetachableTabWidget(QTabWidget):
     - 程序化 _open_tab_window → 可把独立窗口嵌回标签页
     """
 
-    tab_detached = Signal(str)             # 标签页被弹出 (plugin_name)
-    tab_attach_requested = Signal(str)      # 请求嵌回 (plugin_name)
-    tab_close_requested = Signal(str)       # 请求关闭标签页 (plugin_name)
-    window_close_requested = Signal(str)    # 独立窗口被用户关闭 (plugin_name)
+    tab_detached = Signal(str)             # 标签页被弹出 (plugin_key)
+    tab_attach_requested = Signal(str)      # 请求嵌回 (plugin_key)
+    tab_close_requested = Signal(str)       # 请求关闭标签页 (plugin_key)
+    window_close_requested = Signal(str)    # 独立窗口被用户关闭 (plugin_key)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -343,34 +379,96 @@ class DetachableTabWidget(QTabWidget):
             if current_index >= 0:
                 self._on_tab_close_requested(current_index)
 
-    def add_detachable_tab(self, widget: QWidget, name: str, icon=None) -> int:
-        """添加一个可分离的标签页，返回 index"""
+    def tab_key(self, index: int) -> str | None:
+        """返回标签页的稳定标识（不是显示名），无标签时返回 None。
+
+        稳定标识优先从视图的 ``_plugin_key`` 属性读取（随视图移动，
+        不受标签重排影响），其次回退到 ``QTabBar`` 的 item data，
+        最后兼容未标记的旧调用点直接使用标签文本。
+        """
+        if index < 0 or index >= self.count():
+            return None
+        widget = self.widget(index)
+        if widget is not None:
+            key = widget.property("_plugin_key")
+            if key:
+                return str(key)
+        data = self.tabBar().tabData(index)
+        if data:
+            return str(data)
+        return self.tabText(index)
+
+    def _set_tab_key(self, index: int, key: str) -> None:
+        """记录标签页的稳定标识（视图属性 + tab bar data 双份）。"""
+        widget = self.widget(index)
+        if widget is not None:
+            widget.setProperty("_plugin_key", key)
+        self.tabBar().setTabData(index, key)
+
+    def index_of_key(self, key: str) -> int:
+        """按稳定标识查找标签页下标；不依赖当前语言下的标题文本。"""
+        for index in range(self.count()):
+            if self.tab_key(index) == key:
+                return index
+        return -1
+
+    def set_tab_display_name(self, key: str, display_name: str) -> None:
+        """更新单个标签页的显示名，保留稳定标识与图标。"""
+        index = self.index_of_key(key)
+        if index >= 0:
+            self.setTabText(index, display_name)
+        window = self._detached_windows.get(key)
+        if window is not None:
+            window.set_display_title(display_name)
+
+    def apply_display_names(self, names: dict[str, str]) -> None:
+        """按 ``{稳定标识: 显示名}`` 刷新所有标签页与独立窗口标题。"""
+        for index in range(self.count()):
+            key = self.tab_key(index)
+            if key is not None and key in names:
+                self.setTabText(index, names[key])
+        for key, window in list(self._detached_windows.items()):
+            if key in names:
+                window.set_display_title(names[key])
+
+    def add_detachable_tab(self, widget: QWidget, name: str, icon=None,
+                           key: str | None = None) -> int:
+        """添加一个可分离的标签页，返回 index。
+
+        Args:
+            widget: 插件视图。
+            name: 当前语言下的显示名（仅用于展示）。
+            icon: 标签页图标。
+            key: 稳定标识；默认与显示名相同，便于旧调用点兼容。
+        """
         idx = self.addTab(widget, name)
+        self._set_tab_key(idx, name if key is None else key)
         if icon is not None:
             self.setTabIcon(idx, icon)
         return idx
 
-    def _on_drag_from_bar(self, index: int, name: str, pos: QPoint) -> None:
+    def _on_drag_from_bar(self, index: int, key: str, pos: QPoint) -> None:
         """响应标签栏发起的拖拽/双击弹出"""
-        self._detach_tab(index, name, pos=pos)
+        self._detach_tab(index, key, pos=pos)
 
-    def _detach_tab(self, index: int, name: str, pos: QPoint | None = None) -> None:
-        """将指定标签页弹出为独立窗口"""
+    def _detach_tab(self, index: int, key: str, pos: QPoint | None = None) -> None:
+        """将指定标签页弹出为独立窗口（``key`` 为稳定标识）。"""
         widget = self.widget(index)
         if widget is None:
             return
 
         icon = self.tabIcon(index)
+        title = self.tabText(index)
         self.removeTab(index)
 
-        window = DetachedPluginWindow(name, widget, parent=self.window())
+        window = DetachedPluginWindow(key, widget, parent=self.window(), title=title)
         window._icon = icon
         if icon and not icon.isNull():
             window.setWindowIcon(icon)
         # 用户点独立窗口 X → 转发给管理器走析构路径。
         # 程序化嵌回由 _open_tab_window 直接调用 _attach_tab，无需信号连线。
         window.close_requested.connect(self.window_close_requested)
-        self._detached_windows[name] = window
+        self._detached_windows[key] = window
 
         if pos is not None:
             # 先显示窗口以获取正确的尺寸
@@ -387,7 +485,7 @@ class DetachableTabWidget(QTabWidget):
             window.show()
         window.activateWindow()
 
-        self.tab_detached.emit(name)
+        self.tab_detached.emit(key)
 
     def _cleanup_detached(self, name: str) -> None:
         """安全清理 detached 窗口引用"""
@@ -405,6 +503,7 @@ class DetachableTabWidget(QTabWidget):
 
         window = self._detached_windows[name]
         saved_icon = window._icon  # type: ignore[attr-defined]
+        title = window._display_title
         # 防止重复调用：手动关闭时已清理过的情况
         lay = window.layout()
         if lay is None or lay.count() < 2:
@@ -427,16 +526,18 @@ class DetachableTabWidget(QTabWidget):
         window.deleteLater()
         del self._detached_windows[name]
 
-        # 检查是否已存在同名标签页
-        for i in range(self.count()):
-            if self.tabText(i) == name:
-                self.insertTab(i, widget, name)
-                if saved_icon and not saved_icon.isNull():
-                    self.setTabIcon(i, saved_icon)
-                widget.setVisible(True)
-                return
+        # 检查是否已存在同一稳定标识的标签页
+        existing = self.index_of_key(name)
+        if existing >= 0:
+            self.insertTab(existing, widget, title)
+            self._set_tab_key(existing, name)
+            if saved_icon and not saved_icon.isNull():
+                self.setTabIcon(existing, saved_icon)
+            widget.setVisible(True)
+            return
 
-        idx = self.addTab(widget, name)
+        idx = self.addTab(widget, title)
+        self._set_tab_key(idx, name)
         if saved_icon and not saved_icon.isNull():
             self.setTabIcon(idx, saved_icon)
         widget.setVisible(True)
@@ -444,11 +545,11 @@ class DetachableTabWidget(QTabWidget):
 
     def _on_tab_close_requested(self, index: int) -> None:
         """处理标签页关闭按钮点击：仅移交关闭请求，视图由插件管理器销毁。"""
-        name = self.tabText(index)
-        if self.widget(index) is None:
+        key = self.tab_key(index)
+        if key is None or self.widget(index) is None:
             return
         self.removeTab(index)
-        self.tab_close_requested.emit(name)
+        self.tab_close_requested.emit(key)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -518,7 +619,11 @@ class ConnectionStatusWidget(QWidget):
 # ═══════════════════════════════════════════════════════════════════
 
 class PluginSettingsDialog(QDialog):
-    """编辑单个插件的持久化状态"""
+    """编辑单个插件的持久化状态
+
+    ``plugin_name`` / ``_name`` 始终是稳定标识（状态键、配置路径）；
+    窗口标题中的名称使用可本地化的 ``display_name``。
+    """
 
     def __init__(
         self,
@@ -527,15 +632,17 @@ class PluginSettingsDialog(QDialog):
         other_info: OtherInfoBase | None = None,
         parent=None,
         plugin: BasePlugin | None = None,
+        display_name: str | None = None,
     ):
         super().__init__(parent)
         self._name = plugin_name
+        self._display_name = display_name or plugin_name
         self._other_info = other_info
         self._plugin = plugin
 
         if plugin is not None:
             self.setWindowIcon(plugin.plugin_icon)
-        self.setWindowTitle(self.tr("插件设置 - {n}").format(n=plugin_name))
+        self._apply_title()
         self.setMinimumWidth(400)
         self.setMinimumHeight(300)
         self.setModal(True)
@@ -647,12 +754,22 @@ class PluginSettingsDialog(QDialog):
         set_button_box_icons(btns)
         layout.addWidget(btns)
 
+    def _apply_title(self) -> None:
+        """按当前显示名重建标题；稳定标识仅作为回退。"""
+        self.setWindowTitle(
+            self.tr("插件设置 - {n}").format(n=self._display_name))
+
+    def changeEvent(self, event) -> None:
+        """语言切换时刷新标题中的固定文本。"""
+        if event.type() == QEvent.Type.LanguageChange:
+            self._apply_title()
+        super().changeEvent(event)
+
     def _on_ok_clicked(self) -> None:
         """点确定：字段 validator → plugin.validate_config，失败不关窗。"""
         if self._config_widget is None:
             self.accept()
             return
-
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             errors = self._config_widget.validate_pending(self._plugin)
@@ -1347,16 +1464,18 @@ class LogViewerDialog(QDialog):
         initial_level: str = "DEBUG",
         auto_scroll: bool = True,
         show_source: bool = False,
-        parent=None
+        parent=None,
+        display_names: dict[str, str] | None = None,
     ) -> None:
         """
         Args:
-            plugin_names: 插件名称列表
-            initial_log: 初始显示的日志（"main" 或插件名）
+            plugin_names: 插件稳定标识列表（日志源 key）
+            initial_log: 初始显示的日志（"main" 或插件标识）
             initial_level: 初始日志等级
             auto_scroll: 自动滚动默认值
             show_source: 显示来源信息默认值
             parent: 父窗口
+            display_names: ``{稳定标识: 显示名}``；缺失时回退到标识本身
         """
         super().__init__(parent)
         self.setWindowTitle(QCoreApplication.translate(
@@ -1366,6 +1485,7 @@ class LogViewerDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
 
         self._plugin_names = plugin_names
+        self._display_names: dict[str, str] = dict(display_names or {})
         self._current_log = initial_log
         self._current_level = initial_level
         self._auto_scroll_default = auto_scroll
@@ -1375,6 +1495,21 @@ class LogViewerDialog(QDialog):
         self._setup_ui()
         self._log_signal.connect(self._append_log_line)
         self._attach_sink(initial_log)
+
+    def _plugin_label(self, key: str) -> str:
+        """日志源下拉项文本：显示名 + 模板；稳定标识仅用于查找。"""
+        return QCoreApplication.translate(
+            "LogViewerDialog", "插件: {name}").replace(
+                "{name}", self._display_names.get(key, key))
+
+    def update_display_names(self, display_names: dict[str, str]) -> None:
+        """语言切换时刷新插件来源项文本；选择项与 sink 保持不变。"""
+        self._display_names.update(display_names)
+        for index in range(self._log_combo.count()):
+            key = self._log_combo.itemData(index)
+            if key in (None, "main"):
+                continue
+            self._log_combo.setItemText(index, self._plugin_label(str(key)))
 
     def _setup_ui(self) -> None:
         _translate = QCoreApplication.translate
@@ -1388,8 +1523,7 @@ class LogViewerDialog(QDialog):
         self._log_combo = QComboBox()
         self._log_combo.addItem(_translate("LogViewerDialog", "主进程"), "main")
         for name in self._plugin_names:
-            self._log_combo.addItem(_translate(
-                "LogViewerDialog", "插件: {name}").replace("{name}", name), name)
+            self._log_combo.addItem(self._plugin_label(name), name)
         self._log_combo.currentIndexChanged.connect(self._on_log_changed)
         top_layout.addWidget(self._log_combo)
 
@@ -1561,7 +1695,7 @@ class LogViewerDialog(QDialog):
         # 如果日志源不在列表中，添加它
         index = self._log_combo.findData(log_name)
         if index < 0 and log_name != "main":
-            self._log_combo.addItem(f"插件: {log_name}", log_name)
+            self._log_combo.addItem(self._plugin_label(log_name), log_name)
             index = self._log_combo.count() - 1
 
         if index >= 0:
@@ -1611,20 +1745,25 @@ class ControlAuthorizationDialog(QDialog):
         self,
         plugin_controls: dict[str, list[type]],
         parent=None,
+        display_names: dict[str, str] | None = None,
     ):
         """
         Args:
-            plugin_controls: {plugin_name: [command_type, ...]}
-                插件声明需要的控制权限
+            plugin_controls: {plugin_key: [command_type, ...]}
+                插件声明需要的控制权限（key 为稳定标识）
+            parent: 父窗口
+            display_names: ``{稳定标识: 显示名}``；下拉框只展示显示名，
+                授权记录仍写入稳定标识
         """
         super().__init__(parent)
         self._plugin_controls = plugin_controls
+        self._display_names: dict[str, str] = dict(display_names or {})
         self._auth_manager = ControlAuthorizationManager.instance()
-        # 每行下拉框的初始值（row → plugin_name / None）。
+        # 每行下拉框的初始值（row → plugin_key / None）。
         # 确定时只保存「用户实际改动过」的行，避免把当前不在候选列表里的
         # 既有授权静默撤销。
         self._initial: dict[int, str | None] = {}
-        # 每行声明了该权限的候选插件（row → [plugin_name, ...]），
+        # 每行声明了该权限的候选插件（row → [plugin_key, ...]），
         # 供下拉框变化时刷新状态列复用。
         self._row_eligible: dict[int, list[str]] = {}
 
@@ -1635,6 +1774,10 @@ class ControlAuthorizationDialog(QDialog):
 
         self._setup_ui()
         self._load_authorizations()
+
+    def _combo_label(self, key: str) -> str:
+        """下拉框展示文本：显示名优先，未声明时回退到稳定标识。"""
+        return self._display_names.get(key, key)
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -1672,6 +1815,26 @@ class ControlAuthorizationDialog(QDialog):
         btns.rejected.connect(self.reject)
         set_button_box_icons(btns)
         layout.addWidget(btns)
+
+    def update_display_names(self, display_names: dict[str, str]) -> None:
+        """语言切换时刷新插件下拉框文本；授权记录与选中项保持不变。"""
+        self._display_names.update(display_names)
+        for combo in getattr(self, "_combos", []):
+            for index in range(1, combo.count()):
+                key = combo.itemData(index)
+                if key is None:
+                    continue
+                combo.setItemText(index, self._combo_label(str(key)))
+
+    def changeEvent(self, event) -> None:
+        """语言切换时刷新表头与“未授权”项。"""
+        if event.type() == QEvent.Type.LanguageChange:
+            self._table.setHorizontalHeaderLabels([
+                self.tr("控制命令"), self.tr("授权插件"), self.tr("状态")])
+            for combo in getattr(self, "_combos", []):
+                if combo.count():
+                    combo.setItemText(0, self.tr("未授权"))
+        super().changeEvent(event)
 
     def _load_authorizations(self) -> None:
         """加载授权状态到表格"""
@@ -1716,7 +1879,7 @@ class ControlAuthorizationDialog(QDialog):
 
             if eligible_plugins:
                 for plugin_name in sorted(eligible_plugins):
-                    combo.addItem(plugin_name, plugin_name)
+                    combo.addItem(self._combo_label(plugin_name), plugin_name)
             else:
                 # 没有插件声明需要该权限，禁用下拉框
                 combo.setEnabled(False)
@@ -2316,6 +2479,9 @@ class PluginManagerWindow(QMainWindow):
             self._tray_icon.setToolTip(self.tr("插件管理器 - 右键打开菜单"))
             self._tray_act_show.setText(self.tr("显示主窗口"))
             self._tray_act_quit.setText(self.tr("退出"))
+        # 插件显示名随语言变化：先刷新标签页/独立窗口/已打开对话框里的
+        # 显示名，再重建列表（列表会用新显示名重新填充）。
+        self._refresh_plugin_display_names()
         # 语言切换时按当前连接状态重建状态栏消息，避免无条件重置为
         # 启动时的「正在连接...」。
         connected = bool(getattr(self._manager, "is_connected", False))
@@ -2467,12 +2633,14 @@ class PluginManagerWindow(QMainWindow):
         # 创建或复用对话框
         if not hasattr(self, "_log_viewer_dlg") or self._log_viewer_dlg is None:
             self._log_viewer_dlg = LogViewerDialog(
-                plugin_names, initial_log, viewer_level, auto_scroll, show_source, self
+                plugin_names, initial_log, viewer_level, auto_scroll, show_source, self,
+                display_names=self._display_names(),
             )
         else:
             # 更新设置并切换到指定日志；show_log 在日志源未变化时也会
             # 确保 sink 存在（重开后 closeEvent 已移除 sink，等级/源都没变
             # 时 update_settings 不会重建）。
+            self._log_viewer_dlg.update_display_names(self._display_names())
             self._log_viewer_dlg.update_settings(
                 viewer_level, auto_scroll, show_source)
             self._log_viewer_dlg.show_log(initial_log)
@@ -2539,8 +2707,14 @@ class PluginManagerWindow(QMainWindow):
                 if required:
                     plugin_controls[p.name] = required
 
-        dialog = ControlAuthorizationDialog(plugin_controls, self)
-        dialog.exec()
+        dialog = ControlAuthorizationDialog(
+            plugin_controls, self, display_names=self._display_names())
+        self._control_auth_dlg = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._control_auth_dlg = None
+            dialog.deleteLater()
 
     # ── 连接状态 ────────────────────────────────────────
 
@@ -2647,14 +2821,67 @@ class PluginManagerWindow(QMainWindow):
 
     # ── 插件列表 ────────────────────────────────────────
 
-    # ── 插件列表 ────────────────────────────────────────
+    @staticmethod
+    def _plugin_display_name(plugin) -> str:
+        """插件面向用户的名称；无 display_name 时回退到稳定标识。"""
+        info = getattr(plugin, "info", None)
+        fallback = str(getattr(plugin, "name", "") or "")
+        value = getattr(info, "display_name", None)
+        return resolve_display_name(value, fallback)
+
+    def _display_names(self) -> dict[str, str]:
+        """``{稳定标识: 当前语言下的显示名}``，供标签页与标题刷新。"""
+        return {
+            name: self._plugin_display_name(plugin)
+            for name, plugin in self._manager.plugins.items()
+        }
+
+    def _refresh_plugin_display_names(self) -> None:
+        """语言切换后刷新已创建界面中的插件显示名（稳定标识与状态不变）。
+
+        - 标签页标题与独立窗口标题
+        - 已打开的日志查看器插件来源下拉
+        - 已打开的控制授权对话框插件下拉
+        """
+        try:
+            names = self._display_names()
+        except (AttributeError, RuntimeError):
+            return
+        tab_widget = getattr(self, "_tab_widget", None)
+        if tab_widget is not None:
+            tab_widget.apply_display_names(names)
+        viewer = getattr(self, "_log_viewer_dlg", None)
+        if viewer is not None:
+            try:
+                viewer.update_display_names(names)
+            except RuntimeError:  # 对话框已析构
+                self._log_viewer_dlg = None
+        auth_dialog = getattr(self, "_control_auth_dlg", None)
+        if auth_dialog is not None:
+            try:
+                auth_dialog.update_display_names(names)
+            except RuntimeError:
+                self._control_auth_dlg = None
+
+    def _module_display_name(self, module_name: str) -> str:
+        """按模块名解析插件显示名；无对应实例时回退到模块名。"""
+        loader = getattr(self._manager, "_loader", None)
+        plugin_modules = getattr(loader, "_plugin_modules", None)
+        if isinstance(plugin_modules, dict):
+            for plugin_key, mapped in plugin_modules.items():
+                if mapped == module_name:
+                    plugin = self._manager.plugins.get(plugin_key)
+                    if plugin is not None:
+                        return self._plugin_display_name(plugin)
+        return module_name
 
     @Slot(object)
     def _on_plugin_ready(self, plugin) -> None:
         """插件初始化完成，刷新列表显示"""
         self._refresh_plugin_list()
         self.statusBar().showMessage(
-            self.tr("插件 {name} 就绪").format(name=plugin.name), 2000
+            self.tr("插件 {name} 就绪").format(
+                name=self._plugin_display_name(plugin)), 2000
         )
 
     @Slot(object)
@@ -2682,7 +2909,8 @@ class PluginManagerWindow(QMainWindow):
         _pending_detach: list[str] = []
 
         for name, p in self._manager.plugins.items():
-            li = QListWidgetItem(p.name)
+            display_name = self._plugin_display_name(p)
+            li = QListWidgetItem(display_name)
             li.setData(Qt.ItemDataRole.UserRole, name)
             li.setIcon(p.plugin_icon)
 
@@ -2691,12 +2919,14 @@ class PluginManagerWindow(QMainWindow):
             # 根据生命周期状态显示
             if lc == PluginLifecycle.INITIALIZING:
                 li.setForeground(QColor("#f57c00"))  # 橙色：初始化中
-                li.setText(self.tr("{name}（初始化中...）").format(name=p.name))
+                li.setText(self.tr("{name}（初始化中...）").format(
+                    name=display_name))
             elif not p.is_enabled:
                 li.setForeground(Qt.GlobalColor.gray)  # 灰色：已禁用
             elif lc == PluginLifecycle.SHUTTING_DOWN:
                 li.setForeground(QColor("#c62828"))  # 红色：关闭中
-                li.setText(self.tr("{name}（关闭中...）").format(name=p.name))
+                li.setText(self.tr("{name}（关闭中...）").format(
+                    name=display_name))
 
             get_status = getattr(self._manager, "get_plugin_dependency_status", None)
             dependency = get_status(name) if callable(get_status) else None
@@ -2718,10 +2948,12 @@ class PluginManagerWindow(QMainWindow):
             if p.lifecycle == PluginLifecycle.READY and p.widget and name not in t._detached_windows and name not in self._closed_plugins:
                 st = self._effective_state(name)
                 if st.window_mode == WindowMode.DETACHED:
-                    t.add_detachable_tab(p.widget, name, icon=p.plugin_icon)
+                    t.add_detachable_tab(p.widget, display_name, icon=p.plugin_icon,
+                                         key=name)
                     _pending_detach.append(name)
                 else:
-                    t.add_detachable_tab(p.widget, name, icon=p.plugin_icon)
+                    t.add_detachable_tab(p.widget, display_name, icon=p.plugin_icon,
+                                         key=name)
 
         # 导入失败的插件没有实例，仍保留条目以展示依赖诊断。
         statuses = getattr(self._manager, "module_dependency_statuses", {})
@@ -2746,10 +2978,9 @@ class PluginManagerWindow(QMainWindow):
 
         # 延迟弹出到独立窗口（已有视图，不触发重建）
         for name in _pending_detach:
-            for i in range(t.count()):
-                if t.tabText(i) == name:
-                    t._detach_tab(i, name)
-                    break
+            index = t.index_of_key(name)
+            if index >= 0:
+                t._detach_tab(index, name)
 
         total = len(self._manager.plugins)
         en = sum(1 for p in self._manager.plugins.values() if p.is_enabled)
@@ -2792,7 +3023,8 @@ class PluginManagerWindow(QMainWindow):
             return
 
         dialog = QDialog(self)
-        dialog.setWindowTitle(self.tr("插件依赖") + f" — {module_name}")
+        dialog.setWindowTitle(
+            self.tr("插件依赖") + f" — {self._module_display_name(module_name)}")
         dialog.resize(620, 380)
         layout = QVBoxLayout(dialog)
 
@@ -2875,7 +3107,7 @@ class PluginManagerWindow(QMainWindow):
         progress.installation_finished.connect(
             lambda error: progress.set_result(
                 self.tr("{name} 的依赖已安装。重启插件管理器后重新加载插件。")
-                .format(name=module_name)) if not error else None)
+                .format(name=self._module_display_name(module_name))) if not error else None)
         dialog.accept()
         progress.start()
 
@@ -2928,7 +3160,7 @@ class PluginManagerWindow(QMainWindow):
         menu.addSeparator()
 
         # 打开/关闭窗口
-        has_tab = any(t.tabText(i) == name for i in range(t.count()))
+        has_tab = t.index_of_key(name) >= 0
         has_detached = name in t._detached_windows
         has_closed = name in self._closed_plugins
 
@@ -2992,7 +3224,7 @@ class PluginManagerWindow(QMainWindow):
 
         self.statusBar().showMessage(
             self.tr("已授权 {n} 个控制命令给插件 {name}").format(
-                n=len(required), name=name
+                n=len(required), name=self._plugin_display_name(plugin)
             ),
             3000,
         )
@@ -3027,10 +3259,10 @@ class PluginManagerWindow(QMainWindow):
             return
 
         # 如果已有标签页，切换过去
-        for i in range(t.count()):
-            if t.tabText(i) == name:
-                t.setCurrentIndex(i)
-                return
+        index = t.index_of_key(name)
+        if index >= 0:
+            t.setCurrentIndex(index)
+            return
 
         # 从关闭列表中移除并重新打开；show_window 只影响启动，不在此回写。
         # 手动打开窗口属于当前会话的视图状态，绝不更改启动开关或启动配置。
@@ -3039,7 +3271,9 @@ class PluginManagerWindow(QMainWindow):
         if st.window_mode == WindowMode.DETACHED:
             self._open_detached_window(name)
         else:
-            t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+            t.add_detachable_tab(
+                widget, self._plugin_display_name(plugin),
+                icon=plugin.plugin_icon, key=name)
 
     def _remove_plugin_window(self, name: str) -> None:
         """从 Tab / 独立窗口容器移除视图，并真正析构 widget 实例。
@@ -3060,7 +3294,7 @@ class PluginManagerWindow(QMainWindow):
             window.close()
             window.deleteLater()
         for i in range(t.count()):
-            if t.tabText(i) == name:
+            if t.tab_key(i) == name:
                 t.removeTab(i)
                 break
         if plugin is not None and plugin.widget is not None:
@@ -3101,8 +3335,9 @@ class PluginManagerWindow(QMainWindow):
 
         # 以插件目录为相对路径基准，供 README 内相对链接解析
         base_dir = plugin.plugin_dir
-        dlg = _PluginReadmeDialog(name, text, parent=self,
-                                  base_dir=base_dir)
+        dlg = _PluginReadmeDialog(
+            self._plugin_display_name(plugin), text, parent=self,
+            base_dir=base_dir)
         dlg.exec()
 
     def _open_plugin_info(self, name: str) -> None:
@@ -3115,14 +3350,15 @@ class PluginManagerWindow(QMainWindow):
         dlg.exec()
 
     def _open_plugin_settings(self, name: str) -> None:
-        """打开插件设置对话框"""
+        """打开插件设置对话框（``name`` 为稳定标识，标题展示显示名）"""
         current = self._effective_state(name)
         # 获取插件的 other_info
         plugin = self._manager.plugins.get(name)
         other_info = plugin.other_info if plugin else None
 
         dlg = PluginSettingsDialog(
-            name, current, other_info, parent=self, plugin=plugin)
+            name, current, other_info, parent=self, plugin=plugin,
+            display_name=self._plugin_display_name(plugin) if plugin else name)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_state = dlg.result_state
             try:
@@ -3231,11 +3467,13 @@ class PluginManagerWindow(QMainWindow):
         if name in t._detached_windows:
             t._attach_tab(name)
             return
-        for i in range(t.count()):
-            if t.tabText(i) == name:
-                t.setCurrentIndex(i)
-                return
-        t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+        index = t.index_of_key(name)
+        if index >= 0:
+            t.setCurrentIndex(index)
+            return
+        t.add_detachable_tab(
+            widget, self._plugin_display_name(plugin),
+            icon=plugin.plugin_icon, key=name)
 
     def _open_detached_window(self, name: str) -> None:
         """确保插件视图存在，并以独立窗口显示。"""
@@ -3249,11 +3487,13 @@ class PluginManagerWindow(QMainWindow):
         if name in t._detached_windows:
             t._detached_windows[name].show()
             return
-        for i in range(t.count()):
-            if t.tabText(i) == name:
-                t._detach_tab(i, name)
-                return
-        idx = t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+        index = t.index_of_key(name)
+        if index >= 0:
+            t._detach_tab(index, name)
+            return
+        idx = t.add_detachable_tab(
+            widget, self._plugin_display_name(plugin),
+            icon=plugin.plugin_icon, key=name)
         t._detach_tab(idx, name)
 
     def _on_list_double_clicked(self, item) -> None:

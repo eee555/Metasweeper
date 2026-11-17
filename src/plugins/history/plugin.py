@@ -29,7 +29,9 @@ import msgspec
 from PySide6.QtCore import QCoreApplication, QThread, Signal, Slot
 from PySide6.QtWidgets import QWidget
 
-_translate = QCoreApplication.translate
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("HistoryPlugin")
 
 # raw_data → replay_data 迁移批次大小
 _MIGRATE_BATCH = 100
@@ -279,17 +281,17 @@ class HistoryConfig(OtherInfoBase):
 
     float_decimals = IntConfig(
         default=2,
-        label=_translate("Form", "小数位数"),
-        description=_translate("Form", "查询窗口中浮点数显示的小数位数"),
+        label=_translate("HistoryPlugin", "小数位数"),
+        description=_translate("HistoryPlugin", "查询窗口中浮点数显示的小数位数"),
         min_value=0,
         max_value=10,
     )
 
     min_replay_solved_percent = IntConfig(
         default=0,
-        label=_translate("Form", "录像最低 3BV 完成率（%）"),
+        label=_translate("HistoryPlugin", "录像最低 3BV 完成率（%）"),
         description=_translate(
-            "Form", "清理低于此完成率的录像并保留历史统计；设为 0 则保留全部录像"),
+            "HistoryPlugin", "清理低于此完成率的录像并保留历史统计；设为 0 则保留全部录像"),
         min_value=0,
         max_value=100,
     )
@@ -359,7 +361,7 @@ def py_months_since(ts_us):
 
     page_size = ChoiceConfig(
         default="50",
-        label=_translate("Form", "每页条数"),
+        label=_translate("HistoryPlugin", "每页条数"),
         choices=[
             ("10", "10"),
             ("20", "20"),
@@ -369,14 +371,14 @@ def py_months_since(ts_us):
             ("500", "500"),
             ("1000", "1000"),
         ],
-        description=_translate("Form", "每页显示的历史记录条数"),
+        description=_translate("HistoryPlugin", "每页显示的历史记录条数"),
     )
 
     board_preview = BoolConfig(
         default=True,
-        label=_translate("Form", "局面预览"),
+        label=_translate("HistoryPlugin", "局面预览"),
         description=_translate(
-            "Form", "鼠标悬浮在表格 board 列上时弹出该局的局面预览浮窗"),
+            "HistoryPlugin", "鼠标悬浮在表格 board 列上时弹出该局的局面预览浮窗"),
     )
 
 
@@ -406,8 +408,10 @@ class HistoryPlugin(BasePlugin[HistoryConfig]):
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
-            name=_translate("Form", "历史记录"),
-            description=_translate("Form", "游戏历史记录（SQLite 持久化）"),
+            # name 是配置目录、日志、状态键与授权记录的稳定标识，不随语言变化
+            name="历史记录",
+            display_name=_translate("HistoryPlugin", "历史记录"),
+            description=_translate("HistoryPlugin", "游戏历史记录（SQLite 持久化）"),
             author="ljzloser",
             version="1.0.0",
             icon=make_plugin_icon("#7b1fa2", "\N{SCROLL}"),

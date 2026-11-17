@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from copy import copy
 
-from PySide6.QtCore import Qt, Signal, QCoreApplication
+from PySide6.QtCore import Qt, Signal, QCoreApplication, QEvent
 from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from plugin_sdk.config_types.base_config import ConfigWidgetBase
 from plugin_sdk.config_types.other_info import OtherInfoBase
+from utils.plugin_i18n import translated
 
 if TYPE_CHECKING:
     from plugin_sdk.plugin_base import BasePlugin
@@ -54,9 +56,36 @@ class OtherInfoWidget(QWidget):
 
         self._setup_ui()
 
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange and hasattr(self, "_widgets"):
+            pending = self.collect_pending()
+            layout = self.layout()
+            while layout.rowCount():
+                layout.removeRow(0)
+            self._widgets.clear()
+            self._labels.clear()
+            self._default_label_style.clear()
+            self._descriptions.clear()
+            self._setup_ui()
+            for name, value in pending.items():
+                if name in self._widgets:
+                    self._widgets[name].set_value(value)
+
+    @staticmethod
+    def _translated_field(field):
+        result = copy(field)
+        for name in ("label", "description", "placeholder", "button_text", "dialog_title", "filter"):
+            value = getattr(result, name, None)
+            if isinstance(value, str):
+                setattr(result, name, translated(value))
+        if hasattr(result, "choices"):
+            result.choices = [(value, translated(text)) for value, text in result.choices]
+        return result
+
     def _setup_ui(self) -> None:
-        """构建 UI"""
-        layout = QFormLayout(self)
+        """构建 UI；源字段不被译文覆盖，以支持下一次语言切换。"""
+        layout = self.layout() or QFormLayout(self)
         layout.setSpacing(10)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -74,6 +103,7 @@ class OtherInfoWidget(QWidget):
             if not config_field.visible:
                 continue
 
+            config_field = self._translated_field(config_field)
             widget = config_field.create_widget()
             current = getattr(self._other_info, name)
             widget.set_value(current)
@@ -150,7 +180,7 @@ class OtherInfoWidget(QWidget):
             return QCoreApplication.translate("Form", "插件")
         field = self._other_info._fields.get(name)
         if field is not None and field.label:
-            return field.label
+            return translated(field.label)
         return name
 
     def set_field_description(self, field_name: str, text: str) -> None:

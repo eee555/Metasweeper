@@ -7,6 +7,9 @@ from collections.abc import Iterable
 
 from plugin_sdk import OtherInfoBase, BoolConfig
 from .handlers import HANDLER_TYPES, ClipboardHandler
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("ClipboardReplay")
 
 
 class ClipboardReplayConfig(OtherInfoBase):
@@ -14,8 +17,8 @@ class ClipboardReplayConfig(OtherInfoBase):
 
     enable_feature = BoolConfig(
         default=True,
-        label="监听剪贴板（总开关）",
-        description="关闭时停用所有处理器，但保留各处理器的开关设置。",
+        label=_translate("ClipboardReplay", "监听剪贴板（总开关）"),
+        description=_translate("ClipboardReplay", "关闭时停用所有处理器，但保留各处理器的开关设置。"),
     )
 
 
@@ -33,7 +36,7 @@ def add_handler_fields(
         field = BoolConfig(
             default=True,
             label=label,
-            description=f"是否启用{label}处理器；仅在总开关打开时生效。",
+            description=_translate("ClipboardReplay", "是否启用此处理器；仅在总开关打开时生效。"),
         )
         setattr(config_type, key, field)
         fields[key] = field

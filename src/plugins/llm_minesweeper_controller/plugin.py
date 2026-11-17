@@ -14,6 +14,9 @@ from .command_io import CommandIO
 from .config import LlmMinesweeperControllerConfig, sanitize_legacy_configs, valid_port
 from .tools import MinesweeperTools, TOOLS
 from .mcp_server import McpServer, RequestBridge
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("MinesweeperMcp")
 
 
 def _disconnect_if_connected(signal, slot) -> None:
@@ -46,8 +49,11 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
-            name="元扫雷 MCP 服务", version="2.0.0",
-            description="通过本机 MCP 服务提供可见棋盘和经授权的辅助操作",
+            # name 是配置目录、日志、状态键与授权记录的稳定标识，不随语言变化
+            name="元扫雷 MCP 服务",
+            display_name=_translate("MinesweeperMcp", "元扫雷 MCP 服务"),
+            version="2.0.0",
+            description=_translate("MinesweeperMcp", "通过本机 MCP 服务提供可见棋盘和经授权的辅助操作"),
             # 默认不自动开启界面；只在启动时读取，不与窗口生命周期联动。
             show_window=False,
             window_mode=WindowMode.TAB, icon=make_plugin_icon("#247F68", "M"),
@@ -81,7 +87,7 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
             sanitize_legacy_configs(self.data_dir)
             self.save_config()
         except Exception:
-            self._config_error = "旧配置清理失败，MCP 服务保持停止"
+            self._config_error = _translate("MinesweeperMcp", "旧配置清理失败，MCP 服务保持停止")
             self._state = "error"
         _disconnect_if_connected(
             self.config_changed, self._on_settings_changed)
@@ -94,9 +100,9 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
         endpoint = server.endpoint if server is not None and running else ""
         prompt = ""
         if server is not None and running:
-            prompt = (
+            prompt = _translate("MinesweeperMcp",
                 "请在现有 agent 的 MCP 配置中添加一个 Streamable HTTP 服务，保留其他配置。\n"
-                f"endpoint: {endpoint}\n"
+                "endpoint: {endpoint}\n"
                 "协议版本：2025-11-25。使用客户端已有的 HTTP MCP 支持，不安装任何包，"
                 "若客户端不支持 Streamable HTTP，明确报告不支持，不能改用 stdio。"
                 "不启动子进程或新游戏，不自动玩游戏。连接后等待用户明确指令。"
@@ -104,7 +110,7 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
                 "click_cell 支持 clicks 数组批量点击（最多128项），也兼容 row/col/button 单点。"
                 "批量按顺序逐项确认，首个失败即停止；先检查 completed/results/stopped_index。"
                 "动作超时意味着结果未知，不得自动重试。"
-            )
+            ).format(endpoint=endpoint)
         self.service_state_changed.emit({
             "state": self._state, "port": server.port if server else self.other_info.port,
             "endpoint": endpoint, "prompt": prompt, "error": error,
@@ -117,7 +123,7 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
             self._publish_state(self._config_error)
             return
         if self._server is not None or self._io is not None:
-            self._publish_state("服务已运行；更换端口前请先停止")
+            self._publish_state(_translate("MinesweeperMcp", "服务已运行；更换端口前请先停止"))
             return
         self._state = "starting"
         self._publish_state()
@@ -155,7 +161,7 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
                 owner.stop()
             self._io = owner if owner is not None and owner.thread.is_alive() else None
             self._state = "error"
-            self._publish_state("启动失败；请检查端口、SDK 连接及配置，不会自动重试")
+            self._publish_state(_translate("MinesweeperMcp", "启动失败；请检查端口、SDK 连接及配置，不会自动重试"))
             return
         self._server = server
         self._state = "running"
@@ -174,7 +180,7 @@ class LlmMinesweeperControllerPlugin(BasePlugin[LlmMinesweeperControllerConfig])
         alive = owner is not None and owner.thread.is_alive()
         self._io = owner if alive else None
         self._state = "error" if alive else "stopped"
-        self._publish_state("私有通信线程尚未退出，禁止重启" if alive else "")
+        self._publish_state(_translate("MinesweeperMcp", "私有通信线程尚未退出，禁止重启") if alive else "")
 
     def _request_control(self, command, timeout: float):
         owner = self._io

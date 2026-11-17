@@ -23,6 +23,9 @@ from PySide6.QtWidgets import QFileDialog
 
 from plugin_sdk.config_types.base_config import BaseConfig, ConfigWidgetBase
 from utils.app_logger import logger
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("SkinManagerPlugin")
 
 # 防护上限：按目标类型区分（与主进程 skin_applier.py 的 512KB/4MB 对齐）
 _LIMITS = {
@@ -85,9 +88,9 @@ class ImportResult:
 def _safe_entries(zf: zipfile.ZipFile, target_subdir: str) -> list[zipfile.ZipInfo]:
     entries = zf.infolist()
     if not entries:
-        raise ZipImportError("压缩包为空")
+        raise ZipImportError(_translate("SkinManagerPlugin", "压缩包为空"))
     if len(entries) > _MAX_ENTRIES:
-        raise ZipImportError(f"文件数超过上限 {_MAX_ENTRIES}")
+        raise ZipImportError(_translate("SkinManagerPlugin", "文件数超过上限 {limit}").format(limit=_MAX_ENTRIES))
     max_single, max_total = _LIMITS.get(
         target_subdir, _LIMITS["sounds"])
     total = 0
@@ -100,18 +103,18 @@ def _safe_entries(zf: zipfile.ZipFile, target_subdir: str) -> list[zipfile.ZipIn
                 or stat.S_ISLNK(entry.external_attr >> 16)):
             # is_reserved() 拦 CON.svg / NUL.json 等 Windows 保留设备名，
             # 此前参照 plugin_download.py 时漏掉了这一项。
-            raise ZipImportError("压缩包包含不安全的路径或符号链接")
+            raise ZipImportError(_translate("SkinManagerPlugin", "压缩包包含不安全的路径或符号链接"))
         if entry.is_dir():
             continue
         if PurePosixPath(entry.filename).suffix.lower() not in _ALLOWED_SUFFIXES:
-            raise ZipImportError(f"不允许的文件类型: {entry.filename}")
+            raise ZipImportError(_translate("SkinManagerPlugin", "不允许的文件类型: {path}").format(path=entry.filename))
         if entry.file_size > max_single:
             raise ZipImportError(
-                f"单文件过大（上限 {max_single // 1024} KB）: {entry.filename}")
+                _translate("SkinManagerPlugin", "单文件过大（上限 {limit} KB）: {path}").format(limit=max_single // 1024, path=entry.filename))
         total += entry.file_size
         if total > max_total:
             raise ZipImportError(
-                f"解压后总大小超过上限 {max_total // 1024 // 1024} MB")
+                _translate("SkinManagerPlugin", "解压后总大小超过上限 {limit} MB").format(limit=max_total // 1024 // 1024))
     return entries
 
 
@@ -152,7 +155,7 @@ def import_zip(zip_path: Path | str, target_root: Path) -> ImportResult:
     """
     zip_path = Path(zip_path)
     if not zip_path.is_file():
-        raise ZipImportError(f"找不到文件: {zip_path}")
+        raise ZipImportError(_translate("SkinManagerPlugin", "找不到文件: {path}").format(path=zip_path))
     target_root = Path(target_root)
     target_subdir = target_root.name or "sounds"
 
@@ -167,7 +170,7 @@ def import_zip(zip_path: Path | str, target_root: Path) -> ImportResult:
     name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", raw_name).strip(". ")
     if (not name or name.startswith("_") or Path(name).is_reserved()
             or name in (".", "..")):
-        raise ZipImportError("包名无效（不能为空、下划线开头或保留设备名）")
+        raise ZipImportError(_translate("SkinManagerPlugin", "包名无效（不能为空、下划线开头或保留设备名）"))
 
     target_root.mkdir(parents=True, exist_ok=True)
     dest = target_root / name
@@ -205,7 +208,7 @@ def import_zip(zip_path: Path | str, target_root: Path) -> ImportResult:
             has_resource = False
         if not has_resource:
             raise ZipImportError(
-                "压缩包内没有找到任何皮肤/音效资源（可能需要检查目录结构）")
+                _translate("SkinManagerPlugin", "压缩包内没有找到任何皮肤/音效资源（可能需要检查目录结构）"))
 
         # 把资源根（可能是 staging 的某个子目录）搬到最终 dest，做事务替换。
         backup = None
@@ -229,7 +232,7 @@ def import_zip(zip_path: Path | str, target_root: Path) -> ImportResult:
                 shutil.rmtree(dest, ignore_errors=True)
             if backup is not None and backup.exists():
                 os.replace(str(backup), str(dest))
-            raise ZipImportError(f"写入资源包失败: {exc}") from exc
+            raise ZipImportError(_translate("SkinManagerPlugin", "写入资源包失败: {error}").format(error=exc)) from exc
 
     # 读包内 meta 的显示名（共享实现已对非 dict JSON 做类型守卫）
     from shared_types.sounds import read_meta_name, SKIN_META_FILE, SOUND_META_FILE
@@ -256,7 +259,7 @@ class ZipImportConfig(BaseConfig[str]):
     """
 
     target_subdir: str = "skins"
-    button_text: str = "导入 zip 包"
+    button_text: str = _translate("SkinManagerPlugin", "导入 zip 包")
 
     widget_type: ClassVar[str] = "zip_import"  # type: ignore[assignment]
 
@@ -275,7 +278,7 @@ class ZipImportConfig(BaseConfig[str]):
                 layout = QHBoxLayout(self)
                 layout.setContentsMargins(0, 0, 0, 0)
                 layout.setSpacing(6)
-                self._status = QLabel("尚未导入")
+                self._status = QLabel(_translate("SkinManagerPlugin", "尚未导入"))
                 self._status.setWordWrap(True)
                 layout.addWidget(self._status, 1)
                 self._btn = QPushButton(button_text)
@@ -291,24 +294,24 @@ class ZipImportConfig(BaseConfig[str]):
 
             def _on_import(self) -> None:
                 path, _ = QFileDialog.getOpenFileName(
-                    self, "选择 zip 包", "", "Zip 文件 (*.zip);;所有文件 (*)")
+                    self, _translate("SkinManagerPlugin", "选择 zip 包"), "", _translate("SkinManagerPlugin", "Zip 文件 (*.zip);;所有文件 (*)"))
                 if not path:
                     return
                 self._btn.setEnabled(False)
                 try:
                     result = import_zip(path, self._data_root())
                 except ZipImportError as exc:
-                    self._status.setText(f"导入失败：{exc}")
+                    self._status.setText(_translate("SkinManagerPlugin", "导入失败：{error}").format(error=exc))
                     logger.warning(f"导入 zip 失败: {exc}")
                     return
                 except Exception as exc:
-                    self._status.setText(f"导入失败：{exc}")
+                    self._status.setText(_translate("SkinManagerPlugin", "导入失败：{error}").format(error=exc))
                     logger.warning(f"导入 zip 失败: {exc}")
                     return
                 finally:
                     self._btn.setEnabled(True)
                 self._status.setText(
-                    f"已导入「{result.display}」({result.files} 个文件)")
+                    _translate("SkinManagerPlugin", "已导入「{name}」({count} 个文件)").format(name=result.display, count=result.files))
                 # 单调递增，保证每次导入都触发 on_change 重扫描。
                 try:
                     n = int(self._value)
@@ -323,18 +326,18 @@ class ZipImportConfig(BaseConfig[str]):
             def set_value(self, value: str) -> None:
                 self._value = str(value) if value else ""
                 if self._value and self._value.isdigit():
-                    self._status.setText("已导入")
+                    self._status.setText(_translate("SkinManagerPlugin", "已导入"))
                 elif self._value:
                     # 兼容旧 config.json：显示历史导入结果
                     try:
                         import json
                         r = ImportResult.from_storage(json.loads(self._value))
                         self._status.setText(
-                            f"已导入「{r.display or r.pack_name}」({r.files} 个文件)")
+                            _translate("SkinManagerPlugin", "已导入「{name}」({count} 个文件)").format(name=r.display or r.pack_name, count=r.files))
                     except (ValueError, TypeError):
-                        self._status.setText("已导入")
+                        self._status.setText(_translate("SkinManagerPlugin", "已导入"))
                 else:
-                    self._status.setText("尚未导入")
+                    self._status.setText(_translate("SkinManagerPlugin", "尚未导入"))
 
         return ZipImportWidget(self.default, self.description)
 

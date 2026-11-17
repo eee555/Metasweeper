@@ -383,9 +383,13 @@ def test_open_log_viewer_creates_then_reuses(qtbot, monkeypatch):
     w._manager = SimpleNamespace(plugins={"a": object(), "b": object()})
 
     class Viewer:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             self.args = args
+            self.kwargs = kwargs
             self.calls = []
+
+        def update_display_names(self, names):
+            self.calls.append(("display_names", names))
 
         def update_settings(self, *args):
             self.calls.append(("update", args))
@@ -429,8 +433,11 @@ def test_open_control_auth_dialog_collects_ready_required(qtbot, monkeypatch):
     seen = []
 
     class Dialog:
-        def __init__(self, controls, parent):
+        def __init__(self, controls, parent, display_names=None):
             seen.append((controls, parent))
+
+        def deleteLater(self):
+            seen.append("deleteLater")
 
         def exec(self):
             seen.append("exec")

@@ -51,11 +51,15 @@ class ComboBoxDelegate(QStyledItemDelegate):
         return super().paint(painter, option, index)
 
     def setEditorData(self, editor: QComboBox, index):
-        value = index.model().data(index, Qt.ItemDataRole.EditRole)
-        if value:
-            idx = editor.findText(value)
-            if idx >= 0:
-                editor.setCurrentIndex(idx)
+        model = index.model()
+        value = model.data(index, Qt.ItemDataRole.EditRole)
+        idx = editor.findText(value) if value else -1
+        if idx < 0:
+            # 模型可能以稳定编号存储（如比较符列），回退到显示文本匹配
+            display = model.data(index, Qt.ItemDataRole.DisplayRole)
+            idx = editor.findText(display) if display else -1
+        if idx >= 0:
+            editor.setCurrentIndex(idx)
 
     def setModelData(self, editor: QComboBox, model, index):
         model.setData(index, editor.currentText(), Qt.ItemDataRole.EditRole)

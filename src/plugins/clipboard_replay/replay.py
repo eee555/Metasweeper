@@ -4,6 +4,9 @@ import subprocess
 import sys
 from email.message import Message
 from pathlib import Path, PureWindowsPath
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("ClipboardReplay")
 
 
 MAX_DOWNLOAD_BYTES = 32 * 1024 * 1024
@@ -14,13 +17,13 @@ def replay_suffix(content_disposition: str, content_type: str) -> str:
     media_type = content_type.partition(";")[0].strip().lower()
     if media_type.startswith("text/") or media_type in {"application/json", "application/problem+json"}:
         raise ValueError(
-            "Server returned a page or API error instead of a replay")
+            _translate("ClipboardReplay", "服务器返回的是网页或 API 错误，而不是录像"))
     message = Message()
     message["Content-Disposition"] = content_disposition
     filename = message.get_filename() or ""
     suffix = PureWindowsPath(filename).suffix.lower()
     if suffix not in SUPPORTED_SUFFIXES:
-        raise ValueError("Missing or unsupported replay filename")
+        raise ValueError(_translate("ClipboardReplay", "缺少录像文件名或格式不支持"))
     return suffix
 
 
@@ -33,7 +36,7 @@ def playback_command(replay_path: Path, executable_dir: Path) -> list[str]:
         if executable.is_file():
             return [str(executable), str(replay_path)]
     raise FileNotFoundError(
-        "Cannot find src/main.py, metasweeper.exe or metaminsweeper.exe")
+        _translate("ClipboardReplay", "未找到 src/main.py、metasweeper.exe 或 metaminsweeper.exe"))
 
 
 def play_replay(replay_path: Path, executable_dir: Path) -> None:

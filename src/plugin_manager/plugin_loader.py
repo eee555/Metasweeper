@@ -109,6 +109,16 @@ class PluginLoader:
         module_name = self._plugin_modules.get(plugin_name)
         return self._dependency_statuses.get(module_name) if module_name is not None else None
 
+    def get_plugin_translation_dir(self, plugin_name: str) -> Path | None:
+        """包使用根目录 translations；单文件使用独立的 <模块名>.translations。"""
+        status = self.get_plugin_dependency_status(plugin_name)
+        if status is None:
+            return None
+        path = status.module_path
+        if path.name == "__init__.py":
+            return path.parent / "translations"
+        return path.with_name(f"{path.stem}.translations")
+
     def load_module(self, module_path: Path, module_name: str) -> object | None:
         """动态加载模块；即使直接调用也先完成依赖扫描。"""
         status = self._dependency_statuses.get(module_name)

@@ -4,6 +4,9 @@ import re
 from urllib.parse import urlsplit
 
 from ..download import ReplayDownloadHandler
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("ClipboardReplay")
 
 
 def find_video_id(text: str) -> str | None:
@@ -22,7 +25,7 @@ def find_video_id(text: str) -> str | None:
 
 class SaoleiHandler(ReplayDownloadHandler):
     handler_id = "saolei"
-    display_name = "扫雷网录像"
+    display_name = _translate("ClipboardReplay", "扫雷网录像")
     download_url_template = "https://www.saolei.wang/video/download/{video_id}"
 
     def match(self, text: str) -> str | None:

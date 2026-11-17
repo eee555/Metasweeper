@@ -12,35 +12,69 @@ from PySide6.QtCore import QCoreApplication
 
 from shared_types.enums import GameBoardState, GameMode, GameLevel, BaseDiaPlayEnum
 
-_translate = QCoreApplication.translate
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("HistoryPlugin")
 
 
 class LogicSymbol:
-    """逻辑连接符（与/或）"""
+    """逻辑连接符（与/或）。持久化使用稳定的数值，显示时翻译。"""
 
     And = 0
     Or = 1
 
-    _LABELS = {0: _translate("Form", "与"), 1: _translate("Form", "或")}
     _SQL = {0: "and", 1: "or"}
+    _known_names: dict[str, int] = {}
+    # 旧版配置按界面译文持久化，覆盖源语言与全部内置语言，
+    # 保证在其他语言（或翻译器尚未就绪）的环境下也能恢复。
+    _ALIASES: dict[str, int] = {
+        "与": 0, "and": 0, "かつ": 0,
+        "或": 1, "or": 1, "または": 1,
+    }
+
+    @classmethod
+    def _labels(cls):
+        labels = {0: _translate("HistoryPlugin", "与"), 1: _translate("HistoryPlugin", "或")}
+        cls._known_names.update((name, value) for value, name in labels.items())
+        return labels
 
     @classmethod
     def display_names(cls):
-        return [cls._LABELS[cls.And], cls._LABELS[cls.Or]]
+        return [cls(value).display_name for value in (cls.And, cls.Or)]
 
     @classmethod
     def from_display_name(cls, name: str):
-        for v, n in cls._LABELS.items():
-            if n == name:
-                return cls(v)
-        raise ValueError(name)
+        try:
+            value = int(name)
+        except (TypeError, ValueError):
+            cls._labels()
+            key = str(name).strip()
+            if key in cls._known_names:
+                value = cls._known_names[key]
+            elif key in cls._ALIASES:
+                value = cls._ALIASES[key]
+            else:
+                raise ValueError(name)
+        if value not in cls._SQL:
+            raise ValueError(name)
+        return cls(value)
+
+    @classmethod
+    def to_stable(cls, name: str) -> str | None:
+        """把任意语言的显示名或编号转为稳定编号；无法识别时返回 None。"""
+        try:
+            return str(cls.from_display_name(name).value)
+        except (TypeError, ValueError):
+            return None
 
     def __init__(self, value: int):
+        if value not in self._SQL:
+            raise ValueError(value)
         self.value = value
 
     @property
     def display_name(self):
-        return self._LABELS[self.value]
+        return self._labels()[self.value]
 
     @property
     def to_sql(self):
@@ -60,19 +94,43 @@ class CompareSymbol:
     NotContains = 7
     Like = 8
     NotLike = 9
-
-    _LABELS = {
-        0: _translate("Form", "等于"),
-        1: _translate("Form", "不等于"),
-        2: _translate("Form", "大于"),
-        3: _translate("Form", "小于"),
-        4: _translate("Form", "大于等于"),
-        5: _translate("Form", "小于等于"),
-        6: _translate("Form", "包含"),
-        7: _translate("Form", "不包含"),
-        8: _translate("Form", "包含子串"),
-        9: _translate("Form", "不含子串"),
+    _known_names: dict[str, int] = {}
+    # 与 LogicSymbol 同理：兼容旧版按译文持久化的配置（全部内置语言）。
+    _ALIASES: dict[str, int] = {
+        "等于": 0, "equals": 0, "Gleich": 0, "等しい": 0, "Równe": 0,
+        "不等于": 1, "does not equal": 1, "Ungleich": 1, "等しくない": 1, "Różne": 1,
+        "大于": 2, "greater than": 2, "Größer als": 2, "より大": 2, "Większe niż": 2,
+        "小于": 3, "less than": 3, "Kleiner als": 3, "より小": 3, "Mniejsze niż": 3,
+        "大于等于": 4, "greater than or equal to": 4, "Größer oder gleich": 4,
+        "以上": 4, "Większe lub równe niż": 4,
+        "小于等于": 5, "less than or equal to": 5, "Kleiner oder gleich": 5,
+        "以下": 5, "Mniejsze lub równe niż": 5,
+        "包含": 6, "in list": 6, "Enthält": 6, "含む": 6, "Zawiera": 6,
+        "不包含": 7, "not in list": 7, "Enthält nicht": 7, "含まない": 7, "Nie zawiera": 7,
+        "包含子串": 8, "Contains substring": 8, "Enthält Teilzeichenfolge": 8,
+        "部分文字列を含む": 8, "Zawiera podciągu": 8,
+        "不含子串": 9, "Does not contain substring": 9,
+        "Enthält keine Teilzeichenfolge": 9, "部分文字列を含まない": 9,
+        "Nie zawiera podciągu": 9,
     }
+
+    @classmethod
+    def _labels(cls):
+        labels = {
+            0: _translate("HistoryPlugin", "等于"),
+            1: _translate("HistoryPlugin", "不等于"),
+            2: _translate("HistoryPlugin", "大于"),
+            3: _translate("HistoryPlugin", "小于"),
+            4: _translate("HistoryPlugin", "大于等于"),
+            5: _translate("HistoryPlugin", "小于等于"),
+            6: _translate("HistoryPlugin", "包含"),
+            7: _translate("HistoryPlugin", "不包含"),
+            8: _translate("HistoryPlugin", "包含子串"),
+            9: _translate("HistoryPlugin", "不含子串"),
+        }
+        cls._known_names.update((name, value) for value, name in labels.items())
+        return labels
+
     _SQL = {
         0: "=",
         1: "!=",
@@ -88,21 +146,107 @@ class CompareSymbol:
 
     @classmethod
     def display_names(cls):
-        return [cls._LABELS[i] for i in range(len(cls._LABELS))]
+        return [cls(value).display_name for value in range(len(cls._SQL))]
 
     @classmethod
     def from_display_name(cls, name: str):
-        for v, n in cls._LABELS.items():
-            if n == name:
-                return cls(v)
-        raise ValueError(name)
+        try:
+            value = int(name)
+        except (TypeError, ValueError):
+            cls._labels()
+            key = str(name).strip()
+            if key in cls._known_names:
+                value = cls._known_names[key]
+            elif key in cls._ALIASES:
+                value = cls._ALIASES[key]
+            else:
+                raise ValueError(name)
+        if value not in cls._SQL:
+            raise ValueError(name)
+        return cls(value)
+
+    @classmethod
+    def to_stable(cls, name: str) -> str | None:
+        """把任意语言的显示名或编号转为稳定编号；无法识别时返回 None。"""
+        try:
+            return str(cls.from_display_name(name).value)
+        except (TypeError, ValueError):
+            return None
 
     def __init__(self, value: int):
+        if value not in self._SQL:
+            raise ValueError(value)
         self.value = value
 
     @property
     def display_name(self):
-        return self._LABELS[self.value]
+        return self._labels()[self.value]
+
+    @property
+    def to_sql(self):
+        return self._SQL[self.value]
+
+
+class SortOrder:
+    """排序方向。持久化使用稳定编号，显示时翻译。"""
+
+    Ascending = 0
+    Descending = 1
+
+    _SQL = {0: "ASC", 1: "DESC"}
+    _known_names: dict[str, int] = {}
+    # 旧版排序配置按界面译文持久化，覆盖源语言与全部内置语言。
+    _ALIASES: dict[str, int] = {
+        "升序": 0, "Ascending": 0, "Aufsteigend": 0, "昇順": 0, "Rosnąco": 0,
+        "降序": 1, "Descending": 1, "Absteigend": 1, "降順": 1, "Malejąco": 1,
+    }
+
+    @classmethod
+    def _labels(cls):
+        labels = {
+            0: _translate("HistoryPlugin", "升序"),
+            1: _translate("HistoryPlugin", "降序"),
+        }
+        cls._known_names.update((name, value) for value, name in labels.items())
+        return labels
+
+    @classmethod
+    def from_text(cls, name: str):
+        try:
+            value = int(name)
+        except (TypeError, ValueError):
+            cls._labels()
+            key = str(name).strip()
+            if key in cls._known_names:
+                value = cls._known_names[key]
+            elif key in cls._ALIASES:
+                value = cls._ALIASES[key]
+            else:
+                raise ValueError(name)
+        if value not in cls._SQL:
+            raise ValueError(name)
+        return cls(value)
+
+    @classmethod
+    def to_stable(cls, name: str) -> str | None:
+        """把任意语言的显示名或编号转为稳定编号；无法识别时返回 None。"""
+        try:
+            return str(cls.from_text(name).value)
+        except (TypeError, ValueError):
+            return None
+
+    @classmethod
+    def display_names(cls):
+        return [cls(value).display_name for value in (cls.Ascending, cls.Descending)]
+
+    def __init__(self, value: int):
+        if value not in self._SQL:
+            raise ValueError(value)
+        self.value = value
+
+    @property
+    def display_name(self):
+        return self._labels()[self.value]
 
     @property
     def to_sql(self):

@@ -21,14 +21,15 @@ from shared_types.sounds import default_pack_label, default_skin_label
 from .skins import list_skins
 from .sound import discover_sound_choices
 from .zip_import import ZipImportConfig, imported_dir
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("SkinManagerPlugin")
 
 # 插件自带皮肤库（源码/打包后都随插件目录一起分发）
 BUILTIN_SKINS_DIR = Path(__file__).resolve().parent / "skins"
 
 # "默认皮肤" 固定占一个选项（运行时按当前语言取词）
-_DEFAULT_CHOICE = ("", default_skin_label())
+_DEFAULT_CHOICE = ("", _translate("SkinManagerPlugin", "默认皮肤"))
 
 
 def discover_choices() -> list[tuple[str, str]]:
@@ -57,10 +58,10 @@ def register_choices(
     is_skin = field_name == "skin"
     field = ChoiceConfig(
         default="",
-        label=_translate("SkinManager", "当前皮肤" if is_skin else "当前音效包"),
+        label=_translate("SkinManagerPlugin", "当前皮肤" if is_skin else "当前音效包"),
         choices=choices,
         description=_translate(
-            "SkinManager",
+            "SkinManagerPlugin",
             "选择后立即生效（纯内存热替换，不重启）；选「默认皮肤」即还原"
             if is_skin else
             "选择后立即生效（纯内存热替换，不重启）；选「默认音效」即还原",
@@ -72,11 +73,11 @@ def register_choices(
 def _i18n_config_strings() -> None:
     """lupdate 扫描用哑函数：注册函数里的文案以条件表达式传入 translate，
     静态扫描器可能无法抽取，这里逐条硬编码补齐。"""
-    _translate("SkinManager", "当前皮肤")
-    _translate("SkinManager", "当前音效包")
-    _translate("SkinManager",
+    _translate("SkinManagerPlugin", "当前皮肤")
+    _translate("SkinManagerPlugin", "当前音效包")
+    _translate("SkinManagerPlugin",
                "选择后立即生效（纯内存热替换，不重启）；选「默认皮肤」即还原")
-    _translate("SkinManager",
+    _translate("SkinManagerPlugin",
                "选择后立即生效（纯内存热替换，不重启）；选「默认音效」即还原")
 
 
@@ -85,65 +86,65 @@ class SkinManagerConfig(OtherInfoBase):
 
     auto_apply = BoolConfig(
         default=True,
-        label=_translate("SkinManager", "启动时自动应用"),
+        label=_translate("SkinManagerPlugin", "启动时自动应用"),
         description=_translate(
-            "SkinManager", "插件启动并连接主进程后，自动应用上次选择的皮肤与音效设置"),
+            "SkinManagerPlugin", "插件启动并连接主进程后，自动应用上次选择的皮肤与音效设置"),
     )
 
     # ── 皮肤 ──
     skin = ChoiceConfig(
         default="",
-        label=_translate("SkinManager", "当前皮肤"),
+        label=_translate("SkinManagerPlugin", "当前皮肤"),
         choices=[_DEFAULT_CHOICE],  # 由下方 register_choices 覆盖为实际扫描结果
         description=_translate(
-            "SkinManager",
+            "SkinManagerPlugin",
             "选择后立即生效（纯内存热替换，不重启）；选「默认皮肤」即还原"),
     )
 
     skin_zip = ZipImportConfig(
         default="",
-        label=_translate("SkinManager", "导入皮肤包"),
+        label=_translate("SkinManagerPlugin", "导入皮肤包"),
         target_subdir="skins",
-        button_text=_translate("SkinManager", "导入皮肤 zip"),
+        button_text=_translate("SkinManagerPlugin", "导入皮肤 zip"),
         description=_translate(
-            "SkinManager",
+            "SkinManagerPlugin",
             "选择 zip 自动解压到本插件数据目录 skins/，随后即可在下拉框选择"),
     )
 
     # ── 音效 ──
     sound_enabled = BoolConfig(
         default=False,
-        label=_translate("SkinManager", "启用游戏音效"),
+        label=_translate("SkinManagerPlugin", "启用游戏音效"),
         description=_translate(
-            "SkinManager",
+            "SkinManagerPlugin",
             "通过 SetSoundCommand 独立控制；不影响主程序设置页里的开关"),
     )
 
     sound_volume = IntConfig(
         default=70,
-        label=_translate("SkinManager", "音效音量"),
+        label=_translate("SkinManagerPlugin", "音效音量"),
         min_value=0,
         max_value=100,
         use_slider=True,
-        description=_translate("SkinManager", "0~100，选择后立即生效"),
+        description=_translate("SkinManagerPlugin", "0~100，选择后立即生效"),
     )
 
     sound_pack = ChoiceConfig(
         default="",
-        label=_translate("SkinManager", "当前音效包"),
-        choices=[("", default_pack_label())],
+        label=_translate("SkinManagerPlugin", "当前音效包"),
+        choices=[("", _translate("SkinManagerPlugin", "默认音效"))],
         description=_translate(
-            "SkinManager",
+            "SkinManagerPlugin",
             "选择后立即生效（纯内存热替换，不重启）；选「默认音效」即还原"),
     )
 
     sound_zip = ZipImportConfig(
         default="",
-        label=_translate("SkinManager", "导入音效包"),
+        label=_translate("SkinManagerPlugin", "导入音效包"),
         target_subdir="sounds",
-        button_text=_translate("SkinManager", "导入音效 zip"),
+        button_text=_translate("SkinManagerPlugin", "导入音效 zip"),
         description=_translate(
-            "SkinManager",
+            "SkinManagerPlugin",
             "选择 zip 自动解压到本插件数据目录 sounds/，随后即可在下拉框选择"),
     )
 

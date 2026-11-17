@@ -4,6 +4,9 @@ import re
 from urllib.parse import urlencode
 
 from ..download import ReplayDownloadHandler
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("ClipboardReplay")
 
 
 def find_replay_code(text: str) -> str | None:
@@ -22,7 +25,7 @@ def find_replay_code(text: str) -> str | None:
 
 class Classic95Handler(ReplayDownloadHandler):
     handler_id = "classic95"
-    display_name = "95经典扫雷小程序"
+    display_name = _translate("ClipboardReplay", "95经典扫雷小程序")
 
     def match(self, text: str) -> str | None:
         return find_replay_code(text)

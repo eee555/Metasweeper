@@ -6,6 +6,9 @@ import tempfile
 from pathlib import Path
 
 from plugin_sdk import IntConfig, OtherInfoBase
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("MinesweeperMcp")
 
 
 CONFIG_IDENTITIES = ("LlmMinesweeperControllerPlugin", "LLM反控扫雷", "元扫雷 MCP 服务")
@@ -16,8 +19,8 @@ def valid_port(value: object) -> bool:
 
 
 class LlmMinesweeperControllerConfig(OtherInfoBase):
-    port = IntConfig(default=8765, label="MCP 端口", min_value=1024, max_value=65535,
-                     validator=lambda value: None if valid_port(value) else "端口必须为 1024..65535 的整数")
+    port = IntConfig(default=8765, label=_translate("MinesweeperMcp", "MCP 端口"), min_value=1024, max_value=65535,
+                     validator=lambda value: None if valid_port(value) else _translate("MinesweeperMcp", "端口必须为 1024..65535 的整数"))
 
     def from_dict(self, data: dict, silent: bool = True) -> None:
         port = data.get("port", 8765) if isinstance(data, dict) else 8765
@@ -49,7 +52,7 @@ def sanitize_legacy_configs(data_dir: Path) -> None:
                 json.dump({"port": port if valid_port(port) else 8765}, target)
             os.replace(temporary, path)
         except OSError:
-            raise RuntimeError("旧配置清理失败，MCP 服务保持停止") from None
+            raise RuntimeError(_translate("MinesweeperMcp", "旧配置清理失败，MCP 服务保持停止")) from None
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)

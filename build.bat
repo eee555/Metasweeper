@@ -29,6 +29,8 @@ pyside6-lrelease src\ui\pl_PL.ts -qm src\pl_PL.qm
 if errorlevel 1 exit /b 1
 pyside6-lrelease src\ui\ja_JP.ts -qm src\ja_JP.qm
 if errorlevel 1 exit /b 1
+python develop_tools\compile_plugin_translations.py
+if errorlevel 1 exit /b 1
 
 pyinstaller --noconfirm --clean --name metaminsweeper --windowed --distpath "%OUT%" ^
     %EXCLUDES% ^

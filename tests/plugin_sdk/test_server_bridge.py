@@ -37,6 +37,7 @@ class FakeServer:
         self.results = []
         self.handlers = {}
         self.query_handlers = {}
+        self.snapshot_providers = {}
         self._pub_socket = None
         self.pub_endpoint = "tcp://127.0.0.1:2001"
         self.ctrl_endpoint = "tcp://127.0.0.1:2002"
@@ -50,6 +51,7 @@ class FakeServer:
     def register_query_result_types(self, *values): self.results.extend(values)
     def register_handler(self, command_type, handler): self.handlers[command_type] = handler
     def register_query_handler(self, query_type, handler): self.query_handlers[query_type] = handler
+    def register_snapshot_provider(self, topic, provider): self.snapshot_providers[topic] = provider
     def start(self): self.started += 1
     def stop(self): self.stopped += 1
     def publish(self, event_type, event): self.events.append((event_type, event))
@@ -133,6 +135,16 @@ def test_query_handler_dispatches_and_send_event_guard(bridge, monkeypatch):
     bridge.server._pub_socket = object()
     bridge.send_event(event)
     assert bridge.server.events[-1] == (BridgeEvent, event)
+
+
+def test_language_snapshot_tracks_latest_event_even_before_publish(bridge):
+    from shared_types.events import LanguageChangeEvent
+
+    bridge.send_event(LanguageChangeEvent(language="de_DE"))
+    snapshot = bridge.server.snapshot_providers[LanguageChangeEvent]
+    assert snapshot().language == "de_DE"
+    bridge.send_event(LanguageChangeEvent(language="ja_JP"))
+    assert snapshot().language == "ja_JP"
 
 
 def test_default_endpoint_uses_environment(monkeypatch):

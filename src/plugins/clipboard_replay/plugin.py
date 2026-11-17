@@ -13,6 +13,14 @@ from plugin_sdk import BasePlugin, PluginInfo, WindowMode
 from .config import ClipboardReplayConfig
 from .handlers import HANDLER_TYPES, ClipboardHandler
 from .widgets import ClipboardReplayWidget
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("ClipboardReplay")
+
+
+def _monitoring_text(enabled: bool) -> str:
+    return (_translate("ClipboardReplay", "剪贴板监听已启动") if enabled
+            else _translate("ClipboardReplay", "剪贴板监听已暂停"))
 
 
 class _ClipboardWatcher(QObject):
@@ -55,9 +63,11 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
+            # name 是配置目录、日志、状态键与授权记录的稳定标识，不随语言变化
             name="剪贴板助手",
+            display_name=_translate("ClipboardReplay", "剪贴板助手"),
             version="1.0.0",
-            description="监听剪贴板内容，识别后交给对应处理器执行",
+            description=_translate("ClipboardReplay", "监听剪贴板内容，识别后交给对应处理器执行"),
             # 默认不自动开启界面；该开关只在启动时读取一次，
             # 不控制运行期间窗口实例的生命周期，也不被打开/关闭窗口反向写入。
             show_window=False,
@@ -75,7 +85,7 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
         return widget
 
     def on_widget_created(self, widget: QWidget) -> None:
-        self._report("剪贴板监听已启动" if self._enabled() else "剪贴板监听已暂停",
+        self._report(_monitoring_text(self._enabled()),
                      kind="state", enabled=self._enabled())
 
     def _report(self, message: str, **details: object) -> None:
@@ -101,7 +111,8 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
                 self.logger.error(
                     f"Cannot initialize {handler_type.__name__}: {error}")
                 self._report(
-                    f"无法初始化 {handler_type.__name__}：{error}", kind="error")
+                    _translate("ClipboardReplay", "无法初始化 {handler}：{error}").format(
+                        handler=handler_type.__name__, error=error), kind="error")
         self.config_changed.connect(self._on_settings_changed)
         for callback in list(getattr(self, "_watcher_stop_callbacks", [])):
             try:
@@ -111,7 +122,7 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
         self._watcher_stop_callbacks = []
         self.run_on_gui(self._start_watcher)
         self.logger.info("Clipboard replay monitoring initialized")
-        self._report("剪贴板监听已启动" if self._enabled() else "剪贴板监听已暂停",
+        self._report(_monitoring_text(self._enabled()),
                      kind="state", enabled=self._enabled())
 
     def _start_watcher(self) -> None:
@@ -147,12 +158,12 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
             except Exception as error:
                 self.logger.error(
                     f"Clipboard handler {type(handler).__name__} failed: {error}")
-                handler.report(f"处理失败：{error}", kind="error")
+                handler.report(_translate("ClipboardReplay", "处理失败：{error}").format(error=error), kind="error")
 
     @Slot(str, object)
     def _on_settings_changed(self, name: str, value) -> None:
         if name == "enable_feature":
-            self._report("剪贴板监听已启动" if self._enabled() else "剪贴板监听已暂停",
+            self._report(_monitoring_text(self._enabled()),
                          kind="state", enabled=self._enabled())
         refresh = False
         for handler in self._handlers:
@@ -167,13 +178,14 @@ class ClipboardReplayPlugin(BasePlugin[ClipboardReplayConfig]):
                 self.logger.error(
                     f"Cannot update {type(handler).__name__}: {error}")
                 self._report(
-                    f"无法更新 {type(handler).__name__}：{error}", kind="error")
+                    _translate("ClipboardReplay", "无法更新 {handler}：{error}").format(
+                        handler=type(handler).__name__, error=error), kind="error")
         if value and refresh and self._watcher is not None:
             self.run_on_gui(self._watcher.refresh)
 
     def on_shutdown(self) -> None:
         self._stopped.set()
-        self._report("插件已停止", kind="state", enabled=False)
+        self._report(_translate("ClipboardReplay", "插件已停止"), kind="state", enabled=False)
         self._stop_watcher.emit()
         for handler in self._handlers:
             try:

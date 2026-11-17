@@ -13,6 +13,7 @@ import mainWindowGUI as mainWindowGUI
 import mineSweeperGUI as mineSweeperGUI
 import ms_toollib as ms
 from pathlib import Path
+from typing import cast
 from utils.app_logger import logger
 from app.startup_platform import on_new_connection, configure_capture_guard
 from app.cli_check import cli_check_file
@@ -119,21 +120,20 @@ if __name__ == "__main__":
 
         # ── 启动 ZMQ Server + 插件管理器 ──
 
+        # 子进程可能立即请求快照；先缓存实际语言并注册业务处理器，
+        # 不依赖 PUB/SUB 的连接速度或启动延迟。
+        from shared_types.events import LanguageChangeEvent
+        if not plugins_disabled:
+            GameServerBridge.instance().send_event(
+                LanguageChangeEvent(language=cast(str, ui.language)))
+        register_plugin_commands(GameServerBridge.instance(), ui)
+        register_plugin_queries(GameServerBridge.instance(), ui)
+
         plugin_process = start_plugin_process(ui, mainWindow, plugins_disabled)
 
         ui._plugin_process = plugin_process  # 保存引用，供重启和退出时使用
 
         install_restart_action(ui, mainWindow, plugins_disabled)
-
-        # 等插件连接后同步初始语言
-        from PySide6.QtCore import QTimer
-        from shared_types.events import LanguageChangeEvent
-        if not plugins_disabled:
-            QTimer.singleShot(2000, lambda: GameServerBridge.instance().send_event(
-                LanguageChangeEvent(language=ui.language))) # type: ignore
-
-        register_plugin_commands(GameServerBridge.instance(), ui)
-        register_plugin_queries(GameServerBridge.instance(), ui)
 
         configure_capture_guard(ui)
 
