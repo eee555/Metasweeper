@@ -106,9 +106,10 @@ def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
 
         def __init__(self) -> None:
             QMainWindow.__init__(self)
-            self._menu_options = QMenu(self)
+            self._menu_plugins = QMenu(self)
             self._menu_settings = QMenu(self)
-            self._menu_view = QMenu(self)
+            self._menu_tools = QMenu(self)
+            self._menu_help = QMenu(self)
             self._act_download_plugin = QAction(self)
             self._act_basic_settings = QAction(self)
             self._act_plugin_environment = QAction(self)

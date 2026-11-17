@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 import loguru
+import re
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -62,6 +63,7 @@ from plugin_sdk.config_types import OtherInfoBase
 from .app_paths import get_data_dir
 from .icons import action_icon, set_action_icon, set_button_box_icons
 from .plugin_lib_env import (
+    check_package_updates_async,
     install_debugpy,
     install_plugin_requirements,
     create_venv,
@@ -70,6 +72,7 @@ from .plugin_lib_env import (
     list_installed_packages,
     python_tag_text,
     resolve_lib_path,
+    upgrade_installed_package,
 )
 
 if TYPE_CHECKING:
@@ -263,6 +266,82 @@ class DetachableTabWidget(QTabWidget):
 
         # 连接关闭按钮信号
         self.tabCloseRequested.connect(self._on_tab_close_requested)
+
+        self._context_tab: QWidget | None = None
+        self._tab_menu = QMenu(self)
+        self._tab_menu_actions = {}
+        for operation, icon in (
+            ("current", "window-close"),
+            ("left", "close"),
+            ("right", "close"),
+            ("others", "window-close"),
+            ("all", "clear"),
+        ):
+            action = self._tab_menu.addAction("")
+            set_action_icon(action, icon)
+            action.triggered.connect(
+                lambda checked=False, op=operation: self._close_context_tabs(op))
+            self._tab_menu_actions[operation] = action
+        self._retranslate_tab_menu()
+        self._tab_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._tab_bar.customContextMenuRequested.connect(self._show_tab_context_menu)
+
+    def _retranslate_tab_menu(self) -> None:
+        self._tab_menu_actions["current"].setText(self.tr("关闭当前标签页"))
+        self._tab_menu_actions["left"].setText(self.tr("关闭左侧标签页"))
+        self._tab_menu_actions["right"].setText(self.tr("关闭右侧标签页"))
+        self._tab_menu_actions["others"].setText(self.tr("关闭其他标签页"))
+        self._tab_menu_actions["all"].setText(self.tr("关闭所有标签页"))
+
+    def changeEvent(self, event) -> None:
+        if event.type() == QEvent.Type.LanguageChange and hasattr(self, "_tab_menu_actions"):
+            self._retranslate_tab_menu()
+        super().changeEvent(event)
+
+    def _show_tab_context_menu(self, pos: QPoint) -> None:
+        index = self._tab_bar.tabAt(pos)
+        if index < 0:
+            return
+        self._context_tab = self.widget(index)
+        count = self.count()
+        self._tab_menu_actions["current"].setEnabled(True)
+        self._tab_menu_actions["left"].setEnabled(index > 0)
+        self._tab_menu_actions["right"].setEnabled(index < count - 1)
+        self._tab_menu_actions["others"].setEnabled(count > 1)
+        self._tab_menu_actions["all"].setEnabled(True)
+        try:
+            self._tab_menu.exec(self._tab_bar.mapToGlobal(pos))
+        finally:
+            self._context_tab = None
+
+    def _close_context_tabs(self, operation: str) -> None:
+        target = self._context_tab
+        if target is None:
+            return
+        try:
+            index = self.indexOf(target)
+        except RuntimeError:  # 菜单打开期间目标视图已被销毁
+            return
+        if index < 0:
+            return
+        indices = {
+            "current": range(index, index + 1),
+            "left": range(index),
+            "right": range(index + 1, self.count()),
+            "others": (i for i in range(self.count()) if i != index),
+            "all": range(self.count()),
+        }.get(operation, ())
+        # 快照视图对象：关闭信号可能同步重排、移除或重建其他标签。
+        widgets = [self.widget(i) for i in indices]
+        for widget in widgets:
+            if widget is None:
+                continue
+            try:
+                current_index = self.indexOf(widget)
+            except RuntimeError:  # 另一个关闭回调已销毁此视图
+                continue
+            if current_index >= 0:
+                self._on_tab_close_requested(current_index)
 
     def add_detachable_tab(self, widget: QWidget, name: str, icon=None) -> int:
         """添加一个可分离的标签页，返回 index"""
@@ -700,6 +779,9 @@ class _InstallProgressDialog(QDialog):
         layout.addWidget(self._status)
         self._output = QPlainTextEdit(self)
         self._output.setReadOnly(True)
+        self._output.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        scroll_bar = self._output.verticalScrollBar()
+        scroll_bar.rangeChanged.connect(lambda _minimum, maximum: scroll_bar.setValue(maximum))
         layout.addWidget(self._output, 1)
         self._close_button = QPushButton(self.tr("关闭"))
         self._close_button.setEnabled(False)
@@ -752,6 +834,160 @@ class _InstallProgressDialog(QDialog):
 
     def closeEvent(self, event) -> None:
         if self._active:
+            event.ignore()
+        else:
+            super().closeEvent(event)
+
+
+class _InstalledPackagesDialog(QDialog):
+    """显示已安装发行包，并在 GUI 线程接收后台查询结果。"""
+
+    def __init__(self, directory: Path, indexes: list[str], parent=None) -> None:
+        super().__init__(parent)
+        self._directory = directory
+        self._indexes = list(indexes)
+        self._future = None
+        self._progress = None
+        self.setWindowTitle(self.tr("已安装的包"))
+        self.resize(680, 400)
+        layout = QVBoxLayout(self)
+        path_label = QLabel(str(directory))
+        path_label.setWordWrap(True)
+        layout.addWidget(path_label)
+        self._table = QTableWidget(0, 3, self)
+        self._table.setHorizontalHeaderLabels([
+            self.tr("包名"), self.tr("版本"), self.tr("可用新版本")])
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._table.setAlternatingRowColors(True)
+        self._table.verticalHeader().setVisible(False)
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for column in (1, 2):
+            self._table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.itemSelectionChanged.connect(self._update_buttons)
+        layout.addWidget(self._table)
+        self._status = QLabel()
+        self._status.setWordWrap(True)
+        layout.addWidget(self._status)
+        self._restart_hint = QLabel()
+        self._restart_hint.setWordWrap(True)
+        layout.addWidget(self._restart_hint)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self._refresh_button = buttons.addButton(self.tr("刷新"), QDialogButtonBox.ButtonRole.ActionRole)
+        self._upgrade_button = buttons.addButton(self.tr("升级所选包"), QDialogButtonBox.ButtonRole.ActionRole)
+        self._refresh_button.clicked.connect(self._refresh)
+        self._upgrade_button.clicked.connect(self._upgrade)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self._timer = QTimer(self)
+        self._timer.setInterval(100)
+        self._timer.timeout.connect(self._check_result)
+        self.finished.connect(self._stop_check)
+        self._refresh()
+
+    def _update_buttons(self) -> None:
+        busy = self._future is not None or (self._progress is not None and self._progress._active)
+        self._refresh_button.setEnabled(not busy)
+        self._upgrade_button.setEnabled(not busy and self._table.currentRow() >= 0)
+
+    def _refresh(self) -> None:
+        if self._future is not None or (self._progress is not None and self._progress._active):
+            return
+        try:
+            packages = list_installed_packages(self._directory)
+        except (OSError, ValueError) as exc:
+            self._table.setRowCount(0)
+            self._status.setText(self.tr("无法读取包列表：{error}").format(error=exc))
+            self._update_buttons()
+            return
+        self._table.setRowCount(len(packages))
+        for row, (name, version) in enumerate(packages):
+            for column, text in enumerate((name, version, "—")):
+                self._table.setItem(row, column, QTableWidgetItem(text))
+        if not packages:
+            self._status.setText(self.tr("已安装 {count} 个包").format(count=0))
+            self._update_buttons()
+            return
+        self._status.setText(self.tr("正在检查可用新版本…"))
+        try:
+            self._future = check_package_updates_async(self._directory, self._indexes)
+        except Exception as exc:
+            self._status.setText(self.tr("检查新版本失败：{error}").format(error=str(exc) or type(exc).__name__))
+        else:
+            self._timer.start()
+        self._update_buttons()
+
+    @Slot()
+    def _check_result(self) -> None:
+        future = self._future
+        if future is None or not future.done():
+            return
+        self._timer.stop()
+        self._future = None
+        try:
+            updates = future.result()
+        except Exception as exc:
+            self._status.setText(self.tr("检查新版本失败：{error}").format(error=str(exc) or type(exc).__name__))
+        else:
+            for row in range(self._table.rowCount()):
+                name_item = self._table.item(row, 0)
+                update_item = self._table.item(row, 2)
+                if name_item is not None and update_item is not None:
+                    key = re.sub(r"[-_.]+", "-", name_item.text()).lower()
+                    update_item.setText(updates.get(key, "—"))
+            self._status.setText(self.tr("已安装 {count} 个包").format(count=self._table.rowCount()))
+        self._update_buttons()
+
+    @Slot()
+    def _upgrade(self) -> None:
+        row = self._table.currentRow()
+        if row < 0 or self._future is not None or (self._progress is not None and self._progress._active):
+            return
+        item = self._table.item(row, 0)
+        if item is None:
+            return
+        progress = _InstallProgressDialog(
+            self.tr("升级所选包"), upgrade_installed_package,
+            (self._directory, self._indexes, item.text()), self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        self._progress = progress
+        progress.installation_finished.connect(self._upgrade_finished)
+        progress.finished.connect(self._progress_closed)
+        self._update_buttons()
+        progress.start()
+
+    @Slot(object)
+    def _upgrade_finished(self, error) -> None:
+        if not error:
+            message = self.tr("升级完成。重启插件管理器后生效。")
+            if self._progress is not None:
+                self._progress.set_result(message)
+            self._restart_hint.setText(message)
+            self._refresh()
+        self._update_buttons()
+
+    @Slot()
+    def _progress_closed(self) -> None:
+        progress = self._progress
+        self._progress = None
+        if progress is not None:
+            progress.deleteLater()
+        self._update_buttons()
+
+    @Slot()
+    def _stop_check(self) -> None:
+        self._timer.stop()
+        if self._future is not None:
+            self._future.cancel()
+            self._future = None
+
+    def reject(self) -> None:
+        if self._progress is None or not self._progress._active:
+            super().reject()
+
+    def closeEvent(self, event) -> None:
+        if self._progress is not None and self._progress._active:
             event.ignore()
         else:
             super().closeEvent(event)
@@ -885,45 +1121,14 @@ class PluginEnvironmentDialog(QDialog):
         if not raw:
             QMessageBox.warning(self, self.tr("已安装的包"), self.tr("请先选择依赖目录。"))
             return
-        dialog = QDialog(self)
-        dialog.setWindowTitle(self.tr("已安装的包"))
-        dialog.resize(520, 380)
-        layout = QVBoxLayout(dialog)
-        path_label = QLabel(raw)
-        path_label.setWordWrap(True)
-        layout.addWidget(path_label)
-        table = QTableWidget(0, 2, dialog)
-        table.setHorizontalHeaderLabels([self.tr("包名"), self.tr("版本")])
-        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        table.setAlternatingRowColors(True)
-        table.verticalHeader().setVisible(False)
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        layout.addWidget(table)
-        status = QLabel()
-        layout.addWidget(status)
-
-        def refresh() -> None:
-            try:
-                packages = list_installed_packages(Path(raw))
-            except (OSError, ValueError) as exc:
-                table.setRowCount(0)
-                status.setText(self.tr("无法读取包列表：{error}").format(error=exc))
-                return
-            table.setRowCount(len(packages))
-            for row, (name, version) in enumerate(packages):
-                table.setItem(row, 0, QTableWidgetItem(name))
-                table.setItem(row, 1, QTableWidgetItem(version))
-            status.setText(self.tr("已安装 {count} 个包").format(count=len(packages)))
-
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        refresh_button = buttons.addButton(self.tr("刷新"), QDialogButtonBox.ButtonRole.ActionRole)
-        refresh_button.clicked.connect(refresh)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        refresh()
+        try:
+            indexes = normalize_pip_indexes(self._pip_indexes_edit.toPlainText().splitlines())
+        except ValueError as exc:
+            QMessageBox.warning(self, self.tr("无效的依赖下载源"), str(exc))
+            return
+        dialog = _InstalledPackagesDialog(Path(raw).expanduser(), indexes, self)
         dialog.exec()
+        dialog.deleteLater()
 
     def _on_browse_lib_dir(self) -> None:
         start = self._lib_dir_edit.text().strip() or str(get_data_dir())
@@ -1932,17 +2137,15 @@ class PluginManagerWindow(QMainWindow):
         # ── 菜单栏 ──
         menubar = self.menuBar()
 
-        # 选项菜单
-        self._menu_options = menubar.addMenu(self.tr("选项"))
-
-        self._act_download_plugin = self._menu_options.addAction(
+        # 插件菜单
+        self._menu_plugins = menubar.addMenu(self.tr("插件"))
+        self._act_download_plugin = self._menu_plugins.addAction(
             self.tr("下载插件..."))
         set_action_icon(self._act_download_plugin, "download")
         self._act_download_plugin.triggered.connect(self._open_download_plugin)
 
-        # 设置子菜单
-        self._menu_settings = self._menu_options.addMenu(self.tr("设置"))
-        set_action_icon(self._menu_settings.menuAction(), "settings")
+        # 顶层菜单不设置图标：Qt 菜单栏可能只绘制图标而隐藏标题。
+        self._menu_settings = menubar.addMenu(self.tr("设置"))
 
         # 基础设置动作
         self._act_basic_settings = self._menu_settings.addAction(
@@ -1964,36 +2167,29 @@ class PluginManagerWindow(QMainWindow):
         self._act_control_auth.triggered.connect(
             self._open_control_auth_dialog)
 
-        self._menu_settings.addSeparator()
-
-        # 调试动作
-        self._debug_act = self._menu_settings.addAction(self.tr("启动调试"))
-        set_action_icon(self._debug_act, "debug")
-        self._debug_act.triggered.connect(self._start_debug)
-
-        self._menu_options.addSeparator()
-
-        # 插件开发指南动作
-        self._act_dev_guide = self._menu_options.addAction(self.tr("插件开发指南"))
-        set_action_icon(self._act_dev_guide, "guide")
-        self._act_dev_guide.triggered.connect(self._open_dev_guide)
-
-        # ── 查看菜单 ──
-        self._menu_view = menubar.addMenu(self.tr("查看"))
-
-        # 日志查看动作
-        self._act_log_viewer = self._menu_view.addAction(self.tr("日志查看"))
+        # 工具菜单
+        self._menu_tools = menubar.addMenu(self.tr("工具"))
+        self._act_log_viewer = self._menu_tools.addAction(self.tr("查看日志"))
         set_action_icon(self._act_log_viewer, "log")
         self._act_log_viewer.triggered.connect(lambda: self._open_log_viewer())
 
-        # 清理全部日志动作
-        self._menu_view.addSeparator()
-        self._act_clear_logs = self._menu_view.addAction(
+        self._act_clear_logs = self._menu_tools.addAction(
             self.tr("清理全部日志..."))
         set_action_icon(self._act_clear_logs, "clear")
         self._act_clear_logs.setToolTip(
             self.tr("清空日志目录下的所有日志文件内容"))
         self._act_clear_logs.triggered.connect(self._clear_all_logs)
+
+        self._menu_tools.addSeparator()
+        self._debug_act = self._menu_tools.addAction(self.tr("启动调试"))
+        set_action_icon(self._debug_act, "debug")
+        self._debug_act.triggered.connect(self._start_debug)
+
+        # 帮助菜单
+        self._menu_help = menubar.addMenu(self.tr("帮助"))
+        self._act_dev_guide = self._menu_help.addAction(self.tr("插件开发指南"))
+        set_action_icon(self._act_dev_guide, "guide")
+        self._act_dev_guide.triggered.connect(self._open_dev_guide)
 
         # ── 工具栏 ──
         self._toolbar = QToolBar(self.tr("工具栏"))
@@ -2095,19 +2291,18 @@ class PluginManagerWindow(QMainWindow):
     def retranslateUi(self) -> None:
         """语言切换时重新应用所有翻译"""
         self.setWindowTitle(self.tr("插件管理器"))
-        self._menu_options.setTitle(self.tr("选项"))
+        self._menu_plugins.setTitle(self.tr("插件"))
         self._act_download_plugin.setText(self.tr("下载插件..."))
         self._menu_settings.setTitle(self.tr("设置"))
         self._act_basic_settings.setText(self.tr("基础设置..."))
         self._act_plugin_environment.setText(self.tr("插件依赖环境..."))
         self._act_control_auth.setText(self.tr("控制授权..."))
-        dbg_text = self.tr("启动调试")
-        if not self._debug_act.isEnabled():
-            dbg_text = self.tr("调试已启动")
-        self._debug_act.setText(dbg_text)
+        self._debug_act.setText(
+            self.tr("调试已启动") if self._debug_active else self.tr("启动调试"))
+        self._menu_help.setTitle(self.tr("帮助"))
         self._act_dev_guide.setText(self.tr("插件开发指南"))
-        self._menu_view.setTitle(self.tr("查看"))
-        self._act_log_viewer.setText(self.tr("日志查看"))
+        self._menu_tools.setTitle(self.tr("工具"))
+        self._act_log_viewer.setText(self.tr("查看日志"))
         self._act_clear_logs.setText(self.tr("清理全部日志..."))
         self._act_clear_logs.setToolTip(
             self.tr("清空日志目录下的所有日志文件内容"))
@@ -2598,19 +2793,12 @@ class PluginManagerWindow(QMainWindow):
 
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("插件依赖") + f" — {module_name}")
-        dialog.setMinimumSize(620, 360)
+        dialog.resize(620, 380)
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(20, 18, 20, 16)
-        layout.setSpacing(12)
-
-        heading = QLabel(self.tr("额外依赖检查"))
-        heading.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(heading)
 
         if dependency.requirements_path is not None:
             path_label = QLabel(str(dependency.requirements_path))
             path_label.setWordWrap(True)
-            path_label.setStyleSheet("color: palette(mid); font-size: 11px;")
             layout.addWidget(path_label)
 
         if dependency.diagnostics:
@@ -2619,11 +2807,8 @@ class PluginManagerWindow(QMainWindow):
                 self.tr("依赖"), self.tr("已安装版本"), self.tr("状态")])
             table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-            table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
             table.setAlternatingRowColors(True)
-            table.setShowGrid(False)
             table.verticalHeader().setVisible(False)
-            table.verticalHeader().setDefaultSectionSize(38)
             table.horizontalHeader().setSectionResizeMode(
                 0, QHeaderView.ResizeMode.Stretch)
             table.horizontalHeader().setSectionResizeMode(
@@ -2638,13 +2823,6 @@ class PluginManagerWindow(QMainWindow):
                 "unknown": self.tr("无法确认"),
                 "skipped": self.tr("不适用"),
             }
-            status_colors = {
-                "satisfied": ("#2e7d32", "#e8f5e9"),
-                "missing": ("#c62828", "#ffebee"),
-                "conflict": ("#c62828", "#ffebee"),
-                "unknown": ("#ef6c00", "#fff3e0"),
-                "skipped": ("#616161", "#f5f5f5"),
-            }
             for row, item in enumerate(dependency.diagnostics):
                 requirement_cell = QTableWidgetItem(item.requirement)
                 if item.detail:
@@ -2654,28 +2832,18 @@ class PluginManagerWindow(QMainWindow):
                     item.installed_version or self.tr("—")))
                 status_cell = QTableWidgetItem(
                     status_labels.get(item.status, item.status))
-                foreground, background = status_colors.get(
-                    item.status, ("#616161", "#f5f5f5"))
-                status_cell.setForeground(QColor(foreground))
-                status_cell.setBackground(QColor(background))
                 table.setItem(row, 2, status_cell)
             layout.addWidget(table, 1)
         else:
             empty = QLabel(self.tr("此插件没有额外依赖。"))
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty.setMinimumHeight(120)
-            empty.setStyleSheet(
-                "color: palette(mid); background: palette(alternate-base);"
-                "border-radius: 8px; padding: 20px;")
             layout.addWidget(empty, 1)
 
         if dependency.import_error:
             error = QLabel(self.tr("插件加载失败：{error}").format(
                 error=dependency.import_error))
             error.setWordWrap(True)
-            error.setStyleSheet(
-                "color: #c62828; background: #ffebee; border-radius: 6px;"
-                "padding: 8px;")
             layout.addWidget(error)
 
         requirements_path = dependency.requirements_path
@@ -2726,12 +2894,14 @@ class PluginManagerWindow(QMainWindow):
         menu = QMenu(self)
         if not plugin:
             action = menu.addAction(self.tr("查看依赖详情"))
+            set_action_icon(action, "dependency")
             action.triggered.connect(lambda: self._show_dependency_details(module_name))
             menu.exec(self._list.viewport().mapToGlobal(pos))
             return
         t = self._tab_widget
         if module_name:
             action = menu.addAction(self.tr("查看依赖详情"))
+            set_action_icon(action, "dependency")
             action.triggered.connect(lambda: self._show_dependency_details(module_name))
             menu.addSeparator()
 

@@ -11,8 +11,10 @@
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import queue
+import re
 import shutil
 import struct
 import subprocess
@@ -21,6 +23,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from importlib import metadata
 from importlib.machinery import PathFinder
@@ -36,6 +39,10 @@ _VENV_TIMEOUT = 300
 _PIP_TIMEOUT = 600
 _BOOTSTRAP_LOCK = threading.Lock()
 _DEBUGPY_REQUIREMENT = "debugpy>=1.8.20"
+_TARGET_INSTALL_ERROR = (
+    "Upgrading individual packages is disabled for ordinary library directories "
+    "because shared namespace packages could be damaged; use a virtual environment."
+)
 
 
 @dataclass
@@ -435,13 +442,15 @@ def _has_debugpy(library_path: Path) -> bool:
     return PathFinder.find_spec("debugpy", [str(library_path)]) is not None
 
 
-def _ensure_environment(data_dir: Path, errors: list[str]) -> tuple[Path | None, Path | None, bool]:
-    from .settings_manager import SettingsManager
-
-    settings = SettingsManager(data_dir)
-    configured = settings.plugin_lib_dir.strip()
+def _environment_for_directory(
+    configured: str, errors: list[str],
+) -> tuple[Path | None, Path | None, bool]:
+    configured = configured.strip()
     if not configured:
-        errors.append("未配置插件依赖目录，请在插件依赖环境设置中选择或创建。")
+        errors.append(
+            "未配置插件依赖目录；设置中显示的默认目录仅为建议，"
+            "请选择已有目录或创建虚拟环境后点击“确定”保存。"
+        )
         return None, None, False
     target = Path(configured).expanduser().resolve()
 
@@ -472,6 +481,12 @@ def _ensure_environment(data_dir: Path, errors: list[str]) -> tuple[Path | None,
         errors.append(f"No matching external Python is available to manage libraries in {target}")
         return target, None, True
     return target, python_executable, True
+
+
+def _ensure_environment(data_dir: Path, errors: list[str]) -> tuple[Path | None, Path | None, bool]:
+    from .settings_manager import SettingsManager
+
+    return _environment_for_directory(SettingsManager(data_dir).plugin_lib_dir, errors)
 
 
 def prepare_plugin_dependency_environment(data_dir: Path) -> BootstrapResult:
@@ -529,6 +544,123 @@ def _install_requirements_file(
             return error
         importlib.invalidate_caches()
         return None
+
+
+def _package_name_key(name: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", name):
+        raise ValueError(f"Invalid distribution name: {name!r}")
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _index_arguments(index_urls: list[str]) -> list[str]:
+    from .settings_manager import normalize_pip_indexes
+
+    indexes = normalize_pip_indexes(index_urls)
+    if not indexes:
+        return []
+    args = ["--index-url", indexes[0]]
+    for url in indexes[1:]:
+        args.extend(("--extra-index-url", url))
+    return args
+
+
+def check_package_updates(directory: Path, index_urls: list[str]) -> dict[str, str]:
+    """Return normalized distribution names and latest compatible versions.
+
+    This performs network I/O and must not run on the GUI thread. A failed
+    lookup raises an exception; an empty result means no updates were found.
+    """
+    indexes = _index_arguments(index_urls)
+    errors: list[str] = []
+    library_path, executable, _ = _environment_for_directory(str(directory), errors)
+    if library_path is None or executable is None:
+        raise RuntimeError("; ".join(errors) or "Plugin dependency environment is unavailable")
+    # A network lookup may outlive its dialog. Do not hold the installation lock;
+    # concurrent changes can make the returned package list a stale snapshot.
+    command = [str(executable), "-m", "pip", "list", "--outdated", "--format=json",
+               "--path", str(library_path), "--disable-pip-version-check",
+               "--no-input", "--timeout", "20", "--retries", "1", *indexes]
+    try:
+        proc = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=120,
+                              creationflags=_CREATE_NO_WINDOW)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Package update check timed out") from exc
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"Package update check failed: {exc}") from exc
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout).strip()
+                           or f"pip exited with status {proc.returncode}")
+    # pip list can exit successfully with [] even when an index is unreachable.
+    # A retry means its results may be incomplete, including with extra indexes.
+    if "WARNING: Retrying" in proc.stderr or "Could not fetch URL" in proc.stderr:
+        raise RuntimeError(f"Package update check incomplete: {proc.stderr.strip()}")
+    try:
+        data = json.loads(proc.stdout)
+        if not isinstance(data, list):
+            raise ValueError("expected a list")
+        result: dict[str, str] = {}
+        for item in data:
+            if not isinstance(item, dict):
+                raise ValueError("expected a package object")
+            name, version = item.get("name"), item.get("latest_version")
+            if not isinstance(name, str) or not isinstance(version, str) or not version:
+                raise ValueError("missing package name or latest version")
+            result[_package_name_key(name)] = version
+        return result
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError(f"Invalid package update response: {exc}") from exc
+
+
+def check_package_updates_async(directory: Path, index_urls: list[str]) -> Future[dict[str, str]]:
+    """Check in a background thread; Future callbacks run outside the GUI thread."""
+    future: Future[dict[str, str]] = Future()
+    directory_snapshot, indexes_snapshot = Path(directory), list(index_urls)
+
+    def run() -> None:
+        if not future.set_running_or_notify_cancel():
+            return
+        try:
+            future.set_result(check_package_updates(directory_snapshot, indexes_snapshot))
+        except Exception as exc:
+            future.set_exception(exc)
+
+    threading.Thread(target=run, name="plugin-package-update-check", daemon=True).start()
+    return future
+
+
+def upgrade_installed_package(
+    directory: Path, index_urls: list[str], name: str, *,
+    output_callback: Callable[[str], None] | None = None,
+) -> str | None:
+    """Upgrade one installed distribution; return an error or None on success.
+
+    Run this from an installation worker, as with install_plugin_requirements.
+    """
+    try:
+        name_key = _package_name_key(name)
+        indexes = _index_arguments(index_urls)
+        with _BOOTSTRAP_LOCK:
+            errors: list[str] = []
+            library_path, executable, use_target = _environment_for_directory(str(directory), errors)
+            if use_target:
+                return _TARGET_INSTALL_ERROR
+            if library_path is None or executable is None:
+                return "; ".join(errors) or "Plugin dependency environment is unavailable"
+            installed = {_package_name_key(package) for package, _ in list_installed_packages(library_path)
+                         if re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", package)}
+            if name_key not in installed:
+                return f"Distribution is not installed in the selected environment: {name}"
+            command = [str(executable), "-m", "pip", "install"]
+            command.extend((*indexes, "--upgrade", "--no-input", "--disable-pip-version-check",
+                            "--progress-bar", "raw", "--timeout", "20", "--retries", "1",
+                            "--", name))
+            error = _run_install(command, f"Upgrading {name}", output_callback)
+            if error is None:
+                importlib.invalidate_caches()
+            return error
+    except (OSError, ValueError) as exc:
+        return str(exc)
 
 
 def install_plugin_requirements(

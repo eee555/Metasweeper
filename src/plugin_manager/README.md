@@ -31,7 +31,7 @@
 
 ## 日志清理
 
-菜单「查看 → 清理全部日志...」清空 `<data>/logs` 下的所有 `*.log`（含
+菜单「工具 → 清理全部日志...」清空 `<data>/logs` 下的所有 `*.log`（含
 `main.log`、`plugins/*.log` 与轮转备份）。日志文件被 loguru 的文件 sink 以追加模式
 持有，Windows 下无法删除，因此实现上统一截断为空（`logging_setup.clear_all_logs`），
 清理后 sink 会继续从新文件末尾写入。目录中非 `.log` 文件（例如截图）不会被误删；

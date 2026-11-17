@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from plugin_manager import plugin_lib_env as env
 from plugin_manager.settings_manager import SettingsManager
 
@@ -39,6 +41,36 @@ def test_startup_does_not_create_environment_without_user_action(tmp_path, monke
     assert result.errors
     assert not (data_dir / "plugin_venv").exists()
     assert SettingsManager(data_dir).plugin_lib_dir == ""
+
+
+def test_default_venv_is_only_used_after_settings_are_saved(qtbot, tmp_path, monkeypatch):
+    from plugin_manager import main_window
+
+    data_dir = tmp_path / "data"
+    site, executable = make_venv(data_dir / "plugin_venv")
+    monkeypatch.setattr(main_window, "get_data_dir", lambda: data_dir)
+    monkeypatch.setattr(main_window, "find_matching_python", lambda: None)
+    monkeypatch.setattr(env, "_probe_python", lambda _: env.current_python_tag())
+    monkeypatch.setattr(sys, "path", list(sys.path))
+
+    before = env.prepare_plugin_dependency_environment(data_dir)
+    assert before.library_path is None
+    assert any("仅为建议" in error and "保存" in error for error in before.errors)
+    assert str(site) not in sys.path
+
+    dialog = main_window.PluginEnvironmentDialog(SettingsManager(data_dir))
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: dialog._worker is None, timeout=5000)
+    assert dialog._lib_dir_edit.text() == str(data_dir / "plugin_venv")
+    assert SettingsManager(data_dir).plugin_lib_dir == ""
+    dialog._on_accept()
+
+    assert SettingsManager(data_dir).plugin_lib_dir == str(data_dir / "plugin_venv")
+    after = env.prepare_plugin_dependency_environment(data_dir)
+    assert after.library_path == site
+    assert after.python_executable == executable
+    assert after.errors == []
+    assert str(site) in sys.path
 
 
 def test_failed_default_setup_keeps_path_unset_for_retry(tmp_path, monkeypatch):
@@ -89,10 +121,16 @@ def test_mismatched_existing_venv_is_not_used_for_installation(tmp_path, monkeyp
     assert any("does not match" in error for error in result.errors)
 
 
-def test_manual_plugin_install_uses_selected_target_directory(tmp_path, monkeypatch):
+@pytest.mark.parametrize("venv", [False, True])
+def test_manual_plugin_install_uses_selected_environment(tmp_path, monkeypatch, venv):
     data_dir = tmp_path / "data"
     target = tmp_path / "library"
-    target.mkdir()
+    if venv:
+        _, executable = make_venv(target)
+        monkeypatch.setattr(env, "_probe_python", lambda _: env.current_python_tag())
+    else:
+        target.mkdir()
+        executable = Path("external-python")
     SettingsManager(data_dir).set_plugin_lib_dir(str(target))
     requirement_file = tmp_path / "requirements.txt"
     requirement_file.write_text("humanize>=4,<5\\n", encoding="utf-8")
@@ -110,8 +148,11 @@ def test_manual_plugin_install_uses_selected_target_directory(tmp_path, monkeypa
     error = env.install_plugin_requirements(data_dir, requirement_file)
 
     assert error is None
-    assert commands[0][:5] == ["external-python", "-m", "pip", "install", "--target"]
-    assert commands[0][5] == str(target)
+    assert commands[0][:4] == [str(executable), "-m", "pip", "install"]
+    if venv:
+        assert "--target" not in commands[0]
+    else:
+        assert commands[0][4:6] == ["--target", str(target)]
     assert "--index-url" in commands[0]
     assert "https://pypi.org/simple" in commands[0]
     assert "--extra-index-url" in commands[0]
@@ -138,12 +179,18 @@ def test_startup_only_prepares_environment_and_never_runs_pip(tmp_path, monkeypa
     assert str(target) in sys.path
 
 
-def test_debugpy_installs_only_after_explicit_call(tmp_path, monkeypatch):
+@pytest.mark.parametrize("venv", [False, True])
+def test_debugpy_installs_only_after_explicit_call(tmp_path, monkeypatch, venv):
     data_dir = tmp_path / "data"
     target = tmp_path / "target"
-    target.mkdir()
+    if venv:
+        _, executable = make_venv(target)
+        monkeypatch.setattr(env, "_probe_python", lambda _: env.current_python_tag())
+    else:
+        target.mkdir()
+        executable = Path("python-external")
+        monkeypatch.setattr(env, "find_matching_python", lambda: str(executable))
     SettingsManager(data_dir).set_plugin_lib_dir(str(target))
-    monkeypatch.setattr(env, "find_matching_python", lambda: "python-external")
     monkeypatch.setattr(env, "_has_debugpy", lambda path: False)
     monkeypatch.setattr(sys, "path", list(sys.path))
     commands = []
@@ -161,7 +208,11 @@ def test_debugpy_installs_only_after_explicit_call(tmp_path, monkeypatch):
     assert error is None
     assert len(commands) == 1
     assert "debugpy>=1.8.20" in commands[0][1]
-    assert commands[0][0][0] == "python-external"
+    assert commands[0][0][0] == str(executable)
+    if venv:
+        assert "--target" not in commands[0][0]
+    else:
+        assert commands[0][0][4:6] == ["--target", str(target)]
 
 
 def test_stream_install_delivers_output_lines_in_order():
@@ -188,12 +239,12 @@ def test_pip_timeout_output_is_returned_and_logged(monkeypatch):
 
 def test_manual_plugin_install_passes_selected_requirements_file(tmp_path, monkeypatch):
     data_dir = tmp_path / "data"
-    target = tmp_path / "target"
-    target.mkdir()
+    target = tmp_path / "venv"
+    make_venv(target)
     SettingsManager(data_dir).set_plugin_lib_dir(str(target))
     requirement_file = tmp_path / "requirements.txt"
     requirement_file.write_text("invalid !!!\n", encoding="utf-8")
-    monkeypatch.setattr(env, "find_matching_python", lambda: "python-external")
+    monkeypatch.setattr(env, "_probe_python", lambda _: env.current_python_tag())
     monkeypatch.setattr(sys, "path", list(sys.path))
     commands = []
     monkeypatch.setattr(env.subprocess, "run", lambda command, **kwargs: (

@@ -43,7 +43,7 @@ def test_full_init_builds_ui_signals_and_tray(qtbot, monkeypatch, tmp_path):
     w = real_window(qtbot, monkeypatch, tmp_path, {"alpha": plugin})
     try:
 
-        assert w._menu_options.title() == w.tr("选项")
+        assert w._menu_plugins.title() == w.tr("插件")
         assert w._act_download_plugin.isEnabled()
         assert w._act_plugin_environment in w._menu_settings.actions()
         assert w._list.count() == 1
@@ -58,6 +58,10 @@ def test_full_init_builds_ui_signals_and_tray(qtbot, monkeypatch, tmp_path):
         w.retranslateUi()
         assert w._tray_act_show.text() == w.tr("显示主窗口")
         w._debug_act.setEnabled(False)
+        monkeypatch.setattr(PluginManagerWindow, "_debug_active", False)
+        w.retranslateUi()
+        assert w._debug_act.text() == w.tr("启动调试")
+        monkeypatch.setattr(PluginManagerWindow, "_debug_active", True)
         w.retranslateUi()
         assert w._debug_act.text() == w.tr("调试已启动")
     finally:
