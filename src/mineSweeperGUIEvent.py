@@ -10,6 +10,7 @@ from config.constants import (
     FACE_SMILE, FACE_CLICK, BOARD_READY, BOARD_WIN, BOARD_LOSS,
     CELL_UNOPENED, CELL_FLAGGED,
 )
+from config.key_bindings import wheel_modifier
 from shared_types.events import ButtonClickEvent
 from shared_types.enums import ButtonEventType, MouseState
 from plugin_sdk.server_bridge import GameServerBridge
@@ -321,10 +322,10 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                 self.label_info.setText(text4)
 
     def resizeWheel(self, i, x, y):
-        # 按住ctrl滚轮，调整局面大小
+        # 按住可自定义的修饰键+滚轮，调整局面大小
         # study状态下，滚轮修改局面
         # 函数名要改了
-        if QApplication.keyboardModifiers() == Qt.KeyboardModifier.ControlModifier and\
+        if QApplication.keyboardModifiers() == wheel_modifier(self.game_setting) and\
                 self.game_state == READY and self.label.ms_board.game_board_state == BOARD_READY:
             # 调整局面大小需要满足：ui端是ready且状态机是ready
             if i > 0:

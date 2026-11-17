@@ -4,6 +4,7 @@ from ui.ui_score_board import Ui_Form
 from ui.uiComponents import RoundQWidget
 from utils.safe_eval import safe_eval
 from config.constants import BOARD_READY, BOARD_PLAYING, BOARD_WIN, BOARD_LOSS, MIN_PIX_SIZE, MAX_PIX_SIZE
+from config.key_bindings import wheel_modifier
 from PySide6 import QtWidgets
 from PySide6.QtWidgets import QTableWidgetItem, QAbstractItemDelegate, QApplication
 from PySide6.QtGui import QBrush, QColor, QPixmap, QShortcut, QTransform
@@ -14,9 +15,10 @@ from utils.path_utils import resource_path
 class ScoreBoardWidget(RoundQWidget):
     shown = QtCore.Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, game_setting=None):
         super().__init__(parent)
         self._on_ctrl_wheel = None
+        self._game_setting = game_setting
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -26,7 +28,9 @@ class ScoreBoardWidget(RoundQWidget):
         self._on_ctrl_wheel = handler
 
     def wheelEvent(self, event):
-        if self._on_ctrl_wheel and QApplication.keyboardModifiers() == QtCore.Qt.KeyboardModifier.ControlModifier:
+        modifier = (wheel_modifier(self._game_setting) if self._game_setting
+                    else QtCore.Qt.KeyboardModifier.ControlModifier)
+        if self._on_ctrl_wheel and QApplication.keyboardModifiers() == modifier:
             angle = event.angleDelta().y()
             if angle > 0:
                 self._on_ctrl_wheel(1)
@@ -45,8 +49,8 @@ class ui_Form(Ui_Form):
     # 设计基准：主界面 pixSize = 16 时，计时器各尺寸（80,150,25...）为基准值
     BASE_PIX = 26
 
-    def __init__(self, pix_size, parent):
-        self.QWidget = ScoreBoardWidget(parent)
+    def __init__(self, pix_size, parent, game_setting=None):
+        self.QWidget = ScoreBoardWidget(parent, game_setting)
         self.setupUi(self.QWidget)
         self._skin_colors: dict[str, str | None] = {}
         self._frame_background_active = False
@@ -333,7 +337,7 @@ class gameScoreBoardManager():
 
         self.update_score_board_items_type()
         self.index_num = len(self.score_board_items_type)
-        self.ui = ui_Form(self.scoreboard_pixsize, parent)
+        self.ui = ui_Form(self.scoreboard_pixsize, parent, self.game_setting)
         self.ui.QWidget.set_ctrl_wheel_handler(self.adjust_scale)
         self.ui.tableWidget.doubleClicked.connect(self.__table_change)
         self.ui.tableWidget.clicked.connect(self.__table_ok)

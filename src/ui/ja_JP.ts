@@ -4718,4 +4718,161 @@ th { background: #F3E5F5; color: #6A1B9A; }
         <translation type="unfinished"></translation>
     </message>
 </context>
+<context>
+    <name>KeyBindings</name>
+    <message>
+        <source>初级局面 (1)</source>
+        <translation>初級面 (1)</translation>
+    </message>
+    <message>
+        <source>中级局面 (2)</source>
+        <translation>中級面 (2)</translation>
+    </message>
+    <message>
+        <source>高级局面 (3)</source>
+        <translation>上級面 (3)</translation>
+    </message>
+    <message>
+        <source>自定义局面 4</source>
+        <translation>カスタム局面 4</translation>
+    </message>
+    <message>
+        <source>自定义局面 5</source>
+        <translation>カスタム局面 5</translation>
+    </message>
+    <message>
+        <source>自定义局面 6</source>
+        <translation>カスタム局面 6</translation>
+    </message>
+    <message>
+        <source>重新开始一局</source>
+        <translation>ゲームを再開</translation>
+    </message>
+    <message>
+        <source>回放当前局面</source>
+        <translation>現在の局面を再生</translation>
+    </message>
+    <message>
+        <source>显示每格雷的概率</source>
+        <translation>各マスの地雷確率を表示</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (OBR)</source>
+        <translation>画面認識で確率を計算 (OBR)</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (macOS 备用)</source>
+        <translation>画面認識で確率を計算 (macOS 代替)</translation>
+    </message>
+    <message>
+        <source>隐藏/显示计数器</source>
+        <translation>カウンターの表示/非表示</translation>
+    </message>
+    <message>
+        <source>复制局面</source>
+        <translation>局面をコピー</translation>
+    </message>
+    <message>
+        <source>粘贴局面</source>
+        <translation>局面を貼り付け</translation>
+    </message>
+    <message>
+        <source>菜单：新游戏</source>
+        <translation>メニュー: 新しいゲーム</translation>
+    </message>
+    <message>
+        <source>菜单：初级</source>
+        <translation>メニュー: 初級</translation>
+    </message>
+    <message>
+        <source>菜单：中级</source>
+        <translation>メニュー: 中級</translation>
+    </message>
+    <message>
+        <source>菜单：高级</source>
+        <translation>メニュー: 上級</translation>
+    </message>
+    <message>
+        <source>菜单：自定义</source>
+        <translation>メニュー: カスタム</translation>
+    </message>
+    <message>
+        <source>菜单：退出</source>
+        <translation>メニュー: 終了</translation>
+    </message>
+    <message>
+        <source>菜单：游戏设置</source>
+        <translation>メニュー: ゲーム設定</translation>
+    </message>
+    <message>
+        <source>菜单：关于</source>
+        <translation>メニュー: バージョン情報</translation>
+    </message>
+    <message>
+        <source>菜单：快捷键设置</source>
+        <translation>メニュー: ショートカット設定</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像</source>
+        <translation>メニュー: リプレイを開く</translation>
+    </message>
+    <message>
+        <source>菜单：鼠标设置</source>
+        <translation>メニュー: マウス設定</translation>
+    </message>
+    <message>
+        <source>菜单：保存录像</source>
+        <translation>メニュー: リプレイを保存</translation>
+    </message>
+    <message>
+        <source>菜单：播放录像</source>
+        <translation>メニュー: リプレイを再生</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像目录</source>
+        <translation>メニュー: リプレイフォルダーを開く</translation>
+    </message>
+    <message>
+        <source>菜单：成就</source>
+        <translation>メニュー: 実績</translation>
+    </message>
+    <message>
+        <source>菜单：个人记录</source>
+        <translation>メニュー: 個人記録</translation>
+    </message>
+    <message>
+        <source>菜单：插件管理</source>
+        <translation>メニュー: プラグイン管理</translation>
+    </message>
+    <message>
+        <source>点击按键框后直接按下想要的组合键；清空输入框可禁用该快捷键。</source>
+        <translation>キー入力欄をクリックし、希望のキー組み合わせを押してください。欄を空にするとショートカットを無効にできます。</translation>
+    </message>
+    <message>
+        <source>恢复默认</source>
+        <translation>既定値に戻す</translation>
+    </message>
+    <message>
+        <source>滚轮缩放棋盘的修饰键：</source>
+        <translation>ホイールで盤面を拡大縮小する修飾キー：</translation>
+    </message>
+    <message>
+        <source>注意：以下快捷键被重复指定：</source>
+        <translation>注意: 次のショートカットが重複しています: </translation>
+    </message>
+    <message>
+        <source>快捷键冲突</source>
+        <translation>ショートカットの競合</translation>
+    </message>
+    <message>
+        <source>以下快捷键被重复指定，请修改后再保存：
+</source>
+        <translation>次のショートカットが重複しています。保存前に変更してください:
+</translation>
+    </message>
+    <message>
+        <source>按键自定义</source>
+        <translation>キーカスタマイズ</translation>
+    </message>
+</context>
 </TS>
