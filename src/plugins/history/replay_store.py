@@ -964,13 +964,20 @@ def _read_from_segment(
     replay_id: int,
     segment_cache: dict[int, list] | None = None,
 ) -> bytes | None:
-    row = conn.execute(
-        "SELECT seg_id, slot, length, sha256, codec, deleted "
-        "FROM replay_index WHERE replay_id = ?", (replay_id,),
-    ).fetchone()
-    if row is None or row[5]:
-        return None
-    return _raw_from_index(conn, replay_id, row[:5], segment_cache)
+    # 索引和对应的 staging/segment 必须来自同一快照。后台封口会在
+    # 同一写事务中更新索引并删除 staging；独立 SELECT 之间可能发生提交。
+    # SAVEPOINT 同时兼容调用方已有事务，释放时不会提交外层事务。
+    conn.execute("SAVEPOINT replay_read_snapshot")
+    try:
+        row = conn.execute(
+            "SELECT seg_id, slot, length, sha256, codec, deleted "
+            "FROM replay_index WHERE replay_id = ?", (replay_id,),
+        ).fetchone()
+        if row is None or row[5]:
+            return None
+        return _raw_from_index(conn, replay_id, row[:5], segment_cache)
+    finally:
+        conn.execute("RELEASE SAVEPOINT replay_read_snapshot")
 
 
 def read_raw_data(conn: sqlite3.Connection, replay_id: int) -> bytes | None:

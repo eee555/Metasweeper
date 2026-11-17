@@ -385,6 +385,58 @@ def test_prepare_seal_is_read_only(conn):
     assert not conn.in_transaction
 
 
+def test_read_snapshot_survives_concurrent_seal(tmp_path, monkeypatch):
+    """索引读完后另一连接封口并删除 staging，读取仍使用原快照。"""
+    from plugins.history import replay_store
+
+    path = tmp_path / "history.db"
+    reader = sqlite3.connect(path)
+    writer = sqlite3.connect(path)
+    try:
+        reader.execute("PRAGMA journal_mode=WAL")
+        ensure_tables(reader)
+        raw = make_evf()
+        write_record(writer, 1, raw)
+        writer.commit()
+        prepared = prepare_seal(writer, force=True)
+        assert prepared is not None
+        original = replay_store._raw_from_index
+        sealed = []
+
+        def seal_after_index(conn, replay_id, entry, segment_cache=None):
+            assert entry[4] == CODEC_ZLIB
+            sealed.append(apply_seal(writer, prepared))
+            assert writer.execute(
+                "SELECT 1 FROM replay_staging WHERE replay_id=1").fetchone() is None
+            return original(conn, replay_id, entry, segment_cache)
+
+        monkeypatch.setattr(replay_store, "_raw_from_index", seal_after_index)
+        assert read_raw_data(reader, 1) == raw
+        assert sealed == [1]
+        assert not reader.in_transaction
+    finally:
+        reader.close()
+        writer.close()
+
+
+def test_read_snapshot_preserves_caller_transaction(conn):
+    raw = make_evf()
+    write_record(conn, 1, raw)
+    assert conn.in_transaction
+    assert read_raw_data(conn, 1) == raw
+    assert conn.in_transaction
+    conn.rollback()
+    assert read_raw_data(conn, 1) is None
+
+
+def test_read_snapshot_released_after_integrity_failure(conn):
+    write_record(conn, 1, make_evf())
+    conn.execute("DELETE FROM replay_staging WHERE replay_id=1")
+    conn.commit()
+    assert read_raw_data(conn, 1) is None
+    assert not conn.in_transaction
+
+
 def test_prepare_then_apply_separate_connections(tmp_path):
     """维护线程 prepare、写线程 apply（真实跨连接模型）。"""
     path = tmp_path / "history.db"
