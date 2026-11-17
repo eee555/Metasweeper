@@ -71,10 +71,9 @@ jobs:
             --exclude PIL --exclude Pillow --exclude Cython `
             --exclude setuptools --exclude pkg_resources `
             --exclude psutil --exclude numpy `
-            --exclude pytest --exclude _pytest `
+            --exclude pytest --exclude _pytest --exclude-module debugpy `
             --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
             --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
-            --runtime-hook package_tool/hook-debugpy-pyinstaller.py `
             src/main.py
 
       - name: Package plugin_manager with PyInstaller
@@ -113,10 +112,9 @@ jobs:
             --exclude PIL --exclude Pillow --exclude Cython `
             --exclude setuptools --exclude pkg_resources `
             --exclude psutil --exclude numpy `
-            --exclude pytest --exclude _pytest `
+            --exclude pytest --exclude _pytest --exclude-module debugpy `
             --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
             --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
-            --runtime-hook package_tool/hook-debugpy-pyinstaller.py `
             --distpath dist\plugin_manager_out `
             src\plugin_manager\_run.py
 
@@ -138,7 +136,7 @@ jobs:
           python -c "
           import importlib.util, shutil, os
           dest = 'dist/metasweeper/_internal'
-          for pkg in ['debugpy', 'msgspec']:
+          for pkg in ['msgspec']:
               spec = importlib.util.find_spec(pkg)
               if spec is None or not spec.submodule_search_locations:
                   raise ModuleNotFoundError(f'Required package not found: {pkg}')
@@ -149,12 +147,6 @@ jobs:
                   n = sum(1 for _,_,fs in os.walk(dst) for f in fs)
                   kb = sum(os.path.getsize(os.path.join(d, f)) for d,_,fs in os.walk(dst) for f in fs) // 1024
                   print(f'Copied {pkg} ({n} files, {kb} KB)')
-                  for sub in ['_vendored', '_vendored2']:
-                      vd = os.path.join(dst, sub)
-                      if os.path.isdir(vd):
-                          print(f'  {sub}/ present ({len(os.listdir(vd))} items)')
-                      else:
-                          print(f'  {sub}/ absent (OK for debugpy >=1.8)')
               else:
                   raise FileNotFoundError(f'Required package directory not found: {src}')
           "

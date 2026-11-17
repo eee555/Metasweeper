@@ -7,6 +7,7 @@
     <file alias="close.svg">icons/close.svg</file>
     <file alias="confirm.svg">icons/confirm.svg</file>
     <file alias="debug.svg">icons/debug.svg</file>
+    <file alias="dependency.svg">icons/dependency.svg</file>
     <file alias="disable.svg">icons/disable.svg</file>
     <file alias="download.svg">icons/download.svg</file>
     <file alias="enable.svg">icons/enable.svg</file>

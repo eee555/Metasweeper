@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import loguru
+
+from .dependency_scan import PluginDependencyStatus, scan_plugin_dependencies
 
 if TYPE_CHECKING:
     from plugin_sdk.plugin_base import BasePlugin, PluginInfo
@@ -32,6 +35,8 @@ class PluginLoader:
         self._plugin_dirs: list[Path] = []
         self._added_paths: set[Path] = set()  # 已添加到 sys.path 的目录
         self._loaded_modules: set[str] = set()  # 本加载器成功登记的模块
+        self._dependency_statuses: dict[str, PluginDependencyStatus] = {}
+        self._plugin_modules: dict[str, str] = {}
         if plugin_dirs:
             for d in plugin_dirs:
                 self.add_plugin_dir(d)
@@ -92,16 +97,34 @@ class PluginLoader:
 
         return plugins
 
+    @property
+    def module_dependency_statuses(self) -> dict[str, PluginDependencyStatus]:
+        """扫描结果快照，以发现的模块名为键。"""
+        return self._dependency_statuses.copy()
+
+    def get_module_dependency_status(self, module_name: str) -> PluginDependencyStatus | None:
+        return self._dependency_statuses.get(module_name)
+
+    def get_plugin_dependency_status(self, plugin_name: str) -> PluginDependencyStatus | None:
+        module_name = self._plugin_modules.get(plugin_name)
+        return self._dependency_statuses.get(module_name) if module_name is not None else None
+
     def load_module(self, module_path: Path, module_name: str) -> object | None:
-        """动态加载模块"""
+        """动态加载模块；即使直接调用也先完成依赖扫描。"""
+        status = self._dependency_statuses.get(module_name)
+        if status is None or status.module_path != module_path:
+            status = scan_plugin_dependencies(module_path, module_name)
+            self._dependency_statuses[module_name] = status
         try:
             if module_name in sys.modules:
+                self._dependency_statuses[module_name] = replace(status, import_status="loaded", import_error=None)
                 return sys.modules[module_name]
 
             spec = importlib.util.spec_from_file_location(
                 module_name, module_path)
             if spec is None or spec.loader is None:
                 logger.error(f"Failed to create spec for: {module_path}")
+                self._dependency_statuses[module_name] = replace(status, import_status="failed", import_error="Failed to create module spec")
                 return None
 
             module = importlib.util.module_from_spec(spec)
@@ -115,10 +138,12 @@ class PluginLoader:
 
             # 局限：仍用裸名缓存；改成命名空间名会破坏现有跨包导入。
             self._loaded_modules.add(module_name)
+            self._dependency_statuses[module_name] = replace(status, import_status="loaded", import_error=None)
             logger.info(f"Loaded plugin module: {module_name}")
             return module
 
         except Exception as e:
+            self._dependency_statuses[module_name] = replace(status, import_status="failed", import_error=f"{type(e).__name__}: {e}")
             logger.error(
                 f"Failed to load module {module_path}: {e}", exc_info=True)
             return None
@@ -190,6 +215,7 @@ class PluginLoader:
                 info = self._get_plugin_info(plugin_class)
                 plugin = plugin_class(info)
                 plugins.append(plugin)
+                self._plugin_modules[plugin.name] = module_name
                 logger.info(f"Instantiated plugin: {plugin.name}")
             except Exception as e:
                 logger.error(
@@ -208,6 +234,11 @@ class PluginLoader:
         all_plugins: list[BasePlugin] = []
 
         discovered = self.discover_plugins()
+        # Scan every discovered package before executing any plugin code.
+        self._dependency_statuses = {
+            name: scan_plugin_dependencies(path, name) for path, name in discovered
+        }
+        self._plugin_modules.clear()
         for module_path, module_name in discovered:
             try:
                 plugins = self.load_plugins_from_module(module_path, module_name)

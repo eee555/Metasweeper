@@ -41,15 +41,24 @@ MAIN_MODULE, RUN_MODULE = _load_entrypoints()
 
 def _configure(monkeypatch, tmp_path, module):
     pm = importlib.import_module("plugin_manager")
+    entry_module = importlib.import_module("plugin_manager.__main__")
     app_paths = importlib.import_module("plugin_manager.app_paths")
     logging_setup = importlib.import_module("plugin_manager.logging_setup")
     rec = SimpleNamespace(
-        overrides=[], init=[], run=[], exit=[], log_dir=tmp_path / "logs",
+        overrides=[], init=[], bootstrap=[], run=[], exit=[],
+        log_dir=tmp_path / "logs",
     )
     monkeypatch.setattr(
         app_paths, "set_data_dir_override", lambda path: rec.overrides.append(path),
     )
     monkeypatch.setattr(app_paths, "get_log_dir", lambda: rec.log_dir)
+    monkeypatch.setattr(app_paths, "get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        entry_module, "prepare_plugin_dependency_environment",
+        lambda data_dir: (
+            rec.bootstrap.append(data_dir) or SimpleNamespace(errors=[])
+        ),
+    )
     monkeypatch.setattr(
         logging_setup, "init_logging", lambda *a, **kw: rec.init.append((a, kw)),
     )
@@ -137,6 +146,7 @@ def test_main_returns_zero_when_instance_exists(entry, monkeypatch, capsys):
     assert "已有实例" in capsys.readouterr().out
     assert not entry.rec.run
     assert not entry.rec.init
+    assert not entry.rec.bootstrap
 
 
 def test_main_uses_builtin_defaults(entry):
@@ -151,6 +161,7 @@ def test_main_uses_builtin_defaults(entry):
     assert entry.rec.init == [((entry.rec.log_dir,), {
         "console": True, "level": "DEBUG",
     })]
+    assert entry.rec.bootstrap == [entry.rec.log_dir.parent]
     assert not entry.rec.overrides
 
 

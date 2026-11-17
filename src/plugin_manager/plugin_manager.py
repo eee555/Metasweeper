@@ -27,8 +27,11 @@ from shared_types.events import LanguageChangeEvent
 from .event_dispatcher import EventDispatcher
 from plugin_sdk.plugin_base import BasePlugin
 from .plugin_loader import PluginLoader
+from .dependency_scan import PluginDependencyStatus
 from .app_paths import get_all_plugin_dirs, get_bundle_dir, get_data_dir, patch_sys_path_for_frozen
+from .plugin_lib_env import apply_plugin_lib_dir
 from .plugin_state import PluginState, PluginStateManager
+from .settings_manager import SettingsManager
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication, QWidget
@@ -125,6 +128,10 @@ class PluginManager:
         self._dispatcher = EventDispatcher()
         self._loader = PluginLoader(plugin_dirs)
 
+        # 插件依赖库目录：必须在加载任何插件之前加入 sys.path
+        self._settings = SettingsManager(get_data_dir())
+        apply_plugin_lib_dir(self._settings.plugin_lib_dir)
+
         # 插件管理
         self._plugins: dict[str, BasePlugin] = {}
         self._plugins_lock = threading.RLock()
@@ -182,6 +189,10 @@ class PluginManager:
     @property
     def main_window(self):
         return self._main_window
+
+    @property
+    def settings(self) -> SettingsManager:
+        return self._settings
 
     @property
     def is_connected(self) -> bool:
@@ -533,6 +544,17 @@ class PluginManager:
 
     def get_plugin(self, name: str) -> BasePlugin | None:
         return self._plugins.get(name)
+
+    @property
+    def module_dependency_statuses(self) -> dict[str, PluginDependencyStatus]:
+        """所有已扫描模块的状态快照，包括导入失败的模块。"""
+        return self._loader.module_dependency_statuses
+
+    def get_module_dependency_status(self, module_name: str) -> PluginDependencyStatus | None:
+        return self._loader.get_module_dependency_status(module_name)
+
+    def get_plugin_dependency_status(self, plugin_name: str) -> PluginDependencyStatus | None:
+        return self._loader.get_plugin_dependency_status(plugin_name)
 
     def enable_plugin(self, name: str) -> bool:
         plugin = self._plugins.get(name)

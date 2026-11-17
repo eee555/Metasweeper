@@ -12,6 +12,7 @@ import ast
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PySide6.QtCore import Qt
@@ -110,6 +111,7 @@ def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
             self._menu_view = QMenu(self)
             self._act_download_plugin = QAction(self)
             self._act_basic_settings = QAction(self)
+            self._act_plugin_environment = QAction(self)
             self._act_control_auth = QAction(self)
             self._act_dev_guide = QAction(self)
             self._act_log_viewer = QAction(self)
@@ -120,6 +122,7 @@ def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
             self._control_auth_btn = QPushButton(self)
             self._title_label = QLabel(self)
             self._manager = None
+            self._state_mgr = SimpleNamespace(save=lambda: None)
             # 真实 __init__ 中的同一守卫：托盘不可用时提前置空
             self._tray_icon = None
 

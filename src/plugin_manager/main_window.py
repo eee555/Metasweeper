@@ -12,19 +12,22 @@ import loguru
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QTimer, QEvent
+from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QTimer, QEvent, QThread
 from PySide6.QtGui import QColor, QMouseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QAbstractItemView,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLayout,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QListView,
@@ -34,6 +37,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QStatusBar,
     QSystemTrayIcon,
     QTabBar,
@@ -48,7 +52,7 @@ from PySide6.QtWidgets import (
 from .plugin_info_dialog import PluginInfoDialog
 from .plugin_download_dialog import PluginDownloadDialog
 from .plugin_state import PluginStateManager, PluginState
-from .settings_manager import SettingsManager
+from .settings_manager import SettingsManager, normalize_pip_indexes
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
 from shared_types.widgets.toggle_switch import ToggleSwitch
 from shared_types.widgets.confirm_dialog import ConfirmDialog
@@ -57,6 +61,16 @@ from plugin_sdk.control_auth import ControlAuthorizationManager
 from plugin_sdk.config_types import OtherInfoBase
 from .app_paths import get_data_dir
 from .icons import action_icon, set_action_icon, set_button_box_icons
+from .plugin_lib_env import (
+    install_debugpy,
+    install_plugin_requirements,
+    create_venv,
+    find_matching_python,
+    is_venv_dir,
+    list_installed_packages,
+    python_tag_text,
+    resolve_lib_path,
+)
 
 if TYPE_CHECKING:
     from .plugin_manager import PluginManager
@@ -600,6 +614,390 @@ class PluginSettingsDialog(QDialog):
         """应用配置到 other_info 对象"""
         if self._config_widget:
             self._config_widget.apply_to_config()
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 插件依赖环境
+# ═══════════════════════════════════════════════════════════════════
+
+class _ElidedPathLabel(QLabel):
+    """随可用宽度中间省略路径，工具提示保留完整内容。"""
+
+    def set_path(self, path: str) -> None:
+        self._path = path
+        self.setToolTip(path)
+        self._update_text()
+
+    def _update_text(self) -> None:
+        self.setText(self.fontMetrics().elidedText(
+            getattr(self, "_path", ""), Qt.TextElideMode.ElideMiddle,
+            max(0, self.contentsRect().width())))
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._update_text()
+
+
+class _EnvironmentWorker(QThread):
+    """耗时的解释器探测和虚拟环境创建不占用 GUI 线程。"""
+
+    def __init__(self, target: Path | None = None, executable: str = "", parent=None):
+        super().__init__(parent)
+        self.target = target
+        self.executable = executable
+        self.result = None
+        self.error = None
+
+    def run(self) -> None:
+        try:
+            if self.target is None:
+                self.result = find_matching_python()
+            else:
+                # 再次检查，防止用户选择后目录已经有内容。
+                if self.target.exists() and (
+                        not self.target.is_dir() or any(self.target.iterdir())):
+                    raise ValueError("directory is not empty or is not a directory")
+                if not self.target.parent.is_dir():
+                    raise ValueError("parent directory does not exist")
+                create_venv(self.target, self.executable)
+        except Exception as exc:
+            self.error = str(exc)
+
+
+class _InstallWorker(QThread):
+    """在工作线程运行手动安装，并通过信号转发输出。"""
+
+    output = Signal(str)
+
+    def __init__(self, installer, args: tuple, parent=None):
+        super().__init__(parent)
+        self._installer = installer
+        self._args = args
+        self.error: str | None = None
+
+    def run(self) -> None:
+        try:
+            self.error = self._installer(
+                *self._args, output_callback=self.output.emit)
+        except Exception as exc:
+            self.error = str(exc) or type(exc).__name__
+
+
+class _InstallProgressDialog(QDialog):
+    """显示手动安装输出，直到工作线程结束才允许关闭。"""
+
+    installation_finished = Signal(object)
+
+    def __init__(self, title: str, installer, args: tuple, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(620, 380)
+        self.setMinimumSize(400, 250)
+        self._active = True
+        layout = QVBoxLayout(self)
+        self._status = QLabel(self.tr("正在安装…"))
+        self._status.setWordWrap(True)
+        layout.addWidget(self._status)
+        self._output = QPlainTextEdit(self)
+        self._output.setReadOnly(True)
+        layout.addWidget(self._output, 1)
+        self._close_button = QPushButton(self.tr("关闭"))
+        self._close_button.setEnabled(False)
+        self._close_button.clicked.connect(self.accept)
+        layout.addWidget(self._close_button, alignment=Qt.AlignmentFlag.AlignRight)
+
+        # 线程归应用所有，窗口意外销毁也不会销毁活动线程。应用退出时等待收尾。
+        app = QApplication.instance()
+        self._worker = _InstallWorker(installer, args, app)
+        self._worker.output.connect(self._append_output, Qt.ConnectionType.QueuedConnection)
+        worker = self._worker
+        app.aboutToQuit.connect(worker.wait)
+
+        def release_worker() -> None:
+            app.aboutToQuit.disconnect(worker.wait)
+            worker.deleteLater()
+
+        worker.finished.connect(release_worker, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._on_finished, Qt.ConnectionType.QueuedConnection)
+
+    def start(self) -> None:
+        self.show()
+        self._worker.start()
+
+    @Slot(str)
+    def _append_output(self, text: str) -> None:
+        cursor = self._output.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        cursor.insertText(text)
+        self._output.setTextCursor(cursor)
+        self._output.ensureCursorVisible()
+
+    @Slot()
+    def _on_finished(self) -> None:
+        error = self._worker.error
+        self._active = False
+        self._close_button.setEnabled(True)
+        if error:
+            self.set_result(self.tr("安装失败：{error}").format(error=error))
+        else:
+            self.set_result(self.tr("安装完成"))
+        self.installation_finished.emit(error)
+
+    def set_result(self, text: str) -> None:
+        self._status.setText(text)
+
+    def reject(self) -> None:
+        if not self._active:
+            super().reject()
+
+    def closeEvent(self, event) -> None:
+        if self._active:
+            event.ignore()
+        else:
+            super().closeEvent(event)
+
+
+class PluginEnvironmentDialog(QDialog):
+    settings_changed = Signal()
+
+    def __init__(self, settings_manager: "SettingsManager", parent=None) -> None:
+        super().__init__(parent)
+        self._settings_manager = settings_manager
+        self._matching_python = None
+        self._worker = None
+        self.setWindowTitle(self.tr("插件依赖环境"))
+        self.setMinimumWidth(480)
+        layout = QVBoxLayout(self)
+        hint = QLabel(self.tr("选择已有库目录或虚拟环境目录。依赖包需手动安装；目录变更后需重启插件管理器。"))
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        source_label = QLabel(self.tr(
+            "依赖下载源（每行一个，第一行为主源，其余为备用源）："))
+        layout.addWidget(source_label)
+        self._pip_indexes_edit = QPlainTextEdit(
+            "\n".join(settings_manager.plugin_pip_indexes))
+        self._pip_indexes_edit.setMaximumHeight(86)
+        self._pip_indexes_edit.setPlaceholderText(
+            "https://pypi.org/simple\nhttps://pypi.tuna.tsinghua.edu.cn/simple")
+        layout.addWidget(self._pip_indexes_edit)
+
+        layout.addWidget(QLabel(self.tr("当前运行环境：{tag}").format(tag=python_tag_text())))
+
+        python_row = QHBoxLayout()
+        python_row.addWidget(QLabel(self.tr("匹配的 Python：")))
+        self._python_path_label = _ElidedPathLabel()
+        self._python_path_label.setMinimumWidth(0)
+        self._python_path_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self._python_path_label.set_path(self.tr("正在检测…"))
+        python_row.addWidget(self._python_path_label, 1)
+        layout.addLayout(python_row)
+
+        row = QHBoxLayout()
+        initial_dir = settings_manager.plugin_lib_dir or str(
+            get_data_dir() / "plugin_venv")
+        self._lib_dir_edit = QLineEdit(initial_dir)
+        self._lib_dir_edit.setPlaceholderText(self.tr("选择插件依赖环境目录"))
+        row.addWidget(self._lib_dir_edit, 1)
+        self._lib_browse_btn = QPushButton(self.tr("选择…"))
+        self._lib_browse_btn.clicked.connect(self._on_browse_lib_dir)
+        row.addWidget(self._lib_browse_btn)
+        self._lib_clear_btn = QPushButton(self.tr("清空"))
+        self._lib_clear_btn.clicked.connect(self._lib_dir_edit.clear)
+        row.addWidget(self._lib_clear_btn)
+        layout.addLayout(row)
+
+        self._lib_status_label = QLabel()
+        self._lib_status_label.setWordWrap(True)
+        layout.addWidget(self._lib_status_label)
+        self._create_btn = QPushButton(self.tr("创建虚拟环境"))
+        self._create_btn.clicked.connect(self._on_create_venv)
+        layout.addWidget(self._create_btn)
+        self._packages_btn = QPushButton(self.tr("查看已安装的包"))
+        self._packages_btn.clicked.connect(self._show_installed_packages)
+        layout.addWidget(self._packages_btn)
+        self._buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self._buttons.accepted.connect(self._on_accept)
+        self._buttons.rejected.connect(self.reject)
+        self._buttons.setEnabled(False)
+        set_button_box_icons(self._buttons)
+        layout.addWidget(self._buttons)
+        self._lib_dir_edit.textChanged.connect(self._refresh_lib_status)
+        self._start_worker(_EnvironmentWorker(parent=self))
+        self._refresh_lib_status()
+
+    def _start_worker(self, worker: _EnvironmentWorker) -> None:
+        self._worker = worker
+        worker.finished.connect(self._worker_finished)
+        worker.start()
+
+    @Slot()
+    def _worker_finished(self) -> None:
+        worker = self._worker
+        if worker is None:
+            return
+        self._worker = None
+        self._buttons.setEnabled(True)
+        if worker.target is None:
+            self._matching_python = worker.result
+            self._python_path_label.set_path(
+                worker.result or self.tr("未找到匹配的 Python"))
+        else:
+            self._lib_dir_edit.setEnabled(True)
+            self._lib_browse_btn.setEnabled(True)
+            self._lib_clear_btn.setEnabled(True)
+            self._buttons.setEnabled(True)
+            if worker.error:
+                QMessageBox.warning(self, self.tr("创建虚拟环境失败"),
+                                    self.tr("无法创建虚拟环境：{error}").format(error=worker.error))
+            else:
+                QMessageBox.information(self, self.tr("插件依赖环境"),
+                                        self.tr("虚拟环境已创建。依赖包需手动安装。"))
+        worker.deleteLater()
+        self._refresh_lib_status()
+
+    def _refresh_lib_status(self) -> None:
+        raw = self._lib_dir_edit.text().strip()
+        can_create = False
+        try:
+            path = Path(raw).expanduser() if raw else None
+            if path is None:
+                text = self.tr("未选择依赖环境目录")
+            elif is_venv_dir(path):
+                text = self.tr("所选目录是虚拟环境")
+            elif path.is_dir():
+                text = self.tr("所选目录不是虚拟环境（可作为普通库目录）")
+                can_create = not any(path.iterdir())
+            elif path.exists():
+                text = self.tr("所选路径不是目录")
+            else:
+                can_create = path.parent.is_dir()
+                text = self.tr("目录尚不存在；可点击“创建虚拟环境”手动创建") if can_create else self.tr(
+                    "目录及其父目录不存在")
+        except (OSError, ValueError) as exc:
+            text = self.tr("无法检查目录：{error}").format(error=exc)
+        self._lib_status_label.setText(text)
+        self._create_btn.setEnabled(bool(can_create and self._matching_python and not self._worker))
+
+    def _show_installed_packages(self) -> None:
+        raw = self._lib_dir_edit.text().strip()
+        if not raw:
+            QMessageBox.warning(self, self.tr("已安装的包"), self.tr("请先选择依赖目录。"))
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("已安装的包"))
+        dialog.resize(520, 380)
+        layout = QVBoxLayout(dialog)
+        path_label = QLabel(raw)
+        path_label.setWordWrap(True)
+        layout.addWidget(path_label)
+        table = QTableWidget(0, 2, dialog)
+        table.setHorizontalHeaderLabels([self.tr("包名"), self.tr("版本")])
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setAlternatingRowColors(True)
+        table.verticalHeader().setVisible(False)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        layout.addWidget(table)
+        status = QLabel()
+        layout.addWidget(status)
+
+        def refresh() -> None:
+            try:
+                packages = list_installed_packages(Path(raw))
+            except (OSError, ValueError) as exc:
+                table.setRowCount(0)
+                status.setText(self.tr("无法读取包列表：{error}").format(error=exc))
+                return
+            table.setRowCount(len(packages))
+            for row, (name, version) in enumerate(packages):
+                table.setItem(row, 0, QTableWidgetItem(name))
+                table.setItem(row, 1, QTableWidgetItem(version))
+            status.setText(self.tr("已安装 {count} 个包").format(count=len(packages)))
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        refresh_button = buttons.addButton(self.tr("刷新"), QDialogButtonBox.ButtonRole.ActionRole)
+        refresh_button.clicked.connect(refresh)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        refresh()
+        dialog.exec()
+
+    def _on_browse_lib_dir(self) -> None:
+        start = self._lib_dir_edit.text().strip() or str(get_data_dir())
+        chosen = QFileDialog.getExistingDirectory(self, self.tr("选择插件依赖环境目录"), start)
+        if chosen:
+            self._lib_dir_edit.setText(chosen)
+
+    def _on_create_venv(self) -> None:
+        raw = self._lib_dir_edit.text().strip()
+        if not raw or not self._matching_python or self._worker:
+            return
+        target = Path(raw).expanduser()
+        try:
+            if target.exists() and (
+                    not target.is_dir() or any(target.iterdir())):
+                raise ValueError(self.tr("目标目录必须为空"))
+            if not target.parent.is_dir():
+                raise ValueError(self.tr("目标目录的父目录不存在"))
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, self.tr("创建虚拟环境失败"), str(exc))
+            self._refresh_lib_status()
+            return
+        self._lib_dir_edit.setEnabled(False)
+        self._lib_browse_btn.setEnabled(False)
+        self._lib_clear_btn.setEnabled(False)
+        self._buttons.setEnabled(False)
+        self._start_worker(_EnvironmentWorker(target, self._matching_python, self))
+        self._refresh_lib_status()
+
+    def _on_accept(self) -> None:
+        if self._worker is not None:
+            return
+        raw = self._lib_dir_edit.text().strip()
+        try:
+            indexes = normalize_pip_indexes(
+                self._pip_indexes_edit.toPlainText().splitlines())
+        except ValueError as exc:
+            QMessageBox.warning(self, self.tr("无效的依赖下载源"), str(exc))
+            return
+        if raw:
+            candidate = Path(raw).expanduser()
+            if candidate.exists():
+                try:
+                    target, message = resolve_lib_path(raw)
+                except (OSError, ValueError) as exc:
+                    target, message = None, str(exc)
+                if target is None:
+                    QMessageBox.warning(self, self.tr("插件依赖环境"), message)
+                    return
+            elif not candidate.parent.is_dir():
+                QMessageBox.warning(
+                    self, self.tr("插件依赖环境"),
+                    self.tr("所选目录不存在，且其父目录也不存在。"))
+                return
+        changed = False
+        if raw != self._settings_manager.plugin_lib_dir:
+            self._settings_manager.set_plugin_lib_dir(raw)
+            changed = True
+        if indexes != self._settings_manager.plugin_pip_indexes:
+            self._settings_manager.set_plugin_pip_indexes(indexes)
+            changed = True
+        if changed:
+            self.settings_changed.emit()
+        self.accept()
+
+    def reject(self) -> None:
+        if self._worker is None:
+            super().reject()
+
+    def closeEvent(self, event) -> None:
+        if self._worker is not None:
+            event.ignore()
+        else:
+            super().closeEvent(event)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1553,6 +1951,12 @@ class PluginManagerWindow(QMainWindow):
         self._act_basic_settings.triggered.connect(
             self._open_basic_settings_dialog)
 
+        self._act_plugin_environment = self._menu_settings.addAction(
+            self.tr("插件依赖环境..."))
+        set_action_icon(self._act_plugin_environment, "dependency")
+        self._act_plugin_environment.triggered.connect(
+            self._open_plugin_environment_dialog)
+
         # 控制授权动作
         self._act_control_auth = self._menu_settings.addAction(
             self.tr("控制授权..."))
@@ -1695,6 +2099,7 @@ class PluginManagerWindow(QMainWindow):
         self._act_download_plugin.setText(self.tr("下载插件..."))
         self._menu_settings.setTitle(self.tr("设置"))
         self._act_basic_settings.setText(self.tr("基础设置..."))
+        self._act_plugin_environment.setText(self.tr("插件依赖环境..."))
         self._act_control_auth.setText(self.tr("控制授权..."))
         dbg_text = self.tr("启动调试")
         if not self._debug_act.isEnabled():
@@ -1766,6 +2171,8 @@ class PluginManagerWindow(QMainWindow):
 
     def _really_quit(self) -> None:
         """真正退出程序（从托盘菜单触发）"""
+        if self._installation_in_progress():
+            return
         if self._tray_icon is not None:
             self._tray_icon.hide()
         self._state_mgr.save()
@@ -1830,9 +2237,18 @@ class PluginManagerWindow(QMainWindow):
         dialog.settings_changed.connect(self._on_settings_changed)
         dialog.exec()
 
+    def _open_plugin_environment_dialog(self) -> None:
+        dialog = PluginEnvironmentDialog(self._settings_mgr, self)
+        dialog.settings_changed.connect(self._on_plugin_environment_changed)
+        dialog.exec()
+
+    def _on_plugin_environment_changed(self) -> None:
+        self.statusBar().showMessage(
+            self.tr("依赖环境设置已保存；下载源用于后续手动安装，目录变更重启后生效。"),
+            5000)
+
     def _on_settings_changed(self) -> None:
         """设置变更后的回调"""
-        # 应用日志等级
         self._apply_log_level()
         self.statusBar().showMessage(self.tr("设置已保存"), 2000)
 
@@ -1959,29 +2375,80 @@ class PluginManagerWindow(QMainWindow):
 
     _debug_active: bool = False
 
+    def _installation_in_progress(self) -> bool:
+        progress = getattr(self, "_install_progress", None)
+        if progress is not None and progress._active:
+            progress.show()
+            progress.raise_()
+            progress.activateWindow()
+            return True
+        return False
+
+    def _start_installation(self, title: str, installer, args: tuple):
+        if self._installation_in_progress():
+            return None
+        progress = _InstallProgressDialog(title, installer, args, self)
+        self._install_progress = progress
+        progress.finished.connect(lambda: setattr(self, "_install_progress", None)
+                                  if self._install_progress is progress else None)
+        return progress
+
     def _start_debug(self) -> None:
-        """启动 debugpy 监听"""
+        """按需启动 debugpy；安装缺失的调试库前先征求用户同意。"""
+        if self._installation_in_progress():
+            return
         try:
             import debugpy
-            # in_process_debug_adapter=True: 不启动子进程，直接在当前进程中运行 adapter
-            # 解决 PyInstaller 打包后子进程找不到 Python/debugpy 的问题
+        except ImportError:
+            answer = QMessageBox.question(
+                self,
+                self.tr("安装调试依赖"),
+                self.tr("调试库 debugpy 尚未安装。现在手动安装吗？"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+            progress = self._start_installation(
+                self.tr("安装调试依赖"), install_debugpy, (get_data_dir(),))
+            if progress is not None:
+                self._debug_act.setEnabled(False)
+                progress.installation_finished.connect(self._on_debug_install_finished)
+                progress.start()
+            return
+
+        self._activate_debug(debugpy)
+
+    @Slot(object)
+    def _on_debug_install_finished(self, error) -> None:
+        self._debug_act.setEnabled(True)
+        if error:
+            return
+        import importlib
+        importlib.invalidate_caches()
+        try:
+            import debugpy
+        except ImportError as exc:
+            self._install_progress.set_result(
+                self.tr("debugpy 安装后仍无法导入：{error}。请重启插件管理器后重试。")
+                .format(error=exc))
+            return
+        self._activate_debug(debugpy)
+
+    def _activate_debug(self, debugpy) -> None:
+        try:
+            # 在当前进程中运行 adapter，避免调试器子进程依赖打包目录。
             debugpy.listen(("0.0.0.0", 5678), in_process_debug_adapter=True)
             PluginManagerWindow._debug_active = True
 
-            # 启动后禁用菜单项，不可重复启动
             self._debug_act.setText(self.tr("调试已启动"))
             self._debug_act.setEnabled(False)
-
             self.statusBar().showMessage(self.tr("调试服务已在端口 5678 启动，等待 VS Code 连接。重启插件管理器可关闭调试。"))
             logger.info("Debug server started on port 5678")
-        except ImportError as e:
-            QMessageBox.warning(
-                self, "Debug",
-                f"debugpy import failed:\n{e}",
-            )
         except Exception as e:
             QMessageBox.warning(
-                self, "Debug", f"Failed to start debugger:\n{e}")
+                self, self.tr("调试"),
+                self.tr("启动调试服务失败：{error}").format(error=e))
 
     # ── 插件列表 ────────────────────────────────────────
 
@@ -2036,6 +2503,20 @@ class PluginManagerWindow(QMainWindow):
                 li.setForeground(QColor("#c62828"))  # 红色：关闭中
                 li.setText(self.tr("{name}（关闭中...）").format(name=p.name))
 
+            get_status = getattr(self._manager, "get_plugin_dependency_status", None)
+            dependency = get_status(name) if callable(get_status) else None
+            if dependency is not None:
+                li.setData(Qt.ItemDataRole.UserRole + 1, dependency.module_name)
+                suffixes = {
+                    "missing": self.tr("（缺少依赖）"),
+                    "conflict": self.tr("（依赖版本冲突）"),
+                    "unknown": self.tr("（依赖待检查）"),
+                }
+                suffix = suffixes.get(dependency.status)
+                if suffix:
+                    li.setText(li.text() + suffix)
+                    li.setForeground(QColor("#c62828"))
+
             lst.addItem(li)
 
             # 只有就绪状态才创建窗口（INITIALIZING/STOPPED 不创建）
@@ -2046,6 +2527,17 @@ class PluginManagerWindow(QMainWindow):
                     _pending_detach.append(name)
                 else:
                     t.add_detachable_tab(p.widget, name, icon=p.plugin_icon)
+
+        # 导入失败的插件没有实例，仍保留条目以展示依赖诊断。
+        statuses = getattr(self._manager, "module_dependency_statuses", {})
+        for module_name, dependency in statuses.items():
+            if dependency.import_status != "failed":
+                continue
+            li = QListWidgetItem(self.tr("{name}（加载失败）").format(name=module_name))
+            li.setData(Qt.ItemDataRole.UserRole + 1, module_name)
+            li.setToolTip(self._dependency_text(dependency))
+            li.setForeground(QColor("#c62828"))
+            lst.addItem(li)
 
         # 恢复选中项
         if current_name:
@@ -2072,6 +2564,153 @@ class PluginManagerWindow(QMainWindow):
             )
         )
 
+    def _dependency_text(self, dependency) -> str:
+        labels = {
+            "no_requirements": self.tr("未声明 requirements.txt"),
+            "satisfied": self.tr("已安装"),
+            "missing": self.tr("未安装"),
+            "conflict": self.tr("版本不符合要求"),
+            "unknown": self.tr("无法确认"),
+            "skipped": self.tr("当前环境不适用"),
+        }
+        lines: list[str] = []
+        if dependency.requirements_path is not None:
+            lines.append(str(dependency.requirements_path))
+        if dependency.status == "no_requirements":
+            lines.append(labels["no_requirements"])
+        elif not dependency.diagnostics:
+            lines.append(self.tr("没有声明第三方依赖"))
+        for entry in dependency.diagnostics:
+            status = labels.get(entry.status, entry.status)
+            if entry.installed_version:
+                status += f" ({self.tr('已安装版本')} {entry.installed_version})"
+            detail = f" — {entry.detail}" if entry.detail else ""
+            lines.append(f"{entry.requirement}: {status}{detail}")
+        if dependency.import_error:
+            lines.append(self.tr("插件加载失败：{error}").format(
+                error=dependency.import_error))
+        return "\n".join(lines)
+
+    def _show_dependency_details(self, module_name: str) -> None:
+        dependency = self._manager.get_module_dependency_status(module_name)
+        if dependency is None:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("插件依赖") + f" — {module_name}")
+        dialog.setMinimumSize(620, 360)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 18, 20, 16)
+        layout.setSpacing(12)
+
+        heading = QLabel(self.tr("额外依赖检查"))
+        heading.setStyleSheet("font-size: 18px; font-weight: 600;")
+        layout.addWidget(heading)
+
+        if dependency.requirements_path is not None:
+            path_label = QLabel(str(dependency.requirements_path))
+            path_label.setWordWrap(True)
+            path_label.setStyleSheet("color: palette(mid); font-size: 11px;")
+            layout.addWidget(path_label)
+
+        if dependency.diagnostics:
+            table = QTableWidget(len(dependency.diagnostics), 3, dialog)
+            table.setHorizontalHeaderLabels([
+                self.tr("依赖"), self.tr("已安装版本"), self.tr("状态")])
+            table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+            table.setAlternatingRowColors(True)
+            table.setShowGrid(False)
+            table.verticalHeader().setVisible(False)
+            table.verticalHeader().setDefaultSectionSize(38)
+            table.horizontalHeader().setSectionResizeMode(
+                0, QHeaderView.ResizeMode.Stretch)
+            table.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.ResizeMode.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(
+                2, QHeaderView.ResizeMode.ResizeToContents)
+
+            status_labels = {
+                "satisfied": self.tr("已安装"),
+                "missing": self.tr("未安装"),
+                "conflict": self.tr("版本不符"),
+                "unknown": self.tr("无法确认"),
+                "skipped": self.tr("不适用"),
+            }
+            status_colors = {
+                "satisfied": ("#2e7d32", "#e8f5e9"),
+                "missing": ("#c62828", "#ffebee"),
+                "conflict": ("#c62828", "#ffebee"),
+                "unknown": ("#ef6c00", "#fff3e0"),
+                "skipped": ("#616161", "#f5f5f5"),
+            }
+            for row, item in enumerate(dependency.diagnostics):
+                requirement_cell = QTableWidgetItem(item.requirement)
+                if item.detail:
+                    requirement_cell.setToolTip(item.detail)
+                table.setItem(row, 0, requirement_cell)
+                table.setItem(row, 1, QTableWidgetItem(
+                    item.installed_version or self.tr("—")))
+                status_cell = QTableWidgetItem(
+                    status_labels.get(item.status, item.status))
+                foreground, background = status_colors.get(
+                    item.status, ("#616161", "#f5f5f5"))
+                status_cell.setForeground(QColor(foreground))
+                status_cell.setBackground(QColor(background))
+                table.setItem(row, 2, status_cell)
+            layout.addWidget(table, 1)
+        else:
+            empty = QLabel(self.tr("此插件没有额外依赖。"))
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setMinimumHeight(120)
+            empty.setStyleSheet(
+                "color: palette(mid); background: palette(alternate-base);"
+                "border-radius: 8px; padding: 20px;")
+            layout.addWidget(empty, 1)
+
+        if dependency.import_error:
+            error = QLabel(self.tr("插件加载失败：{error}").format(
+                error=dependency.import_error))
+            error.setWordWrap(True)
+            error.setStyleSheet(
+                "color: #c62828; background: #ffebee; border-radius: 6px;"
+                "padding: 8px;")
+            layout.addWidget(error)
+
+        requirements_path = dependency.requirements_path
+        has_installable_dependencies = (
+            requirements_path is not None
+            and requirements_path.is_file()
+            and dependency.status in {"missing", "conflict", "unknown"}
+        )
+        if has_installable_dependencies:
+            install_button = QPushButton(self.tr("手动安装此插件依赖"))
+            install_button.clicked.connect(
+                lambda: self._install_plugin_requirements(
+                    module_name, requirements_path, dialog, install_button))
+            layout.addWidget(install_button)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.accept)
+        layout.addWidget(buttons)
+        dialog.exec()
+
+    def _install_plugin_requirements(
+            self, module_name: str, requirements_path: Path,
+            dialog: QDialog, button: QPushButton) -> None:
+        progress = self._start_installation(
+            self.tr("安装插件依赖"), install_plugin_requirements,
+            (get_data_dir(), requirements_path))
+        if progress is None:
+            return
+        progress.installation_finished.connect(
+            lambda error: progress.set_result(
+                self.tr("{name} 的依赖已安装。重启插件管理器后重新加载插件。")
+                .format(name=module_name)) if not error else None)
+        dialog.accept()
+        progress.start()
+
     def _on_list_context_menu(self, pos) -> None:
         """右键菜单"""
         item = self._list.itemAt(pos)
@@ -2079,12 +2718,22 @@ class PluginManagerWindow(QMainWindow):
             return
 
         name = item.data(Qt.ItemDataRole.UserRole)
+        module_name = item.data(Qt.ItemDataRole.UserRole + 1)
         plugin = self._manager.plugins.get(name)
-        if not plugin:
+        if not plugin and not module_name:
             return
 
         menu = QMenu(self)
+        if not plugin:
+            action = menu.addAction(self.tr("查看依赖详情"))
+            action.triggered.connect(lambda: self._show_dependency_details(module_name))
+            menu.exec(self._list.viewport().mapToGlobal(pos))
+            return
         t = self._tab_widget
+        if module_name:
+            action = menu.addAction(self.tr("查看依赖详情"))
+            action.triggered.connect(lambda: self._show_dependency_details(module_name))
+            menu.addSeparator()
 
         # 启用/禁用（非就绪状态不可切换，但 STOPPED 可以重新启用）
         lc = plugin.lifecycle
@@ -2467,6 +3116,9 @@ class PluginManagerWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         """关闭主窗口 → 最小化到系统托盘，不退出"""
+        if self._installation_in_progress():
+            event.ignore()
+            return
         if hasattr(self, "_tray_icon") and self._tray_icon is not None and self._tray_icon.isVisible():
             event.ignore()
             self.hide()

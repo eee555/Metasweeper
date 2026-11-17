@@ -1,0 +1,1 @@
+# No extra third-party dependencies. The application provides this plugin's imports.

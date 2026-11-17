@@ -9,7 +9,7 @@ import pytest
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QWidget
 
-from plugin_manager.main_window import BasicSettingsDialog, PluginSettingsDialog
+from plugin_manager.main_window import BasicSettingsDialog, PluginEnvironmentDialog, PluginSettingsDialog
 from plugin_manager.plugin_state import PluginState
 from plugin_manager.settings_manager import SettingsManager
 from plugin_sdk.config_types import IntConfig, OtherInfoBase, TextConfig
@@ -260,3 +260,185 @@ def test_basic_settings_unknown_initial_values_use_first_item(qtbot, tmp_path):
     qtbot.addWidget(dlg)
     assert dlg._file_log_level_combo.currentIndex() == 0
     assert dlg._viewer_log_level_combo.currentIndex() == 0
+
+
+def _environment_dialog(qtbot, tmp_path, monkeypatch, python="C:/Python/python.exe"):
+    monkeypatch.setattr(mw, "get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(mw, "find_matching_python", lambda: python)
+    dlg = PluginEnvironmentDialog(SettingsManager(tmp_path))
+    qtbot.addWidget(dlg)
+    qtbot.waitUntil(lambda: dlg._worker is None, timeout=5000)
+    return dlg
+
+
+def test_environment_package_list_shows_selected_directory_and_versions(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    selected = tmp_path / "libs"
+    selected.mkdir()
+    dlg._lib_dir_edit.setText(str(selected))
+    monkeypatch.setattr(mw, "list_installed_packages",
+                        lambda directory: [("example", "1.2")] if directory == selected else [])
+    shown = []
+    monkeypatch.setattr(mw.QDialog, "exec", lambda dialog: shown.append(dialog))
+    dlg._packages_btn.click()
+    table = shown[0].findChild(mw.QTableWidget)
+    assert table.rowCount() == 1
+    assert table.item(0, 0).text() == "example"
+    assert table.item(0, 1).text() == "1.2"
+
+
+def test_environment_detected_path_elided_with_full_tooltip(qtbot, tmp_path, monkeypatch):
+    path = "C:/" + "very-long-folder/" * 15 + "python.exe"
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch, path)
+    dlg.resize(480, 300)
+    dlg.show()
+    qtbot.waitUntil(lambda: dlg._python_path_label.width() > 0)
+    assert dlg._python_path_label.toolTip() == path
+    assert "…" in dlg._python_path_label.text()
+    assert dlg._python_path_label.text().endswith("python.exe")
+
+
+def test_environment_download_sources_are_editable_and_persisted(
+        qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    assert dlg._pip_indexes_edit.toPlainText().splitlines() == [
+        "https://pypi.org/simple",
+        "https://pypi.tuna.tsinghua.edu.cn/simple",
+    ]
+    dlg._pip_indexes_edit.setPlainText(
+        "https://packages.example/simple\nhttps://mirror.example/simple")
+    dlg._on_accept()
+    assert dlg._settings_manager.plugin_pip_indexes == [
+        "https://packages.example/simple",
+        "https://mirror.example/simple",
+    ]
+
+
+def test_environment_rejects_invalid_download_source(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    dlg._pip_indexes_edit.setPlainText("file:///local/index")
+    warnings = []
+    monkeypatch.setattr(mw.QMessageBox, "warning", lambda *a: warnings.append(a))
+    dlg._on_accept()
+    assert warnings
+    assert dlg._settings_manager.plugin_pip_indexes == [
+        "https://pypi.org/simple",
+        "https://pypi.tuna.tsinghua.edu.cn/simple",
+    ]
+
+
+def test_environment_default_path_and_manual_save(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    assert dlg._lib_dir_edit.text() == str(tmp_path / "plugin_venv")
+    assert "尚不存在" in dlg._lib_status_label.text()
+    assert dlg._create_btn.isEnabled()
+    libs = tmp_path / "libs"
+    libs.mkdir()
+    (libs / "keep.txt").write_text("keep")
+    dlg._lib_dir_edit.setText(str(libs))
+    assert "不是虚拟环境" in dlg._lib_status_label.text()
+    assert not dlg._create_btn.isEnabled()
+    monkeypatch.setattr(mw, "create_venv", lambda *args: pytest.fail("implicit creation"))
+    dlg._on_accept()
+    assert dlg._settings_manager.plugin_lib_dir == str(libs)
+    assert (libs / "keep.txt").read_text() == "keep"
+
+
+def test_environment_existing_venv_and_missing_path(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").write_text("home = test")
+    dlg._lib_dir_edit.setText(str(venv))
+    assert "是虚拟环境" in dlg._lib_status_label.text()
+    assert not dlg._create_btn.isEnabled()
+    missing = tmp_path / "missing"
+    dlg._lib_dir_edit.setText(str(missing))
+    assert "尚不存在" in dlg._lib_status_label.text()
+    assert dlg._create_btn.isEnabled()
+    dlg._on_accept()
+    assert dlg._settings_manager.plugin_lib_dir == str(missing)
+    assert not missing.exists()
+
+
+def test_environment_explicit_creation_for_empty_directory(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    target = tmp_path / "empty"
+    target.mkdir()
+    dlg._lib_dir_edit.setText(str(target))
+    assert dlg._create_btn.isEnabled()
+    created = []
+    def create(path, executable):
+        created.append((path, executable))
+        (path / "pyvenv.cfg").write_text("home = test")
+    monkeypatch.setattr(mw, "create_venv", create)
+    monkeypatch.setattr(mw.QMessageBox, "information", lambda *a: None)
+    dlg._create_btn.click()
+    qtbot.waitUntil(lambda: dlg._worker is None, timeout=5000)
+    assert created == [(target, "C:/Python/python.exe")]
+    assert "是虚拟环境" in dlg._lib_status_label.text()
+    assert not dlg._create_btn.isEnabled()
+    assert dlg._settings_manager.plugin_lib_dir == ""
+
+
+def test_environment_create_button_creates_missing_default_directory(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    target = tmp_path / "new-venv"
+    dlg._lib_dir_edit.setText(str(target))
+    assert dlg._create_btn.isEnabled()
+
+    def create(path, executable):
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "pyvenv.cfg").write_text("home = test")
+
+    monkeypatch.setattr(mw, "create_venv", create)
+    monkeypatch.setattr(mw.QMessageBox, "information", lambda *a: None)
+    dlg._create_btn.click()
+    qtbot.waitUntil(lambda: dlg._worker is None, timeout=5000)
+
+    assert (target / "pyvenv.cfg").is_file()
+    assert "是虚拟环境" in dlg._lib_status_label.text()
+    assert dlg._settings_manager.plugin_lib_dir == ""
+
+
+def test_environment_creation_rechecks_nonempty_directory(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch)
+    target = tmp_path / "empty"
+    target.mkdir()
+    dlg._lib_dir_edit.setText(str(target))
+    (target / "keep.txt").write_text("keep")
+    warnings = []
+    monkeypatch.setattr(mw.QMessageBox, "warning", lambda *a: warnings.append(a))
+    monkeypatch.setattr(mw, "create_venv", lambda *a: pytest.fail("nonempty target"))
+    dlg._on_create_venv()
+    assert warnings and (target / "keep.txt").read_text() == "keep"
+
+
+def test_environment_worker_rechecks_directory_before_creation(tmp_path, monkeypatch):
+    target = tmp_path / "occupied"
+    target.mkdir()
+    (target / "keep.txt").write_text("keep")
+    monkeypatch.setattr(mw, "create_venv", lambda *a: pytest.fail("nonempty target"))
+    worker = mw._EnvironmentWorker(target, "python")
+    worker.run()
+    assert worker.error
+    assert (target / "keep.txt").read_text() == "keep"
+
+
+def test_environment_no_python_cannot_create(qtbot, tmp_path, monkeypatch):
+    dlg = _environment_dialog(qtbot, tmp_path, monkeypatch, None)
+    target = tmp_path / "empty"
+    target.mkdir()
+    dlg._lib_dir_edit.setText(str(target))
+    assert "未找到" in dlg._python_path_label.text()
+    assert not dlg._create_btn.isEnabled()
+
+
+def test_basic_settings_does_not_edit_environment(qtbot, tmp_path):
+    manager = SettingsManager(tmp_path)
+    manager.set_plugin_lib_dir(str(tmp_path))
+    dlg = BasicSettingsDialog(manager)
+    qtbot.addWidget(dlg)
+    assert not hasattr(dlg, "_lib_dir_edit")
+    dlg._on_accept()
+    assert manager.plugin_lib_dir == str(tmp_path)

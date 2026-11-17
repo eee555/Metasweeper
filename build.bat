@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 
 set OUT=dist\app
 set DEST=%OUT%\metaminsweeper
-set EXCLUDES=--exclude-module numpy --exclude-module PIL --exclude-module Pillow --exclude-module Cython --exclude-module setuptools --exclude-module pkg_resources --exclude-module psutil --exclude-module pytest --exclude-module _pytest --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts
+set EXCLUDES=--exclude-module debugpy --exclude-module numpy --exclude-module PIL --exclude-module Pillow --exclude-module Cython --exclude-module setuptools --exclude-module pkg_resources --exclude-module psutil --exclude-module pytest --exclude-module _pytest --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts
 
 if not exist "src\media\cat.ico" (
     pushd package_tool
@@ -34,7 +34,6 @@ pyinstaller --noconfirm --clean --name metaminsweeper --windowed --distpath "%OU
     %EXCLUDES% ^
     --icon src/media/cat.ico ^
     --paths src ^
-    --runtime-hook package_tool\hook-debugpy-pyinstaller.py ^
     --add-data "src/media;media" ^
     --add-data "src/plugins;plugins" ^
     --add-data "src/en_US.qm;." ^
@@ -47,7 +46,6 @@ if errorlevel 1 exit /b 1
 pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/media/plugin_manager.ico ^
     %EXCLUDES% ^
     --paths src ^
-    --runtime-hook package_tool\hook-debugpy-pyinstaller.py ^
     --add-data "src/media/plugin_manager.ico;media" ^
     --add-data "src/plugins;plugins" ^
     --add-data "src/shared_types;shared_types" ^
@@ -78,7 +76,6 @@ if errorlevel 1 exit /b 1
 mkdir "%DEST%\user_plugins" >nul 2>&1
 
 set SP=.venv\Lib\site-packages
-xcopy /e /y /i "%SP%\debugpy" "%DEST%\_internal\debugpy" >nul
 xcopy /e /y /i "%SP%\msgspec" "%DEST%\_internal\msgspec" >nul 2>nul
 copy /y plugin-dev-tutorial.md "%DEST%\" >nul
 

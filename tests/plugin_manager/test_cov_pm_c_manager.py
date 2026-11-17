@@ -56,6 +56,19 @@ def test_init_default_plugin_dirs_and_no_optional_params(base_env, tmp_path):
     assert instance.client.kwargs["ctrl_endpoint"] is None
     assert instance.client.kwargs["log_handler"] is None
     assert instance._loader._plugin_dirs == []
+    assert instance.settings.plugin_lib_dir == ""
+    instance.stop()
+
+
+def test_init_applies_configured_plugin_lib_dir(base_env, tmp_path, monkeypatch):
+    from plugin_manager.settings_manager import SettingsManager
+
+    SettingsManager(tmp_path).set_plugin_lib_dir(str(tmp_path / "libs"))
+    applied = []
+    monkeypatch.setattr(module, "apply_plugin_lib_dir",
+                        lambda path: applied.append(path))
+    instance = module.PluginManager("inproc://libs", plugin_dirs=[])
+    assert applied == [str(tmp_path / "libs")]
     instance.stop()
 
 

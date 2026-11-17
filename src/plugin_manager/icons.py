@@ -20,7 +20,7 @@ assert actions_rc is not None  # importing registers the embedded Qt resources
 ACTION_ICON_NAMES = frozenset({
     "authorize", "cancel", "clear", "close", "confirm", "debug", "disable",
     "download", "enable", "guide", "info", "log", "quit", "refresh",
-    "settings", "tag", "window", "window-close",
+    "dependency", "settings", "tag", "window", "window-close",
 })
 ICON_NAMES = ACTION_ICON_NAMES | {"app"}
 _RESOURCE_PREFIX = ":/plugin_manager/actions/"

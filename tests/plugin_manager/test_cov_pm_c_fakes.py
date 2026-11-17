@@ -165,6 +165,7 @@ def base_env(monkeypatch, tmp_path):
     monkeypatch.setattr(module, "patch_sys_path_for_frozen", lambda: None)
     monkeypatch.setattr(module, "get_data_dir", lambda: tmp_path)
     monkeypatch.setattr(module, "get_all_plugin_dirs", lambda: [tmp_path / "plugins"])
+    monkeypatch.setattr(module, "apply_plugin_lib_dir", lambda path: None)
     monkeypatch.setattr(module.signal, "signal", lambda *args: None)
     monkeypatch.setattr(module.atexit, "register", lambda *args: None)
     monkeypatch.setattr(module.sys, "platform", "win32")

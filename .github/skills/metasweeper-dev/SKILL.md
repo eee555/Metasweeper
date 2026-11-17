@@ -123,7 +123,7 @@ name 到公式别名的映射在 `utils/helpers.py:trans_expression()`。
 
 CI 流程：
 1. 安装 Qt + Python 3.12
-2. `pyinstaller` 打包 `metasweeper.exe`（含 `--runtime-hook hook-debugpy-pyinstaller.py`）
+2. `pyinstaller` 打包 `metasweeper.exe`（排除 `debugpy`）
 3. `pyinstaller` 打包 `plugin_manager.exe`
 4. 合并资源到 `dist/metasweeper/`
 5. 上传 Artifact（zip 包）

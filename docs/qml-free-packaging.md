@@ -33,9 +33,8 @@ $env:NUITKA_JOBS = '8'
 ```
 
 `NUITKA_JOBS` 必须为正整数。还可设置 `NUITKA_OUTPUT_DIR` 修改输出根目录、
-`NUITKA_CONSOLE_MODE` 修改控制台模式。默认包含 `debugpy` 及其随包调试器源码。
-同时把 pydevd 的 `_pydevd_bundle` 等模块分发到包根目录，满足调试器运行时使用
-顶层模块名的动态导入；设置 `NUITKA_INCLUDE_DEBUGPY=0` 可以不包含调试支持。
+`NUITKA_CONSOLE_MODE` 修改控制台模式。主程序和插件管理器均不打包 `debugpy`；
+插件调试需要在外部插件库目录安装兼容的 `debugpy`，并在导入前加载该目录。
 未找到 `dumpbin.exe` 时，脚本通过 `vswhere.exe` 定位 Visual Studio C++ 工具链并
 加载 `vcvars64.bat`；工具链缺失会在编译前报错。
 

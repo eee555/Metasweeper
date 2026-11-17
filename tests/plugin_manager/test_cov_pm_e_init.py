@@ -45,6 +45,7 @@ def test_full_init_builds_ui_signals_and_tray(qtbot, monkeypatch, tmp_path):
 
         assert w._menu_options.title() == w.tr("选项")
         assert w._act_download_plugin.isEnabled()
+        assert w._act_plugin_environment in w._menu_settings.actions()
         assert w._list.count() == 1
         assert w._list.item(0).text() == "alpha"
         assert w._conn_status is not None
@@ -258,9 +259,30 @@ def test_basic_settings_dialog_wires_callback(qtbot, monkeypatch):
     assert seen[-1] == "changed"
 
 
+def test_environment_dialog_wires_callback(qtbot, monkeypatch):
+    w = shell(qtbot)
+    w._settings_mgr = SimpleNamespace()
+    seen = []
+    monkeypatch.setattr(w, "_on_plugin_environment_changed", lambda: seen.append("changed"))
+
+    class Dialog:
+        settings_changed = SimpleNamespace(connect=lambda cb: seen.append(cb))
+
+        def __init__(self, settings, parent):
+            assert settings is w._settings_mgr and parent is w
+
+        def exec(self):
+            seen.append("exec")
+
+    monkeypatch.setattr(mw, "PluginEnvironmentDialog", Dialog)
+    w._open_plugin_environment_dialog()
+    next(item for item in seen if callable(item))()
+    assert seen[-2:] == ["exec", "changed"]
+
+
 def test_on_settings_changed_applies_level_and_status(qtbot, monkeypatch):
     w = shell(qtbot)
-    w._settings_mgr = SimpleNamespace(file_log_level="WARNING")
+    w._settings_mgr = SimpleNamespace(file_log_level="WARNING", plugin_lib_dir="")
     seen = []
     monkeypatch.setattr(logging_setup, "set_console_log_level",
                         lambda level: seen.append(level))
@@ -269,6 +291,13 @@ def test_on_settings_changed_applies_level_and_status(qtbot, monkeypatch):
     w._on_settings_changed()
     assert seen == ["WARNING"]
     assert w.statusBar().currentMessage() == "settings-saved"
+
+
+def test_on_environment_changed_hints_restart_for_lib_dir(qtbot, monkeypatch):
+    w = shell(qtbot)
+    monkeypatch.setattr(w, "tr", lambda text: text)
+    w._on_plugin_environment_changed()
+    assert "重启" in w.statusBar().currentMessage()
 
 
 def test_clear_all_logs_confirms_and_truncates(qtbot, monkeypatch, tmp_path):
@@ -462,12 +491,41 @@ def test_start_debug_success_and_failure_branches(qtbot, monkeypatch):
     monkeypatch.setitem(sys.modules, "debugpy", SimpleNamespace(
         listen=lambda *a, **k: (_ for _ in ()).throw(ImportError("missing"))))
     w._start_debug()
-    assert "debugpy import failed" in warnings[-1][2]
+    assert "启动调试服务失败" in warnings[-1][2]
 
     monkeypatch.setitem(sys.modules, "debugpy", SimpleNamespace(
         listen=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("port"))))
     w._start_debug()
-    assert "Failed to start debugger" in warnings[-1][2]
+    assert "port" in warnings[-1][2]
+
+
+def test_start_debug_installs_missing_debugpy_only_after_confirmation(
+        qtbot, monkeypatch):
+    w = shell(qtbot)
+    w._debug_act = QAction("调试")
+    monkeypatch.setattr(PluginManagerWindow, "_debug_active", False)
+    monkeypatch.setitem(sys.modules, "debugpy", None)
+    asked = []
+    monkeypatch.setattr(
+        mw.QMessageBox, "question",
+        lambda *args: asked.append(args) or mw.QMessageBox.StandardButton.Yes)
+    installed = []
+    listens = []
+
+    def install(data_dir, *, output_callback):
+        installed.append(data_dir)
+        monkeypatch.setitem(sys.modules, "debugpy", SimpleNamespace(
+            listen=lambda *args, **kwargs: listens.append((args, kwargs))))
+        return None
+
+    monkeypatch.setattr(mw, "install_debugpy", install)
+    w._start_debug()
+    qtbot.waitUntil(lambda: not w._install_progress._active)
+
+    assert asked and installed
+    assert listens and listens[0][0][0] == ("0.0.0.0", 5678)
+    w._install_progress.close()
+    assert PluginManagerWindow._debug_active is True
 
 
 def test_plugin_ready_and_stopped_refresh(qtbot, monkeypatch):

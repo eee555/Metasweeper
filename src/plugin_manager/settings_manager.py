@@ -10,10 +10,29 @@ import json
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from .atomic_json import atomic_write_json
 
 LogLevel = Literal["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+DEFAULT_PLUGIN_PIP_INDEXES = [
+    "https://pypi.org/simple",
+    "https://pypi.tuna.tsinghua.edu.cn/simple",
+]
+
+
+def normalize_pip_indexes(urls: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for raw in urls:
+        url = raw.strip().rstrip("/")
+        if not url:
+            continue
+        parsed = urlsplit(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError(f"无效的 Python 包源 URL：{raw}")
+        if url not in normalized:
+            normalized.append(url)
+    return normalized
 
 
 @dataclass
@@ -25,17 +44,30 @@ class BasicSettings:
     viewer_log_level: LogLevel = "INFO"
     viewer_auto_scroll: bool = True
     viewer_show_source: bool = False
+    # 插件依赖库目录（库目录或虚拟环境目录），空表示未配置
+    plugin_lib_dir: str = ""
+    # 手动安装插件依赖时使用的 PyPI 主源及备用源
+    plugin_pip_indexes: list[str] = field(
+        default_factory=lambda: DEFAULT_PLUGIN_PIP_INDEXES.copy())
     
     def to_dict(self) -> dict:
         return asdict(self)
     
     @classmethod
     def from_dict(cls, data: dict) -> "BasicSettings":
+        lib_dir = data.get("plugin_lib_dir", "")
+        raw_indexes = data.get("plugin_pip_indexes", DEFAULT_PLUGIN_PIP_INDEXES)
+        try:
+            indexes = normalize_pip_indexes(raw_indexes) if isinstance(raw_indexes, list) else DEFAULT_PLUGIN_PIP_INDEXES.copy()
+        except (AttributeError, TypeError, ValueError):
+            indexes = DEFAULT_PLUGIN_PIP_INDEXES.copy()
         return cls(
             file_log_level=data.get("file_log_level", "DEBUG"),
             viewer_log_level=data.get("viewer_log_level", "INFO"),
             viewer_auto_scroll=data.get("viewer_auto_scroll", True),
             viewer_show_source=data.get("viewer_show_source", False),
+            plugin_lib_dir=lib_dir if isinstance(lib_dir, str) else "",
+            plugin_pip_indexes=indexes,
         )
 
 
@@ -97,6 +129,14 @@ class SettingsManager:
     @property
     def viewer_show_source(self) -> bool:
         return self._settings.viewer_show_source
+
+    @property
+    def plugin_lib_dir(self) -> str:
+        return self._settings.plugin_lib_dir
+
+    @property
+    def plugin_pip_indexes(self) -> list[str]:
+        return self._settings.plugin_pip_indexes.copy()
     
     def set_file_log_level(self, level: LogLevel) -> None:
         """设置主进程文件日志等级"""
@@ -118,4 +158,14 @@ class SettingsManager:
     def set_viewer_show_source(self, enabled: bool) -> None:
         """设置日志查看器显示来源"""
         self._settings.viewer_show_source = enabled
+        self.save()
+
+    def set_plugin_lib_dir(self, path: str) -> None:
+        """设置插件依赖库目录（空字符串表示未配置）"""
+        self._settings.plugin_lib_dir = (path or "").strip()
+        self.save()
+
+    def set_plugin_pip_indexes(self, urls: list[str]) -> None:
+        """设置手动安装插件依赖时使用的 Python 包源列表。"""
+        self._settings.plugin_pip_indexes = normalize_pip_indexes(urls)
         self.save()

@@ -15,6 +15,8 @@ import argparse
 import os
 import sys
 
+from .plugin_lib_env import prepare_plugin_dependency_environment
+
 # 高分屏支持：必须在导入 PyQt 之前设置
 os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
 os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
@@ -94,6 +96,23 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    if args.data_dir:
+        from .app_paths import set_data_dir_override
+        set_data_dir_override(args.data_dir)
+
+    # 初始化 loguru 日志系统（主日志 + 控制台）
+    from .app_paths import get_data_dir, get_log_dir
+    from .logging_setup import init_logging
+
+    init_logging(get_log_dir(), console=True, level="DEBUG")
+
+    # 启动时只准备/识别环境，不自动安装包；必须在插件导入和调试功能之前接入 sys.path。
+    from loguru import logger
+
+    setup_result = prepare_plugin_dependency_environment(get_data_dir())
+    for error in setup_result.errors:
+        logger.warning(f"插件依赖环境准备失败: {error}")
+
     if args.debug:
         try:
             import debugpy
@@ -103,16 +122,6 @@ def main() -> int:
             print("[debug] Debugger attached, continuing...")
         except ImportError as e:
             print(f"[WARN] --debug set but debugpy import failed: {e}")
-
-    if args.data_dir:
-        from .app_paths import set_data_dir_override
-        set_data_dir_override(args.data_dir)
-
-    # 初始化 loguru 日志系统（主日志 + 控制台）
-    from .app_paths import get_log_dir
-    from .logging_setup import init_logging
-
-    init_logging(get_log_dir(), console=True, level="DEBUG")
 
     from . import run_plugin_manager_process
 

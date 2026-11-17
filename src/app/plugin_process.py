@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import time
 
 from PySide6 import QtCore, QtWidgets
 from plugin_manager.app_paths import get_env_for_subprocess
@@ -11,24 +12,26 @@ from utils.app_logger import logger
 from utils.path_utils import get_executable_dir, get_runtime_mode
 
 
+def _plugin_manager_is_running():
+    if sys.platform != "win32":
+        return False
+    import win32api
+    import win32event
+    try:
+        mutex = win32event.OpenMutex(
+            0x001F0001, False, "Metasweeper-PluginManager")
+        if mutex:
+            win32api.CloseHandle(mutex)
+            return True
+    except win32api.error:
+        pass
+    return False
+
+
 def start_plugin_process(ui, main_window, plugins_disabled):
     translate = QtCore.QCoreApplication.translate
     data_dir = str(ui.setting_path / "data")
-    running = False
-    if sys.platform == "win32":
-        import win32api
-        import win32event
-        import winerror
-        try:
-            mutex = win32event.OpenMutex(
-                0x001F0001, False, "Metasweeper-PluginManager")
-            if mutex:
-                win32api.CloseHandle(mutex)
-                running = True
-        except win32api.error:
-            pass
-
-    if running or plugins_disabled:
+    if plugins_disabled or _plugin_manager_is_running():
         return None
     # 服务端已由 main.py 先行 start()，PUB/CTRL 各自申请了系统随机端口。
     # 把真实端点通过命令行显式传给插件管理器，避免固定端口冲突。
@@ -73,8 +76,9 @@ def start_plugin_process(ui, main_window, plugins_disabled):
         return None
 
 
-def cleanup_plugin_process(plugin_process):
-    GameServerBridge.instance().stop()
+def cleanup_plugin_process(plugin_process, *, stop_bridge=True):
+    if stop_bridge:
+        GameServerBridge.instance().stop()
     if plugin_process is not None and plugin_process.poll() is None:
         plugin_process.terminate()
         try:
@@ -86,3 +90,33 @@ def cleanup_plugin_process(plugin_process):
                 plugin_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 logger.error("plugin_manager 强制结束失败")
+                return False
+    return True
+
+
+def install_restart_action(ui, main_window, plugins_disabled):
+    from PySide6.QtGui import QAction
+
+    action = QAction(QtCore.QCoreApplication.translate("MainWindow", "重启插件管理器"), main_window)
+    action.setObjectName("actionRestartPluginManager")
+    action.setEnabled(not plugins_disabled)
+    ui.menu_4.insertAction(ui.actionchajian, action)
+    action.triggered.connect(lambda: restart_plugin_process(ui, main_window, plugins_disabled))
+    return action
+
+
+def restart_plugin_process(ui, main_window, plugins_disabled):
+    """复用现有 IPC 服务，只在旧子进程退出后启动替代进程。"""
+    if plugins_disabled:
+        return False
+    if not cleanup_plugin_process(ui._plugin_process, stop_bridge=False):
+        return False
+    ui._plugin_process = None
+    deadline = time.monotonic() + 5.0
+    while _plugin_manager_is_running():
+        if time.monotonic() >= deadline:
+            logger.warning("插件管理器互斥体未释放，无法重启")
+            return False
+        time.sleep(0.1)
+    ui._plugin_process = start_plugin_process(ui, main_window, plugins_disabled)
+    return ui._plugin_process is not None

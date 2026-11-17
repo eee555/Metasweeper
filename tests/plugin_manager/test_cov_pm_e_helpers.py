@@ -124,6 +124,7 @@ def real_window(qtbot, monkeypatch, tmp_path, plugins=None, tray=True):
     monkeypatch.setattr(mw, "SettingsManager", lambda data_dir: SimpleNamespace(
         file_log_level="DEBUG", viewer_log_level="INFO",
         viewer_auto_scroll=True, viewer_show_source=False,
+        plugin_lib_dir="",
     ))
     if tray:
         monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",

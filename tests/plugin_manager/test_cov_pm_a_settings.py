@@ -15,6 +15,11 @@ def test_basic_settings_defaults_and_to_dict():
         "viewer_log_level": "INFO",
         "viewer_auto_scroll": True,
         "viewer_show_source": False,
+        "plugin_lib_dir": "",
+        "plugin_pip_indexes": [
+            "https://pypi.org/simple",
+            "https://pypi.tuna.tsinghua.edu.cn/simple",
+        ],
     }
 
 
@@ -37,8 +42,14 @@ def test_basic_settings_from_dict_full():
         "viewer_log_level": "CRITICAL",
         "viewer_auto_scroll": False,
         "viewer_show_source": True,
+        "plugin_lib_dir": "D:/libs",
+        "plugin_pip_indexes": ["https://packages.example/simple"],
     }
     assert BasicSettings.from_dict(data).to_dict() == data
+
+
+def test_basic_settings_plugin_lib_dir_invalid_type_falls_back_to_empty():
+    assert BasicSettings.from_dict({"plugin_lib_dir": 123}).plugin_lib_dir == ""
 
 
 def test_settings_manager_init_creates_data_dir(tmp_path):
@@ -55,6 +66,8 @@ def test_settings_manager_load_valid_json(tmp_path):
         "viewer_log_level": "ERROR",
         "viewer_auto_scroll": False,
         "viewer_show_source": True,
+        "plugin_lib_dir": "D:/libs",
+        "plugin_pip_indexes": ["https://packages.example/simple"],
     }
     (tmp_path / SettingsManager.SETTINGS_FILENAME).write_text(
         json.dumps(data), encoding="utf-8",
@@ -160,6 +173,39 @@ def test_set_viewer_show_source_persists(tmp_path):
         "viewer_show_source"
     ] is True
     assert SettingsManager(tmp_path).viewer_show_source is True
+
+
+def test_set_plugin_lib_dir_persists_and_strips(tmp_path):
+    mgr = SettingsManager(tmp_path)
+    mgr.set_plugin_lib_dir("  D:/libs  ")
+    assert mgr.plugin_lib_dir == "D:/libs"
+    assert SettingsManager(tmp_path).plugin_lib_dir == "D:/libs"
+    mgr.set_plugin_lib_dir("")
+    assert SettingsManager(tmp_path).plugin_lib_dir == ""
+
+
+def test_plugin_pip_indexes_default_and_custom_round_trip(tmp_path):
+    mgr = SettingsManager(tmp_path)
+    assert mgr.plugin_pip_indexes == [
+        "https://pypi.org/simple",
+        "https://pypi.tuna.tsinghua.edu.cn/simple",
+    ]
+    mgr.set_plugin_pip_indexes([
+        " https://packages.example/simple/ ",
+        "https://mirror.example/simple",
+        "https://packages.example/simple",
+    ])
+    assert mgr.plugin_pip_indexes == [
+        "https://packages.example/simple",
+        "https://mirror.example/simple",
+    ]
+    assert SettingsManager(tmp_path).plugin_pip_indexes == mgr.plugin_pip_indexes
+
+
+def test_plugin_pip_indexes_reject_invalid_url(tmp_path):
+    mgr = SettingsManager(tmp_path)
+    with pytest.raises(ValueError):
+        mgr.set_plugin_pip_indexes(["file:///tmp/package-index"])
 
 
 def test_all_setters_together_round_trip(tmp_path):
