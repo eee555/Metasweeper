@@ -11,7 +11,8 @@ set UI_FILES=../../uiFiles/ui_gs.ui ../../uiFiles/main_board.ui ../../uiFiles/ui
 set MAIN=../main.py ../mainWindowGUIImportExport.py ../mine_num_bar.py ../mineSweeperGUI.py ../mineSweeperGUIEvent.py ../mineSweeperVideoPlayer.py
 
 @REM ---------- 对话框 ----------
-set DIALOGS=../dialogs/CheckUpdateGui.py ../dialogs/gameAdvancedSettings.py ../dialogs/videoControl.py
+set DIALOGS=../dialogs/CheckUpdateGui.py ../dialogs/gameAdvancedSettings.py ../dialogs/videoControl.py ../dialogs/keyBindingsEditor.py ../dialogs/gameSettingShortcuts.py
+set CONFIG=../config/key_bindings.py
 
 @REM ---------- 复盘分析 ----------
 set REPLAY_ANALYSIS=../replay_analysis/combo_click.py ../replay_analysis/flag.py ../replay_analysis/guess.py ../replay_analysis/one_point_five_click.py
@@ -33,7 +34,7 @@ set SAOLEI_PLUGIN=../plugins/SaoleiWebsite/config.py
 set STATS_PLUGIN=../plugins/stats/plugin.py
 set SKINMANAGER_PLUGIN=../plugins/skin_manager/config.py ../plugins/skin_manager/plugin.py ../plugins/skin_manager/widgets.py ../plugins/skin_manager/sound.py ../plugins/skin_manager/zip_import.py
 
-set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER% %HISTORY_PLUGIN% %LLM_PLUGIN% %XIANNI_PLUGIN% %CHALLENGE_PLUGIN% %CLIPBOARD_PLUGIN% %SAOLEI_PLUGIN% %STATS_PLUGIN% %SKINMANAGER_PLUGIN%
+set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %CONFIG% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER% %HISTORY_PLUGIN% %LLM_PLUGIN% %XIANNI_PLUGIN% %CHALLENGE_PLUGIN% %CLIPBOARD_PLUGIN% %SAOLEI_PLUGIN% %STATS_PLUGIN% %SKINMANAGER_PLUGIN%
 
 pyside6-lupdate %ALL_SOURCES% -ts en_US.ts -noobsolete -tr-function-alias translate+=_translate
 

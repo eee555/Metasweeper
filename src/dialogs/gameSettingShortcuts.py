@@ -1,8 +1,10 @@
 from ui.ui_gameSettingShortcuts import Ui_Form
 import configparser
 from PySide6 import QtGui
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QAbstractSpinBox, QSpinBox
 from ui.uiComponents import RoundQDialog
+from dialogs.keyBindingsEditor import KeyBindingsEditor
 
 # 继承自ui文件生成的原始的.py
 # 减少ui文件生成的原始的.py的改动
@@ -14,6 +16,20 @@ class myGameSettingShortcuts(Ui_Form):
         self.r_path = r_path
         self.Dialog = RoundQDialog(parent)
         self.setupUi(self.Dialog)
+        # 录制按键时 Enter 本身可能被设为快捷键，去掉确定按钮的回车快捷键避免误提交
+        self.pushButton.setShortcut("")
+        # 放大对话框，给按键列表留出足够空间
+        self.Dialog.resize(720, 560)
+        self.Dialog.setMinimumSize(720, 560)
+        self.Dialog.setMaximumSize(720, 560)
+        self.tabWidget.setGeometry(20, 30, 680, 451)
+        self.pushButton.setGeometry(20, 495, 330, 41)
+        self.pushButton_2.setGeometry(370, 495, 330, 41)
+        self.key_bindings_editor = KeyBindingsEditor(self.game_setting)
+        self.tabWidget.insertTab(
+            0, self.key_bindings_editor.widget,
+            QCoreApplication.translate("KeyBindings", "按键自定义"))
+        self.tabWidget.setCurrentIndex(0)
         # NoButtons 配合全局 QSS 会将内部文本区挤成 1px；使用标准按钮布局，
         # 再隐藏按钮子控件，维持无箭头的外观并让数值正常显示。
         for spin_box in self.Dialog.findChildren(QSpinBox):
@@ -102,6 +118,9 @@ class myGameSettingShortcuts(Ui_Form):
 
     def processParameter(self):
         # 只有点确定才能进来
+        if not self.key_bindings_editor.commit():
+            return
+        self.key_binding_values = self.key_bindings_editor.key_binding_values
         self.alter = True
 
         # modTable = [0,1,3,4,2,5,6,7]

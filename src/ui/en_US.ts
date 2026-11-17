@@ -4129,4 +4129,161 @@ Choose the default to restore.&gt;</translation>
         <translation type="unfinished"></translation>
     </message>
 </context>
+<context>
+    <name>KeyBindings</name>
+    <message>
+        <source>初级局面 (1)</source>
+        <translation>Beginner board (1)</translation>
+    </message>
+    <message>
+        <source>中级局面 (2)</source>
+        <translation>Intermediate board (2)</translation>
+    </message>
+    <message>
+        <source>高级局面 (3)</source>
+        <translation>Expert board (3)</translation>
+    </message>
+    <message>
+        <source>自定义局面 4</source>
+        <translation>Custom board 4</translation>
+    </message>
+    <message>
+        <source>自定义局面 5</source>
+        <translation>Custom board 5</translation>
+    </message>
+    <message>
+        <source>自定义局面 6</source>
+        <translation>Custom board 6</translation>
+    </message>
+    <message>
+        <source>重新开始一局</source>
+        <translation>Restart game</translation>
+    </message>
+    <message>
+        <source>回放当前局面</source>
+        <translation>Replay current board</translation>
+    </message>
+    <message>
+        <source>显示每格雷的概率</source>
+        <translation>Show mine probability for each cell</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (OBR)</source>
+        <translation>Screenshot recognition (OBR)</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (macOS 备用)</source>
+        <translation>Screenshot recognition (macOS fallback)</translation>
+    </message>
+    <message>
+        <source>隐藏/显示计数器</source>
+        <translation>Hide/show counters</translation>
+    </message>
+    <message>
+        <source>复制局面</source>
+        <translation>Copy board</translation>
+    </message>
+    <message>
+        <source>粘贴局面</source>
+        <translation>Paste board</translation>
+    </message>
+    <message>
+        <source>菜单：新游戏</source>
+        <translation>Menu: New game</translation>
+    </message>
+    <message>
+        <source>菜单：初级</source>
+        <translation>Menu: Beginner</translation>
+    </message>
+    <message>
+        <source>菜单：中级</source>
+        <translation>Menu: Intermediate</translation>
+    </message>
+    <message>
+        <source>菜单：高级</source>
+        <translation>Menu: Expert</translation>
+    </message>
+    <message>
+        <source>菜单：自定义</source>
+        <translation>Menu: Custom</translation>
+    </message>
+    <message>
+        <source>菜单：退出</source>
+        <translation>Menu: Quit</translation>
+    </message>
+    <message>
+        <source>菜单：游戏设置</source>
+        <translation>Menu: Game settings</translation>
+    </message>
+    <message>
+        <source>菜单：关于</source>
+        <translation>Menu: About</translation>
+    </message>
+    <message>
+        <source>菜单：快捷键设置</source>
+        <translation>Menu: Shortcut settings</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像</source>
+        <translation>Menu: Open replay</translation>
+    </message>
+    <message>
+        <source>菜单：鼠标设置</source>
+        <translation>Menu: Mouse settings</translation>
+    </message>
+    <message>
+        <source>菜单：保存录像</source>
+        <translation>Menu: Save replay</translation>
+    </message>
+    <message>
+        <source>菜单：播放录像</source>
+        <translation>Menu: Play replay</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像目录</source>
+        <translation>Menu: Open replay folder</translation>
+    </message>
+    <message>
+        <source>菜单：成就</source>
+        <translation>Menu: Achievements</translation>
+    </message>
+    <message>
+        <source>菜单：个人记录</source>
+        <translation>Menu: Personal records</translation>
+    </message>
+    <message>
+        <source>菜单：插件管理</source>
+        <translation>Menu: Plugin manager</translation>
+    </message>
+    <message>
+        <source>点击按键框后直接按下想要的组合键；清空输入框可禁用该快捷键。</source>
+        <translation>Click a key box and press the desired combination; clear the box to disable the shortcut.</translation>
+    </message>
+    <message>
+        <source>恢复默认</source>
+        <translation>Restore defaults</translation>
+    </message>
+    <message>
+        <source>滚轮缩放棋盘的修饰键：</source>
+        <translation>Modifier for zooming the board with the wheel:</translation>
+    </message>
+    <message>
+        <source>注意：以下快捷键被重复指定：</source>
+        <translation>Note: the following shortcuts are assigned more than once: </translation>
+    </message>
+    <message>
+        <source>快捷键冲突</source>
+        <translation>Shortcut conflict</translation>
+    </message>
+    <message>
+        <source>以下快捷键被重复指定，请修改后再保存：
+</source>
+        <translation>The following shortcuts are assigned more than once. Please change them before saving:
+</translation>
+    </message>
+    <message>
+        <source>按键自定义</source>
+        <translation>Key bindings</translation>
+    </message>
+</context>
 </TS>

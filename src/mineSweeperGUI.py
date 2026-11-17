@@ -42,6 +42,7 @@ from ui.ui_import import Ui_Form as Ui_Import
 from ui.uiComponents import RoundQDialog
 from app.game_engine import GameEngine
 from app.board_renderer import BoardRenderer
+from config.key_bindings import apply_bindings
 from config.constants import (
     READY, PLAYING, JOKING, WIN, FAIL, STUDY, DISPLAY, SHOW_DISPLAY, SHOW,
     JOWIN, JOFAIL,
@@ -1327,6 +1328,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         ui.Dialog.exec()
         if ui.alter:
             self.readPredefinedBoardPara()
+            apply_bindings(self, ui.key_binding_values)
 
     def action_mouse_setting(self):
         # 打开鼠标设置的第三个菜单

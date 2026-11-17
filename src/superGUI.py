@@ -23,6 +23,7 @@ from config.constants import (
     LEVEL_NAME_BEGINNER, LEVEL_NAME_INTERMEDIATE, LEVEL_NAME_EXPERT, LEVEL_NAME_CUSTOM,
     READY, BOARD_READY, MIN_PIX_SIZE, MAX_PIX_SIZE,
 )
+from config.key_bindings import apply_bindings, load_bindings
 from utils.app_logger import logger
 from plugin_sdk import GameServerBridge
 
@@ -338,6 +339,9 @@ class Ui_MainWindow(Ui_MainWindow):
         self.shortcut_paste_board = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+V"), MainWindow)
         self.shortcut_paste_board.activated.connect(lambda: self.paste_board())
+
+        self.key_binding_values = load_bindings(self.game_setting)
+        apply_bindings(self, self.key_binding_values)
 
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 

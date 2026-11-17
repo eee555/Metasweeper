@@ -2,7 +2,8 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QTimer, QFileInfo
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence
+from config.key_bindings import event_matches_sequence
 import sys
 # 重写QMainWindow
 
@@ -28,6 +29,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         self.setAcceptDrops(True)
+        self._probability_sequence = QKeySequence("Space")
         # macOS cocoa 平台上优先用 NSWindow.setAspectRatio 让窗口管理器
         # 在拖拽期间原生强制等比缩放；没有 pyobjc 或非 cocoa 平台
         # （offscreen 测试平台的 winId 不是真实 NSView，不能强转）时退回
@@ -62,8 +64,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         self.closeEvent_.emit()
 
+    def set_probability_key(self, key_text):
+        """显示概率的按键（按下显示、松开隐藏）支持用户自定义。"""
+        self._probability_sequence = QKeySequence(key_text)
+
     def keyReleaseEvent(self, event):
-        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
+        if not event.isAutoRepeat() and event_matches_sequence(
+                event, self._probability_sequence):
             self.keyRelease.emit('Space')
 
     def resizeEvent(self, event):

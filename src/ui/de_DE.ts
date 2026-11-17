@@ -4132,4 +4132,161 @@ Standard stellt wieder her.&gt;</translation>
         <translation type="unfinished"></translation>
     </message>
 </context>
+<context>
+    <name>KeyBindings</name>
+    <message>
+        <source>初级局面 (1)</source>
+        <translation>Anfängerbrett (1)</translation>
+    </message>
+    <message>
+        <source>中级局面 (2)</source>
+        <translation>Mittelstufenbrett (2)</translation>
+    </message>
+    <message>
+        <source>高级局面 (3)</source>
+        <translation>Expertenbrett (3)</translation>
+    </message>
+    <message>
+        <source>自定义局面 4</source>
+        <translation>Benutzerdefiniertes Brett 4</translation>
+    </message>
+    <message>
+        <source>自定义局面 5</source>
+        <translation>Benutzerdefiniertes Brett 5</translation>
+    </message>
+    <message>
+        <source>自定义局面 6</source>
+        <translation>Benutzerdefiniertes Brett 6</translation>
+    </message>
+    <message>
+        <source>重新开始一局</source>
+        <translation>Spiel neu starten</translation>
+    </message>
+    <message>
+        <source>回放当前局面</source>
+        <translation>Aktuelles Brett wiedergeben</translation>
+    </message>
+    <message>
+        <source>显示每格雷的概率</source>
+        <translation>Wahrscheinlichkeit für jede Zelle anzeigen</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (OBR)</source>
+        <translation>Bildschirmerkennung (OBR)</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (macOS 备用)</source>
+        <translation>Bildschirmerkennung (macOS-Ersatz)</translation>
+    </message>
+    <message>
+        <source>隐藏/显示计数器</source>
+        <translation>Zähler ein-/ausblenden</translation>
+    </message>
+    <message>
+        <source>复制局面</source>
+        <translation>Brett kopieren</translation>
+    </message>
+    <message>
+        <source>粘贴局面</source>
+        <translation>Brett einfügen</translation>
+    </message>
+    <message>
+        <source>菜单：新游戏</source>
+        <translation>Menü: Neues Spiel</translation>
+    </message>
+    <message>
+        <source>菜单：初级</source>
+        <translation>Menü: Anfänger</translation>
+    </message>
+    <message>
+        <source>菜单：中级</source>
+        <translation>Menü: Mittelstufe</translation>
+    </message>
+    <message>
+        <source>菜单：高级</source>
+        <translation>Menü: Experte</translation>
+    </message>
+    <message>
+        <source>菜单：自定义</source>
+        <translation>Menü: Benutzerdefiniert</translation>
+    </message>
+    <message>
+        <source>菜单：退出</source>
+        <translation>Menü: Beenden</translation>
+    </message>
+    <message>
+        <source>菜单：游戏设置</source>
+        <translation>Menü: Spieleinstellungen</translation>
+    </message>
+    <message>
+        <source>菜单：关于</source>
+        <translation>Menü: Über</translation>
+    </message>
+    <message>
+        <source>菜单：快捷键设置</source>
+        <translation>Menü: Tastenkürzel</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像</source>
+        <translation>Menü: Wiedergabe öffnen</translation>
+    </message>
+    <message>
+        <source>菜单：鼠标设置</source>
+        <translation>Menü: Mauseinstellungen</translation>
+    </message>
+    <message>
+        <source>菜单：保存录像</source>
+        <translation>Menü: Wiedergabe speichern</translation>
+    </message>
+    <message>
+        <source>菜单：播放录像</source>
+        <translation>Menü: Wiedergabe abspielen</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像目录</source>
+        <translation>Menü: Wiedergabeordner öffnen</translation>
+    </message>
+    <message>
+        <source>菜单：成就</source>
+        <translation>Menü: Errungenschaften</translation>
+    </message>
+    <message>
+        <source>菜单：个人记录</source>
+        <translation>Menü: Persönliche Rekorde</translation>
+    </message>
+    <message>
+        <source>菜单：插件管理</source>
+        <translation>Menü: Plugin-Verwaltung</translation>
+    </message>
+    <message>
+        <source>点击按键框后直接按下想要的组合键；清空输入框可禁用该快捷键。</source>
+        <translation>Klicken Sie auf ein Tastenfeld und drücken Sie die gewünschte Kombination; leeren Sie das Feld, um das Tastenkürzel zu deaktivieren.</translation>
+    </message>
+    <message>
+        <source>恢复默认</source>
+        <translation>Standard wiederherstellen</translation>
+    </message>
+    <message>
+        <source>滚轮缩放棋盘的修饰键：</source>
+        <translation>Modifikator zum Zoomen des Brettes mit dem Mausrad:</translation>
+    </message>
+    <message>
+        <source>注意：以下快捷键被重复指定：</source>
+        <translation>Hinweis: Die folgenden Tastenkürzel sind mehrfach vergeben: </translation>
+    </message>
+    <message>
+        <source>快捷键冲突</source>
+        <translation>Tastenkürzelkonflikt</translation>
+    </message>
+    <message>
+        <source>以下快捷键被重复指定，请修改后再保存：
+</source>
+        <translation>Die folgenden Tastenkürzel sind mehrfach vergeben. Bitte ändern Sie sie vor dem Speichern:
+</translation>
+    </message>
+    <message>
+        <source>按键自定义</source>
+        <translation>Tastenkürzel</translation>
+    </message>
+</context>
 </TS>

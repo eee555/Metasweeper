@@ -4132,4 +4132,161 @@ Domyślna przywraca.&gt;</translation>
         <translation type="unfinished"></translation>
     </message>
 </context>
+<context>
+    <name>KeyBindings</name>
+    <message>
+        <source>初级局面 (1)</source>
+        <translation>Plansza początkującego (1)</translation>
+    </message>
+    <message>
+        <source>中级局面 (2)</source>
+        <translation>Plansza średniozaawansowanego (2)</translation>
+    </message>
+    <message>
+        <source>高级局面 (3)</source>
+        <translation>Plansza eksperta (3)</translation>
+    </message>
+    <message>
+        <source>自定义局面 4</source>
+        <translation>Niestandardowa plansza 4</translation>
+    </message>
+    <message>
+        <source>自定义局面 5</source>
+        <translation>Niestandardowa plansza 5</translation>
+    </message>
+    <message>
+        <source>自定义局面 6</source>
+        <translation>Niestandardowa plansza 6</translation>
+    </message>
+    <message>
+        <source>重新开始一局</source>
+        <translation>Rozpocznij grę od nowa</translation>
+    </message>
+    <message>
+        <source>回放当前局面</source>
+        <translation>Odtwórz bieżącą planszę</translation>
+    </message>
+    <message>
+        <source>显示每格雷的概率</source>
+        <translation>Pokaż prawdopodobieństwo miny w każdym polu</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (OBR)</source>
+        <translation>Rozpoznanie zrzutu ekranu (OBR)</translation>
+    </message>
+    <message>
+        <source>截屏识别概率 (macOS 备用)</source>
+        <translation>Rozpoznanie zrzutu ekranu (zamiennik macOS)</translation>
+    </message>
+    <message>
+        <source>隐藏/显示计数器</source>
+        <translation>Pokaż/ukryj liczniki</translation>
+    </message>
+    <message>
+        <source>复制局面</source>
+        <translation>Kopiuj planszę</translation>
+    </message>
+    <message>
+        <source>粘贴局面</source>
+        <translation>Wklej planszę</translation>
+    </message>
+    <message>
+        <source>菜单：新游戏</source>
+        <translation>Menu: Nowa gra</translation>
+    </message>
+    <message>
+        <source>菜单：初级</source>
+        <translation>Menu: Początkujący</translation>
+    </message>
+    <message>
+        <source>菜单：中级</source>
+        <translation>Menu: Średniozaawansowany</translation>
+    </message>
+    <message>
+        <source>菜单：高级</source>
+        <translation>Menu: Zaawansowany</translation>
+    </message>
+    <message>
+        <source>菜单：自定义</source>
+        <translation>Menu: Niestandardowe</translation>
+    </message>
+    <message>
+        <source>菜单：退出</source>
+        <translation>Menu: Zakończ</translation>
+    </message>
+    <message>
+        <source>菜单：游戏设置</source>
+        <translation>Menu: Ustawienia gry</translation>
+    </message>
+    <message>
+        <source>菜单：关于</source>
+        <translation>Menu: O programie</translation>
+    </message>
+    <message>
+        <source>菜单：快捷键设置</source>
+        <translation>Menu: Ustawienia skrótów</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像</source>
+        <translation>Menu: Otwórz powtórkę</translation>
+    </message>
+    <message>
+        <source>菜单：鼠标设置</source>
+        <translation>Menu: Ustawienia myszy</translation>
+    </message>
+    <message>
+        <source>菜单：保存录像</source>
+        <translation>Menu: Zapisz powtórkę</translation>
+    </message>
+    <message>
+        <source>菜单：播放录像</source>
+        <translation>Menu: Odtwórz powtórkę</translation>
+    </message>
+    <message>
+        <source>菜单：打开录像目录</source>
+        <translation>Menu: Otwórz folder powtórek</translation>
+    </message>
+    <message>
+        <source>菜单：成就</source>
+        <translation>Menu: Osiągnięcia</translation>
+    </message>
+    <message>
+        <source>菜单：个人记录</source>
+        <translation>Menu: Rekordy osobiste</translation>
+    </message>
+    <message>
+        <source>菜单：插件管理</source>
+        <translation>Menu: Zarządzanie wtyczkami</translation>
+    </message>
+    <message>
+        <source>点击按键框后直接按下想要的组合键；清空输入框可禁用该快捷键。</source>
+        <translation>Kliknij pole klawisza i naciśnij żądaną kombinację; wyczyść pole, aby wyłączyć skrót.</translation>
+    </message>
+    <message>
+        <source>恢复默认</source>
+        <translation>Przywróć domyślne</translation>
+    </message>
+    <message>
+        <source>滚轮缩放棋盘的修饰键：</source>
+        <translation>Modyfikator powiększania planszy kółkiem myszy:</translation>
+    </message>
+    <message>
+        <source>注意：以下快捷键被重复指定：</source>
+        <translation>Uwaga: Poniższe skróty są przypisane wielokrotnie: </translation>
+    </message>
+    <message>
+        <source>快捷键冲突</source>
+        <translation>Konflikt skrótów</translation>
+    </message>
+    <message>
+        <source>以下快捷键被重复指定，请修改后再保存：
+</source>
+        <translation>Poniższe skróty są przypisane wielokrotnie. Zmień je przed zapisaniem:
+</translation>
+    </message>
+    <message>
+        <source>按键自定义</source>
+        <translation>Skróty klawiaturowe</translation>
+    </message>
+</context>
 </TS>
