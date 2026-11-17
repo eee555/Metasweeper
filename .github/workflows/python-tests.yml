@@ -36,6 +36,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      # .qm 由 .gitignore 排除，测试需要运行时翻译目录，因此在此重新生成。
+      - name: Compile translation catalogs
+        shell: pwsh
+        run: |
+          pyside6-lrelease src/ui/en_US.ts -qm src/en_US.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pyside6-lrelease src/ui/de_DE.ts -qm src/de_DE.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pyside6-lrelease src/ui/ja_JP.ts -qm src/ja_JP.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pyside6-lrelease src/ui/pl_PL.ts -qm src/pl_PL.qm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python develop_tools/compile_plugin_translations.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Run tests
         shell: pwsh
         run: python -m pytest --junitxml=pytest-results.xml
