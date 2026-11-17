@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -144,8 +143,12 @@ def test_open_plugin_views_refresh_on_language_change(qapp, qtbot, tmp_path):
 
 
 def test_compiled_catalogs_are_current():
-    compiler = Path(sys.executable).parent / (
-        "pyside6-lrelease.exe" if sys.platform == "win32" else "pyside6-lrelease")
+    from tests.plugin_manager.test_menu_layout import find_lrelease
+
+    try:
+        compiler = find_lrelease()
+    except (StopIteration, FileNotFoundError):
+        pytest.skip("pyside6-lrelease is not available")
     for plugin in PLUGINS:
         for locale in LOCALES:
             source = catalog(plugin, locale)

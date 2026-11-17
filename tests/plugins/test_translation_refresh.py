@@ -1,7 +1,6 @@
 """Language switches must refresh plugin views and preserve existing filters."""
 
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -68,10 +67,12 @@ def test_clipboard_catalog_loads_in_qt(qapp, qtbot, tmp_path, locale, expected):
     root = Path(__file__).resolve().parents[2]
     catalog = root / "src" / "plugins" / "clipboard_replay" / "translations" / f"{locale}.ts"
     qm = tmp_path / f"{locale}.qm"
-    name = "pyside6-lrelease.exe" if sys.platform == "win32" else "pyside6-lrelease"
-    python_dir = Path(sys.executable).parent
-    compiler = next(path for path in (python_dir / name, python_dir / "Scripts" / name)
-                    if path.is_file())
+    from tests.plugin_manager.test_menu_layout import find_lrelease
+
+    try:
+        compiler = find_lrelease()
+    except (StopIteration, FileNotFoundError):
+        pytest.skip("pyside6-lrelease is not available")
     subprocess.run([str(compiler), str(catalog), "-qm", str(qm)], check=True)
     translator = QTranslator()
     assert translator.load(str(qm))
