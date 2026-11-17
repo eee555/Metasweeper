@@ -1,6 +1,8 @@
 """插件标签右键菜单及视图生命周期回归测试。"""
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +16,17 @@ from PySide6.QtWidgets import QApplication, QWidget
 from plugin_manager.main_window import DetachableTabWidget, PluginManagerWindow
 from plugin_manager.plugin_state import PluginState, PluginStateManager
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode
+
+
+def compile_catalog(ts: Path, qm: Path) -> Path:
+    """用 pyside6-lrelease 把 .ts 编译成 .qm（.qm 是构建产物，不入库）。"""
+    name = "pyside6-lrelease.exe" if sys.platform == "win32" else "pyside6-lrelease"
+    python_dir = Path(sys.executable).parent
+    compiler = next(path for path in (python_dir / name, python_dir / "Scripts" / name)
+                    if path.is_file())
+    subprocess.run([str(compiler), str(ts), "-qm", str(qm)], check=True,
+                   capture_output=True)
+    return qm
 
 
 @pytest.fixture
@@ -196,10 +209,11 @@ def test_actual_popup_supports_keyboard(window):
     ("ja_JP", ["このタブを閉じる", "左側のタブを閉じる", "右側のタブを閉じる", "他のタブを閉じる", "すべてのタブを閉じる"]),
     ("pl_PL", ["Zamknij bieżącą kartę", "Zamknij karty po lewej", "Zamknij karty po prawej", "Zamknij pozostałe karty", "Zamknij wszystkie karty"]),
 ])
-def test_compiled_translation_updates_existing_menu(window, qapp, locale, expected):
+def test_compiled_translation_updates_existing_menu(window, qapp, tmp_path, locale, expected):
     tabs = window._tab_widget
     translator = QTranslator()
-    qm = Path(__file__).resolve().parents[2] / "src" / f"{locale}.qm"
+    ts = Path(__file__).resolve().parents[2] / "src" / "ui" / f"{locale}.ts"
+    qm = compile_catalog(ts, tmp_path / f"{locale}.qm")
     assert translator.load(str(qm))
     qapp.installTranslator(translator)
     try:
