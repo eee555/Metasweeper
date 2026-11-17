@@ -316,6 +316,11 @@ class Ui_MainWindow(Ui_MainWindow):
             QtGui.QKeySequence(QtCore.Qt.Key.Key_F2), MainWindow)
         self.frameShortcutF3 = QtGui.QShortcut(
             QtGui.QKeySequence(QtCore.Qt.Key.Key_F3), MainWindow)
+        self.frameShortcutCursorLimit = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key.Key_F4), MainWindow)
+        self.frameShortcutCursorLimit.setContext(
+            QtCore.Qt.ShortcutContext.ApplicationShortcut)
+        self.frameShortcutCursorLimit.setAutoRepeat(False)
         self.frameShortcut8 = QtGui.QShortcut(
             QtGui.QKeySequence(QtCore.Qt.Key.Key_Space), MainWindow)
         self.frameShortcut8.setAutoRepeat(False)

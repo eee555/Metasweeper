@@ -4777,6 +4777,10 @@ Domyślna przywraca.&gt;</translation>
         <translation>Wklej planszę</translation>
     </message>
     <message>
+        <source>锁定/解锁鼠标到棋盘</source>
+        <translation>Zablokuj/odblokuj mysz na planszy</translation>
+    </message>
+    <message>
         <source>菜单：新游戏</source>
         <translation>Menu: Nowa gra</translation>
     </message>

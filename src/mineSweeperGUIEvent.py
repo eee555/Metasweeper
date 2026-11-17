@@ -180,9 +180,6 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                     else:
                         self.enable_screenshot()
 
-                    if self.cursor_limit:
-                        self.limit_cursor()
-
                     # 核实用的时间，防变速齿轮
                     self.start_time_unix_2 = QtCore.QDateTime.currentDateTime().\
                         toMSecsSinceEpoch()
