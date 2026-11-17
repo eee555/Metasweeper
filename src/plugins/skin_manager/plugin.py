@@ -112,9 +112,9 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
             self.other_info.skin = ""
 
     # ── 应用 / 还原 ──────────────────────────────────────────────
-    def _apply(self, skin_name: str, force: bool = False) -> None:
+    def _apply(self, skin_name: str, force: bool = False) -> bool:
         if not force and skin_name == self._applied:
-            return
+            return True
         roots = self._roots()
         if not skin_name:
             cmd = SetSkinCommand(reset=True)
@@ -124,7 +124,7 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
             if cmd.reset:
                 self.logger.warning(f"皮肤目录不存在: {skin_name}")
                 self._notify(f"皮肤目录不存在：{skin_name}")
-                return
+                return False
             detail = (
                 f"{skin_name}（格子 {len(cmd.cells)}、LED {len(cmd.leds)}、"
                 f"笑脸 {len(cmd.faces)}）"
@@ -134,15 +134,16 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
         if resp is None:
             self._notify("主进程未响应（可能尚未连接或未授权）")
             self.logger.warning("SetSkinCommand 无响应，请检查连接与控制授权")
-            return
+            return False
         if not resp.success:
             self._notify(f"应用失败：{resp.error}")
             self.logger.warning(f"SetSkinCommand 被拒绝: {resp.error}")
-            return
+            return False
 
         self._applied = skin_name
         self.logger.info(f"已应用皮肤: {detail}")
         self._notify(f"已应用：{detail}")
+        return True
 
     def _notify(self, text: str) -> None:
         # 在 GUI 执行时读取当前窗口，关闭期间自动跳过通知。
@@ -169,7 +170,7 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
             self.other_info.sound_pack = ""
 
     def _apply_sound(self, force: bool = False, *,
-                     play_event: str | None = None) -> None:
+                     play_event: str | None = None) -> bool:
         """把当前音效设置通过独立的 SetSoundCommand 发给主进程。"""
         cfg = self.other_info
         state = (
@@ -180,29 +181,30 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
         )
         # 试听不参与去重，否则连点试听会被跳过
         if not force and play_event is None and state == self._sound_applied:
-            return
+            return True
         try:
             cmd = build_sound_command(
                 enabled=state[0], volume=state[1], pack=state[2],
                 extra_dir=state[3], play_event=play_event)
         except ValueError as exc:
             self._notify(f"音效参数无效：{exc}")
-            return
+            return False
 
         resp = self.request(cmd, timeout=10.0)
         if resp is None:
             self._notify("主进程未响应（可能尚未连接或未授权 SetSoundCommand）")
             self.logger.warning("SetSoundCommand 无响应，请检查连接与控制授权")
-            return
+            return False
         if not resp.success:
             self._notify(f"音效应用失败：{resp.error}")
             self.logger.warning(f"SetSoundCommand 被拒绝: {resp.error}")
-            return
+            return False
 
         self._sound_applied = state
         label = f"音效（{'开' if state[0] else '关'}，音量 {state[1]}，包 {state[2] or '默认'}）"
         self.logger.info(f"已应用{label}")
         self._notify(f"已应用：{label}")
+        return True
 
     def _on_sound_preview_requested(self, event: str) -> None:
         """界面试听按钮：先应用当前设置，再让主进程播一个事件。"""
@@ -227,13 +229,16 @@ class SkinManagerPlugin(BasePlugin[SkinManagerConfig]):
             # 短延时，并在成功后不再重复发送。
             from PySide6.QtCore import QTimer
 
-            def _auto_apply(retry: int = 1) -> None:
+            def _auto_apply(retry: int = 1, *, skin_pending: bool = True,
+                            sound_pending: bool = True) -> None:
                 skin = str(self.other_info.skin or "")
-                if skin:
-                    self._apply(skin, force=True)
-                self._apply_sound(force=True)
-                if retry and (self._applied is None and skin):
-                    QTimer.singleShot(2000, lambda: _auto_apply(retry - 1))
+                skin_failed = skin_pending and bool(skin) and not self._apply(
+                    skin, force=True)
+                sound_failed = sound_pending and not self._apply_sound(force=True)
+                if retry and (skin_failed or sound_failed):
+                    QTimer.singleShot(2000, lambda: _auto_apply(
+                        retry - 1, skin_pending=skin_failed,
+                        sound_pending=sound_failed))
 
             QTimer.singleShot(1500, lambda: _auto_apply(1))
 

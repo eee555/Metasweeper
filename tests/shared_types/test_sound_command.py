@@ -328,6 +328,74 @@ def test_plugin_declares_both_controls():
     assert SetSkinCommand in required and SetSoundCommand in required
 
 
+@pytest.mark.parametrize(
+    ("skin", "skin_results", "sound_results", "expected"),
+    [
+        ("", [], [False, True], ["sound", "sound"]),
+        ("classic", [True], [False, True], ["skin", "sound", "sound"]),
+        ("classic", [True], ["rejected", True], ["skin", "sound", "sound"]),
+        ("classic", [False, True], [True], ["skin", "sound", "skin"]),
+        ("classic", [True], [True], ["skin", "sound"]),
+        ("classic", [False, False], [False, False],
+         ["skin", "sound", "skin", "sound"]),
+    ],
+)
+def test_plugin_startup_retries_each_failed_command(
+        monkeypatch, skin, skin_results, sound_results, expected):
+    """无皮肤、单项失败及双项失败都按各自请求结果最多重试一次。"""
+    from types import MethodType, SimpleNamespace
+    from PySide6.QtCore import QTimer
+    from plugins.skin_manager import plugin as skin_plugin
+
+    class Signal:
+        def disconnect(self, _slot):
+            pass
+
+        def connect(self, _slot, _connection):
+            pass
+
+    calls = []
+    results = {"skin": iter(skin_results), "sound": iter(sound_results)}
+
+    def request(cmd, timeout):
+        kind = "skin" if isinstance(cmd, SetSkinCommand) else "sound"
+        calls.append(kind)
+        result = next(results[kind])
+        if result == "rejected":
+            return SimpleNamespace(success=False, error="not authorized")
+        return SimpleNamespace(success=True) if result else None
+
+    instance = SimpleNamespace(
+        other_info=SimpleNamespace(auto_apply=True, skin=skin,
+                                   sound_enabled=True, sound_volume=55,
+                                   sound_pack=""),
+        config_changed=Signal(), _on_config_changed=lambda *_: None,
+        _refresh_choices=lambda: None, _refresh_sound_choices=lambda: None,
+        _roots=lambda: [], _notify=lambda _text: None, request=request,
+        logger=SimpleNamespace(info=lambda *_: None, warning=lambda *_: None),
+        # 模拟停用后重启时残留上一次成功的缓存。
+        _applied=skin or None, _sound_applied=(True, 55, "", "old"),
+    )
+    instance._apply = MethodType(skin_plugin.SkinManagerPlugin._apply, instance)
+    instance._apply_sound = MethodType(
+        skin_plugin.SkinManagerPlugin._apply_sound, instance)
+    scheduled = []
+    monkeypatch.setattr(QTimer, "singleShot", lambda delay, callback:
+                        scheduled.append((delay, callback)))
+    monkeypatch.setattr(skin_plugin, "seed_builtin_sound_packs", lambda: None)
+    monkeypatch.setattr(skin_plugin, "build_command", lambda *_: SetSkinCommand())
+
+    skin_plugin.SkinManagerPlugin.on_initialized(instance)
+    delays = []
+    while scheduled:
+        delay, callback = scheduled.pop(0)
+        delays.append(delay)
+        callback()
+    assert calls == expected
+    assert delays == ([1500, 2000] if len(expected) > 2 or not skin
+                      else [1500])
+
+
 def test_safe_disconnect_is_silent_when_not_connected():
     """回归：PySide6 的 disconnect 未连接时发 RuntimeWarning 而非抛异常，
     插件初始化不应再刷 'libpyside: Failed to disconnect' 告警。"""
