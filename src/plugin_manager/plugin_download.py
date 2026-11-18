@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import ipaddress
 import json
 import re
 import stat
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Callable
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, unquote, urljoin, urlsplit
 from zipfile import ZipFile
 
 import requests
@@ -20,6 +22,7 @@ from .plugin_repositories import PluginRepository, RepositoryTag
 
 _MAX_DOWNLOAD = 100 * 1024 * 1024
 _MAX_EXTRACTED = 500 * 1024 * 1024
+_MAX_INDEX_BYTES = 1024 * 1024
 _CHUNK_SIZE = 64 * 1024
 _MAX_REDIRECTS = 5
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
@@ -96,6 +99,58 @@ class DownloadCancelled(Exception):
     pass
 
 
+class GitHubApiRateLimit(ValueError):
+    """GitHub REST API anonymous quota exhausted; callers may use web fallback."""
+
+
+class _GitHubSearchPageParser(HTMLParser):
+    """Read the embedded repository search payload from GitHub's public HTML page."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._capture = False
+        self.chunks: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        self._capture = (
+            tag == "script"
+            and attributes.get("type") == "application/json"
+            and attributes.get("data-target") == "react-app.embeddedData"
+        )
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script":
+            self._capture = False
+
+    def handle_data(self, data: str) -> None:
+        if self._capture:
+            self.chunks.append(data)
+
+
+class _GitHubTagPageParser(HTMLParser):
+    """Extract version tag names and full commit hashes from GitHub's tag page."""
+
+    def __init__(self, repository_path: str) -> None:
+        super().__init__()
+        self.repository_path = "/" + repository_path.strip("/")
+        self.current_tag: str | None = None
+        self.tags: list[RepositoryTag] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        href = attributes.get("href") or ""
+        tag_prefix = self.repository_path + "/releases/tag/"
+        commit_prefix = self.repository_path + "/commit/"
+        if tag == "a" and href.startswith(tag_prefix):
+            self.current_tag = unquote(href[len(tag_prefix):].split("/", 1)[0])
+        elif tag == "a" and self.current_tag and href.startswith(commit_prefix):
+            commit = href[len(commit_prefix):].split("/", 1)[0]
+            if re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", commit):
+                self.tags.append(RepositoryTag(self.current_tag, commit))
+                self.current_tag = None
+
+
 class PluginDownloader:
     def __init__(
         self,
@@ -118,6 +173,10 @@ class PluginDownloader:
     def _check_response(response: requests.Response) -> None:
         if response.status_code == 404:
             raise ValueError(_tr("仓库或版本不存在，或仓库不是公开仓库。"))
+        if response.status_code == 403 and response.headers.get(
+            "X-RateLimit-Remaining") == "0":
+            raise GitHubApiRateLimit(_tr(
+                "GitHub API 匿名请求额度已用完；尝试从标签网页读取版本。"))
         if response.status_code in (403, 429):
             raise ValueError(_tr("托管平台拒绝请求或请求次数已达上限，请稍后重试。"))
         response.raise_for_status()
@@ -193,23 +252,164 @@ class PluginDownloader:
 
         raise ValueError(_tr("下载重定向次数超过限制。"))
 
-    def list_tags(self, repository: PluginRepository) -> list[RepositoryTag]:
-        tags = []
-        page = 1
-        while True:
+    def discover_plugins(self):
+        """通过 GitHub 仓库 Topic 发现公开插件。"""
+        origin = PluginRepository.from_url("https://github.com/github/github")
+        entries = []
+        seen = set()
+        try:
+            for page in range(1, 11):
+                with self._safe_get(
+                    origin, "https://api.github.com/search/repositories",
+                    params={"q": "topic:metasweeper-plugin archived:false",
+                            "per_page": 100, "page": page},
+                    headers=origin.provider.headers,
+                ) as response:
+                    data = response.json()
+                    if data.get("incomplete_results"):
+                        raise GitHubApiRateLimit(
+                            _tr("GitHub 搜索结果不完整，改用公开搜索页面。"))
+                    entries.extend(self._catalog_entries(data.get("items", []), seen))
+                    if not response.links.get("next"):
+                        return entries
+        except GitHubApiRateLimit:
+            return self._discover_github_topic_page(origin)
+        return entries
+
+    @staticmethod
+    def _catalog_entries(items: list[dict], seen: set[str]):
+        from .plugin_catalog import CatalogEntry
+
+        entries = []
+        for item in items:
+            try:
+                if item.get("private") or item.get("archived"):
+                    continue
+                html_url = item.get("html_url")
+                owner = item.get("owner") or {}
+                if not html_url and item.get("repo"):
+                    data = item["repo"].get("repository") or {}
+                    html_url = f"https://github.com/{data['owner_login']}/{data['name']}"
+                    owner = {"login": data.get("owner_login")}
+                repo = PluginRepository.from_url(html_url, "github")
+                key = repo.url.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                description = item.get("description") or item.get("hl_trunc_description") or ""
+                description = html.unescape(re.sub(r"<[^>]*>", "", description))
+                entries.append(CatalogEntry(
+                    name=item.get("name") or repo.path.split("/")[-1],
+                    repository=repo, description=description,
+                    author=owner.get("login") or ""))
+            except (KeyError, TypeError, ValueError):
+                continue
+        return entries
+
+    def _discover_github_topic_page(self, origin: PluginRepository):
+        """Use GitHub's public search page when the Search REST quota is exhausted."""
+        entries = []
+        seen: set[str] = set()
+        for page in range(1, 11):
             self._check_cancelled()
-            url, params = repository.provider.tags_request(repository, page)
             with self._safe_get(
-                repository, url, params=params,
-                headers=repository.provider.headers,
+                origin, "https://github.com/search",
+                params={"q": "topic:metasweeper-plugin archived:false",
+                        "type": "repositories", "page": page},
+                headers={"Accept": "text/html"},
             ) as response:
-                self._check_response(response)
-                items = response.json()
-                tags.extend(repository.provider.parse_tag(item)
-                            for item in items)
-                if not repository.provider.has_next_page(response, items):
-                    return tags
-            page += 1
+                parser = _GitHubSearchPageParser()
+                parser.feed(response.text)
+                parser.close()
+            if not parser.chunks:
+                if page == 1:
+                    raise ValueError(_tr(
+                        "GitHub 搜索 API 已限流，且公开搜索页面无法解析。"))
+                break
+            try:
+                payload = json.loads("".join(parser.chunks))
+                route = payload["payload"]["blackbirdSearchRoute"]
+            except (json.JSONDecodeError, KeyError, TypeError) as exc:
+                raise ValueError(_tr("无法解析 GitHub 插件搜索结果。")) from exc
+            results = route.get("results", [])
+            entries.extend(self._catalog_entries(results, seen))
+            if page >= int(route.get("page_count", 1)) or not results:
+                break
+        return entries
+
+    def list_tags(self, repository: PluginRepository) -> list[RepositoryTag]:
+        tags: list[RepositoryTag] = []
+        page = 1
+        try:
+            while True:
+                self._check_cancelled()
+                url, params = repository.provider.tags_request(repository, page)
+                with self._safe_get(
+                    repository, url, params=params,
+                    headers=repository.provider.headers,
+                ) as response:
+                    self._check_response(response)
+                    items = response.json()
+                    tags.extend(repository.provider.parse_tag(item)
+                                for item in items)
+                    if not repository.provider.has_next_page(response, items):
+                        return tags
+                page += 1
+        except GitHubApiRateLimit:
+            if repository.platform != "github":
+                raise
+            return self._list_github_tags_page(repository)
+
+    def _list_github_tags_page(
+        self, repository: PluginRepository,
+    ) -> list[RepositoryTag]:
+        """Fallback to GitHub's public HTML tags page when REST quota is exhausted."""
+        tags: list[RepositoryTag] = []
+        base = repository.url.rstrip("/") + "/tags"
+        seen: set[tuple[str, str]] = set()
+        for page in range(1, 11):
+            self._check_cancelled()
+            url = base if page == 1 else f"{base}?page={page}"
+            with self._safe_get(repository, url, stream=True) as response:
+                parser = _GitHubTagPageParser(repository.path)
+                for chunk in response.iter_content(_CHUNK_SIZE):
+                    self._check_cancelled()
+                    parser.feed(chunk.decode("utf-8", errors="replace"))
+                parser.close()
+            new_tags = [tag for tag in parser.tags
+                        if (tag.name, tag.commit) not in seen]
+            if not new_tags:
+                break
+            tags.extend(new_tags)
+            seen.update((tag.name, tag.commit) for tag in new_tags)
+        if not tags:
+            raise ValueError(_tr(
+                "GitHub API 已限流，且无法从公开标签网页读取版本。"))
+        return tags
+
+    def fetch_index(self, index_repository: PluginRepository) -> str:
+        """读取索引仓库根目录的 metasweeper-plugins.json。"""
+        from .plugin_catalog import INDEX_FILENAME
+
+        url, params = index_repository.provider.raw_file_request(
+            index_repository, INDEX_FILENAME)
+        with self._safe_get(
+            index_repository, url, params=params,
+            headers=index_repository.provider.headers, stream=True,
+        ) as response:
+            self._check_response(response)
+            total = int(response.headers.get("Content-Length", 0))
+            if total > _MAX_INDEX_BYTES:
+                raise ValueError(_tr("插件索引文件超过 1 MiB。"))
+            chunks: list[bytes] = []
+            received = 0
+            for chunk in response.iter_content(_CHUNK_SIZE):
+                self._check_cancelled()
+                received += len(chunk)
+                if received > _MAX_INDEX_BYTES:
+                    raise ValueError(_tr("插件索引文件超过 1 MiB。"))
+                chunks.append(chunk)
+            return b"".join(chunks).decode("utf-8")
 
     def install(
         self,
@@ -217,6 +417,10 @@ class PluginDownloader:
         tag: RepositoryTag,
         plugin_dir: Path,
         search_dirs: list[Path],
+        *,
+        plugin_version: str = "",
+        tag_prefix: str = "",
+        before_publish: Callable[[Path], None] | None = None,
     ) -> Path:
         destination = plugin_dir / repository.module_name
         for directory in [plugin_dir, *search_dirs]:
@@ -230,18 +434,60 @@ class PluginDownloader:
             work_dir = Path(temporary)
             archive = work_dir / "source.zip"
             archive_sha256 = self._download(repository, tag, archive)
-            package = self._extract(archive, work_dir / "source")
-            if not (package / "__init__.py").is_file():
-                raise ValueError(_tr("仓库根目录缺少 __init__.py 插件入口。"))
+            extracted = self._extract(archive, work_dir / "source")
+            if (extracted / "__init__.py").is_file():
+                package = extracted
+            else:
+                candidates = [
+                    child for child in extracted.iterdir()
+                    if child.is_dir() and (child / "__init__.py").is_file()
+                ]
+                if len(candidates) != 1:
+                    raise ValueError(_tr(
+                        "仓库根目录必须含 __init__.py，或只包含一个插件包目录。"))
+                package = candidates[0]
             metadata = {"repository": repository.url, "platform": repository.platform,
                         "tag": tag.name, "commit": tag.commit,
                         "archive_sha256": archive_sha256}
+            if plugin_version:
+                metadata["version"] = plugin_version
+                metadata["tag_prefix"] = tag_prefix
             (package / ".metasweeper-plugin.json").write_text(
                 json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8",
             )
             self._check_cancelled()
-            # Same filesystem: publish only after download and extraction succeed.
+            if before_publish is not None:
+                before_publish(package)
+            self._check_cancelled()
+            # Same filesystem: publish only after download and preparation succeed.
             package.rename(destination)
+        return destination
+
+    def update(self, repository: PluginRepository, tag: RepositoryTag, plugin_dir: Path,
+               *, plugin_version: str = "", tag_prefix: str = "",
+               before_publish: Callable[[Path], None] | None = None) -> Path:
+        """完整下载并校验后再替换；失败时恢复旧目录。"""
+        destination = plugin_dir / repository.module_name
+        if (not destination.is_dir() or destination.is_symlink()
+                or destination.is_junction()):
+            raise ValueError(_tr("不能更新非普通插件目录。"))
+        from .plugin_catalog import read_installed_metadata
+        metadata = read_installed_metadata(destination)
+        if str(metadata.get("repository", "")).lower().rstrip("/") != repository.url.lower():
+            raise ValueError(_tr("插件来源不匹配，不能自动更新。"))
+        with TemporaryDirectory(prefix="_update_", dir=plugin_dir) as temporary:
+            work = Path(temporary)
+            package = self.install(
+                repository, tag, work, [], plugin_version=plugin_version,
+                tag_prefix=tag_prefix, before_publish=before_publish)
+            self._check_cancelled()
+            backup = work / "backup"
+            destination.rename(backup)
+            try:
+                package.rename(destination)
+            except BaseException:
+                backup.rename(destination)
+                raise
         return destination
 
     def _download(self, repository: PluginRepository, tag: RepositoryTag, archive: Path) -> str:

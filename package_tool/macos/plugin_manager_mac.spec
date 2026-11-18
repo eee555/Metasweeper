@@ -4,6 +4,10 @@
 import glob
 import os
 
+from PyInstaller.utils.hooks import collect_all
+
+pip_data, pip_binaries, pip_imports = collect_all("pip")
+
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))
 SRC = os.path.join(ROOT, "src")
 
@@ -19,8 +23,8 @@ datas += [(qm, ".") for qm in glob.glob(os.path.join(SRC, "*.qm"))]
 a = Analysis(
     [os.path.join(SRC, "plugin_manager_nuitka.py")],
     pathex=[SRC],
-    binaries=[],
-    datas=datas,
+    binaries=pip_binaries,
+    datas=datas + pip_data,
     hiddenimports=[
         # 对齐 Windows 版 Nuitka 打包的显式包含清单（动态导入无法被静态分析发现）
         "sqlite3", "code", "xmlrpc.server", "xmlrpc.client",
@@ -28,7 +32,7 @@ a = Analysis(
         "shared_types.aes_gcm", "config.constants", "utils.app_logger",
         "zmq", "msgspec", "loguru", "requests", "textdistance",
         "cryptography", "PyMCUlib", "ms_toollib", "PySide6.QtSvg",
-    ],
+    ] + pip_imports,
     hookspath=[],
     runtime_hooks=[],
     excludes=[

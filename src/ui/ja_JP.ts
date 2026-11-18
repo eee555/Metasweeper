@@ -1861,6 +1861,14 @@
         <translation>プラグインをダウンロード...</translation>
     </message>
     <message>
+        <source>插件市场...</source>
+        <translation>プラグインマーケット...</translation>
+    </message>
+    <message>
+        <source>从仓库 URL 安装...</source>
+        <translation>リポジトリ URL からインストール...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="2103"/>
         <location filename="../plugin_manager/main_window.py" line="2293"/>
         <location filename="../plugin_manager/main_window.py" line="3297"/>

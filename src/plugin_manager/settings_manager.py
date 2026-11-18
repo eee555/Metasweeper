@@ -44,7 +44,7 @@ class BasicSettings:
     viewer_log_level: LogLevel = "INFO"
     viewer_auto_scroll: bool = True
     viewer_show_source: bool = False
-    # 插件依赖库目录（库目录或虚拟环境目录），空表示未配置
+    # 插件依赖库目录（库目录或虚拟环境目录），空表示使用默认路径
     plugin_lib_dir: str = ""
     # 手动安装插件依赖时使用的 PyPI 主源及备用源
     plugin_pip_indexes: list[str] = field(
@@ -84,7 +84,7 @@ class SettingsManager:
     LOG_LEVELS: list[LogLevel] = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
     
     def __init__(self, data_dir: Path) -> None:
-        self._data_dir = Path(data_dir)
+        self._data_dir = Path(data_dir).resolve()
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._settings = BasicSettings()
         self._load()
@@ -132,12 +132,19 @@ class SettingsManager:
 
     @property
     def plugin_lib_dir(self) -> str:
-        return self._settings.plugin_lib_dir
+        configured = self._settings.plugin_lib_dir.strip()
+        if not configured:
+            return str(self.default_plugin_lib_dir)
+        return str(Path(configured).expanduser().resolve())
+
+    @property
+    def default_plugin_lib_dir(self) -> Path:
+        return self._data_dir / "plugin_libs"
 
     @property
     def plugin_pip_indexes(self) -> list[str]:
         return self._settings.plugin_pip_indexes.copy()
-    
+
     def set_file_log_level(self, level: LogLevel) -> None:
         """设置主进程文件日志等级"""
         if level in self.LOG_LEVELS:
@@ -161,8 +168,9 @@ class SettingsManager:
         self.save()
 
     def set_plugin_lib_dir(self, path: str) -> None:
-        """设置插件依赖库目录（空字符串表示未配置）"""
-        self._settings.plugin_lib_dir = (path or "").strip()
+        """设置插件依赖库目录，留空恢复默认路径。"""
+        raw = path.strip()
+        self._settings.plugin_lib_dir = str(Path(raw).expanduser().resolve()) if raw else ""
         self.save()
 
     def set_plugin_pip_indexes(self, urls: list[str]) -> None:

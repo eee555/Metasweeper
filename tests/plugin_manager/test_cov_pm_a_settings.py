@@ -177,11 +177,11 @@ def test_set_viewer_show_source_persists(tmp_path):
 
 def test_set_plugin_lib_dir_persists_and_strips(tmp_path):
     mgr = SettingsManager(tmp_path)
-    mgr.set_plugin_lib_dir("  D:/libs  ")
-    assert mgr.plugin_lib_dir == "D:/libs"
-    assert SettingsManager(tmp_path).plugin_lib_dir == "D:/libs"
+    mgr.set_plugin_lib_dir(f"  {tmp_path / 'libs'}  ")
+    assert mgr.plugin_lib_dir == str(tmp_path / "libs")
+    assert SettingsManager(tmp_path).plugin_lib_dir == str(tmp_path / "libs")
     mgr.set_plugin_lib_dir("")
-    assert SettingsManager(tmp_path).plugin_lib_dir == ""
+    assert SettingsManager(tmp_path).plugin_lib_dir == str(tmp_path / "plugin_libs")
 
 
 def test_plugin_pip_indexes_default_and_custom_round_trip(tmp_path):

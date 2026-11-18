@@ -220,6 +220,29 @@ def test_stop_all_cancels_pending_gain():
 
 # ── 播放行为 ────────────────────────────────────────────────────
 
+@pytest.mark.parametrize("result", ["ready", "unavailable", "timeout"])
+def test_startup_sound_waits_for_audio_probe(qtbot, monkeypatch, result):
+    mgr = SoundManager.instance()
+    if result == "timeout":
+        monkeypatch.setattr(sm_mod, "AUDIO_PROBE_TIMEOUT_MS", 250)
+        script = "import time; time.sleep(30)"
+    else:
+        exit_code = int(result == "unavailable")
+        script = f"import time; time.sleep(0.2); raise SystemExit({exit_code})"
+    mgr.set_output_probe([sys.executable, "-c", script])
+    mgr.configure(enabled=True, volume=70)
+    mgr.play_ready(delay_ms=0)
+    assert not mgr._voices
+    qtbot.waitUntil(lambda: mgr._probe is None, timeout=7000)
+
+    if result == "ready":
+        assert mgr._voices[SoundEvent.READY].effect.plays == 1
+    else:
+        mgr.play(SoundEvent.OPEN)
+        assert not mgr._voices
+        assert mgr._probe is None
+
+
 def test_play_ready_is_silent_when_disabled():
     mgr = _m()
     mgr.configure(enabled=False, volume=70)

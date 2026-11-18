@@ -34,6 +34,7 @@ class FakeResponse:
         self.status_code = status
         self.headers = {"Content-Length": str(len(body))}
         self.headers.update(headers or {})
+        self.text = body.decode("utf-8", errors="replace")
 
     def __enter__(self):
         return self
@@ -101,6 +102,95 @@ def test_tags_pagination_and_pinned_commit():
     assert [call[1]["params"]["page"] for call in session.calls] == [1, 2]
 
 
+def test_discover_plugins_falls_back_to_public_search_page_when_api_is_limited():
+    payload = {
+        "payload": {"blackbirdSearchRoute": {
+            "results": [{
+                "repo": {"repository": {
+                    "name": "my-plugin", "owner_login": "example"}},
+                "hl_trunc_description": "<em>Sample</em> &amp; plugin",
+            }],
+            "page_count": 1,
+        }},
+    }
+    html = (
+        '<script type="application/json" data-target="react-app.embeddedData">'
+        + json.dumps(payload)
+        + "</script>"
+    ).encode()
+    session = FakeSession(
+        FakeResponse(status=403, headers={"X-RateLimit-Remaining": "0"}),
+        FakeResponse(body=html),
+    )
+    client = PluginDownloader(session, lambda: False, lambda *_: None)
+
+    entries = client.discover_plugins()
+
+    assert len(entries) == 1
+    assert entries[0].repository.url == "https://github.com/example/my-plugin"
+    assert entries[0].description == "Sample & plugin"
+    assert session.calls[1][0] == "https://github.com/search"
+
+
+def test_list_tags_falls_back_to_public_html_when_github_api_is_limited():
+    commit = "a" * 40
+    html = (
+        '<h2><a href="/example/my-plugin/releases/tag/metasweeper-v1.0.0">'
+        'metasweeper-v1.0.0</a></h2>'
+        f'<a href="/example/my-plugin/commit/{commit}">commit</a>'
+    ).encode()
+    session = FakeSession(
+        FakeResponse(status=403, headers={"X-RateLimit-Remaining": "0"}),
+        FakeResponse(body=html),
+        FakeResponse(body=b"no more tags"),
+    )
+    repository = PluginRepository.from_url("https://github.com/example/my-plugin")
+    client = PluginDownloader(session, lambda: False, lambda *_: None)
+
+    assert client.list_tags(repository) == [RepositoryTag("metasweeper-v1.0.0", commit)]
+    assert len(session.calls) == 3
+    assert session.calls[1][0] == "https://github.com/example/my-plugin/tags"
+    assert session.calls[2][0] == "https://github.com/example/my-plugin/tags?page=2"
+
+
+def test_install_does_not_publish_when_preparation_fails(tmp_path):
+    body = make_archive([
+        ("repo-sha/training_stats/__init__.py", ""),
+        ("repo-sha/training_stats/requirements.txt", "pandas>=2"),
+    ])
+    client = PluginDownloader(
+        FakeSession(FakeResponse(body=body)), lambda: False, lambda *_: None)
+    root = tmp_path / "user_plugins"
+
+    def fail_preparation(package):
+        assert (package / "requirements.txt").is_file()
+        raise RuntimeError("dependency installation failed")
+
+    with pytest.raises(RuntimeError, match="dependency installation failed"):
+        client.install(
+            REPOSITORY, TAG, root, [], before_publish=fail_preparation)
+
+    assert not (root / REPOSITORY.module_name).exists()
+    assert list(root.iterdir()) == []
+
+
+def test_install_accepts_single_plugin_subdirectory(tmp_path):
+    body = make_archive([
+        ("repo-sha/README.md", "project readme"),
+        ("repo-sha/tests/test_sample.py", ""),
+        ("repo-sha/training_stats/__init__.py", ""),
+        ("repo-sha/training_stats/plugin.py", ""),
+    ])
+    client = PluginDownloader(FakeSession(FakeResponse(body=body)), lambda: False, lambda *_: None)
+    root = tmp_path / "user_plugins"
+    path = client.install(REPOSITORY, TAG, root, [])
+    assert (path / "__init__.py").is_file()
+    assert (path / "plugin.py").is_file()
+    assert not (path / "README.md").exists()
+    assert PluginLoader([root]).discover_plugins() == [
+        (path / "__init__.py", REPOSITORY.module_name)]
+
+
 def test_install_is_discoverable_without_executing_plugin(tmp_path):
     body = make_archive([
         ("repo-sha/__init__.py", "raise RuntimeError('must not execute during download')"),
@@ -114,7 +204,7 @@ def test_install_is_discoverable_without_executing_plugin(tmp_path):
     assert path == root / REPOSITORY.module_name
     assert (path / "assets/icon.txt").read_text() == "asset"
     assert json.loads((path / ".metasweeper-plugin.json").read_text())["tag"] == TAG.name
-    assert session.calls[0][0].endswith("/zipball/" + TAG.commit)
+    assert session.calls[0][0] == "https://codeload.github.com/example/my-plugin/zip/" + TAG.commit
     assert progress[-1] == (len(body), len(body))
     assert list(root.iterdir()) == [path]
     assert PluginLoader([root]).discover_plugins() == [(path / "__init__.py", REPOSITORY.module_name)]
@@ -342,7 +432,10 @@ def test_each_provider_downloads_selected_commit(tmp_path, url, platform, api, a
     path = client.install(repository, tags[0], tmp_path, [])
     assert session.calls[0][0] == api + "/tags"
     assert session.calls[0][1]["params"] == {**page_size, "page": 1}
-    assert session.calls[1][0] == api + archive_suffix
+    expected_archive = (
+        f"https://codeload.github.com/{repository.path}/zip/{TAG.commit}"
+        if repository.platform == "github" else api + archive_suffix)
+    assert session.calls[1][0] == expected_archive
     assert session.calls[1][1]["params"] == archive_params
     assert ("X-GitHub-Api-Version" in session.calls[1][1]["headers"]) == (repository.platform == "github")
     metadata = json.loads((path / ".metasweeper-plugin.json").read_text())

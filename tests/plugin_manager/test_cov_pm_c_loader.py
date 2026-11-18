@@ -149,6 +149,22 @@ def test_load_module_success_and_sys_modules_cache(tmp_path, monkeypatch):
     monkeypatch.delitem(sys.modules, name, raising=False)
 
 
+def test_load_package_entry_supports_relative_imports(tmp_path, monkeypatch):
+    pkg = tmp_path / "relative_package"
+    pkg.mkdir()
+    (pkg / "helper.py").write_text("VALUE = 42\n", encoding="utf-8")
+    (pkg / "__init__.py").write_text(
+            "from .helper import VALUE\n", encoding="utf-8")
+    name = unique_module("relative", monkeypatch)
+
+    module = PluginLoader().load_module(pkg / "__init__.py", name)
+
+    assert module is not None and module.VALUE == 42
+    assert name + ".helper" in sys.modules
+    monkeypatch.delitem(sys.modules, name, raising=False)
+    monkeypatch.delitem(sys.modules, name + ".helper", raising=False)
+
+
 def test_load_module_returns_none_for_missing_file(tmp_path, monkeypatch):
     name = unique_module("absent", monkeypatch)
     assert PluginLoader().load_module(tmp_path / "absent.py", name) is None

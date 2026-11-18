@@ -1861,6 +1861,16 @@ The dropdown only shows plugins that declare the permission.</translation>
         <translation>Download Plugin...</translation>
     </message>
     <message>
+        <location filename="../plugin_manager/main_window.py" line="2251"/>
+        <source>插件市场...</source>
+        <translation>Plugin Market...</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2255"/>
+        <source>从仓库 URL 安装...</source>
+        <translation>Install from Repository URL...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="2103"/>
         <location filename="../plugin_manager/main_window.py" line="2293"/>
         <location filename="../plugin_manager/main_window.py" line="3297"/>
@@ -2943,5 +2953,15 @@ The files may be in use by another program.</translation>
         <source>按键自定义</source>
         <translation>Key bindings</translation>
     </message>
+</context>
+<context>
+    <name>PluginMarketDialog</name>
+    <message><source>插件和依赖安装完成。</source><translation>Plugin and dependencies installed.</translation></message>
+    <message><source>安装完成</source><translation>Installation complete</translation></message>
+    <message><source>部分安装完成</source><translation>Installation partially complete</translation></message>
+    <message><source>插件及依赖已安装完成，重启插件管理器后生效。</source><translation>The plugin and its dependencies are installed. Restart the plugin manager to apply changes.</translation></message>
+    <message><source>部分插件已安装；后续安装失败：{error}&#10;已安装的插件重启插件管理器后生效。</source><translation>Some plugins were installed; a subsequent installation failed: {error}&#10;Restart the plugin manager to apply the installed plugins.</translation></message>
+    <message><source>重启</source><translation>Restart</translation></message>
+    <message><source>确认</source><translation>OK</translation></message>
 </context>
 </TS>

@@ -47,7 +47,7 @@ def test_main_seeds_language_and_registers_handlers_before_spawning_manager(monk
         "app.plugin_commands": SimpleNamespace(register_plugin_commands=lambda *args: calls.append("commands")),
         "app.plugin_queries": SimpleNamespace(register_plugin_queries=lambda *args: calls.append("queries")),
         "utils.sound_manager": SimpleNamespace(SoundManager=SimpleNamespace(
-            instance=lambda: SimpleNamespace(play_ready=lambda: None),
+            instance=lambda: SimpleNamespace(play_ready=lambda: None, set_output_probe=lambda command: None),
         )),
         "app.sound_applier": SimpleNamespace(capture_startup_settings=lambda value: None),
     }

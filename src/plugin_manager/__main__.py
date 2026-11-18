@@ -15,6 +15,7 @@ import argparse
 import os
 import sys
 
+from . import _pip_worker
 from .plugin_lib_env import prepare_plugin_dependency_environment
 
 # 高分屏支持：必须在导入 PyQt 之前设置
@@ -25,11 +26,57 @@ os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
 
 _MUTEX_NAME = "Metasweeper-PluginManager"
 _mutex_handle = None
+_fallback_mutex_handle = None
+_posix_lock_file = None
+
+
+def _acquire_fallback_mutex() -> bool:
+    """Use Win32 directly when pywin32 is missing or fails."""
+    global _fallback_mutex_handle
+    if _fallback_mutex_handle is not None:
+        return True
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateMutexW.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR)
+    kernel.CreateMutexW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    ctypes.set_last_error(0)
+    handle = kernel.CreateMutexW(None, False, _MUTEX_NAME)
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    if ctypes.get_last_error() == 183:
+        kernel.CloseHandle(handle)
+        return False
+    _fallback_mutex_handle = handle
+    return True
+
+
+def _acquire_posix_lock() -> bool:
+    global _posix_lock_file
+    import fcntl
+    import tempfile
+    if _posix_lock_file is not None:
+        return True
+    path = os.path.join(tempfile.gettempdir(), f"metasweeper-plugin-manager-{os.getuid()}.lock")
+    lock_file = open(path, "a+")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock_file.close()
+        return False
+    except Exception:
+        lock_file.close()
+        raise
+    _posix_lock_file = lock_file
+    return True
 
 
 def _acquire_mutex() -> bool:
-    """创建命名互斥体。已有实例时返回 False。"""
+    """Acquire a process-lifetime singleton lock."""
     global _mutex_handle
+    if sys.platform != "win32":
+        return _acquire_posix_lock()
     try:
         import win32api
         import win32event
@@ -41,14 +88,36 @@ def _acquire_mutex() -> bool:
             return False
         return True
     except Exception:
-        return True  # 非 Windows 或 pywin32 缺失时放行
+        return _acquire_fallback_mutex()
 
 
 def main() -> int:
-    if not _acquire_mutex():
-        print("[plugin_manager] 已有实例在运行，退出")
-        return 0
+    if sys.argv[1:2] == [_pip_worker.FLAG]:
+        return _pip_worker.main(sys.argv[2:])
 
+    from . import restart
+
+    is_restart = bool(os.environ.get(restart._RESTART_PORT))
+    try:
+        is_restart = restart.wait_for_predecessor()
+        acquired = (restart.acquire_after_restart(_acquire_mutex)
+                    if is_restart else _acquire_mutex())
+        if not acquired:
+            if is_restart:
+                raise RuntimeError("The previous plugin manager did not release its lock")
+            print("[plugin_manager] 已有实例在运行，退出")
+            return 0
+        return _run_manager()
+    except restart.RestartCancelled:
+        return 1
+    except Exception as exc:
+        if not is_restart:
+            raise
+        restart.report_restart_failure(exc)
+        return 1
+
+
+def _run_manager() -> int:
     parser = argparse.ArgumentParser(description="Solvable-Minesweeper 插件管理器")
     parser.add_argument(
         "--endpoint",
@@ -103,7 +172,9 @@ def main() -> int:
     # 初始化 loguru 日志系统（主日志 + 控制台）
     from .app_paths import get_data_dir, get_log_dir
     from .logging_setup import init_logging
+    from .restart import configure_invocation
 
+    configure_invocation(str(get_data_dir().resolve()))
     init_logging(get_log_dir(), console=True, level="DEBUG")
 
     # 启动时只准备/识别环境，不自动安装包；必须在插件导入和调试功能之前接入 sys.path。

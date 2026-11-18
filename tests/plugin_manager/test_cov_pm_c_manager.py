@@ -56,7 +56,7 @@ def test_init_default_plugin_dirs_and_no_optional_params(base_env, tmp_path):
     assert instance.client.kwargs["ctrl_endpoint"] is None
     assert instance.client.kwargs["log_handler"] is None
     assert instance._loader._plugin_dirs == []
-    assert instance.settings.plugin_lib_dir == ""
+    assert instance.settings.plugin_lib_dir == str(tmp_path / "plugin_libs")
     instance.stop()
 
 

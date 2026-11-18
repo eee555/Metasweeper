@@ -1861,6 +1861,14 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
         <translation>Plugin herunterladen...</translation>
     </message>
     <message>
+        <source>插件市场...</source>
+        <translation>Plugin-Markt...</translation>
+    </message>
+    <message>
+        <source>从仓库 URL 安装...</source>
+        <translation>Aus Repository-URL installieren...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="2103"/>
         <location filename="../plugin_manager/main_window.py" line="2293"/>
         <location filename="../plugin_manager/main_window.py" line="3297"/>
@@ -2943,5 +2951,15 @@ Die Dateien werden möglicherweise von einem anderen Programm verwendet.</transl
         <source>按键自定义</source>
         <translation>Tastenkürzel</translation>
     </message>
+</context>
+<context>
+    <name>PluginMarketDialog</name>
+    <message><source>插件和依赖安装完成。</source><translation>Plugin und Abhängigkeiten installiert.</translation></message>
+    <message><source>安装完成</source><translation>Installation abgeschlossen</translation></message>
+    <message><source>部分安装完成</source><translation>Installation teilweise abgeschlossen</translation></message>
+    <message><source>插件及依赖已安装完成，重启插件管理器后生效。</source><translation>Das Plugin und seine Abhängigkeiten sind installiert. Starten Sie den Plugin-Manager neu, um die Änderungen anzuwenden.</translation></message>
+    <message><source>部分插件已安装；后续安装失败：{error}&#10;已安装的插件重启插件管理器后生效。</source><translation>Einige Plugins wurden installiert; eine weitere Installation ist fehlgeschlagen: {error}&#10;Starten Sie den Plugin-Manager neu, um die installierten Plugins anzuwenden.</translation></message>
+    <message><source>重启</source><translation>Neu starten</translation></message>
+    <message><source>确认</source><translation>OK</translation></message>
 </context>
 </TS>

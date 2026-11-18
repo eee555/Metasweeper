@@ -307,7 +307,8 @@ def test_repository_all_platform_helpers_and_urls():
     assert github.api_url(REPOSITORY) == "https://api.github.com/repos/example/plugin"
     assert github.has_next_page(FakeResponse(links={"next": {}}), []) is True
     assert github.has_next_page(FakeResponse(), []) is False
-    assert github.archive_request(REPOSITORY, TAG)[0].endswith("/zipball/" + TAG.commit)
+    assert github.archive_request(REPOSITORY, TAG)[0] == (
+        "https://codeload.github.com/example/plugin/zip/" + TAG.commit)
     assert gitlab.repository_path("team/sub/-/tags/v1") == "team/sub"
     assert gitlab.api_url(REPOSITORY).endswith("/repository")
     assert gitlab.parse_tag({"name": "v", "commit": {"id": "x"}}) == RepositoryTag("v", "x")

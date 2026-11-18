@@ -8,7 +8,7 @@ import sys
 os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
 os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
 
-from . import __main__ as _entry
+import plugin_manager.__main__ as _entry
 
 _MUTEX_NAME = _entry._MUTEX_NAME
 _mutex_handle = _entry._mutex_handle

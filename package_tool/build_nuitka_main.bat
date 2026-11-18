@@ -165,6 +165,8 @@ if errorlevel 1 (
     --include-data-files=src\pl_PL.qm=pl_PL.qm ^
     --include-data-files=src\ja_JP.qm=ja_JP.qm ^
     --include-package=msgspec ^
+    --include-package=pip ^
+    --include-package-data=pip ^
     --include-package=zmq ^
     --include-package=loguru ^
     --include-package=requests ^

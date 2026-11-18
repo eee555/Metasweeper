@@ -18,6 +18,7 @@ _PUBLIC_CONTEXTS = frozenset({
     "ControlAuthorizationDialog", "CsvExportProgressDialog", "DetachableTabWidget",
     "DetachedPluginWindow", "Dialog", "Form", "LogViewerDialog", "MainWindow",
     "PluginDownloadDialog", "PluginEnvironmentDialog", "PluginInfoDialog",
+    "PluginMarketDialog",
     "PluginManagerWindow", "PluginSettingsDialog", "ReleaseFrame", "ReplayAnalysis",
     "SettingsDialog", "SkinManager", "Sounds", "VideoLoadProgress",
     "_InstallProgressDialog", "_InstalledPackagesDialog", "_PluginReadmeDialog", "parent",

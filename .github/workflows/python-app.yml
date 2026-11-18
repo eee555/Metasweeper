@@ -83,6 +83,8 @@ jobs:
           pyinstaller `
             --noconfirm `
             --name plugin_manager `
+            --collect-all pip `
+            --hidden-import plugin_manager.__main__ `
             --windowed `
             --paths src `
             --icon src/media/plugin_manager.ico `

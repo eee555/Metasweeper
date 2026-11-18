@@ -8,7 +8,13 @@ repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
 
-if [[ -x "$repo_root/.venv/Scripts/python.exe" ]]; then
+if [[ -n "${METASWEEPER_PYTHON:-}" ]]; then
+    if [[ ! -x "$METASWEEPER_PYTHON" ]]; then
+        echo "ERROR: METASWEEPER_PYTHON is not executable: $METASWEEPER_PYTHON" >&2
+        exit 1
+    fi
+    python_exe="$METASWEEPER_PYTHON"
+elif [[ -x "$repo_root/.venv/Scripts/python.exe" ]]; then
     python_exe="$repo_root/.venv/Scripts/python.exe"
 elif [[ -x "$repo_root/.venv/bin/python" ]]; then
     python_exe="$repo_root/.venv/bin/python"

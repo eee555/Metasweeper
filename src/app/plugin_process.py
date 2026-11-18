@@ -30,7 +30,7 @@ def _plugin_manager_is_running():
 
 def start_plugin_process(ui, main_window, plugins_disabled):
     translate = QtCore.QCoreApplication.translate
-    data_dir = str(ui.setting_path / "data")
+    data_dir = str((ui.setting_path / "data").resolve())
     if plugins_disabled or _plugin_manager_is_running():
         return None
     # 服务端已由 main.py 先行 start()，PUB/CTRL 各自申请了系统随机端口。

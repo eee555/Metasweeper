@@ -85,6 +85,18 @@ GitHub 使用 Link 分页；GitLab 优先使用 `X-Next-Page`；其他平台使�
 .\.venv\Scripts\python.exe -m pytest tests/test_plugin_download.py
 ```
 
+## 插件市场（GitHub 主题发现）
+
+插件市场搜索带有 `metasweeper-plugin` Topic 的公开 GitHub 仓库，再查询各仓库的版本 tag；仓库主题用于发现，版本 tag 用于版本选择和更新比较。优先使用 GitHub API，匿名额度耗尽时回退到 GitHub 的公开搜索页与标签页；下载归档直连 `codeload.github.com` 并固定到 commit SHA。GitHub 网页索引仍可能有延迟。Gitee 自动发现暂未实现。
+
+市场安装会先下载插件、检查并安装其 `requirements.txt` 中未满足的依赖，再发布插件目录。安装完成后使用已有的搜索结果和本地元数据更新列表，不重新联网；完成提示提供「确认」和「重启」按钮。重启由插件管理器独立完成，保留启动参数与数据目录，等待旧进程退出并释放单实例锁后启动新进程，不依赖游戏主进程存活。手动复制的插件仍通过右键「查看依赖详情」安装依赖。安装来源和版本保存在插件目录的 `.metasweeper-plugin.json`，用于识别更新；手工复制且没有来源信息的插件不会自动覆盖。
+
+相关测试：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/plugin_manager/test_plugin_catalog.py tests/plugin_manager/test_plugin_market.py
+```
+
 ## 测试覆盖率
 
 `tests/test_cov_pm_a_*.py` ~ `tests/test_cov_pm_f_*.py` 按模块分组覆盖插件管理器：

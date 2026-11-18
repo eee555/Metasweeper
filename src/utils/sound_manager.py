@@ -11,19 +11,21 @@
 * 音效包：主程序只提供 `media/sounds/*.wav` 这组默认资源；**包的发现、
   选择与导入完全由「皮肤与音效」插件负责**，通过 `SetSoundCommand` 把包名
   与落地目录传给本模块 `configure()`。缺哪个 wav 就沿用根目录默认资源。
-* 任何异常（无音频设备、文件缺失、后端未就绪）都静默降级，绝不影响对局与录像。
+* 音频设备不可用、文件缺失或后端未就绪时静默降级。Windows 主程序在独立进程中
+  探测音频设备，探测失败或超时则本次运行保持静音。
 
 事件枚举、素材映射、优先级与资源包扫描统一定义在 `shared_types.sounds`，
 主进程与插件进程共用；本模块只负责播放调度。
 """
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import Iterable
 
-from PySide6.QtCore import QUrl, QTimer
-from PySide6.QtMultimedia import QSoundEffect
+from PySide6.QtCore import QProcess, QUrl, QTimer
+from PySide6.QtMultimedia import QMediaDevices, QSoundEffect
 from PySide6.QtWidgets import QApplication
 
 from utils.app_logger import logger
@@ -36,6 +38,17 @@ from shared_types.sounds import (
 # 兼容既有调用点的模块级别名（新代码请直接 import shared_types.sounds）
 _EXCLUSIVE_EVENTS = EXCLUSIVE_EVENTS
 BUILTIN_SOUNDS_DIR: Path = resource_path("media") / "sounds"
+
+AUDIO_PROBE_TIMEOUT_MS = 5000
+
+
+def probe_audio_output() -> None:
+    _app = QApplication([])
+    output = QMediaDevices.defaultAudioOutput()
+    result = int(output.isNull() or not output.preferredFormat().isValid())
+    # The isolated Qt audio backend can hang during teardown on a broken endpoint.
+    os._exit(result)
+
 
 # ── 快速连点参数（表现层审美常量，集中调参）────────────────────────
 DEDUP_WINDOW_MS = 18        # 同一 cue 在此窗口内重复调用视为同一动作，丢弃
@@ -169,7 +182,50 @@ class SoundManager:
         self._last_play: dict[SoundEvent, float] = {}
         self._exclusive_until = 0.0
         self._recent: list[tuple[float, SoundEvent]] = []
+        self._probe_command: list[str] = []
+        self._probe: QProcess | None = None
+        self._output_available: bool | None = None
+        self._ready_pending = False
         self._needs_rebuild = False
+
+    def set_output_probe(self, command: list[str]) -> None:
+        self._probe_command = command
+
+    def _start_output_probe(self) -> None:
+        app = QApplication.instance()
+        if app is None:
+            return
+        probe = QProcess(app)
+        self._probe = probe
+        timeout = QTimer(probe)
+        timeout.setSingleShot(True)
+        timeout.timeout.connect(probe.kill)
+
+        def complete(ok: bool) -> None:
+            if self._probe is not probe:
+                return
+            timeout.stop()
+            app.aboutToQuit.disconnect(stop_on_quit)
+            self._probe = None
+            self._output_available = ok
+            probe.deleteLater()
+            pending, self._ready_pending = self._ready_pending, False
+            if ok and pending:
+                self.play(SoundEvent.READY)
+
+        probe.finished.connect(lambda code, status: complete(
+            code == 0 and status == QProcess.ExitStatus.NormalExit))
+        probe.errorOccurred.connect(lambda error: complete(False)
+                                    if error == QProcess.ProcessError.FailedToStart else None)
+        def stop_on_quit() -> None:
+            if self._probe is probe:
+                self._ready_pending = False
+                probe.kill()
+                probe.waitForFinished(1000)
+
+        app.aboutToQuit.connect(stop_on_quit)
+        timeout.start(AUDIO_PROBE_TIMEOUT_MS)
+        probe.start(self._probe_command[0], self._probe_command[1:])
 
     @classmethod
     def instance(cls) -> "SoundManager":
@@ -209,7 +265,8 @@ class SoundManager:
             self._extra_dir = None
         if not self._enabled:
             self.stop_all()
-        if self._ensure_voices():
+            self._ready_pending = False
+        if self._enabled and self._volume > 0 and self._ensure_voices():
             self._rebuild()
             self._needs_rebuild = False
         else:
@@ -239,10 +296,17 @@ class SoundManager:
         if not self._enabled or self._volume <= 0:
             return
         try:
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(max(0, delay_ms), lambda: self.play(SoundEvent.READY))
+            QTimer.singleShot(max(0, delay_ms), self._play_ready)
         except Exception:
             logger.warning("启动音播放失败，已静默", exc_info=True)
+
+    def _play_ready(self) -> None:
+        if not self._enabled or self._volume <= 0:
+            return
+        if self._probe is not None:
+            self._ready_pending = True
+        else:
+            self.play(SoundEvent.READY)
 
     # ── 播放 ──────────────────────────────────────────────────────
     def play(self, event: SoundEvent, *, intensity: int = 1) -> None:
@@ -306,6 +370,10 @@ class SoundManager:
         if self._voices:
             return True
         if QApplication.instance() is None:
+            return False
+        if self._probe_command and self._output_available is not True:
+            if self._probe is None and self._output_available is None:
+                self._start_output_probe()
             return False
         try:
             self._voices = {event: _Voice() for event in SoundEvent}

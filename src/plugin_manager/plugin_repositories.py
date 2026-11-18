@@ -117,6 +117,12 @@ class HostingProvider:
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
         raise NotImplementedError
 
+    def raw_file_request(
+        self, repository: PluginRepository, filename: str,
+    ) -> tuple[str, dict]:
+        """读取仓库默认分支上的单个文件；索引只需要一个小型 JSON。"""
+        raise NotImplementedError
+
 
 class GitHubProvider(HostingProvider):
     headers = {"Accept": "application/vnd.github+json",
@@ -130,7 +136,15 @@ class GitHubProvider(HostingProvider):
 
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
         self.validate_commit(tag.commit)
-        return self.api_url(repository) + "/zipball/" + quote(tag.commit, safe=""), {}
+        path = quote(repository.path, safe="/")
+        return f"https://codeload.github.com/{path}/zip/{tag.commit}", {}
+
+    def raw_file_request(
+        self, repository: PluginRepository, filename: str,
+    ) -> tuple[str, dict]:
+        owner_repo = quote(repository.path, safe="/")
+        return ("https://raw.githubusercontent.com/"
+                + owner_repo + "/HEAD/" + quote(filename, safe="/")), {}
 
 
 class GitLabProvider(HostingProvider):
@@ -152,6 +166,13 @@ class GitLabProvider(HostingProvider):
         self.validate_commit(tag.commit)
         return self.api_url(repository) + "/archive.zip", {"sha": tag.commit}
 
+    def raw_file_request(
+        self, repository: PluginRepository, filename: str,
+    ) -> tuple[str, dict]:
+        url = (self.api_url(repository) + "/files/"
+               + quote(filename, safe="/") + "/raw")
+        return url, {"ref": "HEAD"}
+
 
 class GiteeProvider(HostingProvider):
     api_prefix = "/api/v5/repos/"
@@ -159,6 +180,14 @@ class GiteeProvider(HostingProvider):
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
         self.validate_commit(tag.commit)
         return self.api_url(repository) + "/zipball", {"ref": tag.commit}
+
+    def raw_file_request(
+        self, repository: PluginRepository, filename: str,
+    ) -> tuple[str, dict]:
+        # api_url 已带 /api/v5/repos/，文件读取使用 contents 接口的 raw 形式
+        url = ("https://gitee.com/" + quote(repository.path, safe="/")
+               + "/raw/HEAD/" + quote(filename, safe="/"))
+        return url, {}
 
 
 class GiteaProvider(HostingProvider):
@@ -169,6 +198,13 @@ class GiteaProvider(HostingProvider):
     def archive_request(self, repository: PluginRepository, tag: RepositoryTag) -> tuple[str, dict]:
         self.validate_commit(tag.commit)
         return self.api_url(repository) + "/archive/" + quote(tag.commit, safe="") + ".zip", {}
+
+    def raw_file_request(
+        self, repository: PluginRepository, filename: str,
+    ) -> tuple[str, dict]:
+        url = (self.api_url(repository) + "/raw/"
+               + quote(filename, safe="/"))
+        return url, {}
 
 
 PUBLIC_HOSTS = {"github.com": "github", "gitlab.com": "gitlab",

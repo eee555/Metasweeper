@@ -130,8 +130,15 @@ class PluginLoader:
                 self._dependency_statuses[module_name] = replace(status, import_status="loaded", import_error=None)
                 return sys.modules[module_name]
 
-            spec = importlib.util.spec_from_file_location(
-                module_name, module_path)
+            if module_path.name == "__init__.py":
+                # 加载包入口时设置 package search path，插件才能使用相对导入。
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path,
+                    submodule_search_locations=[str(module_path.parent)],
+                )
+            else:
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
             if spec is None or spec.loader is None:
                 logger.error(f"Failed to create spec for: {module_path}")
                 self._dependency_statuses[module_name] = replace(status, import_status="failed", import_error="Failed to create module spec")

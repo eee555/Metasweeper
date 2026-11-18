@@ -122,9 +122,13 @@ def test_acquire_mutex_already_exists_closes_handle(mutex_entry, monkeypatch):
 
 def test_acquire_mutex_import_error_falls_back(mutex_entry, monkeypatch):
     monkeypatch.setitem(sys.modules, "win32api", None)
+    called = []
+    monkeypatch.setattr(MAIN_MODULE, "_acquire_fallback_mutex",
+                        lambda: called.append(True) or True)
     module = mutex_entry.module
     assert module._acquire_mutex() is True
     assert module._mutex_handle is None
+    assert called == [True]
 
 
 def test_acquire_mutex_create_failure_falls_back(mutex_entry, monkeypatch):
@@ -132,9 +136,13 @@ def test_acquire_mutex_create_failure_falls_back(mutex_entry, monkeypatch):
         raise RuntimeError("CreateMutex failed")
 
     monkeypatch.setitem(sys.modules, "win32event", SimpleNamespace(CreateMutex=boom))
+    called = []
+    monkeypatch.setattr(MAIN_MODULE, "_acquire_fallback_mutex",
+                        lambda: called.append(True) or True)
     module = mutex_entry.module
     assert module._acquire_mutex() is True
     assert module._mutex_handle is None
+    assert called == [True]
 
 
 # ── main() ────────────────────────────────────────────────────────────────

@@ -48,6 +48,8 @@ if errorlevel 1 exit /b 1
 pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/media/plugin_manager.ico ^
     %EXCLUDES% ^
     --paths src ^
+    --collect-all pip ^
+    --hidden-import plugin_manager.__main__ ^
     --add-data "src/media/plugin_manager.ico;media" ^
     --add-data "src/plugins;plugins" ^
     --add-data "src/shared_types;shared_types" ^

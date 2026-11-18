@@ -26,6 +26,7 @@ def find_lrelease() -> Path:
 def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     calls = []
     handlers = {
+        "_open_plugin_market": "market",
         "_open_download_plugin": "download",
         "_open_basic_settings_dialog": "settings",
         "_open_plugin_environment_dialog": "environment",
@@ -47,7 +48,10 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
         "插件", "设置", "工具", "帮助",
     ]
     assert all(action.icon().isNull() for action in w.menuBar().actions())
-    assert w._menu_plugins.actions() == [w._act_download_plugin]
+    plugin_actions = w._menu_plugins.actions()
+    assert plugin_actions[0] == w._act_plugin_market
+    assert plugin_actions[1].isSeparator()
+    assert plugin_actions[2:] == [w._act_download_plugin]
     assert w._menu_settings.actions() == [
         w._act_basic_settings, w._act_plugin_environment, w._act_control_auth,
     ]
@@ -56,14 +60,16 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     assert tools[2].isSeparator()
     assert tools[3:] == [w._debug_act]
     assert w._menu_help.actions() == [w._act_dev_guide]
-    for action in (w._act_download_plugin, w._act_basic_settings,
+    for action in (w._act_plugin_market, w._act_download_plugin,
+                   w._act_basic_settings,
                    w._act_plugin_environment, w._act_control_auth,
                    w._act_log_viewer, w._act_clear_logs, w._debug_act,
                    w._act_dev_guide):
         action.trigger()
     w._control_auth_btn.click()
-    assert calls == ["download", "settings", "environment", "authorization",
-                     "logs", "clear", "debug", "guide", "authorization"]
+    assert calls == ["market", "download", "settings", "environment",
+                     "authorization", "logs", "clear", "debug", "guide",
+                     "authorization"]
 
 
 @pytest.mark.parametrize("locale,titles,log_text", [
@@ -91,7 +97,8 @@ def test_menu_runtime_language_change_during_debug_install(
         assert all(action.icon().isNull() for action in w.menuBar().actions())
         assert w._act_log_viewer.text() == log_text
         for action, source in (
-            (w._act_download_plugin, "下载插件..."),
+            (w._act_plugin_market, "插件市场..."),
+            (w._act_download_plugin, "从仓库 URL 安装..."),
             (w._act_basic_settings, "基础设置..."),
             (w._act_plugin_environment, "插件依赖环境..."),
             (w._act_control_auth, "控制授权..."),

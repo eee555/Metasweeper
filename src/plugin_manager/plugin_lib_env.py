@@ -28,9 +28,13 @@ from dataclasses import dataclass, field
 from importlib import metadata
 from importlib.machinery import PathFinder
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import loguru
+from packaging.requirements import InvalidRequirement, Requirement
+
+from ._pip_worker import FLAG
+from .app_paths import is_frozen
 
 logger = loguru.logger.bind(name="PluginLibEnv")
 
@@ -39,10 +43,6 @@ _VENV_TIMEOUT = 300
 _PIP_TIMEOUT = 600
 _BOOTSTRAP_LOCK = threading.Lock()
 _DEBUGPY_REQUIREMENT = "debugpy>=1.8.20"
-_TARGET_INSTALL_ERROR = (
-    "Upgrading individual packages is disabled for ordinary library directories "
-    "because shared namespace packages could be damaged; use a virtual environment."
-)
 
 
 @dataclass
@@ -247,6 +247,15 @@ def resolve_lib_path(path: str) -> tuple[Path | None, str]:
         site = venv_site_packages(target)
         if site is None:
             return None, "虚拟环境不完整，未找到 site-packages"
+        if is_frozen():
+            try:
+                config = (target / "pyvenv.cfg").read_text(encoding="utf-8-sig")
+            except (OSError, UnicodeError) as exc:
+                return None, f"无法读取虚拟环境配置: {exc}"
+            version = re.search(r"(?m)^version(?:_info)?\s*=\s*(\d+)\.(\d+)", config)
+            if version is None or tuple(map(int, version.groups())) != current_python_tag()[:2]:
+                return None, f"无法确认虚拟环境与当前 {python_tag_text()} 兼容，请选择普通库目录"
+            return site, f"使用虚拟环境的依赖目录: {target}"
         executable = venv_python_executable(target)
         if not executable.is_file():
             return None, "虚拟环境不完整，未找到 Python 解释器"
@@ -278,6 +287,13 @@ def prepare_lib_dir(path: str) -> tuple[Path | None, str]:
         return None, "所选路径不是目录"
 
     if target.is_dir() and any(target.iterdir()):
+        return target, f"使用库目录: {target}"
+
+    if is_frozen():
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            return None, f"创建依赖目录失败: {exc}"
         return target, f"使用库目录: {target}"
 
     python_exe = find_matching_python()
@@ -327,6 +343,31 @@ def _append_import_path(path: Path) -> None:
     importlib.invalidate_caches()
 
 
+def _pip_prefix(executable: Path) -> list[str]:
+    if is_frozen():
+        return [str(executable), FLAG]
+    if executable == Path(sys.executable):
+        return [str(executable), str(Path(__file__).with_name("_pip_worker.py"))]
+    return [str(executable), "-m", "pip"]
+
+
+def _wheel_requirements(path: Path) -> str:
+    lines = []
+    for number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+        line = re.split(r"\s+#", raw, maxsplit=1)[0].strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            requirement = Requirement(line)
+            if requirement.url is None:
+                lines.append(str(requirement))
+                continue
+        except InvalidRequirement:
+            pass
+        raise ValueError(f"{path.name}:{number}: use a package name and optional version constraints from the configured indexes")
+    return "\n".join(lines) + "\n"
+
+
 def _pip_command(
     python_executable: Path,
     requirements_file: Path,
@@ -334,8 +375,9 @@ def _pip_command(
     target: Path | None = None,
     index_urls: list[str] | None = None,
 ) -> list[str]:
-    command = [str(python_executable), "-m", "pip", "install"]
+    command = [*_pip_prefix(python_executable), "install"]
     if target is not None:
+        command.append("--only-binary=:all:")
         command.extend(("--target", str(target)))
     if index_urls:
         command.extend(("--index-url", index_urls[0]))
@@ -449,10 +491,17 @@ def _environment_for_directory(
     if not configured:
         errors.append(
             "未配置插件依赖目录；设置中显示的默认目录仅为建议，"
-            "请选择已有目录或创建虚拟环境后点击“确定”保存。"
+            "请选择或创建依赖目录后点击“确定”保存。"
         )
         return None, None, False
     target = Path(configured).expanduser().resolve()
+
+    if is_frozen():
+        library_path, message = resolve_lib_path(str(target))
+        if library_path is None:
+            errors.append(message)
+            return None, None, True
+        return library_path, Path(sys.executable), True
 
     if is_venv_dir(target):
         library_path = venv_site_packages(target)
@@ -475,18 +524,21 @@ def _environment_for_directory(
         errors.append(f"Configured plugin dependency directory does not exist: {target}")
         return None, None, False
 
-    # Existing non-venv directories are pip --target environments.
-    python_executable = _python_for_library(target, False)
-    if python_executable is None:
-        errors.append(f"No matching external Python is available to manage libraries in {target}")
-        return target, None, True
-    return target, python_executable, True
+    return target, Path(sys.executable), True
 
 
 def _ensure_environment(data_dir: Path, errors: list[str]) -> tuple[Path | None, Path | None, bool]:
     from .settings_manager import SettingsManager
 
-    return _environment_for_directory(SettingsManager(data_dir).plugin_lib_dir, errors)
+    try:
+        settings = SettingsManager(data_dir)
+        directory = Path(settings.plugin_lib_dir)
+        if directory == settings.default_plugin_lib_dir:
+            directory.mkdir(exist_ok=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        errors.append(f"Could not prepare plugin dependency directory: {exc}")
+        return None, None, False
+    return _environment_for_directory(str(directory), errors)
 
 
 def prepare_plugin_dependency_environment(data_dir: Path) -> BootstrapResult:
@@ -530,6 +582,20 @@ def _install_requirements_file(
         _append_import_path(library_path)
         from .settings_manager import SettingsManager
         index_urls = SettingsManager(data_dir).plugin_pip_indexes
+        if use_target:
+            try:
+                content = _wheel_requirements(requirements_file)
+                with TemporaryDirectory() as temp:
+                    clean_file = Path(temp) / "requirements.txt"
+                    clean_file.write_text(content, encoding="utf-8")
+                    error = _run_install(
+                        _pip_command(python_executable, clean_file, target=library_path,
+                                     index_urls=index_urls), label, output_callback)
+            except (OSError, ValueError) as exc:
+                return str(exc)
+            if error is None:
+                importlib.invalidate_caches()
+            return error
         error = _run_install(
             _pip_command(
                 python_executable,
@@ -572,14 +638,16 @@ def check_package_updates(directory: Path, index_urls: list[str]) -> dict[str, s
     """
     indexes = _index_arguments(index_urls)
     errors: list[str] = []
-    library_path, executable, _ = _environment_for_directory(str(directory), errors)
+    library_path, executable, use_target = _environment_for_directory(str(directory), errors)
     if library_path is None or executable is None:
         raise RuntimeError("; ".join(errors) or "Plugin dependency environment is unavailable")
     # A network lookup may outlive its dialog. Do not hold the installation lock;
     # concurrent changes can make the returned package list a stale snapshot.
-    command = [str(executable), "-m", "pip", "list", "--outdated", "--format=json",
+    command = [*_pip_prefix(executable), "list", "--outdated", "--format=json",
                "--path", str(library_path), "--disable-pip-version-check",
                "--no-input", "--timeout", "20", "--retries", "1", *indexes]
+    if use_target:
+        command.append("--only-binary=:all:")
     try:
         proc = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
                               errors="replace", timeout=120,
@@ -643,20 +711,29 @@ def upgrade_installed_package(
         with _BOOTSTRAP_LOCK:
             errors: list[str] = []
             library_path, executable, use_target = _environment_for_directory(str(directory), errors)
-            if use_target:
-                return _TARGET_INSTALL_ERROR
             if library_path is None or executable is None:
                 return "; ".join(errors) or "Plugin dependency environment is unavailable"
             installed = {_package_name_key(package) for package, _ in list_installed_packages(library_path)
                          if re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", package)}
             if name_key not in installed:
                 return f"Distribution is not installed in the selected environment: {name}"
-            command = [str(executable), "-m", "pip", "install"]
+            command = [*_pip_prefix(executable), "install"]
+            previous_metadata = set()
+            if use_target:
+                command.extend(("--target", str(library_path), "--only-binary=:all:"))
+                previous_metadata = set(library_path.glob("*.dist-info"))
             command.extend((*indexes, "--upgrade", "--no-input", "--disable-pip-version-check",
                             "--progress-bar", "raw", "--timeout", "20", "--retries", "1",
                             "--", name))
             error = _run_install(command, f"Upgrading {name}", output_callback)
             if error is None:
+                if use_target:
+                    # pip --target leaves metadata from earlier versions in place.
+                    new_metadata = set(library_path.glob("*.dist-info")) - previous_metadata
+                    replaced = {path.stem.rpartition("-")[0].lower() for path in new_metadata}
+                    for path in previous_metadata:
+                        if path.stem.rpartition("-")[0].lower() in replaced:
+                            shutil.rmtree(path)
                 importlib.invalidate_caches()
             return error
     except (OSError, ValueError) as exc:

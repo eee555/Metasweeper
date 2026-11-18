@@ -1861,6 +1861,14 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <translation>Pobierz wtyczkę...</translation>
     </message>
     <message>
+        <source>插件市场...</source>
+        <translation>Market wtyczek...</translation>
+    </message>
+    <message>
+        <source>从仓库 URL 安装...</source>
+        <translation>Zainstaluj z adresu repozytorium...</translation>
+    </message>
+    <message>
         <location filename="../plugin_manager/main_window.py" line="2103"/>
         <location filename="../plugin_manager/main_window.py" line="2293"/>
         <location filename="../plugin_manager/main_window.py" line="3297"/>
