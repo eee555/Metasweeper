@@ -163,6 +163,8 @@ def _run_manager() -> int:
         help="可写数据目录（由主进程传入，已通过权限测试）",
     )
 
+    parser.add_argument("--host-pid", type=int, help=argparse.SUPPRESS)
+
     args = parser.parse_args()
 
     if args.data_dir:
@@ -204,6 +206,7 @@ def _run_manager() -> int:
         show_main_window=show_main_window,
         pub_endpoint=args.pub_endpoint,
         ctrl_endpoint=args.ctrl_endpoint,
+        **({"host_pid": args.host_pid} if args.host_pid else {}),
     )
 
 

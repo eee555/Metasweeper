@@ -267,6 +267,114 @@ def test_completion_dialog_buttons(qtbot, monkeypatch, button, expected_restart)
     assert bool(requests) is expected_restart
 
 
+@pytest.mark.parametrize("selected", ["1.0.0", "1.2.0"])
+def test_install_confirmation_matches_selected_version(qtbot, monkeypatch, tmp_path, selected):
+    from PySide6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(market.QTimer, "singleShot", lambda *_: None)
+    entry = parse_index(json.loads(INDEX))[0]
+    releases = market.PluginRelease(entry, rank_versions(entry, [
+        ("metasweeper-v1.0.0", "a" * 40),
+        ("metasweeper-v1.2.0", "b" * 40),
+    ]))
+    row = market.MarketRow(entry, releases, InstalledPlugin(
+        name=entry.name, directory=tmp_path, version=releases.latest_version))
+    dialog = market.PluginMarketDialog("")
+    qtbot.addWidget(dialog)
+    dialog._rows = [row]
+    dialog._populate()
+    dialog.table.selectRow(0)
+    dialog.version.setCurrentIndex(next(
+        i for i in range(dialog.version.count())
+        if str(dialog.version.itemData(i)) == selected))
+    questions, starts = [], []
+    monkeypatch.setattr(market.QMessageBox, "question", lambda *args: (
+        questions.append(args[2]) or QMessageBox.StandardButton.Yes))
+    monkeypatch.setattr(dialog, "_start_task", lambda *args: starts.append(args))
+
+    dialog._install_selected()
+
+    assert f"更新到 {selected}" in questions[0]
+    assert str(starts[0][2]) == selected
+
+
+@pytest.mark.parametrize("installing", [False, True])
+def test_tray_quit_waits_for_market_worker(qtbot, monkeypatch, installing):
+    from threading import Event
+    from types import SimpleNamespace
+    from plugin_manager import main_window
+    from tests.plugin_manager.test_cov_pm_e_helpers import shell
+
+    entered, release = Event(), Event()
+    def run(task):
+        entered.set()
+        release.wait(5)
+    monkeypatch.setattr(market._MarketTask, "run", run)
+    window = shell(qtbot)
+    calls = []
+    window._tray_icon = None
+    window._state_mgr = SimpleNamespace(save=lambda: calls.append("save"))
+    window._manager = SimpleNamespace(stop=lambda: calls.append("stop"))
+    monkeypatch.setattr(main_window, "QApplication", SimpleNamespace(
+        instance=lambda: SimpleNamespace(quit=lambda: calls.append("quit"))))
+    dialog = market.PluginMarketDialog("", window)
+    qtbot.addWidget(dialog)
+    window._market_dialog = dialog
+    target = object() if installing else None
+    try:
+        dialog._start_task("", target, None)
+        qtbot.waitUntil(entered.is_set)
+        task = dialog._task
+        window._really_quit()
+        window._really_quit()
+        assert task.isInterruptionRequested()
+        assert calls == []
+        release.set()
+        qtbot.waitUntil(lambda: calls == ["save", "stop", "quit"])
+        assert dialog._task is None
+    finally:
+        release.set()
+        if dialog._task is not None:
+            dialog._task.wait(5000)
+
+
+def test_tray_quit_runs_after_market_modal_loop_returns(qtbot, monkeypatch):
+    from threading import Event
+    from types import SimpleNamespace
+    from PySide6.QtCore import QTimer
+    from plugin_manager import main_window
+    from tests.plugin_manager.test_cov_pm_e_helpers import shell
+
+    entered, release = Event(), Event()
+    def run(task):
+        entered.set()
+        release.wait(5)
+    monkeypatch.setattr(market._MarketTask, "run", run)
+    window = shell(qtbot)
+    window._tray_icon = None
+    calls = []
+    window._state_mgr = SimpleNamespace(save=lambda: calls.append("save"))
+    window._manager = SimpleNamespace(stop=lambda: calls.append("stop"))
+    monkeypatch.setattr(main_window, "QApplication", SimpleNamespace(
+        instance=lambda: SimpleNamespace(quit=lambda: calls.append("quit"))))
+
+    def quit_while_running():
+        if not entered.is_set():
+            QTimer.singleShot(10, quit_while_running)
+            return
+        window._really_quit()
+        release.set()
+
+    QTimer.singleShot(0, quit_while_running)
+    try:
+        window._open_plugin_market()
+        calls.append("dialog returned")
+        qtbot.waitUntil(lambda: "quit" in calls)
+        assert calls == ["dialog returned", "save", "stop", "quit"]
+    finally:
+        release.set()
+
+
 def test_scan_survives_single_repository_failure(qtbot, fake_network, monkeypatch):
     from plugin_manager import plugin_download
 

@@ -79,12 +79,20 @@ jobs:
             src/main.py
 
       - name: Package plugin_manager with PyInstaller
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
         run: |
           pyinstaller `
             --noconfirm `
             --name plugin_manager `
             --collect-all pip `
+            --additional-hooks-dir package_tool/pyinstaller_hooks `
+            --exclude-module test --exclude-module unittest `
+            --exclude-module idlelib.idle_test `
+            --exclude-module pip._vendor.certifi.tests `
+            --exclude-module pip._vendor.platformdirs.pytest_plugin `
             --hidden-import plugin_manager.__main__ `
+            --collect-submodules plugin_manager `
             --windowed `
             --paths src `
             --icon src/media/plugin_manager.ico `
@@ -105,10 +113,13 @@ jobs:
             --hidden-import email `
             --hidden-import email.utils `
             --hidden-import requests `
+            --hidden-import packaging `
             --hidden-import win32api `
             --hidden-import win32event `
             --hidden-import winerror `
             --hidden-import PySide6.QtSvg `
+            --hidden-import PySide6.QtOpenGL `
+            --hidden-import PySide6.QtOpenGLWidgets `
             --hidden-import ms_toollib `
             --hidden-import shared_types.aes_gcm `
             --hidden-import config.constants `

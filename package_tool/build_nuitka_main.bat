@@ -148,11 +148,22 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem Discover available stdlib modules using the build interpreter for dynamic plugins.
+set "STDLIB_OPTIONS="
+for /f "delims=" %%I in ('"%PYTHON%" package_tool\nuitka_stdlib_options.py') do set "STDLIB_OPTIONS=%%I"
+if not defined STDLIB_OPTIONS (
+    echo Failed to discover standard library modules.
+    popd
+    exit /b 1
+)
+
 "%PYTHON%" -m nuitka ^
     --mode=standalone ^
     --enable-plugin=pyside6 ^
     --assume-yes-for-downloads ^
     %EXCLUDE_OPTIONS% ^
+    %STDLIB_OPTIONS% ^
+    --nofollow-import-to=test,unittest,*.test,*.tests,*.test_*,*._test*,idlelib.idle_test,pip._vendor.platformdirs.pytest_plugin ^
     --windows-console-mode=%NUITKA_CONSOLE_MODE% ^
     --output-dir="%MANAGER_STAGE%" ^
     --output-filename=plugin_manager.exe ^
@@ -165,8 +176,11 @@ if errorlevel 1 (
     --include-data-files=src\pl_PL.qm=pl_PL.qm ^
     --include-data-files=src\ja_JP.qm=ja_JP.qm ^
     --include-package=msgspec ^
+    --include-package=plugin_manager ^
     --include-package=pip ^
     --include-package-data=pip ^
+    --include-distribution-metadata=pip ^
+    --include-package=packaging ^
     --include-package=zmq ^
     --include-package=loguru ^
     --include-package=requests ^
@@ -182,6 +196,8 @@ if errorlevel 1 (
     --include-package-data=textdistance ^
     --include-module=sqlite3 ^
     --include-module=PySide6.QtSvg ^
+    --include-module=PySide6.QtOpenGL ^
+    --include-module=PySide6.QtOpenGLWidgets ^
     --include-module=code ^
     --include-module=xmlrpc.server ^
     --include-module=xmlrpc.client ^

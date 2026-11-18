@@ -2470,8 +2470,12 @@ class PluginManagerWindow(QMainWindow):
     def _open_plugin_market(self) -> None:
         dialog = PluginMarketDialog("", self)
         dialog.restart_requested.connect(self.restart_plugin_manager)
-        dialog.exec()
-        dialog.deleteLater()
+        self._market_dialog = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._market_dialog = None
+            dialog.deleteLater()
 
     @Slot()
     def show_and_raise(self) -> None:
@@ -2515,11 +2519,23 @@ class PluginManagerWindow(QMainWindow):
         """真正退出程序（从托盘菜单触发）"""
         if self._installation_in_progress():
             return
+        market = getattr(self, "_market_dialog", None)
+        if market is not None and market._task is not None:
+            if not getattr(self, "_market_quit_pending", False):
+                self._market_quit_pending = True
+                market.finished.connect(self._finish_market_quit)
+                market.reject()
+            return
         if self._tray_icon is not None:
             self._tray_icon.hide()
         self._state_mgr.save()
         self._manager.stop()
         QApplication.instance().quit()  # type: ignore
+
+    def _finish_market_quit(self, _result: int) -> None:
+        self._market_quit_pending = False
+        # 先退出市场的嵌套事件循环，再退出应用的主事件循环。
+        QTimer.singleShot(0, self._really_quit)
 
     def _open_global_settings(self) -> None:
         """打开全局设置（目前显示控制授权对话框）"""

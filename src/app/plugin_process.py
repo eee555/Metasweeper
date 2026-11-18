@@ -40,6 +40,7 @@ def start_plugin_process(ui, main_window, plugins_disabled):
         "--endpoint", bridge.endpoint,
         "--pub-endpoint", bridge.pub_endpoint,
         "--ctrl-endpoint", bridge.ctrl_endpoint,
+        "--host-pid", str(os.getpid()),
     ]
     if get_runtime_mode() != "source":
         base_dir = str(get_executable_dir())

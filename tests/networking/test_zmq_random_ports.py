@@ -101,6 +101,7 @@ def test_start_plugin_process_passes_real_endpoints_on_command_line(monkeypatch,
         ("--endpoint", fake_bridge.endpoint),
         ("--pub-endpoint", fake_bridge.pub_endpoint),
         ("--ctrl-endpoint", fake_bridge.ctrl_endpoint),
+        ("--host-pid", str(os.getpid())),
     ):
         assert flag in cmd
         assert cmd[cmd.index(flag) + 1] == value

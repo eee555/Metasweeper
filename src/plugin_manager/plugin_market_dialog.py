@@ -269,7 +269,7 @@ class PluginMarketDialog(QDialog):
 
     # ── 扫描 ──────────────────────────────────────────────────
     def start_scan(self) -> None:
-        if self._task is not None:
+        if self._closing or self._task is not None:
             return
         self.status.setText(_tr("正在搜索 GitHub 插件并检查版本..."))
         self._rows = []
@@ -446,17 +446,17 @@ class PluginMarketDialog(QDialog):
         row = self._selected_row()
         if row is None or not row.can_install or self._task is not None:
             return
+        version = self.version.currentData()
+        if not isinstance(version, Version):
+            version = row.releases.latest_version if row.releases else None
         if row.installed is not None:
             answer = QMessageBox.question(
                 self, _tr("更新插件"),
                 _tr("已安装 {current}，更新到 {latest}。"
                     "现有插件目录会被替换，插件数据目录保留。继续？").format(
-                    current=row.installed_version, latest=row.latest_version))
+                    current=row.installed_version, latest=str(version)))
             if answer != QMessageBox.StandardButton.Yes:
                 return
-        version = self.version.currentData()
-        if not isinstance(version, Version):
-            version = row.releases.latest_version if row.releases else None
         self.status.setText(
             _tr("正在安装 {name} ...").format(name=row.entry.name))
         self._start_task(self._index_url, row, version)
@@ -485,8 +485,8 @@ class PluginMarketDialog(QDialog):
         self._start_task(self._index_url, row, version)
 
     def reject(self) -> None:
+        self._closing = True
         if self._task is not None:
-            self._closing = True
             self._task.requestInterruption()
             self.status.setText(_tr("正在取消..."))
             self.scan_button.setEnabled(False)

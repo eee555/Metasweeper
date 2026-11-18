@@ -3,13 +3,15 @@
 # 构建产物 plugin_manager.app 由 build_mac.sh 内嵌进 Metasweeper.app/Contents/Resources
 import glob
 import os
+import sys
 
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 pip_data, pip_binaries, pip_imports = collect_all("pip")
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))
 SRC = os.path.join(ROOT, "src")
+sys.path.insert(0, SRC)
 
 datas = [
     # 内置插件以源码形式随包分发（与 Windows 版 internal/plugins 一致）
@@ -32,13 +34,15 @@ a = Analysis(
         "shared_types.aes_gcm", "config.constants", "utils.app_logger",
         "zmq", "msgspec", "loguru", "requests", "textdistance",
         "cryptography", "PyMCUlib", "ms_toollib", "PySide6.QtSvg",
-    ] + pip_imports,
-    hookspath=[],
+        "PySide6.QtOpenGL", "PySide6.QtOpenGLWidgets", "packaging",
+    ] + pip_imports + collect_submodules("plugin_manager"),
+    hookspath=[os.path.join(ROOT, "package_tool", "pyinstaller_hooks")],
     runtime_hooks=[],
     excludes=[
         "pywin32", "win32api", "win32con", "win32gui", "win32event",
         "winerror", "pythoncom", "pywintypes", "debugpy",
-        "pytest", "_pytest", "tkinter",
+        "pytest", "_pytest", "tkinter", "test", "unittest", "idlelib.idle_test",
+        "pip._vendor.certifi.tests", "pip._vendor.platformdirs.pytest_plugin",
         "PySide6.QtQuickWidgets", "PySide6.QtQuick", "PySide6.QtQml", "PySide6.QtCharts",
     ],
     noarchive=False,

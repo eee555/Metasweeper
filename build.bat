@@ -1,5 +1,6 @@
 @echo off
 setlocal
+set "PYTHONPATH=%CD%\src;%PYTHONPATH%"
 chcp 65001 >nul 2>&1
 
 set OUT=dist\app
@@ -18,7 +19,10 @@ if not exist "src\media\cat.ico" (
     if errorlevel 1 exit /b 1
 )
 
-if exist "%OUT%\metaminsweeper" rmdir /s /q "%OUT%\metaminsweeper"
+if exist "%DEST%" (
+    echo ERROR: %DEST% already exists. Move or back up the existing output before building.
+    exit /b 1
+)
 if exist "%OUT%\plugin_manager" rmdir /s /q "%OUT%\plugin_manager"
 
 pyside6-lrelease src\ui\en_US.ts -qm src\en_US.qm
@@ -48,8 +52,14 @@ if errorlevel 1 exit /b 1
 pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/media/plugin_manager.ico ^
     %EXCLUDES% ^
     --paths src ^
+    --additional-hooks-dir package_tool\pyinstaller_hooks ^
     --collect-all pip ^
+    --exclude-module test --exclude-module unittest ^
+    --exclude-module idlelib.idle_test ^
+    --exclude-module pip._vendor.certifi.tests ^
+    --exclude-module pip._vendor.platformdirs.pytest_plugin ^
     --hidden-import plugin_manager.__main__ ^
+    --collect-submodules plugin_manager ^
     --add-data "src/media/plugin_manager.ico;media" ^
     --add-data "src/plugins;plugins" ^
     --add-data "src/shared_types;shared_types" ^
@@ -61,9 +71,11 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --hidden-import xmlrpc --hidden-import xmlrpc.server --hidden-import xmlrpc.client ^
     --hidden-import http.server --hidden-import socketserver ^
     --hidden-import email --hidden-import email.utils ^
-    --hidden-import requests ^
+    --hidden-import requests --hidden-import packaging ^
     --hidden-import win32api --hidden-import win32event --hidden-import winerror ^
     --hidden-import PySide6.QtSvg ^
+    --hidden-import PySide6.QtOpenGL ^
+    --hidden-import PySide6.QtOpenGLWidgets ^
     --hidden-import ms_toollib ^
     --hidden-import shared_types.aes_gcm --hidden-import config.constants --hidden-import utils.app_logger ^
     --distpath "%OUT%" src\plugin_manager\_run.py

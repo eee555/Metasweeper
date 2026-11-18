@@ -132,6 +132,80 @@ def test_cancelled_handoff_never_starts_replacement(monkeypatch, tmp_path):
     assert restart._handoff is None
 
 
+def test_replacement_tracks_original_game_after_restart(tmp_path):
+    ready = tmp_path / "ready"
+    stopped = tmp_path / "stopped"
+    replacement = (
+        "from plugin_manager.restart import wait_for_predecessor; "
+        "from plugin_manager.host_lifetime import HostLifetime; "
+        "from pathlib import Path; import sys, time; "
+        "wait_for_predecessor(); h=HostLifetime(int(sys.argv[1])); "
+        "Path(sys.argv[2]).touch(); "
+        "exec('while h.is_alive():\\n time.sleep(0.05)'); "
+        "h.close(); Path(sys.argv[3]).touch()"
+    )
+    manager = (
+        "from plugin_manager import restart; import os, sys; "
+        "restart._invocation=([sys.executable, '-c', sys.argv[1], *sys.argv[2:]], os.getcwd()); "
+        "h=restart.prepare_restart(); h.commit()"
+    )
+    game = (
+        "import subprocess, sys; "
+        "p=subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2], "
+        "str(__import__('os').getpid()), sys.argv[3], sys.argv[4]]); "
+        "p.wait(); print('ready', flush=True); input()"
+    )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2] / "src")
+    process = subprocess.Popen(
+        [sys.executable, "-c", game, manager, replacement, str(ready), str(stopped)],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, env=env,
+    )
+    try:
+        assert process.stdout.readline().strip() == "ready"
+        deadline = time.monotonic() + 10
+        while not ready.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert ready.exists()
+        assert not stopped.exists()
+        _, error = process.communicate("\n", timeout=10)
+        assert process.returncode == 0, error
+        deadline = time.monotonic() + 10
+        while not stopped.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert stopped.exists()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
+def test_game_exit_closes_manager_event_loop(monkeypatch, qapp):
+    from PySide6.QtCore import QTimer
+    from plugin_manager import host_lifetime, plugin_manager
+
+    host = Mock()
+    host.is_alive.side_effect = [True, False]
+    monkeypatch.setattr(host_lifetime, "HostLifetime", lambda pid: host)
+    manager = Mock()
+    manager._app = qapp
+    manager.exec_gui.side_effect = lambda **kwargs: qapp.exec()
+    monkeypatch.setattr(plugin_manager, "PluginManager", lambda **kwargs: manager)
+    timed_out = []
+    watchdog = QTimer()
+    watchdog.setSingleShot(True)
+    watchdog.timeout.connect(lambda: (timed_out.append(True), qapp.quit()))
+    watchdog.start(3000)
+    try:
+        assert plugin_manager.run_plugin_manager_process("endpoint", host_pid=123) == 0
+    finally:
+        watchdog.stop()
+    assert not timed_out
+    manager.stop.assert_called()
+    host.close.assert_called_once()
+
+
 def test_restart_is_registered_as_a_qt_slot():
     from plugin_manager.main_window import PluginManagerWindow
 

@@ -741,6 +741,7 @@ def run_plugin_manager_process(
     show_main_window: bool = True,
     pub_endpoint: str | None = None,
     ctrl_endpoint: str | None = None,
+    host_pid: int | None = None,
 ) -> int:
     """
     在独立进程中运行插件管理器
@@ -761,17 +762,32 @@ def run_plugin_manager_process(
         pub_endpoint=pub_endpoint, ctrl_endpoint=ctrl_endpoint,
     )
 
+    from .host_lifetime import HostLifetime
+    host = HostLifetime(host_pid) if host_pid else None
+    timer = None
     try:
+        if host is not None and not host.is_alive():
+            return 0
         if with_gui:
+            if host is not None:
+                manager.start_with_gui(show_main_window=show_main_window)
+                from PySide6.QtCore import QTimer
+                timer = QTimer(manager._app)
+                timer.timeout.connect(lambda: manager._app.quit() if not host.is_alive() else None)
+                timer.start(500)
             return manager.exec_gui(show_main_window=show_main_window)
         else:
             manager.start()
-            while True:
+            while host is None or host.is_alive():
                 import time
                 time.sleep(1)
     except KeyboardInterrupt:
         pass
     finally:
+        if timer is not None:
+            timer.stop()
         manager.stop()
+        if host is not None:
+            host.close()
 
     return 0
