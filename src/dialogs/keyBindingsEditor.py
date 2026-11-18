@@ -23,9 +23,8 @@ class _ShortcutEdit(QtWidgets.QKeySequenceEdit):
 
     def keySequence(self) -> QtGui.QKeySequence:
         sequence = super().keySequence()
-        text = sequence.toString()
-        if "," in text:
-            return QtGui.QKeySequence(text.split(",", 1)[0].strip())
+        if sequence.count() > 1:
+            return QtGui.QKeySequence(sequence[0])
         return sequence
 
 
