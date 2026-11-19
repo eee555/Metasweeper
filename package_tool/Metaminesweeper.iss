@@ -65,6 +65,11 @@ chinese.FileAssocPageDesc=勾选对应的文件类型，以添加对应文件类
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkablealone
 
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\{#AppPath}\_internal\plugins\history"
+Type: filesandordirs; Name: "{app}\{#AppPath}\_internal\plugins\clipboard_replay"
+Type: filesandordirs; Name: "{app}\{#AppPath}\_internal\plugins\llm_minesweeper_controller"
+
 [Files]
 Source: {#RootPath}\{#AppPath}\{#MyAppExeName}; DestDir: "{app}\{#AppPath}"; Flags: ignoreversion
 Source: {#RootPath}\*; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

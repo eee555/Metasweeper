@@ -13,12 +13,15 @@ from typing import TYPE_CHECKING
 
 import loguru
 
+from .app_paths import get_builtin_plugin_dirs
 from .dependency_scan import PluginDependencyStatus, scan_plugin_dependencies
 
 if TYPE_CHECKING:
     from plugin_sdk.plugin_base import BasePlugin, PluginInfo
 
 logger = loguru.logger.bind(name="PluginLoader")
+
+_RETIRED_BUILTINS = frozenset({"history", "clipboard_replay", "llm_minesweeper_controller"})
 
 
 class PluginLoader:
@@ -64,8 +67,8 @@ class PluginLoader:
         plugins: list[tuple[Path, str]] = []
         seen: set[str] = set()
 
-        # 排除的目录名（不是插件，但放在 plugins 目录下）
-        excluded_dirs = {"services"}
+        # 便携版覆盖解压后，旧插件源码可能仍留在内置目录。
+        builtin_dirs = {path.resolve() for path in get_builtin_plugin_dirs()}
 
         def add(path: Path, name: str) -> None:
             # 局限：仍使用裸模块名；改成命名空间名会破坏现有 from plugins.xxx 导入。
@@ -88,9 +91,11 @@ class PluginLoader:
                 add(py_file, py_file.stem)
 
             # 包形式插件
+            excluded_dirs = {"services"}
+            if plugin_dir.resolve() in builtin_dirs:
+                excluded_dirs.update(_RETIRED_BUILTINS)
             for pkg_dir in plugin_dir.iterdir():
                 if pkg_dir.is_dir() and (pkg_dir / "__init__.py").exists():
-                    # 排除 services 等非插件目录
                     if pkg_dir.name.startswith("_") or pkg_dir.name in excluded_dirs:
                         continue
                     add(pkg_dir / "__init__.py", pkg_dir.name)

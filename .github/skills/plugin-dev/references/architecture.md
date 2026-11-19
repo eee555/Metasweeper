@@ -18,7 +18,7 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 │   EventDispatcher ──→ 事件分发       │
 │        │                             │
 │   BasePlugin(QObject + moveToThread) × N
-│     ├─ HistoryPlugin (内置)          │
+│     ├─ HistoryPlugin (第三方)        │
 │     ├─ 你的插件A (用户)              │
 │     └─ 你的插件B (用户)              │
 │                                      │

@@ -1,6 +1,6 @@
 # 历史记录 `board` 列存储约定
 
-相关实现见 `src/plugins/history/board_codec.py`。
+相关实现与维护文档随第三方历史记录插件发布。[历史记录插件](https://github.com/ljzloser/metasweeper-history)
 
 ## 当前格式
 

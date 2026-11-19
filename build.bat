@@ -74,6 +74,7 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --hidden-import requests --hidden-import packaging ^
     --hidden-import win32api --hidden-import win32event --hidden-import winerror ^
     --hidden-import PySide6.QtSvg ^
+    --hidden-import PySide6.QtNetwork ^
     --hidden-import PySide6.QtOpenGL ^
     --hidden-import PySide6.QtOpenGLWidgets ^
     --hidden-import ms_toollib ^

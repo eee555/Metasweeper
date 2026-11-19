@@ -11,17 +11,10 @@ from PySide6.QtCore import QCoreApplication, QTranslator
 from plugin_manager.translations import _PUBLIC_CONTEXTS
 from utils.plugin_i18n import PluginText, translated
 
-# 注意：插件控件一律在测试函数内导入。模块级导入会把
-# plugins.llm_minesweeper_controller.widgets 留在 sys.modules 中，
-# 破坏 test_mcp_controller 里“无 GUI 依赖”的契约测试。
-
 ROOT = Path(__file__).resolve().parents[2]
 LOCALES = ("en_US", "de_DE", "ja_JP", "pl_PL")
 PLUGINS = {
     "challenge_mode": "ChallengeMode",
-    "clipboard_replay": "ClipboardReplay",
-    "history": "HistoryPlugin",
-    "llm_minesweeper_controller": "MinesweeperMcp",
     "SaoleiWebsite": "SaoleiWebsite",
     "skin_manager": "SkinManagerPlugin",
     "XianNiUpgrade": "XianNiUpgrade",
@@ -54,31 +47,6 @@ def test_plugin_sources_do_not_use_shared_contexts():
             assert 'translate("SkinManager"' not in text, source
 
 
-def test_config_text_retranslates_after_language_change(qapp):
-    from plugin_manager.config_widget import OtherInfoWidget
-    from plugins.history.plugin import HistoryConfig
-
-    class Translator(QTranslator):
-        def isEmpty(self):
-            return False
-
-        def translate(self, context, source, disambiguation=None, n=-1):
-            if context == "HistoryPlugin" and source == "小数位数":
-                return "Decimal places"
-            return None
-
-    widget = OtherInfoWidget(HistoryConfig())
-    translator = Translator()
-    assert QCoreApplication.installTranslator(translator)
-    try:
-        QCoreApplication.sendEvent(widget, __import__("PySide6.QtCore", fromlist=["QEvent"]).QEvent(
-            __import__("PySide6.QtCore", fromlist=["QEvent"]).QEvent.Type.LanguageChange))
-        assert widget._labels["float_decimals"].text() == "Decimal places"
-        assert widget._widgets["float_decimals"].get_value() == 2
-    finally:
-        QCoreApplication.removeTranslator(translator)
-
-
 def test_plugin_text_keeps_source_and_operations():
     text = PluginText("HistoryPlugin", "共%1行,%2页").replace("%1", "3").replace("%2", "1")
     assert text == "共3行,1页"
@@ -106,36 +74,28 @@ def test_challenge_catalog_loads_in_qt(qapp, qtbot, locale, expected):
         QCoreApplication.removeTranslator(translator)
 
 
-def test_open_plugin_views_refresh_on_language_change(qapp, qtbot, tmp_path):
+def test_open_plugin_views_refresh_on_language_change(qapp, qtbot):
     class Translator(QTranslator):
         def isEmpty(self):
             return False
 
         def translate(self, context, source, disambiguation=None, n=-1):
             return {
-                ("HistoryPlugin", "查询"): "Query",
-                ("MinesweeperMcp", "启动MCP"): "Start MCP",
                 ("SkinManagerPlugin", "皮肤管理"): "Skin manager",
                 ("XianNiUpgrade", "修行日志"): "Cultivation log",
             }.get((context, source))
 
-    from plugins.history.main_widget import HistoryMainWidget
-    from plugins.llm_minesweeper_controller.widgets import McpControlWidget
     from plugins.skin_manager.widgets import SkinManagerWidget
     from plugins.XianNiUpgrade.widgets import XianNiUpgradeUI
 
-    history = HistoryMainWidget(tmp_path / "history.db", tmp_path / "fields.json")
-    mcp = McpControlWidget()
     skin = SkinManagerWidget()
     xianni = XianNiUpgradeUI()
-    for widget in (history, mcp, skin, xianni):
+    for widget in (skin, xianni):
         qtbot.addWidget(widget)
         widget.show()
     translator = Translator()
     assert QCoreApplication.installTranslator(translator)
     try:
-        qtbot.waitUntil(lambda: history.query_button.text() == "Query")
-        qtbot.waitUntil(lambda: mcp.action_button.text() == "Start MCP")
         qtbot.waitUntil(lambda: skin.findChildren(type(skin._status))[0].text() == "Skin manager")
         qtbot.waitUntil(lambda: xianni._log_group.title() == "Cultivation log")
     finally:

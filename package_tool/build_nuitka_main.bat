@@ -160,6 +160,7 @@ if not defined STDLIB_OPTIONS (
 "%PYTHON%" -m nuitka ^
     --mode=standalone ^
     --enable-plugin=pyside6 ^
+    --enable-plugin=tk-inter ^
     --assume-yes-for-downloads ^
     %EXCLUDE_OPTIONS% ^
     %STDLIB_OPTIONS% ^
@@ -196,6 +197,7 @@ if not defined STDLIB_OPTIONS (
     --include-package-data=textdistance ^
     --include-module=sqlite3 ^
     --include-module=PySide6.QtSvg ^
+    --include-module=PySide6.QtNetwork ^
     --include-module=PySide6.QtOpenGL ^
     --include-module=PySide6.QtOpenGLWidgets ^
     --include-module=code ^
@@ -257,7 +259,7 @@ if errorlevel 1 (
     popd
     exit /b 1
 )
-if not exist "%PACKAGE_DIR%\internal\plugins\history\plugin.py" (
+if not exist "%PACKAGE_DIR%\internal\plugins\challenge_mode\__init__.py" (
     echo Built-in plugin source files were not copied to the package.
     popd
     exit /b 1
@@ -280,8 +282,8 @@ if not exist "%PACKAGE_DIR%\plugin_manager.exe" (
     popd
     exit /b 1
 )
-if not exist "%PACKAGE_DIR%\internal\plugins\history\plugin.py" (
-    echo Built-in HistoryPlugin source missing from merged package.
+if not exist "%PACKAGE_DIR%\internal\plugins\services\history.py" (
+    echo Shared history service protocol missing from merged package.
     popd
     exit /b 1
 )

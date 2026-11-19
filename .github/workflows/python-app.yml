@@ -118,6 +118,7 @@ jobs:
             --hidden-import win32event `
             --hidden-import winerror `
             --hidden-import PySide6.QtSvg `
+            --hidden-import PySide6.QtNetwork `
             --hidden-import PySide6.QtOpenGL `
             --hidden-import PySide6.QtOpenGLWidgets `
             --hidden-import ms_toollib `

@@ -33,7 +33,7 @@ a = Analysis(
         "http.server", "socketserver",
         "shared_types.aes_gcm", "config.constants", "utils.app_logger",
         "zmq", "msgspec", "loguru", "requests", "textdistance",
-        "cryptography", "PyMCUlib", "ms_toollib", "PySide6.QtSvg",
+        "cryptography", "PyMCUlib", "ms_toollib", "PySide6.QtSvg", "PySide6.QtNetwork",
         "PySide6.QtOpenGL", "PySide6.QtOpenGLWidgets", "packaging",
     ] + pip_imports + collect_submodules("plugin_manager"),
     hookspath=[os.path.join(ROOT, "package_tool", "pyinstaller_hooks")],

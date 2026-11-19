@@ -11,9 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCALES = ('en_US', 'de_DE', 'ja_JP', 'pl_PL')
 CONTEXTS = {
     'challenge_mode': 'ChallengeMode',
-    'clipboard_replay': 'ClipboardReplay',
-    'history': 'HistoryPlugin',
-    'llm_minesweeper_controller': 'MinesweeperMcp',
     'SaoleiWebsite': 'SaoleiWebsite',
     'skin_manager': 'SkinManagerPlugin',
     'XianNiUpgrade': 'XianNiUpgrade',

@@ -18,17 +18,10 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-def test_named_plugins_declare_startup_window_hidden(app):
-    """三个点名插件在自己 plugin_info() 中声明默认不自动开启界面。"""
-    from plugins.clipboard_replay.plugin import ClipboardReplayPlugin
-    from plugins.llm_minesweeper_controller.plugin import (
-        LlmMinesweeperControllerPlugin,
-    )
+def test_skin_manager_declares_startup_window_hidden(app):
     from plugins.skin_manager.plugin import SkinManagerPlugin
 
-    for cls in (ClipboardReplayPlugin, LlmMinesweeperControllerPlugin,
-                SkinManagerPlugin):
-        assert cls.plugin_info().show_window is False
+    assert SkinManagerPlugin.plugin_info().show_window is False
 
 
 def test_untouched_plugins_keep_sdk_default():

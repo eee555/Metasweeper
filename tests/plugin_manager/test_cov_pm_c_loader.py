@@ -121,6 +121,21 @@ def test_discover_plugins_skips_hidden_services_and_underscore_files(tmp_path):
     ]
 
 
+@pytest.mark.parametrize("name", ["history", "clipboard_replay", "llm_minesweeper_controller"])
+def test_discover_skips_retired_builtins_but_loads_external_packages(tmp_path, monkeypatch, name):
+    builtin = tmp_path / "internal" / "plugins"
+    external = tmp_path / "user_plugins"
+    make_package(builtin, name)
+    retained = make_package(builtin, "still_builtin")
+    installed = make_package(external, name)
+    monkeypatch.setattr("plugin_manager.plugin_loader.get_builtin_plugin_dirs", lambda: [builtin])
+
+    assert PluginLoader([builtin, external]).discover_plugins() == [
+        (retained / "__init__.py", "still_builtin"),
+        (installed / "__init__.py", name),
+    ]
+
+
 def test_discover_plugins_multiple_dirs_and_missing_dir(tmp_path):
     one, two, deleted = tmp_path / "one", tmp_path / "two", tmp_path / "gone"
     one.mkdir()
