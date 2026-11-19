@@ -11,9 +11,9 @@ import loguru
 import re
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
-from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QTimer, QEvent, QThread
+from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QSize, QTimer, QEvent, QThread
 from PySide6.QtGui import QColor, QMouseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -51,8 +51,8 @@ from PySide6.QtWidgets import (
 )
 
 from .plugin_info_dialog import PluginInfoDialog
-from .plugin_download_dialog import PluginDownloadDialog
 from .plugin_market_dialog import PluginMarketDialog
+from .plugin_updates import PluginAutoUpdateTask
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager, normalize_pip_indexes
 from plugin_sdk.plugin_base import (
@@ -63,7 +63,7 @@ from plugin_sdk.plugin_base import (
     resolve_display_name,
 )
 from shared_types.widgets.toggle_switch import ToggleSwitch
-from shared_types.widgets.confirm_dialog import ConfirmDialog
+from .plugin_readme_dialog import _PluginReadmeDialog
 from shared_types.commands import command_hint, command_label
 from plugin_sdk.control_auth import ControlAuthorizationManager
 from plugin_sdk.config_types import OtherInfoBase
@@ -1920,270 +1920,6 @@ class ControlAuthorizationDialog(QDialog):
         self.accept()
 
 
-class _PluginReadmeDialog(ConfirmDialog):
-    """插件 README 查看对话框（Markdown 渲染，随系统深浅色自适应）。
-
-    链接点击策略：
-    - 内部锚点（目录跳转）→ 滚动到对应标题
-    - 本地 .md/.txt 文件 → 用本对话框展示
-    - 其他本地文件/目录 → 用系统默认应用打开
-    - 外部链接 → 用系统默认浏览器打开
-    """
-
-    # 浅色/深色两套配色（与 GitHub 风格接近，保证对比度）
-    _LIGHT_TEXT = "#24292f"
-    _LIGHT_LINK = "#0969da"
-    _LIGHT_LINK_VISITED = "#8250df"
-    _DARK_TEXT = "#e6edf3"
-    _DARK_LINK = "#58a6ff"
-    _DARK_LINK_VISITED = "#bc8cff"
-
-    def __init__(self, plugin_name: str, content: str, parent=None,
-                 base_dir: Path | None = None, title: str | None = None):
-        self._content = content
-        self._base_dir = base_dir or Path.cwd()
-        self._browser: QTextBrowser | None = None
-        # 全局 styleHints 单例引用（用于断开 colorSchemeChanged 连接）
-        self._style_hints = None
-        # 标题 slug → 文档位置，用于目录锚点跳转
-        self._heading_positions: dict[str, int] = {}
-        # 模块内导入，避免顶层引入 QTextBrowser/QFont/QPalette 影响冷启动
-        from PySide6.QtWidgets import QTextBrowser  # noqa: F401
-        if title is None:
-            title = (parent.tr("{name} - README").format(name=plugin_name)
-                     if parent else f"{plugin_name} - README")
-        super().__init__(
-            parent=parent,
-            title=title,
-            buttons=QDialogButtonBox.StandardButton.Close,
-        )
-        self.setWindowIcon(action_icon("app"))
-        set_button_box_icons(self.button_box)
-        self.resize(720, 520)
-        self._apply_theme()
-        self._connect_theme_change()
-
-    def _is_dark(self) -> bool:
-        """当前是否处于深色模式（跟随系统 colorScheme，System 时按浅色兜底）。"""
-        try:
-            return QApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
-        except Exception:
-            return False
-
-    def _connect_theme_change(self) -> None:
-        """监听系统深浅色切换，实时刷新 Markdown 配色。
-
-        ``QApplication.styleHints()`` 是进程级单例，连接必须显式断开，
-        否则对话框析构后主题切换会调用已删除的 C++ 对象。
-        """
-        try:
-            hints = QApplication.styleHints()
-            hints.colorSchemeChanged.connect(self._apply_theme)
-            self._style_hints = hints
-            # C++ 对象被销毁时兜底断开（正常路径由 done/closeEvent 处理）
-            self.destroyed.connect(self._disconnect_theme_change)
-        except Exception:
-            self._style_hints = None
-            return
-
-    def _disconnect_theme_change(self, *_args) -> None:
-        """断开全局 styleHints 信号（幂等，可重复调用）。"""
-        hints = getattr(self, "_style_hints", None)
-        if hints is None:
-            return
-        self._style_hints = None
-        try:
-            hints.colorSchemeChanged.disconnect(self._apply_theme)
-        except Exception:
-            # 已断开、信号桩缺少 disconnect，或 C++ 对象已销毁
-            pass
-
-    def done(self, result: int) -> None:
-        """对话框结束（确定/取消/关闭）时断开全局信号。"""
-        self._disconnect_theme_change()
-        super().done(result)
-
-    def closeEvent(self, event) -> None:
-        """关闭时断开全局信号，避免残留连接。"""
-        self._disconnect_theme_change()
-        super().closeEvent(event)
-
-    def _apply_theme(self, *_args) -> None:
-        """按当前深浅色更新文本/链接配色。"""
-        if self._browser is None:
-            return
-        from PySide6.QtGui import QColor, QPalette
-
-        palette = self._browser.palette()
-        if self._is_dark():
-            palette.setColor(QPalette.ColorRole.Text, QColor(self._DARK_TEXT))
-            palette.setColor(QPalette.ColorRole.Link, QColor(self._DARK_LINK))
-            palette.setColor(QPalette.ColorRole.LinkVisited,
-                             QColor(self._DARK_LINK_VISITED))
-        else:
-            palette.setColor(QPalette.ColorRole.Text, QColor(self._LIGHT_TEXT))
-            palette.setColor(QPalette.ColorRole.Link, QColor(self._LIGHT_LINK))
-            palette.setColor(QPalette.ColorRole.LinkVisited,
-                             QColor(self._LIGHT_LINK_VISITED))
-        self._browser.setPalette(palette)
-
-    @staticmethod
-    def _heading_slug(text: str) -> str:
-        """按 GitHub 规则把标题文本转成锚点 slug。
-
-        小写、空格转连字符、去掉标点（保留中日韩文字、字母、数字、``-``/``_``）。
-        Qt 的 Markdown 渲染器不会给标题生成锚点，因此目录里的
-        ``#一系统架构概览`` 这类链接需要靠 slug 匹配标题块位置来跳转。
-        """
-        import unicodedata
-
-        s = text.strip().lower().replace(" ", "-")
-        return "".join(
-            ch for ch in s
-            if ch in "-_" or unicodedata.category(ch)[0] in ("L", "N")
-        )
-
-    def _collect_heading_positions(self) -> None:
-        """渲染 Markdown 后，记录每个标题块的位置，供目录锚点跳转。"""
-        self._heading_positions.clear()
-        if self._browser is None:
-            return
-        block = self._browser.document().firstBlock()
-        while block.isValid():
-            if block.blockFormat().headingLevel() > 0:
-                slug = self._heading_slug(block.text())
-                if slug:
-                    self._heading_positions.setdefault(slug, block.position())
-            block = block.next()
-
-    def _scroll_to_heading(self, fragment: str) -> bool:
-        """滚动到 fragment 对应的标题，成功返回 True。"""
-        from urllib.parse import unquote
-        from PySide6.QtGui import QTextCursor
-
-        if self._browser is None:
-            return False
-        key = unquote(fragment)
-        pos = self._heading_positions.get(key)
-        if pos is None:
-            return False
-        cursor = QTextCursor(self._browser.document())
-        cursor.setPosition(pos)
-        self._browser.setTextCursor(cursor)
-        self._browser.ensureCursorVisible()
-        return True
-
-    def _resolve_local_path(self, url) -> Path | None:
-        """从点击的 URL 解析本地文件路径。
-
-        处理 file:// 绝对路径、相对路径（相对插件目录解析）、
-        Windows 盘符路径。非本地文件返回 None。
-        """
-        from urllib.parse import unquote
-
-        scheme = url.scheme().lower()
-
-        if scheme == "file":
-            raw = url.toLocalFile()
-            if raw:
-                p = Path(raw)
-                return p if p.is_absolute() else (self._base_dir / p)
-
-        if scheme in ("", "qt"):
-            raw = unquote(url.path())
-            if "#" in raw:
-                raw = raw.split("#", 1)[0]
-            if raw:
-                p = Path(raw)
-                return p if p.is_absolute() else (self._base_dir / p)
-
-        return None
-
-    def _on_anchor_click(self, url) -> None:
-        """处理 README 内链接点击，按文件类型分流。"""
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-
-        # 内部锚点（目录跳转）：Qt 不为标题生成锚点，靠标题位置定位滚动
-        if not url.path() and url.fragment():
-            if self._scroll_to_heading(url.fragment()):
-                return
-            # 兜底：文档里显式的 HTML <a name="..."> 锚点
-            if self._browser:
-                self._browser.scrollToAnchor(url.fragment())
-            return
-
-        local_path = self._resolve_local_path(url)
-
-        if local_path is not None:
-            if local_path.is_file():
-                suffix = local_path.suffix.lower()
-                if suffix in (".md", ".txt"):
-                    # 用对话框展示
-                    try:
-                        content = local_path.read_text(
-                            encoding="utf-8", errors="replace")
-                    except OSError as e:
-                        QMessageBox.warning(
-                            self, self.tr("README"),
-                            self.tr("读取文件失败: {err}").format(err=e))
-                        return
-                    dlg = _PluginReadmeDialog(
-                        local_path.stem, content,
-                        parent=self, base_dir=self._base_dir)
-                    # 若链接带 #锚点，进入模态循环、布局完成后滚到目标标题
-                    fragment = url.fragment()
-                    if fragment:
-                        QTimer.singleShot(
-                            0, lambda d=dlg, f=fragment:
-                            d._scroll_to_heading(f))
-                    dlg.exec()
-                else:
-                    # 其他类型文件用系统默认应用打开
-                    QDesktopServices.openUrl(
-                        QUrl.fromLocalFile(str(local_path)))
-            elif local_path.is_dir():
-                # 目录用系统默认文件管理器打开
-                QDesktopServices.openUrl(
-                    QUrl.fromLocalFile(str(local_path)))
-            else:
-                # 文件不存在，用原始 URL 尝试打开（可能是外部链接）
-                QDesktopServices.openUrl(url)
-            return
-
-        # 非本地文件 → 系统默认浏览器/应用
-        QDesktopServices.openUrl(url)
-
-    def _create_content(self) -> QLayout:
-        from PySide6.QtWidgets import QTextBrowser
-        from PySide6.QtGui import QFont
-
-        layout = QVBoxLayout()
-        if not self._content:
-            label = QLabel(self.tr("该插件目录下未找到 README.md"))
-            label.setWordWrap(True)
-            layout.addWidget(label)
-            return layout
-
-        browser = QTextBrowser()
-        browser.setOpenLinks(False)
-        browser.setOpenExternalLinks(False)
-        browser.setMarkdown(self._content)
-        browser.anchorClicked.connect(self._on_anchor_click)
-        self._browser = browser
-
-        font = QFont("Microsoft YaHei", 11)
-        font.setStyleHint(QFont.StyleHint.SansSerif)
-        browser.setFont(font)
-
-        # Qt 不给 Markdown 标题生成锚点，收集标题位置以支持目录跳转
-        self._collect_heading_positions()
-
-        self._apply_theme()
-
-        layout.addWidget(browser)
-        return layout
-
 # ═══════════════════════════════════════════════════════════════════
 # 主窗口
 # ═══════════════════════════════════════════════════════════════════
@@ -2194,6 +1930,8 @@ class PluginManagerWindow(QMainWindow):
 
     connection_changed = Signal(bool)
     _show_requested = Signal()
+    _auto_update_task: PluginAutoUpdateTask | None = None
+    _after_auto_update: Callable[[], object] | None = None
 
     def __init__(self, plugin_manager: PluginManager, parent=None):
         super().__init__(parent)
@@ -2239,6 +1977,15 @@ class PluginManagerWindow(QMainWindow):
         self._timer.timeout.connect(self._poll_connection_status)
         self._timer.start(1000)
 
+        self._auto_update_timer = QTimer(self)
+        self._auto_update_timer.setSingleShot(True)
+        self._auto_update_timer.timeout.connect(self._start_auto_update)
+        app = QApplication.instance()
+        assert app is not None
+        app.aboutToQuit.connect(self._stop_auto_update)
+        if self._settings_mgr.settings.auto_update_plugins:
+            self._auto_update_timer.start(0)
+
     # ── UI ───────────────────────────────────────────────
 
     def _setup_ui(self) -> None:
@@ -2252,11 +1999,15 @@ class PluginManagerWindow(QMainWindow):
             self.tr("插件市场..."))
         set_action_icon(self._act_plugin_market, "download")
         self._act_plugin_market.triggered.connect(self._open_plugin_market)
+        self._act_auto_update = self._menu_plugins.addAction(self.tr("自动更新插件"))
+        set_action_icon(self._act_auto_update, "refresh")
+        self._act_auto_update.setCheckable(True)
+        self._act_auto_update.setChecked(self._settings_mgr.settings.auto_update_plugins)
+        self._act_auto_update.triggered.connect(self._set_auto_update)
         self._menu_plugins.addSeparator()
-        self._act_download_plugin = self._menu_plugins.addAction(
-            self.tr("从仓库 URL 安装..."))
-        set_action_icon(self._act_download_plugin, "download")
-        self._act_download_plugin.triggered.connect(self._open_download_plugin)
+        self._act_restart = self._menu_plugins.addAction(self.tr("重启"))
+        set_action_icon(self._act_restart, "refresh")
+        self._act_restart.triggered.connect(self.restart_plugin_manager)
 
         # 顶层菜单不设置图标：Qt 菜单栏可能只绘制图标而隐藏标题。
         self._menu_settings = menubar.addMenu(self.tr("设置"))
@@ -2332,12 +2083,24 @@ class PluginManagerWindow(QMainWindow):
 
         # ── 左侧：插件列表面板 ──
         left_panel = QWidget()
+        left_panel.setObjectName("pluginListPanel")
+        left_panel.setStyleSheet(
+            "QWidget#pluginListPanel {"
+            "background-color: palette(window);"
+            "border-right: 1px solid palette(mid);"
+            "}"
+        )
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(4, 4, 4, 4)
+        left_layout.setContentsMargins(4, 4, 5, 4)
+        left_layout.setSpacing(6)
 
         # 标题
         self._title_label = QLabel(self.tr("插件列表"))
-        self._title_label.setStyleSheet("font-weight: bold; padding: 4px;")
+        self._title_label.setStyleSheet(
+            "font-weight: 650; font-size: 13px;"
+            "padding: 8px 10px 10px;"
+            "border-bottom: 1px solid palette(mid);"
+        )
         left_layout.addWidget(self._title_label)
 
         # 插件列表
@@ -2346,6 +2109,33 @@ class PluginManagerWindow(QMainWindow):
         lst.setSelectionMode(QListView.SelectionMode.SingleSelection)
         lst.setEditTriggers(QListView.EditTrigger.NoEditTriggers)
         lst.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        lst.setMouseTracking(True)
+        lst.setSpacing(1)
+        lst.setIconSize(QSize(28, 28))
+        lst.setStyleSheet("""
+            QListWidget {
+                border: none;
+                outline: none;
+                background: transparent;
+                padding: 2px 1px;
+            }
+            QListWidget::item {
+                min-height: 30px;
+                margin: 2px 3px;
+                padding: 6px 9px;
+                border: none;
+                border-bottom: 1px solid palette(mid);
+                border-radius: 5px;
+            }
+            QListWidget::item:hover {
+                background-color: palette(alternate-base);
+            }
+            QListWidget::item:selected {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+                border: 1px solid palette(highlight);
+            }
+        """)
         self._list = lst
         left_layout.addWidget(lst)
 
@@ -2407,7 +2197,8 @@ class PluginManagerWindow(QMainWindow):
         self.setWindowTitle(self.tr("插件管理器"))
         self._menu_plugins.setTitle(self.tr("插件"))
         self._act_plugin_market.setText(self.tr("插件市场..."))
-        self._act_download_plugin.setText(self.tr("从仓库 URL 安装..."))
+        self._act_auto_update.setText(self.tr("自动更新插件"))
+        self._act_restart.setText(self.tr("重启"))
         self._menu_settings.setTitle(self.tr("设置"))
         self._act_basic_settings.setText(self.tr("基础设置..."))
         self._act_plugin_environment.setText(self.tr("插件依赖环境..."))
@@ -2462,13 +2253,10 @@ class PluginManagerWindow(QMainWindow):
             self.retranslateUi()
         super().changeEvent(event)
 
-    def _open_download_plugin(self) -> None:
-        dialog = PluginDownloadDialog(self)
-        dialog.exec()
-        dialog.deleteLater()
-
     def _open_plugin_market(self) -> None:
-        dialog = PluginMarketDialog("", self)
+        if self._defer_for_auto_update(self._open_plugin_market):
+            return
+        dialog = PluginMarketDialog("", self, settings=self._settings_mgr)
         dialog.restart_requested.connect(self.restart_plugin_manager)
         self._market_dialog = dialog
         try:
@@ -2492,12 +2280,82 @@ class PluginManagerWindow(QMainWindow):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.show_and_raise()
 
+    @Slot(bool)
+    def _set_auto_update(self, enabled: bool) -> None:
+        try:
+            self._settings_mgr.set_auto_update_plugins(enabled)
+        except OSError as exc:
+            self._act_auto_update.setChecked(self._settings_mgr.settings.auto_update_plugins)
+            QMessageBox.warning(self, self.tr("插件管理器"),
+                                self.tr("保存插件设置失败：\n{err}").format(err=exc))
+            return
+        if enabled:
+            self._auto_update_timer.start(0)
+        else:
+            self._auto_update_timer.stop()
+            if self._auto_update_task is not None:
+                self._auto_update_task.requestInterruption()
+
+    @Slot()
+    def _start_auto_update(self) -> None:
+        if not self._settings_mgr.settings.auto_update_plugins or self._auto_update_task is not None:
+            return
+        if (QApplication.activeModalWidget() is not None
+                or getattr(self, "_market_dialog", None) is not None
+                or self._installation_in_progress()):
+            self._auto_update_timer.start(30_000)
+            return
+        task = PluginAutoUpdateTask(self)
+        self._auto_update_task = task
+        task.finished.connect(self._auto_update_finished)
+        task.start()
+
+    @Slot()
+    def _auto_update_finished(self) -> None:
+        task = self._auto_update_task
+        if task is None:
+            return
+        self._auto_update_task = None
+        if task.updated:
+            message = self.tr("已自动更新 {count} 个插件。重启插件管理器后生效。").format(
+                count=len(task.updated))
+            self.statusBar().showMessage(message, 15_000)
+            if self._tray_icon is not None and not self.isVisible():
+                self._tray_icon.showMessage(self.tr("插件管理器"), message)
+        task.deleteLater()
+        after_update, self._after_auto_update = self._after_auto_update, None
+        if self._settings_mgr.settings.auto_update_plugins:
+            self._auto_update_timer.start(30_000 if after_update else 24 * 60 * 60 * 1000)
+        if after_update is not None:
+            QTimer.singleShot(0, after_update)
+
+    def _defer_for_auto_update(self, action: Callable[[], object]) -> bool:
+        task = self._auto_update_task
+        if task is None:
+            return False
+        self._after_auto_update = action
+        task.requestInterruption()
+        self.statusBar().showMessage(self.tr("正在等待自动更新结束…"), 15_000)
+        return True
+
+    @Slot()
+    def _stop_auto_update(self) -> None:
+        self._auto_update_timer.stop()
+        task, self._auto_update_task = self._auto_update_task, None
+        self._after_auto_update = None
+        if task is not None:
+            task.requestInterruption()
+            task.wait()
+            task.deleteLater()
+
     @Slot(result=bool)
     def restart_plugin_manager(self) -> bool:
         """优雅停止当前管理器并在进程退出后启动接替进程。"""
         from . import restart
 
         if self._installation_in_progress():
+            return False
+        if self._defer_for_auto_update(self.restart_plugin_manager):
             return False
         handoff = None
         try:
@@ -2518,6 +2376,8 @@ class PluginManagerWindow(QMainWindow):
     def _really_quit(self) -> None:
         """真正退出程序（从托盘菜单触发）"""
         if self._installation_in_progress():
+            return
+        if self._defer_for_auto_update(self._really_quit):
             return
         market = getattr(self, "_market_dialog", None)
         if market is not None and market._task is not None:
@@ -2596,6 +2456,8 @@ class PluginManagerWindow(QMainWindow):
         dialog.exec()
 
     def _open_plugin_environment_dialog(self) -> None:
+        if self._defer_for_auto_update(self._open_plugin_environment_dialog):
+            return
         dialog = PluginEnvironmentDialog(self._settings_mgr, self)
         dialog.settings_changed.connect(self._on_plugin_environment_changed)
         dialog.exec()
@@ -2752,6 +2614,9 @@ class PluginManagerWindow(QMainWindow):
 
     def _start_installation(self, title: str, installer, args: tuple):
         if self._installation_in_progress():
+            return None
+        if self._auto_update_task is not None:
+            self.statusBar().showMessage(self.tr("正在自动更新插件…"), 5_000)
             return None
         progress = _InstallProgressDialog(title, installer, args, self)
         self._install_progress = progress
@@ -2910,18 +2775,17 @@ class PluginManagerWindow(QMainWindow):
             li = QListWidgetItem(display_name)
             li.setData(Qt.ItemDataRole.UserRole, name)
             li.setIcon(p.plugin_icon)
+            li.setSizeHint(QSize(0, 46))
 
             lc = p.lifecycle
-
-            # 根据生命周期状态显示
             if lc == PluginLifecycle.INITIALIZING:
-                li.setForeground(QColor("#f57c00"))  # 橙色：初始化中
+                li.setForeground(QColor("#f57c00"))
                 li.setText(self.tr("{name}（初始化中...）").format(
                     name=display_name))
             elif not p.is_enabled:
-                li.setForeground(Qt.GlobalColor.gray)  # 灰色：已禁用
+                li.setForeground(Qt.GlobalColor.gray)
             elif lc == PluginLifecycle.SHUTTING_DOWN:
-                li.setForeground(QColor("#c62828"))  # 红色：关闭中
+                li.setForeground(QColor("#c62828"))
                 li.setText(self.tr("{name}（关闭中...）").format(
                     name=display_name))
 
@@ -2938,6 +2802,13 @@ class PluginManagerWindow(QMainWindow):
                 if suffix:
                     li.setText(li.text() + suffix)
                     li.setForeground(QColor("#c62828"))
+                li.setToolTip(self._dependency_text(dependency))
+            else:
+                version = getattr(getattr(p, "info", None), "version", None)
+                li.setToolTip(
+                    self.tr("版本: {version}").format(version=version)
+                    if version else display_name
+                )
 
             lst.addItem(li)
 
@@ -2959,6 +2830,7 @@ class PluginManagerWindow(QMainWindow):
                 continue
             li = QListWidgetItem(self.tr("{name}（加载失败）").format(name=module_name))
             li.setData(Qt.ItemDataRole.UserRole + 1, module_name)
+            li.setSizeHint(QSize(0, 46))
             li.setToolTip(self._dependency_text(dependency))
             li.setForeground(QColor("#c62828"))
             lst.addItem(li)
@@ -3128,14 +3000,9 @@ class PluginManagerWindow(QMainWindow):
             menu.exec(self._list.viewport().mapToGlobal(pos))
             return
         t = self._tab_widget
-        if module_name:
-            action = menu.addAction(self.tr("查看依赖详情"))
-            set_action_icon(action, "dependency")
-            action.triggered.connect(lambda: self._show_dependency_details(module_name))
-            menu.addSeparator()
-
-        # 启用/禁用（非就绪状态不可切换，但 STOPPED 可以重新启用）
         lc = plugin.lifecycle
+
+        # 插件状态
         can_control = lc in (PluginLifecycle.NEW, PluginLifecycle.READY, PluginLifecycle.STOPPED)
         act_enable = menu.addAction(self.tr("启用"))
         act_disable = menu.addAction(self.tr("禁用"))
@@ -3149,14 +3016,7 @@ class PluginManagerWindow(QMainWindow):
 
         menu.addSeparator()
 
-        # 插件详情（点击打开详情对话框，只读展示订阅/权限信息）
-        act_detail = menu.addAction(self.tr("插件详情"))
-        set_action_icon(act_detail, "info")
-        act_detail.triggered.connect(lambda: self._open_plugin_info(name))
-
-        menu.addSeparator()
-
-        # 打开/关闭窗口
+        # 插件窗口
         has_tab = t.index_of_key(name) >= 0
         has_detached = name in t._detached_windows
         has_closed = name in self._closed_plugins
@@ -3165,42 +3025,49 @@ class PluginManagerWindow(QMainWindow):
         act_close = menu.addAction(self.tr("关闭窗口"))
         set_action_icon(act_open, "window")
         set_action_icon(act_close, "window-close")
-
-        # 窗口操作只有就绪状态才可用
         can_open = lc == PluginLifecycle.READY and (
             has_closed or (not has_tab and plugin.widget is not None))
         act_open.setEnabled(can_open)
         act_close.setEnabled(
             lc == PluginLifecycle.READY and (has_tab or has_detached))
-
-        # 打开日志文件
-        act_log = menu.addAction(self.tr("打开日志"))
-        set_action_icon(act_log, "log")
-
-        # 查看 README
-        act_readme = menu.addAction(self.tr("查看 README"))
-        set_action_icon(act_readme, "guide")
-
         act_open.triggered.connect(lambda: self._open_plugin_window(name))
         act_close.triggered.connect(lambda: self._close_plugin_window(name))
-        act_log.triggered.connect(lambda: self._open_plugin_log(name))
-        act_readme.triggered.connect(lambda: self._open_plugin_readme(name))
 
         menu.addSeparator()
 
-        # 一键授权控制权限（仅 READY 且声明了控制权限的插件）
-        required_controls = plugin.info.required_controls or []
-        if lc == PluginLifecycle.READY and required_controls:
-            act_control_auth = menu.addAction(self.tr("一键授权控制权限"))
-            set_action_icon(act_control_auth, "authorize")
-            act_control_auth.triggered.connect(
-                lambda: self._authorize_plugin_controls(name))
+        # 插件信息与诊断
+        act_detail = menu.addAction(self.tr("插件详情"))
+        act_readme = menu.addAction(self.tr("查看 README"))
+        act_log = menu.addAction(self.tr("打开日志"))
+        set_action_icon(act_detail, "info")
+        set_action_icon(act_readme, "guide")
+        set_action_icon(act_log, "log")
+        act_detail.triggered.connect(lambda: self._open_plugin_info(name))
+        act_readme.triggered.connect(lambda: self._open_plugin_readme(name))
+        act_log.triggered.connect(lambda: self._open_plugin_log(name))
 
-        # 设置
+        if module_name:
+            act_dependency = menu.addAction(self.tr("查看依赖详情"))
+            set_action_icon(act_dependency, "dependency")
+            act_dependency.triggered.connect(
+                lambda: self._show_dependency_details(module_name))
+
+        menu.addSeparator()
+
+        # 插件配置
         act_settings = menu.addAction(self.tr("设置..."))
         set_action_icon(act_settings, "settings")
         act_settings.triggered.connect(
             lambda: self._open_plugin_settings(name))
+
+        # 授权控制权限是高影响操作，单独放在菜单末尾。
+        required_controls = plugin.info.required_controls or []
+        if lc == PluginLifecycle.READY and required_controls:
+            menu.addSeparator()
+            act_control_auth = menu.addAction(self.tr("一键授权控制权限"))
+            set_action_icon(act_control_auth, "authorize")
+            act_control_auth.triggered.connect(
+                lambda: self._authorize_plugin_controls(name))
 
         menu.exec(self._list.viewport().mapToGlobal(pos))
 
@@ -3235,6 +3102,7 @@ class PluginManagerWindow(QMainWindow):
             self._remove_plugin_window(name)
             self._manager.disable_plugin(name)
         self._sync_state(name, enabled=enable)
+        self._state_mgr.save()
         self._refresh_plugin_list()
 
     def _open_plugin_window(self, name: str) -> None:
@@ -3268,9 +3136,10 @@ class PluginManagerWindow(QMainWindow):
         if st.window_mode == WindowMode.DETACHED:
             self._open_detached_window(name)
         else:
-            t.add_detachable_tab(
+            index = t.add_detachable_tab(
                 widget, self._plugin_display_name(plugin),
                 icon=plugin.plugin_icon, key=name)
+            t.setCurrentIndex(index)
 
     def _remove_plugin_window(self, name: str) -> None:
         """从 Tab / 独立窗口容器移除视图，并真正析构 widget 实例。

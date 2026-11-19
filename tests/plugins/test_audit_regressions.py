@@ -111,7 +111,8 @@ def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
             self._menu_tools = QMenu(self)
             self._menu_help = QMenu(self)
             self._act_plugin_market = QAction(self)
-            self._act_download_plugin = QAction(self)
+            self._act_auto_update = QAction(self)
+            self._act_restart = QAction(self)
             self._act_basic_settings = QAction(self)
             self._act_plugin_environment = QAction(self)
             self._act_control_auth = QAction(self)
@@ -163,7 +164,7 @@ def test_finding_02_real_window_initializes_tray_attribute(monkeypatch):
 
 def test_finding_03_color_scheme_connection_is_disconnectable():
     """#3：README 对话框连接全局信号后必须在关闭时断开。"""
-    text = _read("src/plugin_manager/main_window.py")
+    text = _read("src/plugin_manager/plugin_readme_dialog.py")
     assert "colorSchemeChanged.connect(self._apply_theme)" in text
     assert "colorSchemeChanged.disconnect(self._apply_theme)" in text
 

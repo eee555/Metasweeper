@@ -61,17 +61,20 @@ def test_dependency_context_menu_icon_and_action(qtbot, qapp, monkeypatch, loade
     try:
         def inspect_menu(menu, pos):
             actions = menu.actions()
-            action = actions[0]
+            menu_actions = [action for action in actions if not action.isSeparator()]
+            action = next(
+                action for action in menu_actions
+                if action.text() == w.tr("查看依赖详情")) if loaded else menu_actions[0]
             assert action.text() == w.tr("查看依赖详情")
             assert action.isEnabled() and action.isIconVisibleInMenu()
             assert not action.icon().isNull()
             assert action.icon().pixmap(16, 16).toImage() == (
                 action_icon("dependency").pixmap(16, 16).toImage())
             if loaded:
-                assert actions[1].isSeparator()
-                assert actions[2].text() == w.tr("启用")
+                assert menu_actions[0].text() == w.tr("启用")
+                assert menu_actions[2].text() == w.tr("打开窗口")
             else:
-                assert len(actions) == 1
+                assert len(menu_actions) == 1
             action.trigger()
 
         class TestMenu(mw.QMenu):
@@ -164,7 +167,7 @@ def test_loaded_plugin_does_not_annotate_satisfied_dependencies(qtbot):
     manager.module_dependency_statuses = {"demo_module": status}
     w._refresh_plugin_list()
     assert w._list.item(0).text() == "demo"
-    assert w._list.item(0).toolTip() == ""
+    assert "example>=2: 已安装 (已安装版本 2.1)" in w._list.item(0).toolTip()
 
 
 def test_loaded_plugin_displays_conflicting_dependency(qtbot, tmp_path):
@@ -178,7 +181,8 @@ def test_loaded_plugin_displays_conflicting_dependency(qtbot, tmp_path):
     manager.module_dependency_statuses = {"demo_module": status}
     w._refresh_plugin_list()
     assert "依赖版本冲突" in w._list.item(0).text()
-    assert w._list.item(0).toolTip() == ""
+    assert "example>=2: 版本不符合要求 (已安装版本 1)" in (
+        w._list.item(0).toolTip())
 
 
 @pytest.mark.parametrize("raises", [False, True])

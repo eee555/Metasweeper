@@ -20,6 +20,8 @@ def test_basic_settings_defaults_and_to_dict():
             "https://pypi.org/simple",
             "https://pypi.tuna.tsinghua.edu.cn/simple",
         ],
+        "plugin_market_source": "github",
+        "auto_update_plugins": True,
     }
 
 
@@ -44,6 +46,8 @@ def test_basic_settings_from_dict_full():
         "viewer_show_source": True,
         "plugin_lib_dir": "D:/libs",
         "plugin_pip_indexes": ["https://packages.example/simple"],
+        "plugin_market_source": "gitee",
+        "auto_update_plugins": False,
     }
     assert BasicSettings.from_dict(data).to_dict() == data
 
@@ -73,7 +77,7 @@ def test_settings_manager_load_valid_json(tmp_path):
         json.dumps(data), encoding="utf-8",
     )
     mgr = SettingsManager(tmp_path)
-    assert mgr.settings.to_dict() == data
+    assert mgr.settings == BasicSettings(**data)
     assert mgr.file_log_level == "WARNING"
     assert mgr.viewer_log_level == "ERROR"
     assert mgr.viewer_auto_scroll is False

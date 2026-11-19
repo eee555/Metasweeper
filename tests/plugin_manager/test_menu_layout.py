@@ -27,7 +27,7 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     calls = []
     handlers = {
         "_open_plugin_market": "market",
-        "_open_download_plugin": "download",
+        "restart_plugin_manager": "restart",
         "_open_basic_settings_dialog": "settings",
         "_open_plugin_environment_dialog": "environment",
         "_open_control_auth_dialog": "authorization",
@@ -49,9 +49,11 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     ]
     assert all(action.icon().isNull() for action in w.menuBar().actions())
     plugin_actions = w._menu_plugins.actions()
-    assert plugin_actions[0] == w._act_plugin_market
-    assert plugin_actions[1].isSeparator()
-    assert plugin_actions[2:] == [w._act_download_plugin]
+    assert plugin_actions[:2] == [w._act_plugin_market, w._act_auto_update]
+    assert plugin_actions[2].isSeparator()
+    assert plugin_actions[3:] == [w._act_restart]
+    assert not w._act_auto_update.icon().isNull()
+    assert w._act_restart.text() == "重启"
     assert w._menu_settings.actions() == [
         w._act_basic_settings, w._act_plugin_environment, w._act_control_auth,
     ]
@@ -60,16 +62,45 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     assert tools[2].isSeparator()
     assert tools[3:] == [w._debug_act]
     assert w._menu_help.actions() == [w._act_dev_guide]
-    for action in (w._act_plugin_market, w._act_download_plugin,
+    for action in (w._act_plugin_market, w._act_restart,
                    w._act_basic_settings,
                    w._act_plugin_environment, w._act_control_auth,
                    w._act_log_viewer, w._act_clear_logs, w._debug_act,
                    w._act_dev_guide):
         action.trigger()
     w._control_auth_btn.click()
-    assert calls == ["market", "download", "settings", "environment",
+    assert calls == ["market", "restart", "settings", "environment",
                      "authorization", "logs", "clear", "debug", "guide",
                      "authorization"]
+
+
+def test_auto_update_menu_starts_worker_and_persists_setting(qtbot, monkeypatch, tmp_path):
+    from PySide6.QtCore import QThread
+    from plugin_manager import main_window
+    from plugin_manager.settings_manager import SettingsManager
+
+    class UpdateTask(QThread):
+        updated = [tmp_path / "example_plugin"]
+
+        def run(self):
+            assert QThread.currentThread() is self
+
+    monkeypatch.setattr(main_window, "PluginAutoUpdateTask", UpdateTask)
+    w = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    assert w._act_auto_update.isChecked()
+    qtbot.waitUntil(lambda: "已自动更新 1 个插件" in w.statusBar().currentMessage())
+
+    w._act_auto_update.trigger()
+    assert not w._auto_update_timer.isActive()
+    assert not SettingsManager(tmp_path).settings.auto_update_plugins
+
+    reopened = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    assert not reopened._act_auto_update.isChecked()
+    assert not reopened._auto_update_timer.isActive()
+    reopened._act_auto_update.trigger()
+    qtbot.waitUntil(lambda: "已自动更新 1 个插件" in reopened.statusBar().currentMessage())
+    assert SettingsManager(tmp_path).settings.auto_update_plugins
+    reopened._stop_auto_update()
 
 
 @pytest.mark.parametrize("locale,titles,log_text", [
@@ -98,7 +129,8 @@ def test_menu_runtime_language_change_during_debug_install(
         assert w._act_log_viewer.text() == log_text
         for action, source in (
             (w._act_plugin_market, "插件市场..."),
-            (w._act_download_plugin, "从仓库 URL 安装..."),
+            (w._act_auto_update, "自动更新插件"),
+            (w._act_restart, "重启"),
             (w._act_basic_settings, "基础设置..."),
             (w._act_plugin_environment, "插件依赖环境..."),
             (w._act_control_auth, "控制授权..."),

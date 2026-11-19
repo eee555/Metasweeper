@@ -1576,6 +1576,13 @@
 </context>
 <context>
     <name>PluginDownloadDialog</name>
+    <message><source>仅支持读取 GitHub 和 Gitee 仓库的 README。</source><translation>GitHub と Gitee のリポジトリの README を読み込めます。</translation></message>
+    <message><source>托管平台返回了意外的 README 响应。</source><translation>ホスティングサービスから予期しない README 応答が返されました。</translation></message>
+    <message><source>README 文件超过 1 MiB 或响应超过大小限制。</source><translation>README が 1 MiB を超えているか、応答がサイズ上限を超えています。</translation></message>
+    <message><source>无法识别 README 所在的仓库分支。</source><translation>README があるブランチを特定できませんでした。</translation></message>
+    <message><source>README 不是有效的 UTF-8 文本。</source><translation>README が有効な UTF-8 テキストではありません。</translation></message>
+    <message><source>无法解析 GitHub README 响应。</source><translation>GitHub の README 応答を解析できませんでした。</translation></message>
+    <message><source>无法读取 Gitee 仓库的版本标签。</source><translation>Gitee リポジトリのバージョンタグを読み込めませんでした。</translation></message>
     <message>
         <location filename="../plugin_manager/plugin_download_dialog.py" line="57"/>
         <source>自动识别</source>
@@ -1854,6 +1861,11 @@
 </context>
 <context>
     <name>PluginManagerWindow</name>
+    <message><source>自动更新插件</source><translation>プラグインを自動更新</translation></message>
+    <message><source>重启</source><translation>再起動</translation></message>
+    <message><source>已自动更新 {count} 个插件。重启插件管理器后生效。</source><translation>{count} 個のプラグインを自動更新しました。適用するにはプラグインマネージャーを再起動してください。</translation></message>
+    <message><source>正在等待自动更新结束…</source><translation>自動更新の終了を待っています…</translation></message>
+    <message><source>正在自动更新插件…</source><translation>プラグインを自動更新しています…</translation></message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2143"/>
         <location filename="../plugin_manager/main_window.py" line="2295"/>
@@ -1863,10 +1875,6 @@
     <message>
         <source>插件市场...</source>
         <translation>プラグインマーケット...</translation>
-    </message>
-    <message>
-        <source>从仓库 URL 安装...</source>
-        <translation>リポジトリ URL からインストール...</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2103"/>
@@ -2151,6 +2159,36 @@
         <location filename="../plugin_manager/main_window.py" line="2731"/>
         <source>{name}（加载失败）</source>
         <translation>{name}（読み込み失敗）</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2742"/>
+        <source>已启用</source>
+        <translation>有効</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2742"/>
+        <source>已禁用</source>
+        <translation>無効</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2750"/>
+        <source>正在初始化</source>
+        <translation>初期化中</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2757"/>
+        <source>正在关闭</source>
+        <translation>終了中</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2790"/>
+        <source>加载失败</source>
+        <translation>読み込みに失敗</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2763"/>
+        <source>版本 {version} · {status}</source>
+        <translation>バージョン {version} · {status}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2757"/>
@@ -2772,17 +2810,17 @@
 <context>
     <name>_PluginReadmeDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2019"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="254"/>
         <source>README</source>
         <translation>README</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2020"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="255"/>
         <source>读取文件失败: {err}</source>
         <translation>ファイルの読み込みに失敗: {err}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2054"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="296"/>
         <source>该插件目录下未找到 README.md</source>
         <translation>プラグインディレクトリに README.md がありません</translation>
     </message>
@@ -2951,5 +2989,66 @@
         <source>按键自定义</source>
         <translation>キーカスタマイズ</translation>
     </message>
+</context>
+<context>
+    <name>PluginMarketDialog</name>
+    <message><source>详情</source><translation>詳細</translation></message>
+    <message><source>查看详情</source><translation>詳細を表示</translation></message>
+    <message><source>{name} - 插件详情</source><translation>{name} - プラグインの詳細</translation></message>
+    <message><source>作者</source><translation>作者</translation></message>
+    <message><source>打开仓库</source><translation>リポジトリを開く</translation></message>
+    <message><source>正在加载 README…</source><translation>README を読み込み中…</translation></message>
+    <message><source>README 加载失败：{error}</source><translation>README を読み込めませんでした: {error}</translation></message>
+    <message><source>仓库中未找到 README。</source><translation>リポジトリに README が見つかりませんでした。</translation></message>
+    <message><source>插件和依赖安装完成。</source><translation>プラグインと依存関係をインストールしました。</translation></message>
+    <message><source>安装完成</source><translation>インストール完了</translation></message>
+    <message><source>部分安装完成</source><translation>一部インストール完了</translation></message>
+    <message><source>插件及依赖已安装完成，重启插件管理器后生效。</source><translation>プラグインと依存関係をインストールしました。変更を適用するにはプラグインマネージャーを再起動してください。</translation></message>
+    <message><source>部分插件已安装；后续安装失败：{error}&#10;已安装的插件重启插件管理器后生效。</source><translation>一部のプラグインをインストールしましたが、後続のインストールに失敗しました: {error}&#10;インストール済みのプラグインを適用するには、プラグインマネージャーを再起動してください。</translation></message>
+    <message><source>重启</source><translation>再起動</translation></message>
+    <message><source>确认</source><translation>確認</translation></message>
+    <message><source>未安装</source><translation>未インストール</translation></message>
+    <message><source>可更新</source><translation>更新可能</translation></message>
+    <message><source>已是最新</source><translation>最新</translation></message>
+    <message><source>检查失败</source><translation>確認に失敗</translation></message>
+    <message><source>已安装</source><translation>インストール済み</translation></message>
+    <message><source>没有可安装的版本。</source><translation>インストール可能なバージョンがありません。</translation></message>
+    <message><source>该版本已不在仓库中。</source><translation>このバージョンはリポジトリにありません。</translation></message>
+    <message><source>正在安装插件依赖…</source><translation>プラグインの依存関係をインストール中…</translation></message>
+    <message><source>插件依赖安装失败；插件文件尚未发布：{error}</source><translation>依存関係のインストールに失敗しました。プラグインファイルは公開されていません: {error}</translation></message>
+    <message><source>插件依赖安装完成。</source><translation>プラグインの依存関係をインストールしました。</translation></message>
+    <message><source>插件不在受管理的用户插件目录中，无法自动更新。</source><translation>このプラグインは管理対象のユーザープラグインディレクトリにないため、自動更新できません。</translation></message>
+    <message><source>插件市场</source><translation>プラグインマーケット</translation></message>
+    <message><source>刷新 GitHub 插件</source><translation>GitHub プラグインを更新</translation></message>
+    <message><source>来源：GitHub · 主题：metasweeper-plugin</source><translation>ソース: GitHub · トピック: metasweeper-plugin</translation></message>
+    <message><source>搜索插件名称、说明或作者</source><translation>プラグイン名、説明、作者を検索</translation></message>
+    <message><source>全部</source><translation>すべて</translation></message>
+    <message><source>插件</source><translation>プラグイン</translation></message>
+    <message><source>最新版本</source><translation>最新バージョン</translation></message>
+    <message><source>状态</source><translation>状態</translation></message>
+    <message><source>说明</source><translation>説明</translation></message>
+    <message><source>仓库</source><translation>リポジトリ</translation></message>
+    <message><source>安装</source><translation>インストール</translation></message>
+    <message><source>安装版本</source><translation>インストールするバージョン</translation></message>
+    <message><source>关闭</source><translation>閉じる</translation></message>
+    <message><source>正在搜索 GitHub 插件并检查版本...</source><translation>GitHub プラグインを検索し、バージョンを確認中...</translation></message>
+    <message><source>操作失败：{error}</source><translation>操作に失敗しました: {error}</translation></message>
+    <message><source>共 {total} 个插件，{updatable} 个可更新。</source><translation>プラグイン {total} 件、更新可能 {updatable} 件。</translation></message>
+    <message><source>{failed} 个仓库检查失败。</source><translation>{failed} 件のリポジトリを確認できませんでした。</translation></message>
+    <message><source>更新</source><translation>更新</translation></message>
+    <message><source>重装</source><translation>再インストール</translation></message>
+    <message><source>更新插件</source><translation>プラグインを更新</translation></message>
+    <message><source>已安装 {current}，更新到 {latest}。现有插件目录会被替换，插件数据目录保留。继续？</source><translation>現在のバージョン {current} から {latest} に更新します。プラグインディレクトリは置き換えられ、プラグインデータは保持されます。続行しますか？</translation></message>
+    <message><source>正在安装 {name} ...</source><translation>{name} をインストール中...</translation></message>
+    <message><source>没有可更新的插件。</source><translation>更新可能なプラグインはありません。</translation></message>
+    <message><source>全部更新</source><translation>すべて更新</translation></message>
+    <message><source>将更新 {count} 个插件。继续？</source><translation>プラグイン {count} 件を更新します。続行しますか？</translation></message>
+    <message><source>正在取消...</source><translation>キャンセル中...</translation></message>
+    <message><source>搜索源</source><translation>検索元</translation></message>
+    <message><source>GitHub 主题：metasweeper-plugin</source><translation>GitHub トピック: metasweeper-plugin</translation></message>
+    <message><source>Gitee 关键词：metasweeper</source><translation>Gitee キーワード: metasweeper</translation></message>
+    <message><source>正在 Gitee 搜索插件并检查版本...</source><translation>Gitee でプラグインを検索し、バージョンを確認中...</translation></message>
+    <message><source>刷新</source><translation>更新</translation></message>
+    <message><source>不支持的插件搜索源：{source}</source><translation>サポートされていないプラグイン検索元: {source}</translation></message>
 </context>
 </TS>

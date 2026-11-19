@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import pytest
 
 from plugin_manager import restart
+from tests.plugin_manager.test_cov_pm_e_helpers import shell
 
 
 def test_invocation_keeps_cli_and_resolves_data_dir(monkeypatch, tmp_path):
@@ -212,50 +213,82 @@ def test_restart_is_registered_as_a_qt_slot():
     assert PluginManagerWindow.staticMetaObject.indexOfSlot("restart_plugin_manager()") >= 0
 
 
-def test_window_reports_launch_failure_and_does_not_stop(monkeypatch):
-    from plugin_manager.main_window import PluginManagerWindow, QMessageBox
+def test_window_reports_launch_failure_and_does_not_stop(qtbot, monkeypatch):
+    from plugin_manager.main_window import QMessageBox
 
     stop = Mock()
-    window = SimpleNamespace(_installation_in_progress=lambda: False,
-                             _state_mgr=SimpleNamespace(save=Mock()),
-                             _manager=SimpleNamespace(stop=stop),
-                             tr=lambda text: text)
+    window = shell(qtbot)
+    window._state_mgr = SimpleNamespace(save=Mock())
+    window._manager = SimpleNamespace(stop=stop)
     warning = Mock()
     monkeypatch.setattr(QMessageBox, "warning", warning)
     monkeypatch.setattr(restart, "prepare_restart", Mock(side_effect=OSError("launch failed")))
-    assert not PluginManagerWindow.restart_plugin_manager(window)
+    assert not window.restart_plugin_manager()
     stop.assert_not_called()
     assert "launch failed" in warning.call_args.args[2]
 
 
-def test_window_stops_and_commits_before_quitting(monkeypatch):
+def test_window_stops_and_commits_before_quitting(qtbot, monkeypatch):
     from plugin_manager import main_window
-    from plugin_manager.main_window import PluginManagerWindow
 
     calls = []
     handoff = SimpleNamespace(commit=lambda: calls.append("commit"))
-    window = SimpleNamespace(_installation_in_progress=lambda: False,
-                             _state_mgr=SimpleNamespace(save=lambda: calls.append("save")),
-                             _manager=SimpleNamespace(stop=lambda: calls.append("stop")))
+    window = shell(qtbot)
+    window._state_mgr = SimpleNamespace(save=lambda: calls.append("save"))
+    window._manager = SimpleNamespace(stop=lambda: calls.append("stop"))
     app = SimpleNamespace(quit=lambda: calls.append("quit"))
     monkeypatch.setattr(restart, "prepare_restart", lambda: handoff)
     monkeypatch.setattr(main_window, "QApplication", SimpleNamespace(instance=lambda: app))
-    assert PluginManagerWindow.restart_plugin_manager(window)
+    assert window.restart_plugin_manager()
     assert calls == ["save", "stop", "commit", "quit"]
 
 
-def test_window_cancels_handoff_if_shutdown_fails(monkeypatch):
-    from plugin_manager.main_window import PluginManagerWindow, QMessageBox
+def test_restart_menu_waits_for_auto_update_worker(qtbot, monkeypatch, tmp_path, qapp):
+    from threading import Event
+    from PySide6.QtCore import QThread
+    from plugin_manager import main_window
+    from tests.plugin_manager.test_cov_pm_e_helpers import real_window
+
+    entered, release = Event(), Event()
+    calls = []
+
+    class UpdateTask(QThread):
+        updated = []
+
+        def run(self):
+            entered.set()
+            release.wait(5)
+
+    monkeypatch.setattr(main_window, "PluginAutoUpdateTask", UpdateTask)
+    monkeypatch.setattr(qapp, "quit", lambda: calls.append("quit"))
+    handoff = SimpleNamespace(commit=lambda: calls.append("commit"))
+    monkeypatch.setattr(restart, "prepare_restart", lambda: handoff)
+
+    window = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    window._manager.stop = lambda: calls.append("stop")
+    qtbot.waitUntil(entered.is_set)
+    task = window._auto_update_task
+    try:
+        window._act_restart.trigger()
+        assert task.isInterruptionRequested()
+        assert calls == []
+    finally:
+        release.set()
+        task.wait(5000)
+    qtbot.waitUntil(lambda: calls == ["stop", "commit", "quit"])
+
+
+def test_window_cancels_handoff_if_shutdown_fails(qtbot, monkeypatch):
+    from plugin_manager.main_window import QMessageBox
 
     handoff = Mock()
-    window = SimpleNamespace(_installation_in_progress=lambda: False,
-                             _state_mgr=SimpleNamespace(save=Mock()),
-                             _manager=SimpleNamespace(stop=Mock(side_effect=RuntimeError("shutdown failed"))),
-                             tr=lambda text: text)
+    window = shell(qtbot)
+    window._state_mgr = SimpleNamespace(save=Mock())
+    window._manager = SimpleNamespace(stop=Mock(side_effect=RuntimeError("shutdown failed")))
     cancel = Mock()
     monkeypatch.setattr(restart, "prepare_restart", lambda: handoff)
     monkeypatch.setattr(restart, "cancel_restart", cancel)
     monkeypatch.setattr(QMessageBox, "warning", Mock())
-    assert not PluginManagerWindow.restart_plugin_manager(window)
+    assert not window.restart_plugin_manager()
     handoff.commit.assert_not_called()
     cancel.assert_called_once_with(handoff)

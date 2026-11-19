@@ -168,16 +168,16 @@ def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
     acts = _actions(menu)
     assert len(acts) == 9
     assert acts[0].isEnabled() is False and acts[1].isEnabled() is True
-    assert acts[3].isEnabled() is True   # open window (widget exists)
-    assert acts[4].isEnabled() is False  # close window
-    assert "一键授权控制权限" in acts[7].text()
+    assert acts[2].isEnabled() is True   # open window (widget exists)
+    assert acts[3].isEnabled() is False  # close window
+    assert "一键授权控制权限" in acts[8].text()
 
     calls = []
     handlers = {
         0: ("toggle", "demo", True), 1: ("toggle", "demo", False),
-        2: ("info", "demo"), 3: ("open", "demo"), 4: ("close", "demo"),
-        5: ("log", "demo"), 6: ("readme", "demo"), 7: ("auth", "demo"),
-        8: ("settings", "demo"),
+        2: ("open", "demo"), 3: ("close", "demo"),
+        4: ("info", "demo"), 5: ("readme", "demo"), 6: ("log", "demo"),
+        7: ("settings", "demo"), 8: ("auth", "demo"),
     }
     monkeypatch.setattr(w, "_toggle_plugin",
                         lambda name, enabled: calls.append(("toggle", name, enabled)))
@@ -199,7 +199,7 @@ def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
     assert len(calls) == len(acts)
     assert ("toggle", "demo", True) in calls
     assert ("toggle", "demo", False) in calls
-    assert calls[-1] == ("settings", "demo")
+    assert calls[-1] == ("auth", "demo")
 
 
 def test_context_menu_disabled_and_closed_and_ready_tab(qtbot, monkeypatch):
@@ -217,7 +217,7 @@ def test_context_menu_disabled_and_closed_and_ready_tab(qtbot, monkeypatch):
     acts = _actions(menus[0])
     assert len(acts) == 8
     assert acts[0].isEnabled() is True and acts[1].isEnabled() is False
-    assert acts[3].isEnabled() is False and acts[4].isEnabled() is False
+    assert acts[2].isEnabled() is False and acts[3].isEnabled() is False
 
     p.lifecycle = PluginLifecycle.READY
     p.is_enabled = True
@@ -226,22 +226,22 @@ def test_context_menu_disabled_and_closed_and_ready_tab(qtbot, monkeypatch):
     menus.clear()
     w._on_list_context_menu(QPoint(0, 0))
     acts = _actions(menus[0])
-    assert acts[3].isEnabled() is True  # has_closed
-    assert acts[4].isEnabled() is False
+    assert acts[2].isEnabled() is True  # has_closed
+    assert acts[3].isEnabled() is False
 
     w._closed_plugins.clear()
     w._tab_widget.add_detachable_tab(p.ensure_widget(), "demo")
     menus.clear()
     w._on_list_context_menu(QPoint(0, 0))
     acts = _actions(menus[0])
-    assert acts[3].isEnabled() is False
-    assert acts[4].isEnabled() is True
+    assert acts[2].isEnabled() is False
+    assert acts[3].isEnabled() is True
 
     w._tab_widget.removeTab(0)
     w._tab_widget._detached_windows["demo"] = SimpleNamespace()
     menus.clear()
     w._on_list_context_menu(QPoint(0, 0))
-    assert _actions(menus[0])[4].isEnabled() is True
+    assert _actions(menus[0])[3].isEnabled() is True
     del w._tab_widget._detached_windows["demo"]
 
 
@@ -273,20 +273,32 @@ def test_authorize_plugin_controls_branches(qtbot, monkeypatch):
         n=2, name="demo") in w.statusBar().currentMessage()
 
 
-def test_toggle_plugin_enable_and_disable(qtbot, monkeypatch):
+def test_toggle_plugin_enable_and_disable(qtbot, monkeypatch, tmp_path):
+    from plugin_manager.plugin_state import PluginState, PluginStateManager
+
     w = shell(qtbot)
     p = make_plugin(qtbot, "demo")
-    manager, state = _install(w, qtbot, {"demo": p})
+    state_file = tmp_path / "states.json"
+    state = PluginStateManager(state_file)
+    state.set("demo", PluginState(enabled=False, show_window=False))
+    state.save()
+    manager, _ = attach_list_state(w, qtbot, {"demo": p}, state)
     calls = []
     manager.enable_plugin = lambda name: calls.append(("enable", name))
     manager.disable_plugin = lambda name: calls.append(("disable", name))
     monkeypatch.setattr(w, "_remove_plugin_window",
                         lambda name: calls.append(("remove", name)))
     monkeypatch.setattr(w, "_refresh_plugin_list", lambda: calls.append("refresh"))
+    reloaded = PluginStateManager(state_file)
     w._toggle_plugin("demo", True)
+    reloaded.load()
+    assert reloaded.get("demo").enabled is True
+
     w._toggle_plugin("demo", False)
+    reloaded.load()
+    assert reloaded.get("demo").enabled is False
+    assert reloaded.get("demo").show_window is False
     assert calls == [
         ("enable", "demo"), "refresh",
         ("remove", "demo"), ("disable", "demo"), "refresh",
     ]
-    assert state.get("demo").enabled is False

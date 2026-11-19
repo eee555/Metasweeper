@@ -7,9 +7,11 @@ from pathlib import Path
 import pytest
 
 from plugin_manager.plugin_catalog import (
-    CatalogError, InstalledPlugin, PluginRelease, parse_index,
-    parse_tag_version, rank_versions, read_installed_metadata, scan_installed,
+    CatalogError, InstalledPlugin, PluginRelease, find_installed_for_repository,
+    parse_index, parse_tag_version, rank_versions, read_installed_metadata,
+    scan_installed,
 )
+from plugin_manager.plugin_repositories import PluginRepository
 
 
 def _entry_payload(**overrides):
@@ -112,6 +114,22 @@ def test_scan_installed_reads_market_metadata(tmp_path):
     assert set(installed) == {"https://github.com/example/x"}
     assert str(installed["https://github.com/example/x"].version) == "1.4.0"
     assert installed["https://github.com/example/x"].repository == "https://github.com/example/x"
+
+
+def test_find_installed_for_repository_matches_github_gitee_mirrors(tmp_path):
+    github = PluginRepository.from_url(
+        "https://github.com/ljzloser/metasweeper-history")
+    gitee = PluginRepository.from_url(
+        "https://gitee.com/Q1312358581/metasweeper-history")
+    other = PluginRepository.from_url(
+        "https://gitee.com/Q1312358581/metasweeper-mcp")
+    installed = InstalledPlugin(
+        name=github.module_name, directory=tmp_path, repository=github.url,
+        platform="github")
+    installed_by_url = {github.url.lower(): installed}
+
+    assert find_installed_for_repository(gitee, installed_by_url) is installed
+    assert find_installed_for_repository(other, installed_by_url) is None
 
 
 def test_scan_installed_derives_version_from_tag(tmp_path):

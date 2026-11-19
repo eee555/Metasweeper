@@ -1576,6 +1576,13 @@ The dropdown only shows plugins that declare the permission.</translation>
 </context>
 <context>
     <name>PluginDownloadDialog</name>
+    <message><source>仅支持读取 GitHub 和 Gitee 仓库的 README。</source><translation>README loading supports GitHub and Gitee repositories.</translation></message>
+    <message><source>托管平台返回了意外的 README 响应。</source><translation>The hosting service returned an unexpected README response.</translation></message>
+    <message><source>README 文件超过 1 MiB 或响应超过大小限制。</source><translation>The README exceeds 1 MiB or the response exceeds the size limit.</translation></message>
+    <message><source>无法识别 README 所在的仓库分支。</source><translation>Could not determine the branch containing the README.</translation></message>
+    <message><source>README 不是有效的 UTF-8 文本。</source><translation>The README is not valid UTF-8 text.</translation></message>
+    <message><source>无法解析 GitHub README 响应。</source><translation>Could not parse the GitHub README response.</translation></message>
+    <message><source>无法读取 Gitee 仓库的版本标签。</source><translation>Could not read version tags from the Gitee repository.</translation></message>
     <message>
         <location filename="../plugin_manager/plugin_download_dialog.py" line="57"/>
         <source>自动识别</source>
@@ -1854,6 +1861,11 @@ The dropdown only shows plugins that declare the permission.</translation>
 </context>
 <context>
     <name>PluginManagerWindow</name>
+    <message><source>自动更新插件</source><translation>Update plugins automatically</translation></message>
+    <message><source>重启</source><translation>Restart</translation></message>
+    <message><source>已自动更新 {count} 个插件。重启插件管理器后生效。</source><translation>Automatically updated {count} plugin(s). Restart Plugin Manager to apply the updates.</translation></message>
+    <message><source>正在等待自动更新结束…</source><translation>Waiting for automatic updates to finish…</translation></message>
+    <message><source>正在自动更新插件…</source><translation>Updating plugins automatically…</translation></message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2143"/>
         <location filename="../plugin_manager/main_window.py" line="2295"/>
@@ -1864,11 +1876,6 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../plugin_manager/main_window.py" line="2251"/>
         <source>插件市场...</source>
         <translation>Plugin Market...</translation>
-    </message>
-    <message>
-        <location filename="../plugin_manager/main_window.py" line="2255"/>
-        <source>从仓库 URL 安装...</source>
-        <translation>Install from Repository URL...</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2103"/>
@@ -2153,6 +2160,36 @@ The files may be in use by another program.</translation>
         <location filename="../plugin_manager/main_window.py" line="2731"/>
         <source>{name}（加载失败）</source>
         <translation>{name} (failed to load)</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2742"/>
+        <source>已启用</source>
+        <translation>Enabled</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2742"/>
+        <source>已禁用</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2750"/>
+        <source>正在初始化</source>
+        <translation>Initializing</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2757"/>
+        <source>正在关闭</source>
+        <translation>Shutting down</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2790"/>
+        <source>加载失败</source>
+        <translation>Failed to load</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2763"/>
+        <source>版本 {version} · {status}</source>
+        <translation>Version {version} · {status}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2757"/>
@@ -2774,17 +2811,17 @@ The files may be in use by another program.</translation>
 <context>
     <name>_PluginReadmeDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2019"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="254"/>
         <source>README</source>
         <translation>README</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2020"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="255"/>
         <source>读取文件失败: {err}</source>
         <translation>Failed to read file: {err}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2054"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="296"/>
         <source>该插件目录下未找到 README.md</source>
         <translation>README.md not found in the plugin directory</translation>
     </message>
@@ -2956,6 +2993,14 @@ The files may be in use by another program.</translation>
 </context>
 <context>
     <name>PluginMarketDialog</name>
+    <message><source>详情</source><translation>Details</translation></message>
+    <message><source>查看详情</source><translation>View details</translation></message>
+    <message><source>{name} - 插件详情</source><translation>{name} - Plugin details</translation></message>
+    <message><source>作者</source><translation>Author</translation></message>
+    <message><source>打开仓库</source><translation>Open repository</translation></message>
+    <message><source>正在加载 README…</source><translation>Loading README…</translation></message>
+    <message><source>README 加载失败：{error}</source><translation>README could not be loaded: {error}</translation></message>
+    <message><source>仓库中未找到 README。</source><translation>No README found in the repository.</translation></message>
     <message><source>插件和依赖安装完成。</source><translation>Plugin and dependencies installed.</translation></message>
     <message><source>安装完成</source><translation>Installation complete</translation></message>
     <message><source>部分安装完成</source><translation>Installation partially complete</translation></message>
@@ -2963,5 +3008,47 @@ The files may be in use by another program.</translation>
     <message><source>部分插件已安装；后续安装失败：{error}&#10;已安装的插件重启插件管理器后生效。</source><translation>Some plugins were installed; a subsequent installation failed: {error}&#10;Restart the plugin manager to apply the installed plugins.</translation></message>
     <message><source>重启</source><translation>Restart</translation></message>
     <message><source>确认</source><translation>OK</translation></message>
+    <message><source>未安装</source><translation>Not installed</translation></message>
+    <message><source>可更新</source><translation>Update available</translation></message>
+    <message><source>已是最新</source><translation>Up to date</translation></message>
+    <message><source>检查失败</source><translation>Check failed</translation></message>
+    <message><source>已安装</source><translation>Installed</translation></message>
+    <message><source>没有可安装的版本。</source><translation>No installable versions are available.</translation></message>
+    <message><source>该版本已不在仓库中。</source><translation>This version is no longer available in the repository.</translation></message>
+    <message><source>正在安装插件依赖…</source><translation>Installing plugin dependencies…</translation></message>
+    <message><source>插件依赖安装失败；插件文件尚未发布：{error}</source><translation>Failed to install plugin dependencies; plugin files have not been published: {error}</translation></message>
+    <message><source>插件不在受管理的用户插件目录中，无法自动更新。</source><translation>The plugin is outside the managed user plugin directory and cannot be updated automatically.</translation></message>
+    <message><source>插件市场</source><translation>Plugin Marketplace</translation></message>
+    <message><source>刷新 GitHub 插件</source><translation>Refresh GitHub plugins</translation></message>
+    <message><source>来源：GitHub · 主题：metasweeper-plugin</source><translation>Source: GitHub · Topic: metasweeper-plugin</translation></message>
+    <message><source>搜索插件名称、说明或作者</source><translation>Search plugin names, descriptions, or authors</translation></message>
+    <message><source>全部</source><translation>All</translation></message>
+    <message><source>插件</source><translation>Plugin</translation></message>
+    <message><source>最新版本</source><translation>Latest version</translation></message>
+    <message><source>状态</source><translation>Status</translation></message>
+    <message><source>说明</source><translation>Description</translation></message>
+    <message><source>仓库</source><translation>Repository</translation></message>
+    <message><source>安装</source><translation>Install</translation></message>
+    <message><source>安装版本</source><translation>Version to install</translation></message>
+    <message><source>关闭</source><translation>Close</translation></message>
+    <message><source>正在搜索 GitHub 插件并检查版本...</source><translation>Searching GitHub for plugins and checking versions...</translation></message>
+    <message><source>操作失败：{error}</source><translation>Operation failed: {error}</translation></message>
+    <message><source>共 {total} 个插件，{updatable} 个可更新。</source><translation>{total} plugins found; {updatable} update(s) available.</translation></message>
+    <message><source>{failed} 个仓库检查失败。</source><translation>Could not check {failed} repository/repositories.</translation></message>
+    <message><source>更新</source><translation>Update</translation></message>
+    <message><source>重装</source><translation>Reinstall</translation></message>
+    <message><source>更新插件</source><translation>Update plugin</translation></message>
+    <message><source>已安装 {current}，更新到 {latest}。现有插件目录会被替换，插件数据目录保留。继续？</source><translation>Version {current} is installed. Update to {latest}? The existing plugin directory will be replaced; plugin data will be kept.</translation></message>
+    <message><source>正在安装 {name} ...</source><translation>Installing {name}...</translation></message>
+    <message><source>没有可更新的插件。</source><translation>There are no plugins to update.</translation></message>
+    <message><source>全部更新</source><translation>Update all</translation></message>
+    <message><source>将更新 {count} 个插件。继续？</source><translation>{count} plugin(s) will be updated. Continue?</translation></message>
+    <message><source>正在取消...</source><translation>Canceling...</translation></message>
+    <message><source>搜索源</source><translation>Search source</translation></message>
+    <message><source>GitHub 主题：metasweeper-plugin</source><translation>GitHub topic: metasweeper-plugin</translation></message>
+    <message><source>Gitee 关键词：metasweeper</source><translation>Gitee keyword: metasweeper</translation></message>
+    <message><source>正在 Gitee 搜索插件并检查版本...</source><translation>Searching Gitee for plugins and checking versions...</translation></message>
+    <message><source>刷新</source><translation>Refresh</translation></message>
+    <message><source>不支持的插件搜索源：{source}</source><translation>Unsupported plugin search source: {source}</translation></message>
 </context>
 </TS>

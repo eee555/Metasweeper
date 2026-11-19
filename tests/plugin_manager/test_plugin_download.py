@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import io
 import json
@@ -35,12 +36,16 @@ class FakeResponse:
         self.headers = {"Content-Length": str(len(body))}
         self.headers.update(headers or {})
         self.text = body.decode("utf-8", errors="replace")
+        self.closed = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, *args):
-        pass
+        self.close()
+
+    def close(self):
+        self.closed = True
 
     def json(self):
         return self.data
@@ -90,6 +95,161 @@ def test_repository_url(url):
 def test_invalid_repository_url(url):
     with pytest.raises(ValueError):
         PluginRepository.from_url(url)
+
+
+GITEE_REPOSITORY = PluginRepository.from_url("https://gitee.com/example/my-plugin")
+
+
+def readme_client(*responses, cancelled=lambda: False):
+    session = FakeSession(*responses)
+    return PluginDownloader(session, cancelled, lambda *_: None), session
+
+
+def test_fetch_github_readme_uses_api_branch_and_file_directory():
+    response = FakeResponse(body=json.dumps({
+        "path": "docs/ReadMe.markdown",
+        "html_url": "https://github.com/Example/my-plugin/blob/release%2Fdocs/docs/ReadMe.markdown",
+        "encoding": "base64",
+        "content": base64.encodebytes("\ufeff# 文档\n[图片](images/example.png)".encode()).decode(),
+    }).encode())
+    client, session = readme_client(response)
+    assert client.fetch_readme(REPOSITORY) == (
+        "# 文档\n[图片](images/example.png)",
+        "https://github.com/example/my-plugin/tree/release%2Fdocs/docs/",
+    )
+    [(url, options)] = session.calls
+    assert url == "https://api.github.com/repos/example/my-plugin/readme"
+    assert options["stream"] and options["timeout"] == (3, 8)
+    assert response.closed
+
+
+def test_fetch_github_readme_returns_none_for_404():
+    missing = FakeResponse(status=404)
+    client, session = readme_client(missing)
+    assert client.fetch_readme(REPOSITORY) is None
+    assert len(session.calls) == 1
+    assert missing.closed
+
+
+def test_fetch_github_readme_uses_head_on_rate_limit():
+    limited = FakeResponse(status=403, headers={"X-RateLimit-Remaining": "0"})
+    client, session = readme_client(limited, FakeResponse(body=b"# Default branch"))
+    assert client.fetch_readme(REPOSITORY) == (
+        "# Default branch", REPOSITORY.url + "/tree/HEAD/",
+    )
+    assert session.calls[1][0] == "https://raw.githubusercontent.com/example/my-plugin/HEAD/README.md"
+    assert limited.closed
+
+
+def test_fetch_gitee_readme_uses_default_branch_and_allows_official_cdn():
+    metadata = FakeResponse(body=b'{"default_branch":"docs/v2"}')
+    missing = FakeResponse(status=404)
+    cdn_url = "https://raw.giteeusercontent.com/example/my-plugin/raw/docs%2Fv2/Readme.md"
+    redirect = FakeResponse(status=302, headers={"Location": cdn_url})
+    document = FakeResponse(body=b"# Gitee\n")
+    client, session = readme_client(metadata, missing, redirect, document)
+    assert client.fetch_readme(GITEE_REPOSITORY) == (
+        "# Gitee\n", GITEE_REPOSITORY.url + "/tree/docs%2Fv2/",
+    )
+    assert [call[0] for call in session.calls] == [
+        "https://gitee.com/api/v5/repos/example/my-plugin",
+        GITEE_REPOSITORY.url + "/raw/docs%2Fv2/README.md",
+        GITEE_REPOSITORY.url + "/raw/docs%2Fv2/Readme.md",
+        cdn_url,
+    ]
+    assert all(response.closed for response in (metadata, missing, redirect, document))
+
+
+def test_fetch_gitee_readme_resolves_head_on_api_rejection():
+    head = b"a" * 40 + b" HEAD\0multi_ack symref=HEAD:refs/heads/trunk agent=gitee\n"
+    refs = b"001e# service=git-upload-pack\n0000" + f"{len(head) + 4:04x}".encode() + head + b"0000"
+    client, session = readme_client(
+        FakeResponse(status=403),
+        FakeResponse(body=refs, headers={"Content-Type": "application/x-git-upload-pack-advertisement"}),
+        FakeResponse(body=b"# Trunk"),
+    )
+    assert client.fetch_readme(GITEE_REPOSITORY) == ("# Trunk", GITEE_REPOSITORY.url + "/tree/trunk/")
+    assert session.calls[1][0] == GITEE_REPOSITORY.url + ".git/info/refs"
+    assert session.calls[1][1]["params"] == {"service": "git-upload-pack"}
+    assert session.calls[2][0] == GITEE_REPOSITORY.url + "/raw/trunk/README.md"
+
+
+def test_fetch_gitee_readme_tries_common_names_and_returns_none_if_missing():
+    missing = [FakeResponse(status=404) for _ in download._README_FILENAMES]
+    client, session = readme_client(FakeResponse(body=b'{"default_branch":"trunk"}'), *missing)
+    assert client.fetch_readme(GITEE_REPOSITORY) is None
+    candidates = {url.rsplit("/", 1)[-1] for url, _ in session.calls[1:]}
+    assert {"README.md", "Readme.md", "ReadMe.md", "readme.MD", "README.markdown", "README.txt", "README"} <= candidates
+    assert all(response.closed for response in missing)
+
+
+@pytest.mark.parametrize("location", [
+    "http://raw.giteeusercontent.com/file",
+    "https://raw.giteeusercontent.com:8443/file",
+    "https://untrusted.example/file",
+    "https://127.0.0.1/file",
+])
+def test_fetch_readme_rejects_unsafe_redirects(location):
+    redirect = FakeResponse(status=302, headers={"Location": location})
+    client, session = readme_client(FakeResponse(body=b'{"default_branch":"main"}'), redirect)
+    with pytest.raises(ValueError):
+        client.fetch_readme(GITEE_REPOSITORY)
+    assert len(session.calls) == 2
+    assert redirect.closed
+
+
+@pytest.mark.parametrize("body, headers", [
+    (b"", {"Content-Length": str(download._MAX_README_BYTES + 1)}),
+    (b"x" * (download._MAX_README_BYTES + 1), {"Content-Length": "1"}),
+    (b"<html>challenge</html>", {"Content-Type": "text/html; charset=UTF-8"}),
+    (b"\xff", {}),
+], ids=["declared-size", "streamed-size", "html", "invalid-utf8"])
+def test_fetch_readme_rejects_invalid_or_oversized_content(body, headers):
+    document = FakeResponse(body=body, headers=headers)
+    client, _ = readme_client(FakeResponse(body=b'{"default_branch":"main"}'), document)
+    with pytest.raises(ValueError):
+        client.fetch_readme(GITEE_REPOSITORY)
+    assert document.closed
+
+
+def test_fetch_github_readme_rejects_offsite_api_file_link():
+    response = FakeResponse(body=b'{"path":"README.md","html_url":"https://untrusted.example/example/my-plugin/blob/main/README.md"}')
+    client, session = readme_client(response)
+    with pytest.raises(ValueError):
+        client.fetch_readme(REPOSITORY)
+    assert len(session.calls) == 1
+    assert response.closed
+
+
+def test_fetch_readme_does_not_treat_server_failure_as_missing():
+    response = FakeResponse(status=502)
+    client, _ = readme_client(response)
+    with pytest.raises(requests.HTTPError):
+        client.fetch_readme(REPOSITORY)
+    assert response.closed
+
+
+def test_fetch_readme_closes_response_when_cancelled_during_stream():
+    interrupted = Event()
+
+    class CancelledResponse(FakeResponse):
+        def iter_content(self, chunk_size):
+            interrupted.set()
+            yield b"# Partial"
+
+    document = CancelledResponse()
+    client, _ = readme_client(
+        FakeResponse(body=b'{"default_branch":"main"}'), document, cancelled=interrupted.is_set)
+    with pytest.raises(DownloadCancelled):
+        client.fetch_readme(GITEE_REPOSITORY)
+    assert document.closed
+
+
+def test_fetch_readme_rejects_unsupported_repository_before_request():
+    client, session = readme_client()
+    with pytest.raises(ValueError):
+        client.fetch_readme(PluginRepository.from_url("https://gitlab.com/example/my-plugin"))
+    assert session.calls == []
 
 
 def test_tags_pagination_and_pinned_commit():
@@ -446,6 +606,34 @@ def test_each_provider_downloads_selected_commit(tmp_path, url, platform, api, a
         "commit": TAG.commit,
         "archive_sha256": hashlib.sha256(archive).hexdigest(),
     }
+
+
+@pytest.mark.parametrize("status", [403, 429])
+def test_gitee_tags_fall_back_to_public_http_refs(status):
+    repository = PluginRepository.from_url("https://gitee.com/team/plugin")
+    packets = [
+        b"# service=git-upload-pack\n", b"",
+        b"a" * 40 + b" HEAD\0symref=HEAD:refs/heads/main\n",
+        b"b" * 40 + b" refs/tags/v1\n",
+        b"c" * 40 + b" refs/tags/v2\n",
+        b"d" * 40 + b" refs/tags/v2^{}\n", b"",
+    ]
+    body = b"".join(f"{len(packet) + 4:04x}".encode() + packet if packet else b"0000"
+                    for packet in packets)
+    session = FakeSession(
+        FakeResponse(status=status),
+        FakeResponse(body=body, headers={
+            "Content-Type": "application/x-git-upload-pack-advertisement",
+        }),
+    )
+    client = PluginDownloader(session, lambda: False, lambda *_: None)
+
+    assert client.list_tags(repository) == [
+        RepositoryTag("v1", "b" * 40), RepositoryTag("v2", "d" * 40),
+    ]
+    url, kwargs = session.calls[-1]
+    assert url == "https://gitee.com/team/plugin.git/info/refs"
+    assert kwargs["params"] == {"service": "git-upload-pack"}
 
 
 def test_gitlab_pagination_header():

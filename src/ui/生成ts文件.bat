@@ -22,7 +22,7 @@ set SHARED=../shared_types/enums.py ../shared_types/commands.py ../shared_types/
 
 @REM ---------- 插件 SDK 与插件管理器 ----------
 set PLUGIN_SDK=../plugin_sdk/config_types/base_config.py ../plugin_sdk/config_types/file_config.py ../plugin_sdk/config_types/path_config.py ../plugin_sdk/config_types/text_config.py
-set PLUGIN_MANAGER=../plugin_manager/config_widget.py ../plugin_manager/main_window.py ../plugin_manager/plugin_download.py ../plugin_manager/plugin_download_dialog.py ../plugin_manager/plugin_info_dialog.py ../plugin_manager/plugin_repositories.py
+set PLUGIN_MANAGER=../plugin_manager/config_widget.py ../plugin_manager/main_window.py ../plugin_manager/plugin_download.py ../plugin_manager/plugin_download_dialog.py ../plugin_manager/plugin_info_dialog.py ../plugin_manager/plugin_readme_dialog.py ../plugin_manager/plugin_repositories.py
 
 @REM ---------- 插件全部独立提取（递归扫描包内源码，绑定唯一上下文） ----------
 @REM 插件源码及其翻译由下方脚本单独处理，不再并入主清单；

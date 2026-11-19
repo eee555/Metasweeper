@@ -1,12 +1,14 @@
 """Download tagged plugin packages without requiring a Git installation."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import html
 import ipaddress
 import json
 import re
 import stat
+import time
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
@@ -23,6 +25,15 @@ from .plugin_repositories import PluginRepository, RepositoryTag
 _MAX_DOWNLOAD = 100 * 1024 * 1024
 _MAX_EXTRACTED = 500 * 1024 * 1024
 _MAX_INDEX_BYTES = 1024 * 1024
+_MAX_README_BYTES = 1024 * 1024
+_MAX_README_API_BYTES = 2 * _MAX_README_BYTES  # Base64, line breaks and metadata.
+_README_FILENAMES = tuple(
+    stem + suffix
+    for suffix in (".md", ".MD", ".markdown", ".MARKDOWN", ".txt", ".TXT", "")
+    for stem in ("README", "Readme", "readme", "ReadMe")
+)
+_GIT_REFS_MEDIA_TYPE = "application/x-git-upload-pack-advertisement"
+_GIT_REFS_PREAMBLE = b"001e# service=git-upload-pack\n0000"
 _CHUNK_SIZE = 64 * 1024
 _MAX_REDIRECTS = 5
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
@@ -36,13 +47,23 @@ _PLATFORM_CDN_HOSTS: dict[str, frozenset[str]] = {
         "release-assets.githubusercontent.com",
     }),
     "gitlab": frozenset({"gitlab.com"}),
-    "gitee": frozenset({"gitee.com"}),
+    "gitee": frozenset({"gitee.com", "so.gitee.com"}),
     "gitea": frozenset({"codeberg.org"}),
 }
 
 
 def _tr(text: str) -> str:
     return QCoreApplication.translate("PluginDownloadDialog", text)
+
+
+def is_plain_plugin_directory(path: Path) -> bool:
+    try:
+        info = path.lstat()
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    # Windows junctions are directories with the reparse-point flag.
+    return stat.S_ISDIR(info.st_mode) and not (
+        getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
 
 
 def _allowed_hosts(repository: PluginRepository) -> frozenset[str]:
@@ -99,7 +120,11 @@ class DownloadCancelled(Exception):
     pass
 
 
-class GitHubApiRateLimit(ValueError):
+class HostingRequestRejected(ValueError):
+    """A hosting endpoint refused or rate-limited a request."""
+
+
+class GitHubApiRateLimit(HostingRequestRejected):
     """GitHub REST API anonymous quota exhausted; callers may use web fallback."""
 
 
@@ -178,7 +203,7 @@ class PluginDownloader:
             raise GitHubApiRateLimit(_tr(
                 "GitHub API 匿名请求额度已用完；尝试从标签网页读取版本。"))
         if response.status_code in (403, 429):
-            raise ValueError(_tr("托管平台拒绝请求或请求次数已达上限，请稍后重试。"))
+            raise HostingRequestRejected(_tr("托管平台拒绝请求或请求次数已达上限，请稍后重试。"))
         response.raise_for_status()
 
     def _safe_get(
@@ -190,6 +215,8 @@ class PluginDownloader:
         headers: dict | None = None,
         stream: bool = False,
         timeout: tuple[int, int] = (5, 30),
+        allow_not_found: bool = False,
+        extra_hosts: frozenset[str] = frozenset(),
     ) -> requests.Response:
         """Issue a request while validating every redirect hop.
 
@@ -197,8 +224,10 @@ class PluginDownloader:
         effective URL is the request URL. Real requests responses always expose it.
         The caller owns and must close the returned response.
         """
-        allowed_hosts = _allowed_hosts(repository)
         allowed_ports = _allowed_ports(repository)
+        for host in extra_hosts:
+            allowed_ports.setdefault(host, frozenset({443}))
+        allowed_hosts = frozenset(allowed_ports)
         current_url = url
         request_params = params
 
@@ -209,14 +238,22 @@ class PluginDownloader:
                 allowed_hosts=allowed_hosts,
                 allowed_ports=allowed_ports,
             )
-            response = self.session.get(
-                current_url,
-                params=request_params,
-                headers=headers,
-                stream=stream,
-                timeout=timeout,
-                allow_redirects=False,
-            )
+            for attempt in range(3):
+                self._check_cancelled()
+                try:
+                    response = self.session.get(
+                        current_url,
+                        params=request_params,
+                        headers=headers,
+                        stream=stream,
+                        timeout=timeout,
+                        allow_redirects=False,
+                    )
+                    break
+                except (requests.ConnectionError, requests.Timeout):
+                    if attempt == 2:
+                        raise
+                    time.sleep(0.25 * (attempt + 1))
             request_params = None
 
             try:
@@ -227,7 +264,8 @@ class PluginDownloader:
                     allowed_ports=allowed_ports,
                 )
                 if response.status_code not in _REDIRECT_STATUSES:
-                    self._check_response(response)
+                    if not (allow_not_found and response.status_code == 404):
+                        self._check_response(response)
                     return response
 
                 location = response.headers.get("Location")
@@ -252,8 +290,13 @@ class PluginDownloader:
 
         raise ValueError(_tr("下载重定向次数超过限制。"))
 
-    def discover_plugins(self):
-        """通过 GitHub 仓库 Topic 发现公开插件。"""
+    def discover_plugins(self, source: str = "github"):
+        """Discover public plugins from GitHub topics or Gitee repository search."""
+        if source == "gitee":
+            return self._discover_gitee_plugins()
+        if source != "github":
+            raise ValueError(_tr("不支持的插件搜索源：{source}").format(source=source))
+
         origin = PluginRepository.from_url("https://github.com/github/github")
         entries = []
         seen = set()
@@ -264,6 +307,7 @@ class PluginDownloader:
                     params={"q": "topic:metasweeper-plugin archived:false",
                             "per_page": 100, "page": page},
                     headers=origin.provider.headers,
+                    timeout=(3, 12),
                 ) as response:
                     data = response.json()
                     if data.get("incomplete_results"):
@@ -275,6 +319,59 @@ class PluginDownloader:
         except GitHubApiRateLimit:
             return self._discover_github_topic_page(origin)
         return entries
+
+    def _gitee_search_page(self, origin: PluginRepository, offset: int) -> dict:
+        url = "https://so.gitee.com/v1/search/widget/wong1slagnlmzwvsu5ya"
+        with self._safe_get(
+            origin, url,
+            params={"q": "metasweeper", "from": offset, "size": 100},
+            headers={"Accept": "application/json"},
+            timeout=(3, 12),
+        ) as response:
+            return response.json()
+
+    def _discover_gitee_plugins(self):
+        """Search Gitee's public repository index for conventionally named plugins."""
+        from .plugin_catalog import CatalogEntry
+
+        origin = PluginRepository.from_url("https://gitee.com/example/example")
+        entries = []
+        seen: set[str] = set()
+        for offset in range(0, 1000, 100):
+            self._check_cancelled()
+            data = self._gitee_search_page(origin, offset)
+            hits = (data.get("hits") or {}).get("hits") or []
+            for hit in hits:
+                fields = hit.get("fields") or {}
+                repository_url = self._gitee_search_field(fields, "url")
+                path = self._gitee_search_field(fields, "path")
+                if not path.lower().startswith("metasweeper-") or not repository_url:
+                    continue
+                try:
+                    repository = PluginRepository.from_url(repository_url, "gitee")
+                except ValueError:
+                    continue
+                key = repository.url.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                entries.append(CatalogEntry(
+                    name=path,
+                    repository=repository,
+                    description=self._gitee_search_field(fields, "description"),
+                    author=self._gitee_search_field(fields, "owner.path.keyword"),
+                ))
+            if offset + len(hits) >= int((data.get("hits") or {}).get(
+                    "total", {}).get("value", 0)) or not hits:
+                break
+        return entries
+
+    @staticmethod
+    def _gitee_search_field(fields: dict, name: str) -> str:
+        value = fields.get(name, "")
+        if isinstance(value, list):
+            value = value[0] if value else ""
+        return str(value or "")
 
     @staticmethod
     def _catalog_entries(items: list[dict], seen: set[str]):
@@ -317,6 +414,7 @@ class PluginDownloader:
                 params={"q": "topic:metasweeper-plugin archived:false",
                         "type": "repositories", "page": page},
                 headers={"Accept": "text/html"},
+                timeout=(3, 12),
             ) as response:
                 parser = _GitHubSearchPageParser()
                 parser.feed(response.text)
@@ -347,6 +445,7 @@ class PluginDownloader:
                 with self._safe_get(
                     repository, url, params=params,
                     headers=repository.provider.headers,
+                    timeout=(3, 12),
                 ) as response:
                     self._check_response(response)
                     items = response.json()
@@ -355,10 +454,59 @@ class PluginDownloader:
                     if not repository.provider.has_next_page(response, items):
                         return tags
                 page += 1
-        except GitHubApiRateLimit:
-            if repository.platform != "github":
-                raise
-            return self._list_github_tags_page(repository)
+        except HostingRequestRejected as exc:
+            if repository.platform == "gitee":
+                return self._list_gitee_tag_refs(repository)
+            if repository.platform == "github" and isinstance(exc, GitHubApiRateLimit):
+                return self._list_github_tags_page(repository)
+            raise
+
+    def _list_gitee_tag_refs(self, repository: PluginRepository) -> list[RepositoryTag]:
+        media_type = "application/x-git-upload-pack-advertisement"
+        invalid = _tr("无法读取 Gitee 仓库的版本标签。")
+        data = bytearray()
+        with self._safe_get(
+            repository, repository.url + ".git/info/refs",
+            params={"service": "git-upload-pack"}, headers={"Accept": media_type},
+            stream=True, timeout=(3, 12),
+        ) as response:
+            if response.headers.get("Content-Type", "").split(";", 1)[0] != media_type:
+                raise ValueError(invalid)
+            for chunk in response.iter_content(_CHUNK_SIZE):
+                self._check_cancelled()
+                data.extend(chunk)
+                if len(data) > _MAX_INDEX_BYTES:
+                    raise ValueError(invalid)
+
+        preamble = b"001e# service=git-upload-pack\n0000"
+        if not data.startswith(preamble):
+            raise ValueError(invalid)
+        refs: dict[str, str] = {}
+        peeled: dict[str, str] = {}
+        offset = len(preamble)
+        while offset + 4 <= len(data):
+            size = data[offset:offset + 4]
+            if size == b"0000" and offset + 4 == len(data):
+                return [RepositoryTag(name, peeled.get(name, sha))
+                        for name, sha in refs.items()]
+            if not re.fullmatch(rb"[0-9a-fA-F]{4}", size):
+                break
+            length = int(size, 16)
+            end = offset + length
+            if length < 4 or end > len(data):
+                break
+            packet = data[offset + 4:end].split(b"\0", 1)[0].rstrip(b"\n")
+            offset = end
+            match = re.fullmatch(rb"([0-9a-fA-F]{40}|[0-9a-fA-F]{64}) refs/tags/(.+)", packet)
+            if match is None:
+                continue
+            name = match[2].decode("utf-8", errors="surrogateescape")
+            sha = match[1].decode("ascii")
+            if name.endswith("^{}"):
+                peeled[name[:-3]] = sha
+            else:
+                refs[name] = sha
+        raise ValueError(invalid)
 
     def _list_github_tags_page(
         self, repository: PluginRepository,
@@ -386,6 +534,153 @@ class PluginDownloader:
             raise ValueError(_tr(
                 "GitHub API 已限流，且无法从公开标签网页读取版本。"))
         return tags
+
+    def fetch_readme(self, repository: PluginRepository) -> tuple[str, str] | None:
+        """Return the default-branch README and its directory URL for browser links."""
+        if repository.platform not in {"github", "gitee"}:
+            raise ValueError(_tr("仅支持读取 GitHub 和 Gitee 仓库的 README。"))
+        if PluginRepository.from_url(repository.url, repository.platform) != repository:
+            raise ValueError(_tr("请输入有效的仓库 HTTPS 链接。"))
+
+        if repository.platform == "github":
+            try:
+                return self._fetch_github_readme(repository)
+            except GitHubApiRateLimit:
+                # GitHub resolves HEAD in both the raw and browser routes.
+                return self._fetch_raw_readme(repository, "HEAD")
+        return self._fetch_raw_readme(repository, self._gitee_default_branch(repository))
+
+    def _read_readme_response(
+        self, response: requests.Response, *, limit: int = _MAX_README_BYTES,
+    ) -> bytes:
+        self._check_cancelled()
+        if response.status_code != 200:
+            raise ValueError(_tr("托管平台返回了意外的 README 响应。"))
+        if response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() in {
+            "text/html", "application/xhtml+xml",
+        }:
+            raise ValueError(_tr("托管平台返回了意外的 README 响应。"))
+        too_large = _tr("README 文件超过 1 MiB 或响应超过大小限制。")
+        if int(response.headers.get("Content-Length") or 0) > limit:
+            raise ValueError(too_large)
+        body = bytearray()
+        for chunk in response.iter_content(_CHUNK_SIZE):
+            self._check_cancelled()
+            if len(body) + len(chunk) > limit:
+                raise ValueError(too_large)
+            body.extend(chunk)
+        self._check_cancelled()
+        return bytes(body)
+
+    @staticmethod
+    def _readme_base_url(repository: PluginRepository, branch: str, path: str) -> str:
+        if not branch or any(
+            part in {"", ".", ".."} for part in branch.split("/")
+        ) or re.search(r"[\x00-\x20\x7f~^:?*\[\\]|\.\.", branch):
+            raise ValueError(_tr("无法识别 README 所在的仓库分支。"))
+        directory = path.rpartition("/")[0]
+        base = f"{repository.url}/tree/{quote(branch, safe='')}/"
+        return base + f"{quote(directory, safe='/')}/" if directory else base
+
+    @staticmethod
+    def _decode_readme(content: bytes) -> str:
+        if len(content) > _MAX_README_BYTES:
+            raise ValueError(_tr("README 文件超过 1 MiB 或响应超过大小限制。"))
+        if b"\0" in content:
+            raise ValueError(_tr("README 不是有效的 UTF-8 文本。"))
+        try:
+            return content.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise ValueError(_tr("README 不是有效的 UTF-8 文本。")) from exc
+
+    def _fetch_github_readme(self, repository: PluginRepository) -> tuple[str, str] | None:
+        with self._safe_get(
+            repository, repository.provider.api_url(repository) + "/readme",
+            headers=repository.provider.headers, stream=True, timeout=(3, 8),
+            allow_not_found=True,
+        ) as response:
+            self._check_cancelled()
+            if response.status_code == 404:
+                return None
+            body = self._read_readme_response(response, limit=_MAX_README_API_BYTES)
+
+        invalid = _tr("无法解析 GitHub README 响应。")
+        try:
+            data = json.loads(body)
+            link = urlsplit(data["html_url"])
+            path = data["path"]
+            link_path = unquote(link.path)
+            prefix = f"/{repository.path}/blob/"
+            suffix = "/" + path
+            if (
+                link.scheme != "https" or link.netloc.lower() != "github.com"
+                or link.query or link.fragment
+                or not link_path.casefold().startswith(prefix.casefold())
+                or not link_path.endswith(suffix)
+                or any(part in {"", ".", ".."} for part in path.split("/"))
+                or re.search(r"[\x00-\x1f\x7f\\]", path)
+                or data["encoding"] != "base64"
+            ):
+                raise ValueError(invalid)
+            content = base64.b64decode("".join(data["content"].split()), validate=True)
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError(invalid) from exc
+        branch = link_path[len(prefix):-len(suffix)]
+        return self._decode_readme(content), self._readme_base_url(repository, branch, path)
+
+    def _gitee_default_branch(self, repository: PluginRepository) -> str:
+        try:
+            with self._safe_get(
+                repository, repository.provider.api_url(repository),
+                headers=repository.provider.headers, stream=True, timeout=(3, 8),
+            ) as response:
+                body = self._read_readme_response(response)
+        except HostingRequestRejected:
+            # The public smart HTTP advertisement identifies HEAD when REST is limited.
+            with self._safe_get(
+                repository, repository.url + ".git/info/refs",
+                params={"service": "git-upload-pack"},
+                headers={"Accept": _GIT_REFS_MEDIA_TYPE}, stream=True, timeout=(3, 8),
+            ) as response:
+                body = self._read_readme_response(response)
+                media_type = response.headers.get("Content-Type", "").split(";", 1)[0]
+            if media_type == _GIT_REFS_MEDIA_TYPE and body.startswith(_GIT_REFS_PREAMBLE):
+                offset = len(_GIT_REFS_PREAMBLE)
+                size = body[offset:offset + 4]
+                if re.fullmatch(rb"[0-9a-fA-F]{4}", size):
+                    end = offset + int(size, 16)
+                    if offset + 4 < end <= len(body):
+                        packet = body[offset + 4:end].removesuffix(b"\n")
+                        match = re.fullmatch(
+                            rb"(?:[0-9a-f]{40}|[0-9a-f]{64}) HEAD\x00"
+                            rb"(?:[^ ]+ )*symref=HEAD:refs/heads/([^ ]+)(?: .*)?", packet,
+                        )
+                        if match:
+                            return match[1].decode("utf-8")
+        else:
+            data = json.loads(body)
+            if isinstance(data, dict) and isinstance(data.get("default_branch"), str):
+                return data["default_branch"]
+        raise ValueError(_tr("无法识别 README 所在的仓库分支。"))
+
+    def _fetch_raw_readme(
+        self, repository: PluginRepository, branch: str,
+    ) -> tuple[str, str] | None:
+        base = self._readme_base_url(repository, branch, "")
+        extra_hosts = (frozenset({"raw.giteeusercontent.com"})
+                       if repository.platform == "gitee" else frozenset())
+        for filename in _README_FILENAMES:
+            url = repository.provider.raw_branch_file_url(repository, branch, filename)
+            with self._safe_get(
+                repository, url, stream=True, timeout=(3, 8),
+                allow_not_found=True, extra_hosts=extra_hosts,
+            ) as response:
+                self._check_cancelled()
+                if response.status_code == 404:
+                    continue
+                content = self._read_readme_response(response)
+            return self._decode_readme(content), base
+        return None
 
     def fetch_index(self, index_repository: PluginRepository) -> str:
         """读取索引仓库根目录的 metasweeper-plugins.json。"""
@@ -465,15 +760,25 @@ class PluginDownloader:
 
     def update(self, repository: PluginRepository, tag: RepositoryTag, plugin_dir: Path,
                *, plugin_version: str = "", tag_prefix: str = "",
+               destination_name: str | None = None,
                before_publish: Callable[[Path], None] | None = None) -> Path:
         """完整下载并校验后再替换；失败时恢复旧目录。"""
-        destination = plugin_dir / repository.module_name
-        if (not destination.is_dir() or destination.is_symlink()
-                or destination.is_junction()):
+        destination_name = destination_name or repository.module_name
+        if Path(destination_name).name != destination_name or destination_name in (".", ".."):
+            raise ValueError(_tr("不能更新非普通插件目录。"))
+        destination = plugin_dir / destination_name
+        if not is_plain_plugin_directory(destination):
             raise ValueError(_tr("不能更新非普通插件目录。"))
         from .plugin_catalog import read_installed_metadata
         metadata = read_installed_metadata(destination)
-        if str(metadata.get("repository", "")).lower().rstrip("/") != repository.url.lower():
+        try:
+            installed_repository = PluginRepository.from_url(
+                str(metadata.get("repository") or ""),
+                str(metadata.get("platform") or "auto"))
+        except ValueError:
+            installed_repository = None
+        if (installed_repository is None
+                or installed_repository.plugin_identity != repository.plugin_identity):
             raise ValueError(_tr("插件来源不匹配，不能自动更新。"))
         with TemporaryDirectory(prefix="_update_", dir=plugin_dir) as temporary:
             work = Path(temporary)

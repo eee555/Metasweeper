@@ -10,16 +10,16 @@ from PySide6.QtCore import QEvent, QUrl, Qt
 from PySide6.QtGui import QColor, QCloseEvent, QDesktopServices, QIcon, QPalette, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QTextBrowser
 
-from plugin_manager.main_window import _PluginReadmeDialog
-import plugin_manager.main_window as mw
+from plugin_manager import plugin_readme_dialog as readme_dialog
+from plugin_manager.plugin_readme_dialog import _PluginReadmeDialog
 
 
 @pytest.fixture(autouse=True)
 def offscreen(monkeypatch):
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    monkeypatch.setattr(mw, "action_icon",
+    monkeypatch.setattr(readme_dialog, "action_icon",
                         lambda _name: QIcon(QPixmap(16, 16)))
-    monkeypatch.setattr(mw, "set_button_box_icons", lambda _box: None)
+    monkeypatch.setattr(readme_dialog, "set_button_box_icons", lambda _box: None)
 
 
 def _dialog(qtbot, content="# Heading\n", base_dir=None, **kwargs):
@@ -113,6 +113,41 @@ def test_apply_theme_light_and_dark(qtbot, monkeypatch):
     no_browser = _PluginReadmeDialog.__new__(_PluginReadmeDialog)
     no_browser._browser = None
     no_browser._apply_theme()
+
+
+def test_repository_readme_recolors_rendered_links_on_theme_change(qtbot, monkeypatch):
+    dlg = _dialog(qtbot, "[Link](docs/install.md)",
+                  repository_url=QUrl("https://github.com/example/plugin/blob/main/README.md"))
+    hints = QApplication.styleHints()
+    dark = False
+    monkeypatch.setattr(dlg, "_is_dark", lambda: dark)
+    for scheme, expected_base, expected_text, expected_link in (
+            (Qt.ColorScheme.Light, dlg._LIGHT_BASE, dlg._LIGHT_TEXT, dlg._LIGHT_LINK),
+            (Qt.ColorScheme.Dark, dlg._DARK_BASE, dlg._DARK_TEXT, dlg._DARK_LINK),
+            (Qt.ColorScheme.Light, dlg._LIGHT_BASE, dlg._LIGHT_TEXT, dlg._LIGHT_LINK)):
+        dark = scheme == Qt.ColorScheme.Dark
+        hints.colorSchemeChanged.emit(scheme)
+        palette = dlg._browser.palette()
+        assert palette.color(QPalette.ColorRole.Base) == QColor(expected_base)
+        assert palette.color(QPalette.ColorRole.Text) == QColor(expected_text)
+        link = dlg._browser.document().firstBlock().begin().fragment()
+        assert link.charFormat().foreground().color() == QColor(expected_link)
+    dlg.reject()
+
+
+def test_repository_readme_uses_web_links_without_accessing_local_resources(qtbot, monkeypatch):
+    dlg = _dialog(qtbot, "# Intro\n\n## Target",
+                  repository_url=QUrl("https://gitee.com/example/plugin/blob/main/README.md"))
+    opened = []
+    monkeypatch.setattr(QDesktopServices, "openUrl",
+                        staticmethod(lambda url: opened.append(url.toString())))
+    monkeypatch.setattr(dlg, "_resolve_local_path",
+                        lambda *_: pytest.fail("must not resolve a local path"))
+    dlg._on_anchor_click(QUrl("#target"))
+    dlg._on_anchor_click(QUrl("docs/install.md#setup"))
+    dlg._on_anchor_click(QUrl("file:///C:/Windows/win.ini"))
+    assert opened == ["https://gitee.com/example/plugin/blob/main/docs/install.md#setup"]
+    assert dlg._browser.textCursor().block().text() == "Target"
 
 
 def test_heading_slug_ascii_cjk_punctuation_and_duplicates():
@@ -227,7 +262,7 @@ def test_on_anchor_click_local_markdown(qtbot, monkeypatch, tmp_path):
 
     monkeypatch.setattr(_PluginReadmeDialog, "__init__", recording_init)
     monkeypatch.setattr(_PluginReadmeDialog, "exec", lambda self: 42)
-    monkeypatch.setattr(mw.QTimer, "singleShot",
+    monkeypatch.setattr(readme_dialog.QTimer, "singleShot",
                         staticmethod(lambda _ms, fn: fn()))
     monkeypatch.setattr(QDesktopServices, "openUrl",
                         staticmethod(lambda url: pytest.fail("should not open")))
@@ -244,7 +279,7 @@ def test_on_anchor_click_local_text_no_fragment(qtbot, monkeypatch, tmp_path):
     target.write_text("plain", encoding="utf-8")
     dlg = _dialog(qtbot, base_dir=tmp_path)
     monkeypatch.setattr(_PluginReadmeDialog, "exec", lambda self: 1)
-    monkeypatch.setattr(mw.QTimer, "singleShot",
+    monkeypatch.setattr(readme_dialog.QTimer, "singleShot",
                         staticmethod(lambda *_args: pytest.fail("no timer")))
     monkeypatch.setattr(QDesktopServices, "openUrl",
                         staticmethod(lambda url: pytest.fail("should not open")))

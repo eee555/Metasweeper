@@ -70,6 +70,14 @@ class PluginRepository:
         return PROVIDERS[self.platform]
 
     @property
+    def plugin_identity(self) -> str:
+        """Return a stable market identity for GitHub/Gitee mirrors."""
+        repository_name = self.path.rsplit("/", 1)[-1].casefold()
+        if repository_name.startswith("metasweeper-"):
+            return repository_name
+        return self.url.casefold()
+
+    @property
     def module_name(self) -> str:
         host = urlsplit(self.origin).netloc
         if host == "codeberg.org":
@@ -123,6 +131,11 @@ class HostingProvider:
         """读取仓库默认分支上的单个文件；索引只需要一个小型 JSON。"""
         raise NotImplementedError
 
+    def raw_branch_file_url(
+        self, repository: PluginRepository, branch: str, filename: str,
+    ) -> str:
+        raise NotImplementedError
+
 
 class GitHubProvider(HostingProvider):
     headers = {"Accept": "application/vnd.github+json",
@@ -142,9 +155,14 @@ class GitHubProvider(HostingProvider):
     def raw_file_request(
         self, repository: PluginRepository, filename: str,
     ) -> tuple[str, dict]:
+        return self.raw_branch_file_url(repository, "HEAD", filename), {}
+
+    def raw_branch_file_url(
+        self, repository: PluginRepository, branch: str, filename: str,
+    ) -> str:
         owner_repo = quote(repository.path, safe="/")
-        return ("https://raw.githubusercontent.com/"
-                + owner_repo + "/HEAD/" + quote(filename, safe="/")), {}
+        return (f"https://raw.githubusercontent.com/{owner_repo}/"
+                f"{quote(branch, safe='')}/{quote(filename, safe='/')}")
 
 
 class GitLabProvider(HostingProvider):
@@ -184,10 +202,13 @@ class GiteeProvider(HostingProvider):
     def raw_file_request(
         self, repository: PluginRepository, filename: str,
     ) -> tuple[str, dict]:
-        # api_url 已带 /api/v5/repos/，文件读取使用 contents 接口的 raw 形式
-        url = ("https://gitee.com/" + quote(repository.path, safe="/")
-               + "/raw/HEAD/" + quote(filename, safe="/"))
-        return url, {}
+        return self.raw_branch_file_url(repository, "HEAD", filename), {}
+
+    def raw_branch_file_url(
+        self, repository: PluginRepository, branch: str, filename: str,
+    ) -> str:
+        return (f"https://gitee.com/{quote(repository.path, safe='/')}/raw/"
+                f"{quote(branch, safe='')}/{quote(filename, safe='/')}")
 
 
 class GiteaProvider(HostingProvider):

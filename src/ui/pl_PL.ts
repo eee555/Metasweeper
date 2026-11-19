@@ -1576,6 +1576,13 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
 </context>
 <context>
     <name>PluginDownloadDialog</name>
+    <message><source>仅支持读取 GitHub 和 Gitee 仓库的 README。</source><translation>Pliki README można wczytywać z repozytoriów GitHub i Gitee.</translation></message>
+    <message><source>托管平台返回了意外的 README 响应。</source><translation>Usługa hostingowa zwróciła nieoczekiwaną odpowiedź dotyczącą pliku README.</translation></message>
+    <message><source>README 文件超过 1 MiB 或响应超过大小限制。</source><translation>Plik README przekracza 1 MiB lub odpowiedź przekracza limit rozmiaru.</translation></message>
+    <message><source>无法识别 README 所在的仓库分支。</source><translation>Nie udało się ustalić gałęzi zawierającej plik README.</translation></message>
+    <message><source>README 不是有效的 UTF-8 文本。</source><translation>Plik README nie jest poprawnym tekstem UTF-8.</translation></message>
+    <message><source>无法解析 GitHub README 响应。</source><translation>Nie udało się przetworzyć odpowiedzi GitHub dotyczącej pliku README.</translation></message>
+    <message><source>无法读取 Gitee 仓库的版本标签。</source><translation>Nie udało się odczytać tagów wersji z repozytorium Gitee.</translation></message>
     <message>
         <location filename="../plugin_manager/plugin_download_dialog.py" line="57"/>
         <source>自动识别</source>
@@ -1854,6 +1861,11 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
 </context>
 <context>
     <name>PluginManagerWindow</name>
+    <message><source>自动更新插件</source><translation>Automatycznie aktualizuj wtyczki</translation></message>
+    <message><source>重启</source><translation>Uruchom ponownie</translation></message>
+    <message><source>已自动更新 {count} 个插件。重启插件管理器后生效。</source><translation>Liczba automatycznie zaktualizowanych wtyczek: {count}. Uruchom ponownie menedżer wtyczek, aby zastosować aktualizacje.</translation></message>
+    <message><source>正在等待自动更新结束…</source><translation>Oczekiwanie na zakończenie automatycznej aktualizacji…</translation></message>
+    <message><source>正在自动更新插件…</source><translation>Trwa automatyczne aktualizowanie wtyczek…</translation></message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2143"/>
         <location filename="../plugin_manager/main_window.py" line="2295"/>
@@ -1863,10 +1875,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     <message>
         <source>插件市场...</source>
         <translation>Market wtyczek...</translation>
-    </message>
-    <message>
-        <source>从仓库 URL 安装...</source>
-        <translation>Zainstaluj z adresu repozytorium...</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2103"/>
@@ -2151,6 +2159,36 @@ Pliki mogą być używane przez inny program.</translation>
         <location filename="../plugin_manager/main_window.py" line="2731"/>
         <source>{name}（加载失败）</source>
         <translation>{name} (nie udało się wczytać)</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2742"/>
+        <source>已启用</source>
+        <translation>Włączony</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2742"/>
+        <source>已禁用</source>
+        <translation>Wyłączony</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2750"/>
+        <source>正在初始化</source>
+        <translation>Inicjowanie</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2757"/>
+        <source>正在关闭</source>
+        <translation>Zamykanie</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2790"/>
+        <source>加载失败</source>
+        <translation>Nie udało się załadować</translation>
+    </message>
+    <message>
+        <location filename="../plugin_manager/main_window.py" line="2763"/>
+        <source>版本 {version} · {status}</source>
+        <translation>Wersja {version} · {status}</translation>
     </message>
     <message>
         <location filename="../plugin_manager/main_window.py" line="2757"/>
@@ -2772,17 +2810,17 @@ Pliki mogą być używane przez inny program.</translation>
 <context>
     <name>_PluginReadmeDialog</name>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2019"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="254"/>
         <source>README</source>
         <translation>README</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2020"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="255"/>
         <source>读取文件失败: {err}</source>
         <translation>Nie udało się odczytać pliku: {err}</translation>
     </message>
     <message>
-        <location filename="../plugin_manager/main_window.py" line="2054"/>
+        <location filename="../plugin_manager/plugin_readme_dialog.py" line="296"/>
         <source>该插件目录下未找到 README.md</source>
         <translation>Nie znaleziono README.md w katalogu wtyczki</translation>
     </message>
@@ -2951,5 +2989,66 @@ Pliki mogą być używane przez inny program.</translation>
         <source>按键自定义</source>
         <translation>Skróty klawiaturowe</translation>
     </message>
+</context>
+<context>
+    <name>PluginMarketDialog</name>
+    <message><source>详情</source><translation>Szczegóły</translation></message>
+    <message><source>查看详情</source><translation>Pokaż szczegóły</translation></message>
+    <message><source>{name} - 插件详情</source><translation>{name} - Szczegóły wtyczki</translation></message>
+    <message><source>作者</source><translation>Autor</translation></message>
+    <message><source>打开仓库</source><translation>Otwórz repozytorium</translation></message>
+    <message><source>正在加载 README…</source><translation>Wczytywanie pliku README…</translation></message>
+    <message><source>README 加载失败：{error}</source><translation>Nie udało się wczytać pliku README: {error}</translation></message>
+    <message><source>仓库中未找到 README。</source><translation>W repozytorium nie znaleziono pliku README.</translation></message>
+    <message><source>插件和依赖安装完成。</source><translation>Wtyczka i zależności zostały zainstalowane.</translation></message>
+    <message><source>安装完成</source><translation>Instalacja zakończona</translation></message>
+    <message><source>部分安装完成</source><translation>Instalacja częściowo zakończona</translation></message>
+    <message><source>插件及依赖已安装完成，重启插件管理器后生效。</source><translation>Wtyczka i jej zależności zostały zainstalowane. Uruchom ponownie menedżera wtyczek, aby zastosować zmiany.</translation></message>
+    <message><source>部分插件已安装；后续安装失败：{error}&#10;已安装的插件重启插件管理器后生效。</source><translation>Zainstalowano część wtyczek, ale kolejna instalacja nie powiodła się: {error}&#10;Uruchom ponownie menedżera wtyczek, aby zastosować zainstalowane wtyczki.</translation></message>
+    <message><source>重启</source><translation>Uruchom ponownie</translation></message>
+    <message><source>确认</source><translation>OK</translation></message>
+    <message><source>未安装</source><translation>Nie zainstalowano</translation></message>
+    <message><source>可更新</source><translation>Dostępna aktualizacja</translation></message>
+    <message><source>已是最新</source><translation>Aktualna wersja</translation></message>
+    <message><source>检查失败</source><translation>Sprawdzanie nie powiodło się</translation></message>
+    <message><source>已安装</source><translation>Zainstalowano</translation></message>
+    <message><source>没有可安装的版本。</source><translation>Brak wersji dostępnych do instalacji.</translation></message>
+    <message><source>该版本已不在仓库中。</source><translation>Tej wersji nie ma już w repozytorium.</translation></message>
+    <message><source>正在安装插件依赖…</source><translation>Instalowanie zależności wtyczki…</translation></message>
+    <message><source>插件依赖安装失败；插件文件尚未发布：{error}</source><translation>Nie udało się zainstalować zależności; pliki wtyczki nie zostały opublikowane: {error}</translation></message>
+    <message><source>插件依赖安装完成。</source><translation>Zainstalowano zależności wtyczki.</translation></message>
+    <message><source>插件不在受管理的用户插件目录中，无法自动更新。</source><translation>Wtyczka znajduje się poza zarządzanym katalogiem wtyczek użytkownika i nie może zostać automatycznie zaktualizowana.</translation></message>
+    <message><source>插件市场</source><translation>Rynek wtyczek</translation></message>
+    <message><source>刷新 GitHub 插件</source><translation>Odśwież wtyczki z GitHub</translation></message>
+    <message><source>来源：GitHub · 主题：metasweeper-plugin</source><translation>Źródło: GitHub · Temat: metasweeper-plugin</translation></message>
+    <message><source>搜索插件名称、说明或作者</source><translation>Szukaj według nazwy, opisu lub autora wtyczki</translation></message>
+    <message><source>全部</source><translation>Wszystkie</translation></message>
+    <message><source>插件</source><translation>Wtyczka</translation></message>
+    <message><source>最新版本</source><translation>Najnowsza wersja</translation></message>
+    <message><source>状态</source><translation>Stan</translation></message>
+    <message><source>说明</source><translation>Opis</translation></message>
+    <message><source>仓库</source><translation>Repozytorium</translation></message>
+    <message><source>安装</source><translation>Zainstaluj</translation></message>
+    <message><source>安装版本</source><translation>Wersja do instalacji</translation></message>
+    <message><source>关闭</source><translation>Zamknij</translation></message>
+    <message><source>正在搜索 GitHub 插件并检查版本...</source><translation>Wyszukiwanie wtyczek na GitHubie i sprawdzanie wersji...</translation></message>
+    <message><source>操作失败：{error}</source><translation>Operacja nie powiodła się: {error}</translation></message>
+    <message><source>共 {total} 个插件，{updatable} 个可更新。</source><translation>Znaleziono wtyczek: {total}; dostępne aktualizacje: {updatable}.</translation></message>
+    <message><source>{failed} 个仓库检查失败。</source><translation>Nie udało się sprawdzić repozytoriów: {failed}.</translation></message>
+    <message><source>更新</source><translation>Aktualizuj</translation></message>
+    <message><source>重装</source><translation>Zainstaluj ponownie</translation></message>
+    <message><source>更新插件</source><translation>Aktualizuj wtyczkę</translation></message>
+    <message><source>已安装 {current}，更新到 {latest}。现有插件目录会被替换，插件数据目录保留。继续？</source><translation>Zainstalowano wersję {current}. Zaktualizować do {latest}? Katalog wtyczki zostanie zastąpiony, a dane wtyczki zachowane.</translation></message>
+    <message><source>正在安装 {name} ...</source><translation>Instalowanie {name}...</translation></message>
+    <message><source>没有可更新的插件。</source><translation>Brak wtyczek do aktualizacji.</translation></message>
+    <message><source>全部更新</source><translation>Aktualizuj wszystkie</translation></message>
+    <message><source>将更新 {count} 个插件。继续？</source><translation>Zostanie zaktualizowanych wtyczek: {count}. Kontynuować?</translation></message>
+    <message><source>正在取消...</source><translation>Anulowanie...</translation></message>
+    <message><source>搜索源</source><translation>Źródło wyszukiwania</translation></message>
+    <message><source>GitHub 主题：metasweeper-plugin</source><translation>Temat GitHub: metasweeper-plugin</translation></message>
+    <message><source>Gitee 关键词：metasweeper</source><translation>Słowo kluczowe Gitee: metasweeper</translation></message>
+    <message><source>正在 Gitee 搜索插件并检查版本...</source><translation>Wyszukiwanie wtyczek w Gitee i sprawdzanie wersji...</translation></message>
+    <message><source>刷新</source><translation>Odśwież</translation></message>
+    <message><source>不支持的插件搜索源：{source}</source><translation>Nieobsługiwane źródło wyszukiwania wtyczek: {source}</translation></message>
 </context>
 </TS>

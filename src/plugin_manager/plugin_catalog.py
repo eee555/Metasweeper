@@ -87,6 +87,7 @@ class InstalledPlugin:
     repository: str = ""
     tag: str = ""
     platform: str = ""
+    tag_prefix: str = DEFAULT_TAG_PREFIX
 
     def update_available(self, releases: PluginRelease) -> bool:
         latest = releases.latest_version
@@ -200,13 +201,47 @@ def rank_versions(
 def read_installed_metadata(directory: Path) -> dict[str, Any]:
     """读取插件目录中的市场来源元数据。"""
     path = directory / META_FILENAME
-    if not path.is_file():
-        return {}
     try:
+        if not path.is_file():
+            return {}
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError, RecursionError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def read_installed_plugin(package: Path) -> InstalledPlugin | None:
+    """读取插件包的市场元数据，旧记录可从标签解析版本。"""
+    if not (package / "__init__.py").is_file():
+        return None
+    metadata = read_installed_metadata(package)
+    repository = metadata.get("repository")
+    if not isinstance(repository, str) or not repository.strip():
+        return None
+
+    tag = metadata.get("tag")
+    platform = metadata.get("platform")
+    prefix = metadata.get("tag_prefix")
+    tag = tag if isinstance(tag, str) else ""
+    tag_prefix = prefix if isinstance(prefix, str) and prefix else DEFAULT_TAG_PREFIX
+    version: Version | None = None
+    raw_version = metadata.get("version")
+    if isinstance(raw_version, str):
+        try:
+            version = Version(raw_version)
+        except InvalidVersion:
+            pass
+    if version is None:
+        version = parse_tag_version(tag, tag_prefix)
+    return InstalledPlugin(
+        name=package.name,
+        directory=package,
+        version=version,
+        repository=repository,
+        tag=tag,
+        platform=platform if isinstance(platform, str) else "",
+        tag_prefix=tag_prefix,
+    )
 
 
 def find_plugin_directory(
@@ -223,8 +258,27 @@ def find_plugin_directory(
     return None
 
 
+def find_installed_for_repository(
+    repository: PluginRepository,
+    installed: dict[str, InstalledPlugin],
+) -> InstalledPlugin | None:
+    """Match an installed plugin by URL or by its cross-host mirror identity."""
+    exact = installed.get(repository.url.lower())
+    if exact is not None:
+        return exact
+    for candidate in installed.values():
+        try:
+            candidate_repository = PluginRepository.from_url(
+                candidate.repository, candidate.platform or "auto")
+        except ValueError:
+            continue
+        if candidate_repository.plugin_identity == repository.plugin_identity:
+            return candidate
+    return None
+
+
 def scan_installed(plugin_dirs: Iterable[Path]) -> dict[str, InstalledPlugin]:
-    """扫描已安装插件目录，返回 name → 安装信息。
+    """扫描已安装插件目录，以规范化的仓库 URL 为键返回安装信息。
 
     仅返回带有市场元数据的插件；手工复制的插件没有可靠版本来源。
     """
@@ -233,31 +287,14 @@ def scan_installed(plugin_dirs: Iterable[Path]) -> dict[str, InstalledPlugin]:
         if not directory.is_dir():
             continue
         for package in directory.iterdir():
-            if not package.is_dir() or not (package / "__init__.py").is_file():
+            if not package.is_dir():
                 continue
-            metadata = read_installed_metadata(package)
-            if not metadata:
+            plugin = read_installed_plugin(package)
+            if plugin is None:
                 continue
-            version: Version | None = None
-            raw_version = metadata.get("version")
-            if isinstance(raw_version, str):
-                try:
-                    version = Version(raw_version)
-                except InvalidVersion:
-                    version = None
-            if version is None and isinstance(metadata.get("tag"), str):
-                version = parse_tag_version(
-                    metadata["tag"], str(metadata.get("tag_prefix") or DEFAULT_TAG_PREFIX))
             try:
-                key = PluginRepository.from_url(str(metadata.get("repository") or "")).url.lower()
+                key = PluginRepository.from_url(plugin.repository).url.lower()
             except ValueError:
                 continue
-            installed[key] = InstalledPlugin(
-                name=package.name,
-                directory=package,
-                version=version,
-                repository=str(metadata.get("repository") or ""),
-                tag=str(metadata.get("tag") or ""),
-                platform=str(metadata.get("platform") or ""),
-            )
+            installed[key] = plugin
     return installed

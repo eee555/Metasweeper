@@ -50,6 +50,9 @@ class BasicSettings:
     plugin_pip_indexes: list[str] = field(
         default_factory=lambda: DEFAULT_PLUGIN_PIP_INDEXES.copy())
     
+    plugin_market_source: Literal["github", "gitee"] = "github"
+    auto_update_plugins: bool = True
+
     def to_dict(self) -> dict:
         return asdict(self)
     
@@ -68,6 +71,8 @@ class BasicSettings:
             viewer_show_source=data.get("viewer_show_source", False),
             plugin_lib_dir=lib_dir if isinstance(lib_dir, str) else "",
             plugin_pip_indexes=indexes,
+            plugin_market_source="gitee" if data.get("plugin_market_source") == "gitee" else "github",
+            auto_update_plugins=data.get("auto_update_plugins") is not False,
         )
 
 
@@ -177,3 +182,21 @@ class SettingsManager:
         """设置手动安装插件依赖时使用的 Python 包源列表。"""
         self._settings.plugin_pip_indexes = normalize_pip_indexes(urls)
         self.save()
+
+    def set_plugin_market_source(self, source: Literal["github", "gitee"]) -> None:
+        old = self._settings.plugin_market_source
+        self._settings.plugin_market_source = source
+        try:
+            self.save()
+        except OSError:
+            self._settings.plugin_market_source = old
+            raise
+
+    def set_auto_update_plugins(self, enabled: bool) -> None:
+        old = self._settings.auto_update_plugins
+        self._settings.auto_update_plugins = enabled
+        try:
+            self.save()
+        except OSError:
+            self._settings.auto_update_plugins = old
+            raise

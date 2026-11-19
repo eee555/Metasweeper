@@ -4,26 +4,34 @@
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from threading import Event
 
 import requests
+from loguru import logger
 from packaging.version import Version
-from PySide6.QtCore import QCoreApplication, QThread, QTimer, Qt, Signal
+from PySide6.QtCore import (
+    QCoreApplication, QObject, QRunnable, QThread, QThreadPool, QTimer, Qt, QUrl, Signal, Slot,
+)
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
+    QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
     QHeaderView, QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
-from .app_paths import get_all_plugin_dirs, get_data_dir, get_executable_dir
+from .app_paths import get_all_plugin_dirs, get_executable_dir
 from .icons import action_icon, set_action_icon, set_button_box_icons
 from .plugin_catalog import (
-    CatalogEntry, InstalledPlugin, PluginRelease, rank_versions, scan_installed,
+    CatalogEntry, InstalledPlugin, PluginRelease, find_installed_for_repository,
+    rank_versions, scan_installed,
 )
 from .plugin_download import DownloadCancelled, PluginDownloader
-from .plugin_lib_env import install_plugin_requirements
-from .dependency_scan import scan_plugin_dependencies
+from .plugin_readme_dialog import _PluginReadmeDialog
 from .plugin_repositories import PluginRepository, RepositoryTag
+from .plugin_updates import prepare_plugin_dependencies
+from .settings_manager import SettingsManager
 
 STATE_NOT_INSTALLED = "未安装"
 STATE_UPDATE = "可更新"
@@ -89,11 +97,12 @@ class _MarketTask(QThread):
     message = Signal(str)
 
     def __init__(self, index_url: str, target: MarketRow | None,
-                 version: Version | None, parent):
+                 version: Version | None, parent, source: str = "github"):
         super().__init__(parent)
         self.index_url = index_url
         self.target = target
         self.version = version
+        self.source = source
         self.error = ""
 
     def run(self) -> None:
@@ -102,7 +111,7 @@ class _MarketTask(QThread):
                 downloader = PluginDownloader(
                     session, self.isInterruptionRequested, self.progress.emit)
                 if self.target is None:
-                    entries = downloader.discover_plugins()
+                    entries = downloader.discover_plugins(self.source)
                     self.snapshot.emit(self._scan(downloader, entries))
                 else:
                     self.installed.emit(self._install(downloader, self.target))
@@ -111,23 +120,41 @@ class _MarketTask(QThread):
         except Exception as exc:  # noqa: BLE001 - 反馈到界面
             self.error = str(exc)
 
-    def _scan(self, downloader: PluginDownloader,
+    def _scan(self, _downloader: PluginDownloader,
               entries: list[CatalogEntry]) -> MarketSnapshot:
         installed = scan_installed(get_all_plugin_dirs())
-        rows: list[MarketRow] = []
-        for entry in entries:
+
+        def fetch_tags(entry: CatalogEntry) -> tuple[list, Exception | None]:
             if self.isInterruptionRequested():
                 raise DownloadCancelled()
-            row = MarketRow(entry=entry, installed=installed.get(entry.repository.url.lower()))
             try:
-                tags = [(tag.name, tag.commit)
-                        for tag in downloader.list_tags(entry.repository)]
-                row.releases = PluginRelease(
-                    entry=entry, versions=rank_versions(entry, tags))
+                with requests.Session() as session:
+                    downloader = PluginDownloader(
+                        session, self.isInterruptionRequested, self.progress.emit)
+                    return downloader.list_tags(entry.repository), None
             except DownloadCancelled:
                 raise
             except Exception as exc:  # noqa: BLE001 - 单仓库失败不影响其它插件
-                row.releases = PluginRelease(entry=entry, error=str(exc))
+                return [], exc
+
+        if entries:
+            with ThreadPoolExecutor(max_workers=min(4, len(entries))) as workers:
+                release_results = list(workers.map(fetch_tags, entries))
+        else:
+            release_results = []
+
+        rows: list[MarketRow] = []
+        for entry, (release_tags, error) in zip(entries, release_results):
+            row = MarketRow(
+                entry=entry,
+                installed=find_installed_for_repository(entry.repository, installed),
+            )
+            if error is not None:
+                row.releases = PluginRelease(entry=entry, error=str(error))
+            else:
+                tags = [(tag.name, tag.commit) for tag in release_tags]
+                row.releases = PluginRelease(
+                    entry=entry, versions=rank_versions(entry, tags))
             rows.append(row)
         return MarketSnapshot(rows=rows)
 
@@ -142,29 +169,18 @@ class _MarketTask(QThread):
         version, tag_name, commit = match
 
         def prepare_dependencies(package):
-            requirements = package / "requirements.txt"
-            if not requirements.is_file():
-                return
-            dependency = scan_plugin_dependencies(
-                package / "__init__.py", row.entry.repository.module_name)
-            if dependency.status in {"no_requirements", "satisfied"}:
-                return
-            self.message.emit(_tr("正在安装插件依赖…"))
-            error = install_plugin_requirements(
-                get_data_dir(), requirements, output_callback=self.message.emit)
-            if error:
-                raise RuntimeError(
-                    _tr("插件依赖安装失败；插件文件尚未发布：{error}").format(
-                        error=error))
-            self.message.emit(_tr("插件依赖安装完成。"))
+            module_name = (row.installed.directory.name if row.installed is not None
+                           else row.entry.repository.module_name)
+            prepare_plugin_dependencies(package, module_name, self.message.emit)
 
         if row.installed is not None:
             plugin_dir = get_executable_dir() / "user_plugins"
-            if row.installed.directory != plugin_dir / row.entry.repository.module_name:
+            if row.installed.directory.parent.resolve() != plugin_dir.resolve():
                 raise ValueError(_tr("插件不在受管理的用户插件目录中，无法自动更新。"))
             return str(downloader.update(
                 row.entry.repository, RepositoryTag(tag_name, commit), plugin_dir,
                 plugin_version=str(version), tag_prefix=row.entry.tag_prefix,
+                destination_name=row.installed.directory.name,
                 before_publish=prepare_dependencies))
         return str(downloader.install(
             row.entry.repository, RepositoryTag(tag_name, commit),
@@ -174,13 +190,113 @@ class _MarketTask(QThread):
         ))
 
 
+class _ReadmeResult(QObject):
+    finished = Signal(object, str)
+
+
+class _ReadmeTask(QRunnable):
+    def __init__(self, repository: PluginRepository, cancelled: Event) -> None:
+        super().__init__()
+        self.repository = repository
+        self.cancelled = cancelled
+        self.result = _ReadmeResult()
+
+    def run(self) -> None:
+        try:
+            with requests.Session() as session:
+                downloader = PluginDownloader(session, self.cancelled.is_set, lambda *_: None)
+                readme = downloader.fetch_readme(self.repository)
+        except DownloadCancelled:
+            return
+        except Exception as exc:
+            if not self.cancelled.is_set():
+                self.result.finished.emit(None, str(exc))
+        else:
+            if not self.cancelled.is_set():
+                self.result.finished.emit(readme, "")
+
+
+class _MarketDetailsDialog(_PluginReadmeDialog):
+    def __init__(self, row: MarketRow, parent=None) -> None:
+        self._entry = row.entry
+        self._cancel_readme = Event()
+        super().__init__(row.entry.name, "", parent,
+                         title=_tr("{name} - 插件详情").format(name=row.entry.name),
+                         repository_url=QUrl(row.entry.repository.url))
+        self.resize(780, 620)
+        self.button(QDialogButtonBox.StandardButton.Close).setText(_tr("关闭"))
+        task = _ReadmeTask(row.entry.repository, self._cancel_readme)
+        task.result.finished.connect(self._show_readme, Qt.ConnectionType.QueuedConnection)
+        QThreadPool.globalInstance().start(task)
+
+    def _create_content(self) -> QVBoxLayout:
+        entry = self._entry
+        details = QFormLayout()
+        details.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        details.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        for label, value in ((_tr("作者"), entry.author), (_tr("说明"), entry.description)):
+            if value:
+                field = QLabel()
+                field.setTextFormat(Qt.TextFormat.PlainText)
+                field.setText(value)
+                field.setWordWrap(True)
+                field.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                details.addRow(label, field)
+
+        repository = QHBoxLayout()
+        url = QLabel(entry.repository.url)
+        url.setTextFormat(Qt.TextFormat.PlainText)
+        url.setWordWrap(True)
+        url.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        repository.addWidget(url, 1)
+        open_repository = QPushButton(_tr("打开仓库"))
+        open_repository.setAutoDefault(False)
+        open_repository.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl(entry.repository.url)))
+        repository.addWidget(open_repository)
+        details.addRow(_tr("仓库"), repository)
+
+        body = super()._create_content()
+        assert self._browser is not None
+        self._browser.hide()
+        self._readme_status = QLabel(_tr("正在加载 README…"))
+        self._readme_status.setTextFormat(Qt.TextFormat.PlainText)
+        self._readme_status.setWordWrap(True)
+        layout = QVBoxLayout()
+        layout.addLayout(details)
+        layout.addWidget(self._readme_status)
+        layout.addLayout(body, 1)
+        return layout
+
+    @Slot(object, str)
+    def _show_readme(self, result: tuple[str, str] | None, error: str) -> None:
+        if self._cancel_readme.is_set():
+            return
+        if error:
+            self._readme_status.setText(_tr("README 加载失败：{error}").format(error=error))
+        elif result is None or not result[0].strip():
+            self._readme_status.setText(_tr("仓库中未找到 README。"))
+        else:
+            content, base_url = result
+            self._repository_url = QUrl(base_url)
+            self._set_markdown(content)
+            self._readme_status.hide()
+            if self._browser is not None:
+                self._browser.show()
+
+    def done(self, result: int) -> None:
+        self._cancel_readme.set()
+        super().done(result)
+
+
 class PluginMarketDialog(QDialog):
     """插件市场：搜索、查看版本、安装与更新。"""
 
     restart_requested = Signal()
 
-    def __init__(self, index_url: str, parent=None) -> None:
+    def __init__(self, index_url: str, parent=None, *, settings: SettingsManager | None = None) -> None:
         super().__init__(parent)
+        self._settings = settings
         self.setWindowTitle(_tr("插件市场"))
         self.setWindowIcon(action_icon("app"))
         self.resize(940, 580)
@@ -188,13 +304,23 @@ class PluginMarketDialog(QDialog):
         self._task: _MarketTask | None = None
         self._rows: list[MarketRow] = []
         self._closing = False
+        self._restart_scan_after_cancel = False
         self._queue: list[MarketRow] = []
         self._installed_paths: list[str] = []
 
-        self.scan_button = QPushButton(_tr("刷新 GitHub 插件"))
+        self.source = QComboBox()
+        self.source.addItem("GitHub", "github")
+        self.source.addItem("Gitee", "gitee")
+        if settings is not None:
+            self.source.setCurrentIndex(self.source.findData(settings.settings.plugin_market_source))
+        self.source_label = QLabel()
+        self._update_source_label()
+        self.scan_button = QPushButton(_tr("刷新"))
         set_action_icon(self.scan_button, "refresh")
         index_layout = QHBoxLayout()
-        index_layout.addWidget(QLabel(_tr("来源：GitHub · 主题：metasweeper-plugin")))
+        index_layout.addWidget(QLabel(_tr("搜索源")))
+        index_layout.addWidget(self.source)
+        index_layout.addWidget(self.source_label)
         index_layout.addStretch(1)
         index_layout.addWidget(self.scan_button)
 
@@ -211,22 +337,20 @@ class PluginMarketDialog(QDialog):
         filter_layout.addWidget(self.filter)
         filter_layout.addWidget(self.update_all)
 
-        self.table = QTableWidget(0, 6)
+        self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels([
-            _tr("插件"), _tr("最新版本"), _tr("已安装"), _tr("状态"),
-            _tr("说明"), _tr("仓库")])
+            _tr("插件"), _tr("最新版本"), _tr("已安装"), _tr("状态"), _tr("详情")])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setAlternatingRowColors(True)
-        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().hide()
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header = self.table.horizontalHeader()
-        for column in range(4):
-            header.setSectionResizeMode(
-                column, QHeaderView.ResizeMode.ResizeToContents)
-        for column in (4, 5):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table.itemSelectionChanged.connect(self._selection_changed)
+        self.table.cellDoubleClicked.connect(self._open_details_at)
 
         self.version = QComboBox()
         self.version.setEnabled(False)
@@ -260,6 +384,7 @@ class PluginMarketDialog(QDialog):
         layout.addWidget(buttons)
 
         self.scan_button.clicked.connect(self.start_scan)
+        self.source.currentIndexChanged.connect(self._source_changed)
         self.search.textChanged.connect(self._populate)
         self.filter.currentIndexChanged.connect(self._populate)
         self.action.clicked.connect(self._install_selected)
@@ -267,23 +392,48 @@ class PluginMarketDialog(QDialog):
         buttons.rejected.connect(self.reject)
         QTimer.singleShot(0, self.start_scan)
 
+    def _update_source_label(self) -> None:
+        if self.source.currentData() == "gitee":
+            self.source_label.setText(_tr("Gitee 关键词：metasweeper"))
+        else:
+            self.source_label.setText(_tr("GitHub 主题：metasweeper-plugin"))
+
+    def _source_changed(self) -> None:
+        self._update_source_label()
+        if self._settings is not None:
+            source = "gitee" if self.source.currentData() == "gitee" else "github"
+            try:
+                self._settings.set_plugin_market_source(source)
+            except OSError:
+                logger.exception("Failed to save plugin market source")
+        if self._task is not None and self._task.target is None:
+            self._restart_scan_after_cancel = True
+            self._task.requestInterruption()
+            return
+        self.start_scan()
+
     # ── 扫描 ──────────────────────────────────────────────────
     def start_scan(self) -> None:
         if self._closing or self._task is not None:
             return
-        self.status.setText(_tr("正在搜索 GitHub 插件并检查版本..."))
+        if self.source.currentData() == "gitee":
+            message = _tr("正在 Gitee 搜索插件并检查版本...")
+        else:
+            message = _tr("正在搜索 GitHub 插件并检查版本...")
+        self.status.setText(message)
         self._rows = []
         self.table.setRowCount(0)
-        self._start_task("", None, None)
+        self._start_task("", None, None, source=self.source.currentData())
 
     def _start_task(self, index_url: str, target: MarketRow | None,
-                    version: Version | None) -> None:
+                    version: Version | None, source: str = "github") -> None:
+        self.source.setEnabled(target is None)
         self.scan_button.setEnabled(False)
         self.action.setEnabled(False)
         self.update_all.setEnabled(False)
         self.progress.setRange(0, 0)
         self.progress.show()
-        self._task = _MarketTask(index_url, target, version, self)
+        self._task = _MarketTask(index_url, target, version, self, source=source)
         self._task.progress.connect(self._show_progress)
         self._task.snapshot.connect(self._show_snapshot)
         self._task.installed.connect(self._show_installed)
@@ -310,7 +460,8 @@ class PluginMarketDialog(QDialog):
     def _refresh_installed_state(self) -> None:
         installed = scan_installed(get_all_plugin_dirs())
         for row in self._rows:
-            row.installed = installed.get(row.entry.repository.url.lower())
+            row.installed = find_installed_for_repository(
+                row.entry.repository, installed)
         self._populate()
 
     def _show_install_complete(self, error: str = "") -> None:
@@ -333,6 +484,16 @@ class PluginMarketDialog(QDialog):
     def _task_finished(self) -> None:
         task = self._task
         self._task = None
+        if (task is not None and task.target is None
+                and self._restart_scan_after_cancel and not self._closing):
+            self._restart_scan_after_cancel = False
+            task.deleteLater()
+            self.progress.hide()
+            self.scan_button.setEnabled(True)
+            self.source.setEnabled(True)
+            self.start_scan()
+            return
+        self._restart_scan_after_cancel = False
         self.progress.hide()
         self.scan_button.setEnabled(True)
         self.update_all.setEnabled(True)
@@ -353,6 +514,7 @@ class PluginMarketDialog(QDialog):
         elif self._queue:
             self._install_next()
             return
+        self.source.setEnabled(True)
         if self._installed_paths:
             self._refresh_installed_state()
             self._installed_paths.clear()
@@ -398,18 +560,34 @@ class PluginMarketDialog(QDialog):
                 row.latest_version or "—",
                 row.installed_version or "—",
                 row.state,
-                row.entry.description,
-                row.entry.repository.url,
             )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                if column == 5:
+                if column == 0:
                     item.setToolTip(value)
                 elif column == 3 and row.releases is not None and row.releases.error:
                     item.setToolTip(row.releases.error)
                 self.table.setItem(index, column, item)
+            details = QPushButton(_tr("查看详情"))
+            details.setAutoDefault(False)
+            set_action_icon(details, "info")
+            details.clicked.connect(lambda _checked=False, item=row: self._open_details(item))
+            self.table.setCellWidget(index, 4, details)
         self.version.clear()
         self.action.setEnabled(False)
+
+    @Slot(int, int)
+    def _open_details_at(self, index: int, _column: int) -> None:
+        rows = self._visible_rows()
+        if 0 <= index < len(rows):
+            self._open_details(rows[index])
+
+    def _open_details(self, row: MarketRow) -> None:
+        dialog = _MarketDetailsDialog(row, self)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
 
     def _selected_row(self) -> MarketRow | None:
         rows = self._visible_rows()

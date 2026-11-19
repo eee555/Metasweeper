@@ -44,7 +44,7 @@ def test_full_init_builds_ui_signals_and_tray(qtbot, monkeypatch, tmp_path):
     try:
 
         assert w._menu_plugins.title() == w.tr("插件")
-        assert w._act_download_plugin.isEnabled()
+        assert w._act_plugin_market.isEnabled()
         assert w._act_plugin_environment in w._menu_settings.actions()
         assert w._list.count() == 1
         assert w._list.item(0).text() == "alpha"
@@ -70,14 +70,9 @@ def test_full_init_builds_ui_signals_and_tray(qtbot, monkeypatch, tmp_path):
 
 
 def test_full_init_without_tray_and_language_change(qtbot, monkeypatch, tmp_path):
-    monkeypatch.setattr(mw, "get_data_dir", lambda: tmp_path)
     monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                         staticmethod(lambda: False))
-    w = PluginManagerWindow(make_manager(tmp_path))
-    qtbot.addWidget(w, before_close_func=lambda widget: (
-        widget._timer.stop(),
-        setattr(widget, "closeEvent", lambda event: event.accept()),
-    ))
+    w = real_window(qtbot, monkeypatch, tmp_path, tray=False)
     try:
         # 无托盘时属性存在但为 None，retranslateUi 不应抛 AttributeError
         assert w._tray_icon is None
@@ -147,21 +142,6 @@ def test_really_quit_without_tray_does_not_raise(qtbot, monkeypatch):
         instance=lambda: SimpleNamespace(quit=lambda: calls.append("quit"))))
     w._really_quit()
     assert calls == ["save", "stop", "quit"]
-
-
-def test_open_download_plugin_stubs_dialog(qtbot, monkeypatch):
-    w = shell(qtbot)
-    made = []
-
-    class Dialog(_FakeDialog):
-        def __init__(self, parent):
-            super().__init__(parent)
-            made.append(self)
-
-    monkeypatch.setattr(mw, "PluginDownloadDialog", Dialog)
-    w._open_download_plugin()
-    assert len(made) == 1 and made[0].args == (w,)
-    assert made[0].exec_calls == 1 and made[0].deleted
 
 
 def test_open_dev_guide_missing_read_error_and_success(qtbot, monkeypatch, tmp_path):
