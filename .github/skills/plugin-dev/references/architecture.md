@@ -42,8 +42,7 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 │   ├── my_complex/             # 包形式插件（唯一支持的插件结构）
 │   │   ├── __init__.py
 │   │   └── utils.py
-│   └── services/               # 👈 服务接口定义
-│       └── history.py          # HistoryService 接口
+│   └── services/               # 内置插件的共享服务接口
 ├── plugin_sdk/                 # 插件开发 SDK
 │   ├── plugin_base.py          # 👈 BasePlugin 基类
 │   ├── service_registry.py     # 服务注册表

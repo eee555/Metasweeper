@@ -282,11 +282,6 @@ if not exist "%PACKAGE_DIR%\plugin_manager.exe" (
     popd
     exit /b 1
 )
-if not exist "%PACKAGE_DIR%\internal\plugins\services\history.py" (
-    echo Shared history service protocol missing from merged package.
-    popd
-    exit /b 1
-)
 if not exist "%PACKAGE_DIR%\media\cat.ico" (
     echo Main program icon missing from merged package: media\cat.ico
     popd

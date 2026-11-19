@@ -1,7 +1,7 @@
 # 不含 QML 的发布包
 
 内置统计插件已移除，发布包不再支持依赖 QML、Qt Quick、Qt Charts 的插件。
-历史记录插件、历史数据库与 `HistoryService` 保留。
+历史数据库仍位于用户数据目录。`HistoryService` 随独立历史记录插件安装。
 
 ## 收集配置
 

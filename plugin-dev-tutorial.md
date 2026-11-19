@@ -66,8 +66,7 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 │   ├── my_complex/             # 或包形式插件
 │   │   ├── __init__.py
 │   │   └── utils.py
-│   └── services/               # 👈 服务接口定义
-│       └── history.py          # HistoryService 接口
+│   └── services/               # 内置插件的共享服务接口
 ├── plugin_sdk/                 # 插件开发 SDK
 │   ├── plugin_base.py          # 👈 BasePlugin 基类
 │   ├── service_registry.py     # 服务注册表
@@ -1289,7 +1288,9 @@ def on_initialized(self):
 
 #### 1. 定义服务接口
 
-在 `plugins/services/` 目录下创建接口定义文件：
+第三方插件应把服务定义随提供者的包一起安装和更新。历史记录插件把定义放在自己的 `service.py`，包加载后会保留 `plugins.services.history` 导入路径，现有消费者可在 `on_initialized()` 中延迟导入。
+
+以下示例使用内置插件的共享接口目录 `plugins/services/`：
 
 ```python
 # plugins/services/my_service.py
