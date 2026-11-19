@@ -107,8 +107,7 @@ mypy src
 - 插件模板与参考文档在 `.github/skills/plugin-dev/`，按需读取 `SKILL.md` 中的相对链接
 
 ## 提交与推送门禁
-- 提交或推送前必须先运行测试；本次改动涉及的测试必须全部通过。其他测试可运行时，必须运行完整套件并要求全部通过。
-- 测试失败时禁止提交或推送；修复后重新运行相关测试，最终以完整套件结果为准。
-- 仓库钩子位于 `.githooks/pre-commit` 和 `.githooks/pre-push`，均执行完整 `pytest tests/`。克隆后执行 `git config core.hooksPath .githooks` 启用。
+- 提交时不自动运行测试；推送前必须确认测试通过。
+- 仓库仅保留 `.githooks/pre-push`，推送时执行完整 `pytest tests/` 并在失败时阻止推送。克隆后执行 `git config core.hooksPath .githooks` 启用。
 - 优先使用仓库 `.venv` 的 Python，Qt 测试使用 `QT_QPA_PLATFORM=offscreen`。
 - CI 在 push 和 pull request 上运行完整测试套件。
