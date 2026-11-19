@@ -110,6 +110,7 @@ def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
             self._menu_settings = QMenu(self)
             self._menu_tools = QMenu(self)
             self._menu_help = QMenu(self)
+            self._act_plugin_market = QAction(self)
             self._act_download_plugin = QAction(self)
             self._act_basic_settings = QAction(self)
             self._act_plugin_environment = QAction(self)
@@ -126,6 +127,9 @@ def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
             self._state_mgr = SimpleNamespace(save=lambda: None)
             # 真实 __init__ 中的同一守卫：托盘不可用时提前置空
             self._tray_icon = None
+
+        def closeEvent(self, event):
+            QMainWindow.closeEvent(self, event)
 
     shell = _Shell()
     qtbot.addWidget(shell)
