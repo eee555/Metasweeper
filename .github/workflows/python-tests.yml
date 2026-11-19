@@ -34,7 +34,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements.txt "pyinstaller>=6.19.0"
 
       # .qm 由 .gitignore 排除，测试需要运行时翻译目录，因此在此重新生成。
       - name: Compile translation catalogs
