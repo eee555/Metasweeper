@@ -18,12 +18,6 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-def test_skin_manager_declares_startup_window_hidden(app):
-    from plugins.skin_manager.plugin import SkinManagerPlugin
-
-    assert SkinManagerPlugin.plugin_info().show_window is False
-
-
 def test_untouched_plugins_keep_sdk_default():
     """未声明 show_window 的插件沿用 SDK 默认值，通用层不做定制。"""
     assert PluginInfo(name="x").show_window is True

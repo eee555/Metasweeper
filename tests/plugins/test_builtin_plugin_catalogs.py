@@ -16,7 +16,6 @@ LOCALES = ("en_US", "de_DE", "ja_JP", "pl_PL")
 PLUGINS = {
     "challenge_mode": "ChallengeMode",
     "SaoleiWebsite": "SaoleiWebsite",
-    "skin_manager": "SkinManagerPlugin",
     "XianNiUpgrade": "XianNiUpgrade",
 }
 
@@ -81,22 +80,17 @@ def test_open_plugin_views_refresh_on_language_change(qapp, qtbot):
 
         def translate(self, context, source, disambiguation=None, n=-1):
             return {
-                ("SkinManagerPlugin", "皮肤管理"): "Skin manager",
                 ("XianNiUpgrade", "修行日志"): "Cultivation log",
             }.get((context, source))
 
-    from plugins.skin_manager.widgets import SkinManagerWidget
     from plugins.XianNiUpgrade.widgets import XianNiUpgradeUI
 
-    skin = SkinManagerWidget()
     xianni = XianNiUpgradeUI()
-    for widget in (skin, xianni):
-        qtbot.addWidget(widget)
-        widget.show()
+    qtbot.addWidget(xianni)
+    xianni.show()
     translator = Translator()
     assert QCoreApplication.installTranslator(translator)
     try:
-        qtbot.waitUntil(lambda: skin.findChildren(type(skin._status))[0].text() == "Skin manager")
         qtbot.waitUntil(lambda: xianni._log_group.title() == "Cultivation log")
     finally:
         QCoreApplication.removeTranslator(translator)

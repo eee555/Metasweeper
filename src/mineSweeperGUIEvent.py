@@ -20,7 +20,7 @@ from shared_types.sounds import SoundEvent, SOUND_PRIORITY
 
 # 局面中的鼠标和滚轮事件
 
-# 问号格子编码（与 skin_manager.skins.CELL_FILES 里的 17 一致）；
+# 问号格子编码（与皮肤资源协议中的 cellquestion 资源编码 17 一致）；
 # config.constants 未登记，因为本项目默认禁用问号。
 _CELL_QUESTION = 17
 

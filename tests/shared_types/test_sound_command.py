@@ -14,7 +14,7 @@ from shared_types.commands import (  # noqa: E402
     COMMAND_TYPES, SOUND_EVENT_NAMES, SetSkinCommand, SetSoundCommand,
 )
 from utils.sound_manager import SoundManager  # noqa: E402
-from shared_types.sounds import SoundEvent  # noqa: E402
+from shared_types.sounds import SOUND_FILES, SoundEvent  # noqa: E402
 from app import sound_applier  # noqa: E402
 from app.sound_applier import capture_startup_settings, handle_set_sound  # noqa: E402
 
@@ -67,16 +67,16 @@ def test_command_roundtrip():
             back.request_id) == (True, 42, "soft", "win", "r1")
 
 
-def test_handler_applies_settings():
-    """音效包由插件侧通过 pack + extra_dir 一起指定，主程序据此 resolve。"""
-    from plugins.skin_manager.sound import (
-        imported_sound_dir, seed_builtin_sound_packs,
-    )
-    seed_builtin_sound_packs()
+def test_handler_applies_settings(tmp_path):
+    """主程序 handler 应用插件提供的 extra_dir 音效资源。"""
+    pack_dir = tmp_path / "soft"
+    pack_dir.mkdir()
+    for filename in SOUND_FILES.values():
+        (pack_dir / filename).write_bytes(b"test wav")
     ui = _ui()
     resp = handle_set_sound(ui, SetSoundCommand(
         enabled=True, volume=42, pack="soft",
-        extra_dir=str(imported_sound_dir()), request_id="r1"))
+        extra_dir=str(tmp_path), request_id="r1"))
     mgr = SoundManager.instance()
     assert resp.success and resp.error is None
     assert resp.request_id == "r1"
@@ -148,75 +148,6 @@ def test_handler_preview_does_not_change_pack():
     assert resp.success
 
 
-def test_plugin_sound_module_builds_command():
-    from plugins.skin_manager.sound import (
-        build_sound_command, discover_sound_choices,
-    )
-    cmd = build_sound_command(enabled=True, volume=55, pack="",
-                              play_event="win")
-    assert isinstance(cmd, SetSoundCommand)
-    assert (cmd.enabled, cmd.volume, cmd.play_event) == (True, 55, "win")
-    with pytest.raises(ValueError):
-        build_sound_command(volume=999)
-    with pytest.raises(ValueError):
-        build_sound_command(play_event="nope")
-    with pytest.raises(ValueError):
-        build_sound_command(pack="../..")
-
-    choices = discover_sound_choices()
-    assert choices[0][0] == ""
-
-
-def test_plugin_config_fields_are_independent():
-    from plugins.skin_manager.config import SkinManagerConfig
-    sound_fields = [n for n in dir(SkinManagerConfig) if n.startswith("sound_")]
-    assert set(sound_fields) == {
-        "sound_enabled", "sound_volume", "sound_pack", "sound_zip",
-    }
-    assert "skin" in dir(SkinManagerConfig)
-    assert "skin_zip" in dir(SkinManagerConfig)
-    assert len(SkinManagerConfig.skin.choices) > 1
-
-
-def test_zip_import_fields_target_plugin_data_dir():
-    from plugins.skin_manager.config import SkinManagerConfig
-    assert SkinManagerConfig.skin_zip.widget_type == "zip_import"
-    assert SkinManagerConfig.skin_zip.target_subdir == "skins"
-    assert SkinManagerConfig.sound_zip.target_subdir == "sounds"
-
-
-def test_build_sound_command_points_to_imported_dir():
-    from plugins.skin_manager.sound import (
-        build_sound_command, imported_sound_dir,
-    )
-    cmd = build_sound_command(enabled=True)
-    assert cmd.extra_dir == str(imported_sound_dir())
-
-
-def test_builtin_pack_is_seeded_and_selectable():
-    """音效包选择完全在插件侧：内置示例包播种后可在下拉框选到。"""
-    import shutil
-    from plugins.skin_manager.sound import (
-        BUILTIN_SOUND_DIR, discover_sound_choices, imported_sound_dir,
-        seed_builtin_sound_packs,
-    )
-    root = imported_sound_dir()
-    builtin_names = [p.name for p in BUILTIN_SOUND_DIR.iterdir()
-                     if p.is_dir() and not p.name.startswith("_")]
-    assert "soft" in builtin_names                 # 示例包随插件分发
-    # 删掉再播种，验证「只补缺失、不覆盖」不会破坏已有数据
-    shutil.rmtree(root / "soft", ignore_errors=True)
-    seed_builtin_sound_packs()
-    assert (root / "soft" / "open.wav").is_file()
-    assert any(v == "soft" for v, _ in discover_sound_choices())
-    # 再播种一次：用户已导入/修改的同名包不被覆盖
-    marker = root / "soft" / "user_marker.txt"
-    marker.write_text("keep", encoding="utf-8")
-    seed_builtin_sound_packs()
-    assert marker.is_file()
-    marker.unlink()
-
-
 def test_main_program_has_no_pack_setting():
     """主程序设置页不再有音效包/额外库入口与 ini 键。"""
     from dialogs import gameSettings
@@ -228,70 +159,25 @@ def test_main_program_has_no_pack_setting():
     assert "sound_extra_dir" not in src
 
 
-def test_import_zip_end_to_end(tmp_path):
-    import json
-    import shutil
-    import zipfile
-    from plugins.skin_manager.zip_import import (
-        import_zip, imported_dir, ZipImportError,
-    )
-    from plugins.skin_manager.config import discover_choices
-    from plugins.skin_manager.sound import discover_sound_choices
+def test_set_skin_command_reaches_host_handler(monkeypatch):
+    """迁出插件后，主进程仍注册并处理 SetSkinCommand。"""
+    from lib_zmq_plugins.shared.base import CommandResponse
+    from app import plugin_commands
 
-    zp = tmp_path / "pack.zip"
-    with zipfile.ZipFile(zp, "w") as z:
-        z.writestr("my_pack/sound.json",
-                   json.dumps({"name": "测试包"}, ensure_ascii=False))
-        z.writestr("my_pack/open.wav", b"FAKE")
+    captured = {}
 
-    root = imported_dir("sounds")
-    shutil.rmtree(root / "my_pack", ignore_errors=True)
-    result = import_zip(zp, root)
-    try:
-        assert result.pack_name == "my_pack"
-        assert (root / "my_pack" / "open.wav").is_file()
-        assert any(v == "my_pack" for v, _ in discover_sound_choices())
-        assert any(v == "" for v, _ in discover_choices())
-    finally:
-        shutil.rmtree(root / "my_pack", ignore_errors=True)
+    class _Bridge:
+        def register_handler(self, cmd_type, handler):
+            captured[cmd_type] = handler
 
-    bad = tmp_path / "evil.zip"
-    with zipfile.ZipFile(bad, "w") as z:
-        z.writestr("../evil.wav", b"x")
-    with pytest.raises(ZipImportError):
-        import_zip(bad, root)
-
-
-def test_import_zip_handles_nested_root_and_rejects_empty(tmp_path):
-    """顶层多一个 README / 资源在子目录时也能定位到资源根。"""
-    import json
-    import shutil
-    import zipfile
-    from plugins.skin_manager.zip_import import import_zip, ZipImportError
-
-    zp = tmp_path / "nested.zip"
-    with zipfile.ZipFile(zp, "w") as z:
-        z.writestr("outer/images/open.wav", b"FAKE")
-        z.writestr("outer/sound.json",
-                   json.dumps({"name": "嵌套包"}, ensure_ascii=False))
-
-    root = tmp_path / "imported"
-    shutil.rmtree(root / "outer", ignore_errors=True)
-    result = import_zip(zp, root)
-    try:
-        # 资源根定位到 outer/images/，但 meta 在 outer/ 下，显示名仍应读到
-        assert result.pack_name == "outer"
-        assert (root / "outer" / "open.wav").is_file() or (
-            root / "outer" / "images" / "open.wav").is_file()
-        assert result.display == "嵌套包"
-    finally:
-        shutil.rmtree(root / "outer", ignore_errors=True)
-
-    empty = tmp_path / "empty.zip"
-    with zipfile.ZipFile(empty, "w") as z:
-        z.writestr("readme.txt", "x")
-    with pytest.raises(ZipImportError):
-        import_zip(empty, root)
+    monkeypatch.setattr(plugin_commands, "_is_non_cheat_authorized", lambda _tag: True)
+    monkeypatch.setattr(
+        plugin_commands, "handle_set_skin",
+        lambda _ui, cmd: CommandResponse(request_id=cmd.request_id, success=True))
+    plugin_commands.register_plugin_commands(_Bridge(), object())
+    response = captured[SetSkinCommand](SetSkinCommand(request_id="skin-host"))
+    assert response.success
+    assert response.request_id == "skin-host"
 
 
 def test_end_to_end_command_to_handler():
@@ -320,107 +206,3 @@ def test_end_to_end_command_to_handler():
     assert resp.success
     assert SoundManager.instance().current_volume() == 29
     assert SoundManager.instance().current_pack() == "soft"
-
-
-def test_plugin_declares_both_controls():
-    from plugins.skin_manager.plugin import SkinManagerPlugin
-    required = SkinManagerPlugin.plugin_info().required_controls
-    assert SetSkinCommand in required and SetSoundCommand in required
-
-
-@pytest.mark.parametrize(
-    ("skin", "skin_results", "sound_results", "expected"),
-    [
-        ("", [], [False, True], ["sound", "sound"]),
-        ("classic", [True], [False, True], ["skin", "sound", "sound"]),
-        ("classic", [True], ["rejected", True], ["skin", "sound", "sound"]),
-        ("classic", [False, True], [True], ["skin", "sound", "skin"]),
-        ("classic", [True], [True], ["skin", "sound"]),
-        ("classic", [False, False], [False, False],
-         ["skin", "sound", "skin", "sound"]),
-    ],
-)
-def test_plugin_startup_retries_each_failed_command(
-        monkeypatch, skin, skin_results, sound_results, expected):
-    """无皮肤、单项失败及双项失败都按各自请求结果最多重试一次。"""
-    from types import MethodType, SimpleNamespace
-    from PySide6.QtCore import QTimer
-    from plugins.skin_manager import plugin as skin_plugin
-
-    class Signal:
-        def disconnect(self, _slot):
-            pass
-
-        def connect(self, _slot, _connection):
-            pass
-
-    calls = []
-    results = {"skin": iter(skin_results), "sound": iter(sound_results)}
-
-    def request(cmd, timeout):
-        kind = "skin" if isinstance(cmd, SetSkinCommand) else "sound"
-        calls.append(kind)
-        result = next(results[kind])
-        if result == "rejected":
-            return SimpleNamespace(success=False, error="not authorized")
-        return SimpleNamespace(success=True) if result else None
-
-    instance = SimpleNamespace(
-        other_info=SimpleNamespace(auto_apply=True, skin=skin,
-                                   sound_enabled=True, sound_volume=55,
-                                   sound_pack=""),
-        config_changed=Signal(), _on_config_changed=lambda *_: None,
-        _refresh_choices=lambda: None, _refresh_sound_choices=lambda: None,
-        _roots=lambda: [], _notify=lambda _text: None, request=request,
-        logger=SimpleNamespace(info=lambda *_: None, warning=lambda *_: None),
-        # 模拟停用后重启时残留上一次成功的缓存。
-        _applied=skin or None, _sound_applied=(True, 55, "", "old"),
-    )
-    instance._apply = MethodType(skin_plugin.SkinManagerPlugin._apply, instance)
-    instance._apply_sound = MethodType(
-        skin_plugin.SkinManagerPlugin._apply_sound, instance)
-    scheduled = []
-    monkeypatch.setattr(QTimer, "singleShot", lambda delay, callback:
-                        scheduled.append((delay, callback)))
-    monkeypatch.setattr(skin_plugin, "seed_builtin_sound_packs", lambda: None)
-    monkeypatch.setattr(skin_plugin, "build_command", lambda *_: SetSkinCommand())
-
-    skin_plugin.SkinManagerPlugin.on_initialized(instance)
-    delays = []
-    while scheduled:
-        delay, callback = scheduled.pop(0)
-        delays.append(delay)
-        callback()
-    assert calls == expected
-    assert delays == ([1500, 2000] if len(expected) > 2 or not skin
-                      else [1500])
-
-
-def test_safe_disconnect_is_silent_when_not_connected():
-    """回归：PySide6 的 disconnect 未连接时发 RuntimeWarning 而非抛异常，
-    插件初始化不应再刷 'libpyside: Failed to disconnect' 告警。"""
-    import warnings
-    from PySide6.QtCore import QObject, Signal
-    from plugins.skin_manager.plugin import _safe_disconnect
-
-    class _Emitter(QObject):
-        sig = Signal(str)
-
-    emitter = _Emitter()
-
-    def slot(_x):
-        pass
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        _safe_disconnect(emitter.sig, slot)
-        assert not [w for w in caught
-                    if "Failed to disconnect" in str(w.message)]
-
-    # 已连接时应真正断开，且同样无告警
-    emitter.sig.connect(slot)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        _safe_disconnect(emitter.sig, slot)
-        assert not [w for w in caught
-                    if "Failed to disconnect" in str(w.message)]

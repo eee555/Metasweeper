@@ -12,7 +12,6 @@ LOCALES = ('en_US', 'de_DE', 'ja_JP', 'pl_PL')
 CONTEXTS = {
     'challenge_mode': 'ChallengeMode',
     'SaoleiWebsite': 'SaoleiWebsite',
-    'skin_manager': 'SkinManagerPlugin',
     'XianNiUpgrade': 'XianNiUpgrade',
 }
 

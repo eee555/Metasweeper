@@ -5,8 +5,8 @@
 默认 `False`），音量由 `DEFAULT/sound_volume` 控制。
 
 > **音效包的选择不在主程序这里**。所有可选音效包（含示例包 `soft`）都由
-> 「皮肤与音效」插件负责发现、选择与导入，位于
-> `src/plugins/skin_manager/sounds/`，运行时播种到
+> 第三方「皮肤与音效」插件负责发现、选择与导入，位于
+> 第三方插件 `metasweeper-skin-sound` 的 `skin_manager/sounds/`，运行时播种到
 > `data/plugin_data/SkinManagerPlugin/sounds/`。插件通过
 > `SetSoundCommand(pack=..., extra_dir=...)` 让主进程加载；主程序只在本目录
 > 的 wav 缺失某个 cue 时回退到这里。
