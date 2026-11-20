@@ -64,8 +64,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="227"/>
-        <source>对指定格子模拟左 / 中 / 右键点击</source>
-        <translation>Simulate left / middle / right click on a given cell</translation>
+        <source>对指定格子或坐标列表模拟左 / 中 / 右键点击</source>
+        <translation>Simulate left / middle / right clicks on a cell or coordinate list</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="229"/>

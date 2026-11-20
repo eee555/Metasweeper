@@ -433,7 +433,7 @@ result = self.request(some_query_command, timeout=5.0)
 | 指令类 | 说明 | 参数 |
 |--------|------|------|
 | `NewGameCommand` | 开始新游戏 | `rows`, `cols`, `mines` |
-| `MouseClickCommand` | 模拟鼠标点击 | `row`, `col`, `button`, `modifiers` |
+| `MouseClickCommand` | 模拟鼠标点击；传入 `cells` 时按顺序批量点击 | `row`, `col`, `button`, `modifiers`, 可选 `cells=[(row, col), ...]` |
 
 ### 5.4 控制授权系统（重要！）
 

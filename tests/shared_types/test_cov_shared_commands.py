@@ -132,6 +132,8 @@ def test_command_defaults_roundtrip_via_msgspec(app):
         (NewPresetGameCommand(board=[[0, 1], [1, -1]]),
          {"board": [[0, 1], [1, -1]], "mode": 0}),
         (MouseClickCommand(), {"row": 0, "col": 0, "button": 0, "modifiers": 0}),
+        (MouseClickCommand(cells=[(1, 2), (3, 4)]),
+         {"cells": [(1, 2), (3, 4)]}),
         (InitOpenCommand(), {"row": 0, "col": 0}),
         (SetSkinCommand(), {"reset": False, "frame_svg": None}),
         (SetSoundCommand(), {"enabled": None, "volume": None, "reset": False}),
@@ -142,6 +144,24 @@ def test_command_defaults_roundtrip_via_msgspec(app):
         restored = msgspec.msgpack.decode(blob, type=type(cmd))
         for name, value in fields.items():
             assert getattr(restored, name) == value
+
+
+def test_mouse_click_legacy_payload_defaults_batch_cells_to_none():
+    """Old clients omit cells and keep using the original row/col fields."""
+    import msgspec
+
+    legacy_payload = msgspec.msgpack.encode({
+        "type": "mouse_click", "request_id": "legacy",
+        "row": 2, "col": 3, "button": 0, "modifiers": 0,
+    })
+    restored = msgspec.msgpack.decode(legacy_payload, type=MouseClickCommand)
+
+    assert (restored.row, restored.col, restored.button) == (2, 3, 0)
+    assert restored.cells is None
+    batch = MouseClickCommand(cells=[(4, 5), (6, 7)])
+    assert (batch.row, batch.col) == (4, 5)
+    assert (MouseClickCommand(cells=[]).row,
+            MouseClickCommand(cells=[]).col) == (-1, -1)
 
 
 def test_set_skin_and_set_sound_dict_defaults_are_independent(app):

@@ -6,7 +6,7 @@
 ; 程序名称
 #define MyAppName "Metasweeper"
 ; 程序版本
-#define MyAppVersion "3.3.4"
+#define MyAppVersion "3.3.5"
 ; 发行商
 #define MyAppPublisher "eee555"
 ; 官网

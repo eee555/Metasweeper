@@ -64,8 +64,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="227"/>
-        <source>对指定格子模拟左 / 中 / 右键点击</source>
-        <translation>Symuluj kliknięcie lewym / środkowym / prawym przyciskiem na podanym polu</translation>
+        <source>对指定格子或坐标列表模拟左 / 中 / 右键点击</source>
+        <translation>Symuluj kliknięcia lewym / środkowym / prawym przyciskiem na polu lub liście współrzędnych</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="229"/>

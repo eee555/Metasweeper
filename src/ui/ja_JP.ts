@@ -64,8 +64,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="227"/>
-        <source>对指定格子模拟左 / 中 / 右键点击</source>
-        <translation>指定したマスに左／中／右クリックをシミュレートします</translation>
+        <source>对指定格子或坐标列表模拟左 / 中 / 右键点击</source>
+        <translation>指定したマスまたは座標一覧に左／中／右クリックをシミュレートします</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="229"/>

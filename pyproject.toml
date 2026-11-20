@@ -1,6 +1,6 @@
 [project]
 name = "Metasweeper"
-version = "3.3.4"
+version = "3.3.5"
 description = "Metasweeper - 元扫雷"
 requires-python = ">=3.11"
 

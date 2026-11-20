@@ -89,3 +89,42 @@ def test_plugin_commands_deny_controls_before_touching_game(monkeypatch):
                         lambda tag: True)
     assert handlers[NewGameCommand](command).success
     assert len(touched) == 1
+
+
+def test_mouse_click_command_supports_compatible_batch_cells():
+    calls = []
+    handlers = {}
+    bridge = SimpleNamespace(register_handler=handlers.__setitem__)
+    ui = SimpleNamespace(
+        _allowed_controls={"mouse_click"},
+        row=10,
+        column=10,
+        execute_cell_click=lambda row, col, button: calls.append(
+            (row, col, button)) or True,
+    )
+    plugin_commands.register_plugin_commands(bridge, ui)
+
+    response = handlers[MouseClickCommand](MouseClickCommand(
+        request_id="batch", cells=[(1, 2), (3, 4)]))
+
+    assert response.success is True
+    assert calls == [(1, 2, 0), (3, 4, 0)]
+
+
+def test_mouse_click_command_rejects_empty_or_malformed_batch_without_touching_game():
+    calls = []
+    handlers = {}
+    bridge = SimpleNamespace(register_handler=handlers.__setitem__)
+    ui = SimpleNamespace(
+        _allowed_controls={"mouse_click"},
+        row=10,
+        column=10,
+        execute_cell_click=lambda *args: calls.append(args) or True,
+    )
+    plugin_commands.register_plugin_commands(bridge, ui)
+    handler = handlers[MouseClickCommand]
+
+    for cells in ([], [(1,)], [(1, "2")], [(-1, 2)]):
+        response = handler(MouseClickCommand(cells=cells))
+        assert response.success is False
+    assert calls == []

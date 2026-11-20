@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import msgspec
 
@@ -68,11 +68,24 @@ class MouseClickCommand(BaseCommand, tag="mouse_click"):
             - 1: 中键
             - 2: 右键（标旗）
         modifiers: 键盘修饰符（保留）
+        cells: 可选的批量坐标列表，每项为 (row, col)。提供后按列表顺序执行，
+            并对每个格子使用相同的 button；省略时保持旧版单格行为。
     """
     row: int = 0
     col: int = 0
     button: int = 0
     modifiers: int = 0
+    cells: Optional[List[Tuple[int, int]]] = None
+
+    def __post_init__(self) -> None:
+        # Older hosts ignore the optional cells field and execute row/col.
+        # Mirror the first requested coordinate so that fallback remains
+        # intentional; an empty batch maps to an invalid coordinate/no-op.
+        if self.cells is not None:
+            if self.cells and len(self.cells[0]) == 2:
+                self.row, self.col = self.cells[0]
+            else:
+                self.row = self.col = -1
 
 
 class InitOpenCommand(BaseCommand, tag="init_open"):
@@ -191,7 +204,7 @@ COMMAND_LABELS: dict[str, str] = {
 COMMAND_HINTS: dict[str, str] = {
     "new_random_game": "插件重开新局（等价于按 F2，不影响成绩）",
     "new_preset_game": "按指定棋盘开局（模式为 UPK，可含官方记录）",
-    "mouse_click": "对指定格子模拟左 / 中 / 右键点击",
+    "mouse_click": "对指定格子或坐标列表模拟左 / 中 / 右键点击",
     "init_open": "预设局面初始化时翻开指定格子",
     "set_skin": "热替换主窗口图片皮肤（纯内存、不重启、独立授权）",
     "set_sound": "热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）",
@@ -225,7 +238,7 @@ def _i18n_command_strings() -> None:
     _translate("Commands",
                "按指定棋盘开局（模式为 UPK，可含官方记录）")
     _translate("Commands",
-               "对指定格子模拟左 / 中 / 右键点击")
+               "对指定格子或坐标列表模拟左 / 中 / 右键点击")
     _translate("Commands",
                "预设局面初始化时翻开指定格子")
     _translate("Commands",
