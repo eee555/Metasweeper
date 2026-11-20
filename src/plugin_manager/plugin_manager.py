@@ -403,7 +403,6 @@ class PluginManager:
 
         # 创建主窗口（始终创建以支持托盘图标）
         window = PluginManagerWindow(self)
-        window.setWindowTitle(f"插件管理器 - {self._endpoint}")
         # 与 _drain_zmq_events 的判空/置位在同一把锁内完成，
         # 避免「drainer 看到窗口为空置位 pending」与「此处清空 pending」交错丢失请求。
         with self._events_lock:
@@ -560,7 +559,7 @@ class PluginManager:
                     stopped.connect(self._on_plugin_stopped)
 
     def load_installed_package(self, package: Path, prepare: Callable[[BasePlugin], None]) -> str:
-        """Load one newly published market package on the Qt application thread."""
+        """Load one newly installed package on the Qt application thread."""
         if not self._started or self._shutdown_requested:
             return "restart"
         if (dependency_environment_requires_restart()

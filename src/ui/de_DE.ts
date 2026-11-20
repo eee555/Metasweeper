@@ -216,14 +216,6 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
     </message>
 </context>
 <context>
-    <name>DetachedPluginWindow</name>
-    <message>
-        <location filename="../plugin_manager/main_window.py" line="134"/>
-        <source>关闭此窗口将释放插件界面</source>
-        <translation>Beim Schließen wird die Plugin-Oberfläche freigegeben</translation>
-    </message>
-</context>
-<context>
     <name>Dialog</name>
     <message>
         <location filename="../shared_types/widgets/confirm_dialog.py" line="56"/>
@@ -1576,6 +1568,9 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
 </context>
 <context>
     <name>PluginDownloadDialog</name>
+    <message><source>不能读取 ZIP 文件，压缩包可能已损坏。</source><translation>Die ZIP-Datei konnte nicht gelesen werden. Das Archiv ist möglicherweise beschädigt.</translation></message>
+    <message><source>ZIP 必须包含一个带有 __init__.py 的插件包。</source><translation>Die ZIP-Datei muss genau ein Plugin-Paket mit einer Datei __init__.py enthalten.</translation></message>
+    <message><source>无法从 ZIP 中确定有效的插件目录名。</source><translation>Aus der ZIP-Datei konnte kein gültiger Plugin-Ordnername ermittelt werden.</translation></message>
     <message><source>仅支持读取 GitHub 和 Gitee 仓库的 README。</source><translation>README-Dateien können aus GitHub- und Gitee-Repositories geladen werden.</translation></message>
     <message><source>托管平台返回了意外的 README 响应。</source><translation>Der Hostingdienst hat eine unerwartete README-Antwort gesendet.</translation></message>
     <message><source>README 文件超过 1 MiB 或响应超过大小限制。</source><translation>Die README-Datei ist größer als 1 MiB oder die Antwort überschreitet das Größenlimit.</translation></message>
@@ -1861,6 +1856,58 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
 </context>
 <context>
     <name>PluginManagerWindow</name>
+    <message><source>关于</source><translation>Über</translation></message>
+    <message><source>关于插件管理器</source><translation>Über den Plugin-Manager</translation></message>
+    <message><source>版本 {version}</source><translation>Version {version}</translation></message>
+    <message><source>从 ZIP 导入插件…</source><translation>Plugin aus ZIP importieren…</translation></message>
+    <message><source>ZIP 压缩包 (*.zip)</source><translation>ZIP-Archive (*.zip)</translation></message>
+    <message><source>重启插件管理器</source><translation>Plugin-Manager neu starten</translation></message>
+    <message><source>导入完成，插件已加入列表。</source><translation>Der Import ist abgeschlossen. Das Plugin wurde der Liste hinzugefügt.</translation></message>
+    <message><source>导入完成，重启插件管理器后生效。</source><translation>Der Import ist abgeschlossen. Starten Sie den Plugin-Manager neu, um das Plugin zu laden.</translation></message>
+    <message><source>插件已安装，但加载失败。请查看插件列表中的详情或日志。</source><translation>Das Plugin wurde installiert, konnte aber nicht geladen werden. Prüfen Sie die Details oder Protokolle.</translation></message>
+    <message><source>插件市场</source><translation>Plugin-Marktplatz</translation></message>
+    <message><source>打开插件市场</source><translation>Plugin-Marktplatz öffnen</translation></message>
+    <message><source>暂无插件</source><translation>Noch keine Plugins</translation></message>
+    <message><source>从插件市场查找并安装插件。</source><translation>Plugins auf dem Marktplatz suchen und installieren.</translation></message>
+    <message><source>未打开插件窗口</source><translation>Keine Plugin-Fenster geöffnet</translation></message>
+    <message><source>双击左侧的就绪插件，或选中后按 Enter。</source><translation>Doppelklicken Sie in der Liste auf ein bereites Plugin oder wählen Sie es aus und drücken Sie die Eingabetaste.</translation></message>
+    <message><source>查看详情</source><translation>Details anzeigen</translation></message>
+    <message>
+        <source>未启动</source>
+        <translation>Nicht gestartet</translation>
+    </message>
+    <message>
+        <source>初始化中</source>
+        <translation>Wird initialisiert</translation>
+    </message>
+    <message>
+        <source>停止中</source>
+        <translation>Wird beendet</translation>
+    </message>
+    <message>
+        <source>已就绪</source>
+        <translation>Bereit</translation>
+    </message>
+    <message>
+        <source>已停止</source>
+        <translation>Beendet</translation>
+    </message>
+    <message>
+        <source>缺少依赖</source>
+        <translation>Fehlende Abhängigkeiten</translation>
+    </message>
+    <message>
+        <source>依赖版本冲突</source>
+        <translation>Abhängigkeitskonflikt</translation>
+    </message>
+    <message>
+        <source>依赖待检查</source>
+        <translation>Abhängigkeiten ungeprüft</translation>
+    </message>
+    <message>
+        <source>初始化失败</source>
+        <translation>Initialisierung fehlgeschlagen</translation>
+    </message>
     <message><source>自动更新插件</source><translation>Plugins automatisch aktualisieren</translation></message>
     <message><source>重启</source><translation>Neu starten</translation></message>
     <message><source>已自动更新 {count} 个插件。重启插件管理器后生效。</source><translation>Automatisch aktualisierte Plugins: {count}. Starten Sie den Plugin-Manager neu, um die Updates zu übernehmen.</translation></message>

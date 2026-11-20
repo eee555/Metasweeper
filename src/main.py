@@ -23,7 +23,7 @@ from typing import cast
 from utils.app_logger import logger
 from app.startup_platform import on_new_connection, configure_capture_guard
 from app.cli_check import cli_check_file
-from app.plugin_process import start_plugin_process, cleanup_plugin_process, install_restart_action
+from app.plugin_process import start_plugin_process, cleanup_plugin_process
 from app.plugin_commands import register_plugin_commands
 from app.plugin_queries import register_plugin_queries
 
@@ -146,10 +146,6 @@ if __name__ == "__main__":
 
         plugin_process = start_plugin_process(ui, mainWindow, plugins_disabled)
 
-        ui._plugin_process = plugin_process  # 保存引用，供重启和退出时使用
-
-        install_restart_action(ui, mainWindow, plugins_disabled)
-
         configure_capture_guard(ui)
 
         def _on_about_to_quit():
@@ -160,7 +156,7 @@ if __name__ == "__main__":
                 SoundManager.instance().stop_all()
             except Exception:
                 pass
-            cleanup_plugin_process(ui._plugin_process)
+            cleanup_plugin_process(plugin_process)
 
         app.aboutToQuit.connect(_on_about_to_quit)
         sys.exit(app.exec())

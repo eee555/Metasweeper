@@ -100,17 +100,15 @@ trash_dir "$DIST/Metasweeper"
 trash_dir "$DIST/plugin_manager"
 
 # ── 5. 打包 DMG（文件名带版本号） ───────────────────────
-VERSION=$("$PY" - "$SRC/superGUI.py" <<'PYEOF'
-import re
+VERSION=$("$PY" - "$SRC/config/constants.py" <<'PYEOF'
+import runpy
 import sys
 
-text = open(sys.argv[1], encoding="utf-8").read()
-match = re.search(r'^version\s*=\s*"元([\d.]+)"', text, re.M)
-print(match.group(1) if match else "")
+print(runpy.run_path(sys.argv[1]).get("APP_VERSION", ""))
 PYEOF
 )
 if [ -z "$VERSION" ]; then
-    echo "[mac] 未能从 superGUI.py 解析版本号"
+    echo "[mac] 未能从 config/constants.py 读取版本号"
     exit 1
 fi
 

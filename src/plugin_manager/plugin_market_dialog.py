@@ -18,7 +18,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton,
+    QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
@@ -34,6 +34,7 @@ from .plugin_repositories import PluginRepository, RepositoryTag
 from .plugin_uninstall import is_managed_plugin
 from .plugin_updates import prepare_plugin_dependencies
 from .settings_manager import SettingsManager
+from shared_types.widgets import TaskProgressDialog
 
 STATE_NOT_INSTALLED = "未安装"
 STATE_UPDATE = "可更新"
@@ -106,6 +107,7 @@ class _MarketTask(QThread):
         self.version = version
         self.source = source
         self.error = ""
+        self.cancelled = False
 
     def run(self) -> None:
         try:
@@ -118,7 +120,7 @@ class _MarketTask(QThread):
                 else:
                     self.installed.emit(self._install(downloader, self.target))
         except DownloadCancelled:
-            pass
+            self.cancelled = True
         except Exception as exc:  # noqa: BLE001 - 反馈到界面
             self.error = str(exc)
 
@@ -171,6 +173,7 @@ class _MarketTask(QThread):
         version, tag_name, commit = match
 
         def prepare_dependencies(package):
+            self.progress.emit(0, 0)
             module_name = (row.installed.directory.name if row.installed is not None
                            else row.entry.repository.module_name)
             prepare_plugin_dependencies(package, module_name, self.message.emit)
@@ -304,6 +307,7 @@ class PluginMarketDialog(QDialog):
         self.resize(940, 580)
         self._index_url = index_url
         self._task: _MarketTask | None = None
+        self._task_dialog: TaskProgressDialog | None = None
         self._rows: list[MarketRow] = []
         self._closing = False
         self._restart_scan_after_cancel = False
@@ -369,8 +373,6 @@ class PluginMarketDialog(QDialog):
         action_layout.addWidget(self.action)
         action_layout.addWidget(self.uninstall)
 
-        self.progress = QProgressBar()
-        self.progress.hide()
         self.status = QLabel()
         self.status.setWordWrap(True)
         self.status.setTextFormat(Qt.TextFormat.PlainText)
@@ -386,7 +388,6 @@ class PluginMarketDialog(QDialog):
         layout.addLayout(filter_layout)
         layout.addWidget(self.table, 1)
         layout.addLayout(action_layout)
-        layout.addWidget(self.progress)
         layout.addWidget(self.status)
         layout.addWidget(buttons)
 
@@ -439,31 +440,44 @@ class PluginMarketDialog(QDialog):
         self.action.setEnabled(False)
         self.uninstall.setEnabled(False)
         self.update_all.setEnabled(False)
-        self.progress.setRange(0, 0)
-        self.progress.show()
         self._task = _MarketTask(index_url, target, version, self, source=source)
+        if self._task_dialog is None:
+            title = _tr("插件市场") if target is None else self.action.text()
+            self._task_dialog = TaskProgressDialog(
+                title, self.status.text(), self, on_cancel=self._cancel_task)
+            self._task_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        progress = self._task_dialog
+        progress.set_status(self.status.text())
+        progress.append_output(self.status.text() + "\n")
+        progress.set_indeterminate()
+        progress.set_task_running(True)
         self._task.progress.connect(self._show_progress)
         self._task.snapshot.connect(self._show_snapshot)
         self._task.installed.connect(self._show_installed)
         self._task.message.connect(self._show_task_message)
         self._task.finished.connect(self._task_finished)
+        progress.show()
         self._task.start()
 
     def _show_progress(self, received: int, total: int) -> None:
-        if total:
-            self.progress.setRange(0, total)
-            self.progress.setValue(received)
+        if self._task_dialog is not None:
+            if received == total == 0:
+                self._task_dialog.set_indeterminate()
+            else:
+                self._task_dialog.set_progress(received, total)
 
     def _show_snapshot(self, snapshot: MarketSnapshot) -> None:
         self._rows = snapshot.rows
         self._populate()
 
     def _show_task_message(self, message: str) -> None:
-        self.status.setText(message[:500])
+        if self._task_dialog is not None:
+            self._task_dialog.append_output(message.rstrip("\n") + "\n")
 
     def _show_installed(self, path: str) -> None:
         self._installed_paths.append(path)
         self.status.setText(_tr("插件和依赖安装完成。"))
+        self._show_task_message(self.status.text())
         task = self._task
         target = task.target if task is not None else None
         activate = getattr(self.parent(), "activate_installed_package", None)
@@ -514,13 +528,11 @@ class PluginMarketDialog(QDialog):
                 and self._restart_scan_after_cancel and not self._closing):
             self._restart_scan_after_cancel = False
             task.deleteLater()
-            self.progress.hide()
             self.scan_button.setEnabled(True)
             self.source.setEnabled(True)
             self.start_scan()
             return
         self._restart_scan_after_cancel = False
-        self.progress.hide()
         self.scan_button.setEnabled(True)
         self.update_all.setEnabled(True)
         self._update_action_state()
@@ -528,11 +540,14 @@ class PluginMarketDialog(QDialog):
             if task.error:
                 self.status.setText(
                     _tr("操作失败：{error}").format(error=task.error))
+            elif getattr(task, "cancelled", False):
+                self.status.setText(_tr("已取消。"))
             elif task.target is None:
                 self._report_scan()
             task.deleteLater()
         if self._closing:
             self._queue.clear()
+            self._finish_task_dialog()
             super().reject()
             return
         if task is not None and task.error:
@@ -542,10 +557,31 @@ class PluginMarketDialog(QDialog):
             return
         self.source.setEnabled(True)
         if self._installed_paths:
+            self._finish_task_dialog()
             self._refresh_installed_state()
             self._installed_paths.clear()
             self._show_install_complete(task.error if task is not None else "")
             self._activation_results.clear()
+        else:
+            self._finish_task_dialog(task.error if task is not None else "")
+
+    def _finish_task_dialog(self, error: str = "") -> None:
+        progress = self._task_dialog
+        self._task_dialog = None
+        if progress is None:
+            return
+        if error:
+            progress.append_output(error + "\n")
+            progress.set_completed(self.status.text(), success=False)
+        else:
+            progress.set_task_running(False)
+            progress.close()
+
+    def _cancel_task(self) -> None:
+        self._queue.clear()
+        if self._task is not None:
+            self._task.requestInterruption()
+            self.status.setText(_tr("正在取消..."))
 
     def _report_scan(self) -> None:
         total = len(self._rows)
@@ -656,8 +692,11 @@ class PluginMarketDialog(QDialog):
         if self._task is not None or row is None or row.installed is None or not callable(uninstall):
             return
         if uninstall(row.installed.directory, row.entry.name, self):
-            self._refresh_installed_state()
-            self.status.setText(_tr("插件已卸载。请重启插件管理器以刷新运行环境。"))
+            self.show_uninstall_complete()
+
+    def show_uninstall_complete(self) -> None:
+        self._refresh_installed_state()
+        self.status.setText(_tr("插件已卸载。请重启插件管理器以刷新运行环境。"))
 
     # ── 安装 ──────────────────────────────────────────────────
     def _install_selected(self) -> None:
@@ -705,8 +744,7 @@ class PluginMarketDialog(QDialog):
     def reject(self) -> None:
         self._closing = True
         if self._task is not None:
-            self._task.requestInterruption()
-            self.status.setText(_tr("正在取消..."))
+            self._cancel_task()
             self.scan_button.setEnabled(False)
         else:
             super().reject()

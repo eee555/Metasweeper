@@ -11,7 +11,7 @@ import plugin_manager.main_window as mw
 from plugin_manager.plugin_state import PluginState
 from plugin_sdk.plugin_base import PluginLifecycle, WindowMode
 from tests.plugin_manager.test_cov_pm_e_helpers import (  # noqa: F401
-    _offscreen, attach_list_state, make_plugin, shell,
+    _offscreen, attach_list_state, make_plugin, real_window, shell,
 )
 
 
@@ -50,7 +50,6 @@ def _capture_menu(monkeypatch):
             self.executed = pos
 
     monkeypatch.setattr(mw, "QMenu", Menu)
-    monkeypatch.setattr(mw, "set_action_icon", lambda target, name: None)
     return menus
 
 
@@ -63,8 +62,48 @@ def test_refresh_plugin_list_empty(qtbot):
     _install(w, qtbot, {})
     w._refresh_plugin_list()
     assert w._list.count() == 0 and w._tab_widget.count() == 0
-    assert w.tr("已加载 {total} 个插件，{enabled} 个已启用").format(
-        total=0, enabled=0) in w.statusBar().currentMessage()
+    assert w._operation_notice.isHidden()
+
+
+def test_workspace_tracks_open_tabs_and_keyboard_activation(qtbot, monkeypatch, tmp_path):
+    plugins = {name: make_plugin(qtbot, name) for name in ("first", "second")}
+    window = real_window(qtbot, monkeypatch, tmp_path, plugins, tray=False)
+    window._auto_update_timer.stop()
+    window.show()
+    window.activateWindow()
+    plugin_list = window._list
+    tabs = window._tab_widget
+
+    qtbot.mouseClick(plugin_list.viewport(), Qt.MouseButton.LeftButton,
+                    pos=plugin_list.visualItemRect(plugin_list.item(1)).center())
+    assert tabs.tab_key(tabs.currentIndex()) == "second"
+    window._on_tab_closed("first")
+    window._on_tab_closed("second")
+    assert window._workspace.currentWidget() == window._empty_workspace
+    assert window._empty_title.text() == "未打开插件窗口"
+    assert window._empty_market_btn.isHidden()
+
+    plugin_list.setFocus()
+    plugin_list.setCurrentRow(0)
+    qtbot.waitUntil(plugin_list.hasFocus)
+    qtbot.keyClick(plugin_list, Qt.Key.Key_Return)
+    assert tabs.tab_key(tabs.currentIndex()) == "first"
+    assert window._workspace.currentWidget() == tabs
+
+
+def test_selected_failed_plugin_exposes_diagnostics(qtbot, monkeypatch, tmp_path):
+    failed = make_plugin(qtbot, "failed", PluginLifecycle.STOPPED)
+    failed.initialization_error = "initialization error"
+    failed.info.version = "1.2.0-preview.20261120"
+    window = real_window(qtbot, monkeypatch, tmp_path, {"failed": failed}, tray=False)
+    errors = []
+    monkeypatch.setattr(mw.QMessageBox, "warning", lambda *args: errors.append(args[-1]))
+    assert window._plugin_details_btn.isHidden()
+    window._list.setCurrentRow(0)
+    assert not window._plugin_details_btn.isHidden()
+    assert window._list.currentItem().toolTip() == "查看详情"
+    window._plugin_details_btn.click()
+    assert errors == ["initialization error"]
 
 
 def test_refresh_plugin_list_all_lifecycle_variants(qtbot):
@@ -98,7 +137,7 @@ def test_refresh_plugin_list_all_lifecycle_variants(qtbot):
     assert w._tab_widget.count() == 1
     assert w._tab_widget.tabText(0) == "ready"
     assert w._tab_widget.tabIcon(0).cacheKey() == plugins["ready"].plugin_icon.cacheKey()
-    assert "6" in w.statusBar().currentMessage() and "5" in w.statusBar().currentMessage()
+    assert w._operation_notice.isHidden()
 
     w._list.setCurrentRow(2)
     w._refresh_plugin_list()
@@ -149,6 +188,35 @@ def test_context_menu_no_item_or_unknown_plugin(qtbot, monkeypatch):
     assert menus == []
 
 
+def test_row_more_button_opens_existing_plugin_menu(qtbot, monkeypatch, tmp_path):
+    plugin = make_plugin(qtbot, "demo")
+    window = real_window(qtbot, monkeypatch, tmp_path, {"demo": plugin})
+    menus = _capture_menu(monkeypatch)
+    window.show()
+    listing = window._list
+    row = listing.visualItemRect(listing.item(0))
+    button = listing.itemDelegate().menu_rect(row)
+    assert button.bottom() <= row.center().y()
+    clicked = []
+    listing.itemClicked.connect(clicked.append)
+
+    qtbot.mouseClick(listing.viewport(), Qt.MouseButton.LeftButton, pos=button.center())
+    assert len(menus) == 1
+    assert menus[0].executed == listing.viewport().mapToGlobal(button.bottomLeft())
+    assert menus[0].items[0].text() == window.tr("打开窗口")
+    assert clicked == []
+
+    qtbot.mousePress(listing.viewport(), Qt.MouseButton.LeftButton, pos=button.center())
+    qtbot.mouseRelease(listing.viewport(), Qt.MouseButton.LeftButton, pos=row.center())
+    assert len(menus) == 1
+    assert clicked == []
+
+    version_area = QPoint(button.center().x(), row.bottom() - 10)
+    qtbot.mouseClick(listing.viewport(), Qt.MouseButton.LeftButton, pos=version_area)
+    assert len(menus) == 1
+    assert clicked == [listing.item(0)]
+
+
 def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
     w = shell(qtbot)
     required = [object]
@@ -165,20 +233,22 @@ def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
     w._on_list_context_menu(QPoint(2, 3))
     menu = menus[0]
     assert menu.executed == w._list.viewport().mapToGlobal(QPoint(2, 3))
+    assert [entry if entry == "sep" else entry.text() for entry in menu.items] == [
+        "打开窗口", "关闭窗口", "设置...", "sep",
+        "启用", "禁用", "sep",
+        "插件详情", "查看 README", "打开日志", "sep",
+        "一键授权控制权限",
+    ]
     acts = _actions(menu)
-    assert len(acts) == 9
-    assert acts[0].isEnabled() is False and acts[1].isEnabled() is True
-    assert acts[2].isEnabled() is True   # open window (widget exists)
-    assert acts[3].isEnabled() is False  # close window
-    assert "一键授权控制权限" in acts[8].text()
+    assert acts[0].isEnabled() is True and acts[1].isEnabled() is False
+    assert acts[3].isEnabled() is False and acts[4].isEnabled() is True
 
     calls = []
-    handlers = {
-        0: ("toggle", "demo", True), 1: ("toggle", "demo", False),
-        2: ("open", "demo"), 3: ("close", "demo"),
-        4: ("info", "demo"), 5: ("readme", "demo"), 6: ("log", "demo"),
-        7: ("settings", "demo"), 8: ("auth", "demo"),
-    }
+    handlers = [
+        ("open", "demo"), ("close", "demo"), ("settings", "demo"),
+        ("toggle", "demo", True), ("toggle", "demo", False),
+        ("info", "demo"), ("readme", "demo"), ("log", "demo"), ("auth", "demo"),
+    ]
     monkeypatch.setattr(w, "_toggle_plugin",
                         lambda name, enabled: calls.append(("toggle", name, enabled)))
     monkeypatch.setattr(w, "_open_plugin_info",
@@ -216,8 +286,8 @@ def test_context_menu_disabled_and_closed_and_ready_tab(qtbot, monkeypatch):
     w._on_list_context_menu(QPoint(0, 0))
     acts = _actions(menus[0])
     assert len(acts) == 8
-    assert acts[0].isEnabled() is True and acts[1].isEnabled() is False
-    assert acts[2].isEnabled() is False and acts[3].isEnabled() is False
+    assert acts[0].isEnabled() is False and acts[1].isEnabled() is False
+    assert acts[3].isEnabled() is True and acts[4].isEnabled() is False
 
     p.lifecycle = PluginLifecycle.READY
     p.is_enabled = True
@@ -226,22 +296,22 @@ def test_context_menu_disabled_and_closed_and_ready_tab(qtbot, monkeypatch):
     menus.clear()
     w._on_list_context_menu(QPoint(0, 0))
     acts = _actions(menus[0])
-    assert acts[2].isEnabled() is True  # has_closed
-    assert acts[3].isEnabled() is False
+    assert acts[0].isEnabled() is True
+    assert acts[1].isEnabled() is False
 
     w._closed_plugins.clear()
     w._tab_widget.add_detachable_tab(p.ensure_widget(), "demo")
     menus.clear()
     w._on_list_context_menu(QPoint(0, 0))
     acts = _actions(menus[0])
-    assert acts[2].isEnabled() is False
-    assert acts[3].isEnabled() is True
+    assert acts[0].isEnabled() is False
+    assert acts[1].isEnabled() is True
 
     w._tab_widget.removeTab(0)
     w._tab_widget._detached_windows["demo"] = SimpleNamespace()
     menus.clear()
     w._on_list_context_menu(QPoint(0, 0))
-    assert _actions(menus[0])[3].isEnabled() is True
+    assert _actions(menus[0])[1].isEnabled() is True
     del w._tab_widget._detached_windows["demo"]
 
 
@@ -270,7 +340,7 @@ def test_authorize_plugin_controls_branches(qtbot, monkeypatch):
     w._authorize_plugin_controls("demo")
     assert calls == [(object, "demo"), (dict, "demo"), "save"]
     assert w.tr("已授权 {n} 个控制命令给插件 {name}").format(
-        n=2, name="demo") in w.statusBar().currentMessage()
+        n=2, name="demo") in w._operation_notice.text()
 
 
 def test_toggle_plugin_enable_and_disable(qtbot, monkeypatch, tmp_path):

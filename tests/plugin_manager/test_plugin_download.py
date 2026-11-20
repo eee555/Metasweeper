@@ -351,6 +351,69 @@ def test_install_accepts_single_plugin_subdirectory(tmp_path):
         (path / "__init__.py", REPOSITORY.module_name)]
 
 
+@pytest.mark.parametrize(("prefix", "name"), [
+    ("", "example_zip"),
+    ("sample/", "sample"),
+    ("source-main/sample/", "sample"),
+])
+def test_import_zip_publishes_one_local_package(tmp_path, prefix, name):
+    from plugin_manager.plugin_catalog import read_installed_metadata, read_installed_plugin
+
+    archive = tmp_path / "example-zip.zip"
+    archive.write_bytes(make_archive([
+        (prefix + "__init__.py", ""),
+        (prefix + "assets/example.txt", "asset"),
+        (prefix + ".metasweeper-plugin.json", '{"repository":"https://github.com/example/other"}'),
+    ]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+
+    def prepare(package, module_name):
+        assert module_name == name
+        assert (package / "__init__.py").is_file()
+        assert not (root / name).exists()
+
+    installed = downloader.import_zip(archive, root, [], before_publish=prepare)
+    assert installed == root / name
+    assert (installed / "assets/example.txt").read_text() == "asset"
+    assert read_installed_metadata(installed) == {"source": "local_zip"}
+    assert read_installed_plugin(installed) is None
+    assert PluginLoader([root]).discover_plugins() == [(installed / "__init__.py", name)]
+    with pytest.raises(FileExistsError):
+        downloader.import_zip(archive, root, [], before_publish=prepare)
+    assert list(root.iterdir()) == [installed]
+
+
+@pytest.mark.parametrize("contents", [
+    b"not a zip",
+    make_archive([("../outside.py", ""), ("sample/__init__.py", "")]),
+    make_archive([("first/__init__.py", ""), ("second/__init__.py", "")]),
+])
+def test_import_zip_rejects_invalid_archives_and_cleans_staging(tmp_path, contents):
+    archive = tmp_path / "invalid.zip"
+    archive.write_bytes(contents)
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(ValueError):
+        downloader.import_zip(archive, root, [], before_publish=lambda *_: pytest.fail("invalid archive"))
+    assert list(root.iterdir()) == []
+    assert not (tmp_path / "outside.py").exists()
+
+
+def test_import_zip_does_not_publish_when_preparation_fails(tmp_path):
+    archive = tmp_path / "sample.zip"
+    archive.write_bytes(make_archive([("__init__.py", "")]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+
+    def prepare(*args):
+        raise RuntimeError("dependency preparation failed")
+
+    with pytest.raises(RuntimeError, match="dependency preparation failed"):
+        downloader.import_zip(archive, root, [], before_publish=prepare)
+    assert list(root.iterdir()) == []
+
+
 def test_install_is_discoverable_without_executing_plugin(tmp_path):
     body = make_archive([
         ("repo-sha/__init__.py", "raise RuntimeError('must not execute during download')"),

@@ -1,7 +1,8 @@
 """Coverage for detachable tab bar / widget lifecycle."""
 from __future__ import annotations
 
-from types import SimpleNamespace
+from ctypes import addressof
+from ctypes.wintypes import MSG
 
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
 from PySide6.QtGui import QIcon, QMouseEvent, QPixmap
@@ -187,7 +188,7 @@ def test_detach_attach_close_cycle_end_to_end(tabs, qtbot):
     assert window.isVisible()
     assert window._dragging is True
     assert window.windowIcon().cacheKey() == icon.cacheKey()
-    assert window.layout().itemAt(1).widget() is widget
+    assert window.layout().itemAt(0).widget() is widget
     window.releaseMouse()
 
     tabs._attach_tab("Alpha")
@@ -217,7 +218,116 @@ def test_detach_without_position_and_invalid_index(tabs, qtbot):
     assert tabs.count() == 0
 
 
-def test_attach_missing_and_layout_failure_cleanup(tabs, qtbot):
+@pytest.mark.parametrize("native_title_bar", [False, True])
+@pytest.mark.parametrize("over_tab_bar", [False, True])
+def test_drop_detached_window(tabs, qtbot, monkeypatch, native_title_bar, over_tab_bar):
+    tabs.resize(500, 350)
+    widget = QWidget()
+    tabs.add_detachable_tab(widget, "Alpha", key="alpha")
+    tabs._detach_tab(0, "alpha")
+    window = tabs._detached_windows["alpha"]
+    inside = tabs.mapToGlobal(QPoint(10, 5))
+    outside = tabs.mapToGlobal(QPoint(10, 200))
+    position = inside
+
+    if native_title_bar:
+        monkeypatch.setattr(mw.QCursor, "pos", lambda: position)
+        message = MSG()
+
+        def native_event(event):
+            message.message = event
+            window.nativeEvent(b"windows_generic_MSG", addressof(message))
+
+        native_event(window._WM_ENTERSIZEMOVE)
+        native_event(window._WM_MOVING)
+        window.move(window.pos() + QPoint(40, 40))
+    else:
+        window.start_drag(inside)
+
+        def move():
+            event = _mouse(QEvent.Type.MouseMove, QPoint(), position,
+                           Qt.MouseButton.LeftButton)
+            window.mouseMoveEvent(event)
+
+        move()
+
+    assert tabs._dock_preview.isVisible()
+    assert window.windowOpacity() < 1.0
+    position = outside
+    if native_title_bar:
+        native_event(window._WM_MOVING)
+    else:
+        move()
+    assert tabs._dock_preview.isHidden()
+    assert window.windowOpacity() == 1.0
+
+    position = inside if over_tab_bar else outside
+    if native_title_bar:
+        native_event(window._WM_MOVING)
+        native_event(window._WM_EXITSIZEMOVE)
+    else:
+        move()
+        release = _mouse(QEvent.Type.MouseButtonRelease, QPoint(), position,
+                         Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton)
+        window.mouseReleaseEvent(release)
+
+    assert tabs._dock_preview.isHidden()
+    assert window.windowOpacity() == 1.0
+    QApplication.processEvents()
+    if over_tab_bar:
+        assert tabs._detached_windows == {}
+        assert tabs.currentWidget() is widget
+        assert tabs.tab_key(0) == "alpha"
+    else:
+        assert tabs._detached_windows["alpha"] is window
+        assert tabs.count() == 0
+        tabs._cleanup_detached("alpha")
+
+
+@pytest.mark.parametrize("rtl", [False, True])
+@pytest.mark.parametrize("insertion_index", [0, 1, 2])
+def test_drop_inserts_at_preview_marker(tabs, rtl, insertion_index):
+    tabs.resize(500, 350)
+    if rtl:
+        tabs.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    tabs.add_detachable_tab(QWidget(), "Alpha")
+    tabs.add_detachable_tab(QWidget(), "Bravo")
+    widget = QWidget()
+    tabs.add_detachable_tab(widget, "Charlie")
+    tabs._detach_tab(2, "Charlie")
+    QApplication.processEvents()
+
+    bar = tabs.tabBar()
+    first, last = bar.tabRect(0), bar.tabRect(1)
+    direction = -1 if rtl else 1
+    targets = (
+        first.center().x() - 8 * direction,
+        last.center().x() - 8 * direction,
+        last.center().x() + 8 * direction,
+    )
+    window = tabs._detached_windows["Charlie"]
+    markers = []
+    for x in targets:
+        window.drag_position_changed.emit(bar.mapToGlobal(QPoint(x, 5)))
+        assert tabs._dock_marker.isVisible()
+        markers.append(tabs._dock_marker.x())
+    assert len(set(markers)) == 3
+    assert markers == sorted(markers, reverse=rtl)
+
+    drop_position = bar.mapToGlobal(QPoint(targets[insertion_index], 5))
+    window.drag_position_changed.emit(drop_position)
+    assert tabs._dock_marker.x() == markers[insertion_index]
+    window.drag_position_changed.emit(None)
+    window.drag_finished.emit("Charlie", drop_position)
+    QApplication.processEvents()
+
+    expected = ["Alpha", "Bravo"]
+    expected.insert(insertion_index, "Charlie")
+    assert [tabs.tab_key(index) for index in range(tabs.count())] == expected
+    assert tabs.currentWidget() is widget
+
+
+def test_attach_missing_and_layout_failure_cleanup(tabs, qtbot, monkeypatch):
     tabs._attach_tab("Missing")
 
     widget = QWidget()
@@ -226,9 +336,9 @@ def test_attach_missing_and_layout_failure_cleanup(tabs, qtbot):
     tabs._detach_tab(0, "Alpha")
     window = tabs._detached_windows["Alpha"]
     qtbot.addWidget(window)
-    window.layout().takeAt(1)
+    window.layout().takeAt(0)
     widget.setParent(tabs)
-    window.setLayout(None)
+    monkeypatch.setattr(window, "layout", lambda: None)
     tabs._attach_tab("Alpha")
     assert "Alpha" not in tabs._detached_windows
     assert tabs.count() == 0
@@ -245,17 +355,17 @@ def test_attach_cleans_up_when_layout_item_is_not_a_widget(tabs, qtbot):
     window = tabs._detached_windows["Alpha"]
     qtbot.addWidget(window)
     layout = window.layout()
-    layout.takeAt(1)
+    layout.takeAt(0)
     widget.setParent(None)
     spacer = QSpacerItem(1, 1, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-    layout.insertItem(1, spacer)
+    layout.addItem(spacer)
 
     tabs._attach_tab("Alpha")
     assert "Alpha" not in tabs._detached_windows
     assert tabs.count() == 0
 
 
-def test_attach_cleans_up_when_layout_has_no_second_item(tabs, qtbot):
+def test_attach_cleans_up_when_layout_is_empty(tabs, qtbot):
     widget = QWidget()
     qtbot.addWidget(widget)
     tabs.add_detachable_tab(widget, "Alpha")
@@ -263,28 +373,11 @@ def test_attach_cleans_up_when_layout_has_no_second_item(tabs, qtbot):
     window = tabs._detached_windows["Alpha"]
     qtbot.addWidget(window)
     layout = window.layout()
-    layout.takeAt(1)
+    layout.takeAt(0)
     widget.setParent(None)
-    # Layout still has the hint label at index 0, but no second item.
     tabs._attach_tab("Alpha")
     assert "Alpha" not in tabs._detached_windows
     assert tabs.count() == 0
-
-
-def test_attach_cleans_up_when_second_layout_item_is_none(tabs, qtbot, monkeypatch):
-    widget = QWidget()
-    qtbot.addWidget(widget)
-    tabs.add_detachable_tab(widget, "Alpha")
-    tabs._detach_tab(0, "Alpha")
-    window = tabs._detached_windows["Alpha"]
-    qtbot.addWidget(window)
-    fake_layout = SimpleNamespace(count=lambda: 2, itemAt=lambda _i: None)
-    monkeypatch.setattr(window, "layout", lambda: fake_layout)
-
-    tabs._attach_tab("Alpha")
-    assert "Alpha" not in tabs._detached_windows
-    assert tabs.count() == 0
-    widget.setParent(None)
 
 
 def test_attach_without_icon_skips_icon_restore(tabs, qtbot):

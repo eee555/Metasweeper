@@ -52,6 +52,7 @@ class BasicSettings:
     
     plugin_market_source: Literal["github", "gitee"] = "github"
     auto_update_plugins: bool = True
+    show_plugin_list: bool = True
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -73,6 +74,7 @@ class BasicSettings:
             plugin_pip_indexes=indexes,
             plugin_market_source="gitee" if data.get("plugin_market_source") == "gitee" else "github",
             auto_update_plugins=data.get("auto_update_plugins") is not False,
+            show_plugin_list=data.get("show_plugin_list") is not False,
         )
 
 
@@ -199,4 +201,13 @@ class SettingsManager:
             self.save()
         except OSError:
             self._settings.auto_update_plugins = old
+            raise
+
+    def set_show_plugin_list(self, visible: bool) -> None:
+        old = self._settings.show_plugin_list
+        self._settings.show_plugin_list = visible
+        try:
+            self.save()
+        except OSError:
+            self._settings.show_plugin_list = old
             raise

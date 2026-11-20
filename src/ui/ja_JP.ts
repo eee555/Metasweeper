@@ -216,14 +216,6 @@
     </message>
 </context>
 <context>
-    <name>DetachedPluginWindow</name>
-    <message>
-        <location filename="../plugin_manager/main_window.py" line="134"/>
-        <source>关闭此窗口将释放插件界面</source>
-        <translation>このウィンドウを閉じるとプラグイン画面が解放されます</translation>
-    </message>
-</context>
-<context>
     <name>Dialog</name>
     <message>
         <location filename="../shared_types/widgets/confirm_dialog.py" line="56"/>
@@ -1576,6 +1568,9 @@
 </context>
 <context>
     <name>PluginDownloadDialog</name>
+    <message><source>不能读取 ZIP 文件，压缩包可能已损坏。</source><translation>ZIP ファイルを読み込めませんでした。アーカイブが破損している可能性があります。</translation></message>
+    <message><source>ZIP 必须包含一个带有 __init__.py 的插件包。</source><translation>ZIP に __init__.py を含むプラグインパッケージが 1 つ必要です。</translation></message>
+    <message><source>无法从 ZIP 中确定有效的插件目录名。</source><translation>ZIP から有効なプラグインフォルダー名を取得できませんでした。</translation></message>
     <message><source>仅支持读取 GitHub 和 Gitee 仓库的 README。</source><translation>GitHub と Gitee のリポジトリの README を読み込めます。</translation></message>
     <message><source>托管平台返回了意外的 README 响应。</source><translation>ホスティングサービスから予期しない README 応答が返されました。</translation></message>
     <message><source>README 文件超过 1 MiB 或响应超过大小限制。</source><translation>README が 1 MiB を超えているか、応答がサイズ上限を超えています。</translation></message>
@@ -1861,6 +1856,58 @@
 </context>
 <context>
     <name>PluginManagerWindow</name>
+    <message><source>关于</source><translation>バージョン情報</translation></message>
+    <message><source>关于插件管理器</source><translation>プラグインマネージャーについて</translation></message>
+    <message><source>版本 {version}</source><translation>バージョン {version}</translation></message>
+    <message><source>从 ZIP 导入插件…</source><translation>ZIP からプラグインをインポート…</translation></message>
+    <message><source>ZIP 压缩包 (*.zip)</source><translation>ZIP アーカイブ (*.zip)</translation></message>
+    <message><source>重启插件管理器</source><translation>プラグインマネージャーを再起動</translation></message>
+    <message><source>导入完成，插件已加入列表。</source><translation>インポートが完了し、一覧にプラグインが追加されました。</translation></message>
+    <message><source>导入完成，重启插件管理器后生效。</source><translation>インポートが完了しました。プラグインを読み込むにはマネージャーを再起動してください。</translation></message>
+    <message><source>插件已安装，但加载失败。请查看插件列表中的详情或日志。</source><translation>プラグインはインストールされましたが、読み込めませんでした。詳細またはログを確認してください。</translation></message>
+    <message><source>插件市场</source><translation>プラグインマーケット</translation></message>
+    <message><source>打开插件市场</source><translation>プラグインマーケットを開く</translation></message>
+    <message><source>暂无插件</source><translation>プラグインがありません</translation></message>
+    <message><source>从插件市场查找并安装插件。</source><translation>マーケットでプラグインを探してインストールできます。</translation></message>
+    <message><source>未打开插件窗口</source><translation>開いているプラグインウィンドウがありません</translation></message>
+    <message><source>双击左侧的就绪插件，或选中后按 Enter。</source><translation>左の一覧で準備完了のプラグインをダブルクリックするか、選択して Enter キーを押してください。</translation></message>
+    <message><source>查看详情</source><translation>詳細を表示</translation></message>
+    <message>
+        <source>未启动</source>
+        <translation>未起動</translation>
+    </message>
+    <message>
+        <source>初始化中</source>
+        <translation>初期化中</translation>
+    </message>
+    <message>
+        <source>停止中</source>
+        <translation>停止中</translation>
+    </message>
+    <message>
+        <source>已就绪</source>
+        <translation>準備完了</translation>
+    </message>
+    <message>
+        <source>已停止</source>
+        <translation>停止済み</translation>
+    </message>
+    <message>
+        <source>缺少依赖</source>
+        <translation>依存関係が不足</translation>
+    </message>
+    <message>
+        <source>依赖版本冲突</source>
+        <translation>依存関係の競合</translation>
+    </message>
+    <message>
+        <source>依赖待检查</source>
+        <translation>依存関係が未確認</translation>
+    </message>
+    <message>
+        <source>初始化失败</source>
+        <translation>初期化に失敗</translation>
+    </message>
     <message><source>自动更新插件</source><translation>プラグインを自動更新</translation></message>
     <message><source>重启</source><translation>再起動</translation></message>
     <message><source>已自动更新 {count} 个插件。重启插件管理器后生效。</source><translation>{count} 個のプラグインを自動更新しました。適用するにはプラグインマネージャーを再起動してください。</translation></message>

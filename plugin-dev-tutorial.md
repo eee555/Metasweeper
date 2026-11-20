@@ -188,6 +188,10 @@ Codeberg 使用 `codeberg_` 前缀，自建实例的名称还包含域名和自�
 已有同名目录或模块时安装会停止，不覆盖现有插件。失败或取消会清理本次下载的临时目录。
 压缩包上限为 100 MiB，解压后上限为 500 MiB；拒绝越界路径和符号链接。
 
+已有本地压缩包时，可在插件管理器选择「插件 → 从 ZIP 导入插件…」。ZIP 中应包含一个带有
+`__init__.py` 的插件包，可以直接压缩包内文件，也可以保留外层目录。导入时会检查并安装声明的
+依赖，再尝试加载插件。需要重启时，使用同一菜单底部的「重启插件管理器」。
+
 接口依据：[GitHub 标签列表](https://docs.github.com/en/rest/repos/repos#list-repository-tags)、
 [GitHub 源码 ZIP](https://docs.github.com/en/rest/repos/contents#download-a-repository-archive-zip)、
 [GitLab Tags API](https://docs.gitlab.com/api/tags/)、

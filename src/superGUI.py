@@ -18,6 +18,7 @@ from typing import List, Tuple
 from shared_types.events import LanguageChangeEvent
 from shared_types.commands import SKIN_LED_KEYS, SKIN_FACE_KEYS
 from config.constants import (
+    APP_VERSION,
     BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT,
     FACE_SMILE, FACE_CLICK, FACE_LOST, FACE_WIN, FACE_SMILE_DOWN,
     LEVEL_NAME_BEGINNER, LEVEL_NAME_INTERMEDIATE, LEVEL_NAME_EXPERT, LEVEL_NAME_CUSTOM,
@@ -27,7 +28,7 @@ from config.key_bindings import apply_bindings, load_bindings
 from utils.app_logger import logger
 from plugin_sdk import GameServerBridge
 
-version = "元3.3.4"
+version = f"元{APP_VERSION}"
 # AES-GCM 加密。请勿开发恶意篡改历史记录的工具，可以开发有益的应用。
 STATS_DAT_KEY = bytes([173, 239, 218, 129, 84, 35, 95, 237,
                       23, 47, 166, 30, 121, 187, 124, 187])  # 16字节 AES-128 key

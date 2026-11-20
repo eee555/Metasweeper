@@ -6,8 +6,12 @@ import json
 import os
 import re
 import shutil
+import site
 import stat
+import threading
+import sysconfig
 from dataclasses import dataclass, replace
+from typing import Callable
 from importlib import metadata
 from pathlib import Path
 from tempfile import NamedTemporaryFile, mkdtemp
@@ -17,7 +21,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
 
 from .app_paths import get_all_plugin_dirs, get_executable_dir
-from .plugin_catalog import META_FILENAME, read_installed_plugin
+from .plugin_catalog import LOCAL_ZIP_SOURCE, META_FILENAME, read_installed_metadata, read_installed_plugin
 from .plugin_download import is_plain_plugin_directory
 
 
@@ -101,7 +105,9 @@ def is_managed_plugin(package: Path) -> bool:
             and is_plain_plugin_directory(root)
             and not package.name.startswith("_")
             and is_plain_plugin_directory(package)
-            and read_installed_plugin(package) is not None)
+            and (read_installed_plugin(package) is not None
+                 or ((package / "__init__.py").is_file()
+                     and read_installed_metadata(package).get("source") == LOCAL_ZIP_SOURCE)))
 
 
 def _requirements(package: Path) -> set[str]:
@@ -172,9 +178,11 @@ class RemovalPlan:
     kept: tuple[str, ...] = ()
     note: str = ""
     release: str = ""
+    include_unrecorded: bool = False
 
 
-def _make_plan(package: Path, data_dir: Path, library: Path, scripts: Path | None) -> RemovalPlan:
+def _make_plan(package: Path, data_dir: Path, library: Path, scripts: Path | None, *,
+               include_unrecorded: bool) -> RemovalPlan:
     inventory = _inventory(library)
     records = _ledger(data_dir, library)
     graph: dict[str, set[str]] = {}
@@ -195,7 +203,20 @@ def _make_plan(package: Path, data_dir: Path, library: Path, scripts: Path | Non
             owned.add(name)
 
     selected = _closure(_requirements(package), graph) & inventory.keys()
-    roots = set(inventory) - owned
+    candidates = owned
+    if include_unrecorded:
+        # An explicitly selected plugin library can still be the app's own
+        # site-packages. Legacy packages there have no safe ownership boundary.
+        runtime_paths = {Path(sysconfig.get_path(key)).resolve() for key in ("purelib", "platlib")}
+        user_site = site.getusersitepackages()
+        if user_site:
+            runtime_paths.add(Path(user_site).resolve())
+        if library not in runtime_paths:
+            candidates = owned | {
+                name for name in selected
+                if len(inventory[name]) == 1 and _fingerprint(inventory[name][0])
+            }
+    roots = set(inventory) - (selected & candidates)
     for directory in {*get_all_plugin_dirs(), package.parent}:
         if not directory.is_dir():
             continue
@@ -203,7 +224,7 @@ def _make_plan(package: Path, data_dir: Path, library: Path, scripts: Path | Non
             if (other.resolve() != package and not other.name.startswith("_")
                     and (other / "__init__.py").is_file()):
                 roots.update(_requirements(other))
-    removable = selected - _closure(roots | (owned - selected), graph)
+    removable = selected - _closure(roots, graph)
     if not removable:
         return RemovalPlan(package, library, kept=tuple(sorted(selected)))
 
@@ -237,7 +258,7 @@ def _make_plan(package: Path, data_dir: Path, library: Path, scripts: Path | Non
     )
 
 
-def plan_removal(package: Path, data_dir: Path) -> RemovalPlan:
+def plan_removal(package: Path, data_dir: Path, *, include_unrecorded: bool = False) -> RemovalPlan:
     from .plugin_lib_env import _BOOTSTRAP_LOCK, _ensure_environment
 
     with _BOOTSTRAP_LOCK:
@@ -249,22 +270,24 @@ def plan_removal(package: Path, data_dir: Path) -> RemovalPlan:
         library, python, use_target = _ensure_environment(data_dir, errors)
         if library is None or python is None:
             return RemovalPlan(package, note="无法读取插件依赖环境，卸载时会保留其中的包。",
-                               release=release)
+                               release=release, include_unrecorded=include_unrecorded)
         library = library.resolve()
         try:
             scripts = None if use_target else python.parent.resolve()
-            return replace(_make_plan(package, data_dir, library, scripts), release=release)
+            result = _make_plan(package, data_dir, library, scripts,
+                                include_unrecorded=include_unrecorded)
+            return replace(result, release=release, include_unrecorded=include_unrecorded)
         except (InvalidRequirement, OSError, UnicodeError, ValueError) as exc:
             logger.warning("Could not plan dependency cleanup: {}", exc)
             return RemovalPlan(package, library, note="无法确认依赖关系，已保留共享环境中的包。",
-                               release=release)
+                               release=release, include_unrecorded=include_unrecorded)
 
 
-def remove_plugin(plan: RemovalPlan, data_dir: Path) -> None:
+def remove_plugin(plan: RemovalPlan, data_dir: Path, *, progress: Callable[[int, int], None] | None = None) -> None:
     from .plugin_lib_env import _BOOTSTRAP_LOCK
 
     with _BOOTSTRAP_LOCK:
-        if plan_removal(plan.package, data_dir) != plan:
+        if plan_removal(plan.package, data_dir, include_unrecorded=plan.include_unrecorded) != plan:
             raise RuntimeError("插件或依赖环境已变化，请重新确认卸载。")
         backups = []
         moved: list[tuple[Path, Path]] = []
@@ -276,11 +299,16 @@ def remove_plugin(plan: RemovalPlan, data_dir: Path) -> None:
                 assert plan.library is not None
                 dependency_backup = Path(mkdtemp(prefix="_uninstall_", dir=plan.library))
                 backups.append(dependency_backup)
-                for index, source in enumerate(plan.files):
+            file_count = len(plan.files)
+            if progress is not None and file_count:
+                progress(0, file_count)
+            for index, source in enumerate(plan.files):
                     if source.exists():
                         target = dependency_backup / str(index)
                         source.rename(target)
                         moved.append((source, target))
+                    if progress is not None:
+                        progress(index + 1, file_count)
             target = plugin_backup / plan.package.name
             plan.package.rename(target)
             moved.append((plan.package, target))
@@ -323,6 +351,8 @@ def remove_plugin(plan: RemovalPlan, data_dir: Path) -> None:
 def _plan_key(plan: RemovalPlan) -> str:
     value = (str(plan.package), str(plan.library), plan.packages,
              tuple(map(str, plan.files)), plan.kept, plan.note, plan.release)
+    if plan.include_unrecorded:
+        value += ("include_unrecorded",)
     return hashlib.sha256(json.dumps(value).encode("utf-8")).hexdigest()
 
 
@@ -331,10 +361,11 @@ def queue_removal(plan: RemovalPlan, data_dir: Path) -> None:
     from .plugin_lib_env import _BOOTSTRAP_LOCK
 
     with _BOOTSTRAP_LOCK:
-        if plan_removal(plan.package, data_dir) != plan:
+        if plan_removal(plan.package, data_dir, include_unrecorded=plan.include_unrecorded) != plan:
             raise RuntimeError("插件或依赖环境已变化，请重新确认卸载。")
         _write_json(data_dir / "pending-plugin-uninstall.json",
-                    {"package": plan.package.name, "plan": _plan_key(plan)})
+                    {"package": plan.package.name, "plan": _plan_key(plan),
+                     "include_unrecorded": plan.include_unrecorded})
 
 
 def apply_queued_removal(data_dir: Path) -> str:
@@ -352,10 +383,62 @@ def apply_queued_removal(data_dir: Path) -> str:
         if not isinstance(name, str) or Path(name).name != name or name in {".", ".."}:
             raise ValueError("无效的插件目录")
         package = get_executable_dir() / "user_plugins" / name
-        plan = plan_removal(package, data_dir)
+        plan = plan_removal(package, data_dir,
+                            include_unrecorded=value.get("include_unrecorded") is True)
         if _plan_key(plan) != value.get("plan"):
             raise RuntimeError("插件或依赖环境已变化，请重新确认卸载。")
         remove_plugin(plan, data_dir)
     except (OSError, ValueError, RuntimeError) as exc:
         return f"重启时未能卸载插件：{exc}"
     return ""
+
+
+def run_removal_in_thread(
+    plan: RemovalPlan,
+    data_dir: Path,
+    progress_callback: Callable[[int, int], None] | None = None,
+    finished_callback: Callable[[BaseException | None], None] | None = None,
+) -> "tuple[threading.Thread, Future[str], Callable[[int, int], None]]":
+    """Run dependency and package cleanup off the Qt application thread."""
+    from concurrent.futures import Future
+
+    future: Future[str] = Future()
+
+    def worker() -> None:
+        if not future.set_running_or_notify_cancel():
+            return
+        exception: BaseException | None = None
+        try:
+            report = _removal_progress_reporter(
+                plan, progress_callback)
+            remove_plugin(plan, data_dir, progress=report)
+            future.set_result("")
+        except BaseException as exc:
+            exception = exc
+            future.set_exception(exc)
+        finally:
+            if finished_callback is not None:
+                try:
+                    finished_callback(exception)
+                except BaseException:
+                    logger.exception("Could not report plugin uninstall completion")
+
+    thread = threading.Thread(
+        target=worker,
+        name="plugin-uninstall",
+        daemon=True,
+    )
+    return thread, future, progress_callback or (lambda _completed, _total: None)
+
+
+def _removal_progress_reporter(
+    plan: RemovalPlan,
+    progress_callback: Callable[[int, int], None] | None,
+) -> Callable[[int, int], None]:
+    if progress_callback is None:
+        return lambda _completed, _total: None
+    maximum = len(plan.files)
+    if maximum:
+        progress_callback(0, maximum)
+
+    return progress_callback

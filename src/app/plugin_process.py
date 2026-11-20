@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-import time
 
 from PySide6 import QtCore, QtWidgets
 from plugin_manager.app_paths import get_env_for_subprocess
@@ -77,9 +76,8 @@ def start_plugin_process(ui, main_window, plugins_disabled):
         return None
 
 
-def cleanup_plugin_process(plugin_process, *, stop_bridge=True):
-    if stop_bridge:
-        GameServerBridge.instance().stop()
+def cleanup_plugin_process(plugin_process):
+    GameServerBridge.instance().stop()
     if plugin_process is not None and plugin_process.poll() is None:
         plugin_process.terminate()
         try:
@@ -93,31 +91,3 @@ def cleanup_plugin_process(plugin_process, *, stop_bridge=True):
                 logger.error("plugin_manager 强制结束失败")
                 return False
     return True
-
-
-def install_restart_action(ui, main_window, plugins_disabled):
-    from PySide6.QtGui import QAction
-
-    action = QAction(QtCore.QCoreApplication.translate("MainWindow", "重启插件管理器"), main_window)
-    action.setObjectName("actionRestartPluginManager")
-    action.setEnabled(not plugins_disabled)
-    ui.menu_4.insertAction(ui.actionchajian, action)
-    action.triggered.connect(lambda: restart_plugin_process(ui, main_window, plugins_disabled))
-    return action
-
-
-def restart_plugin_process(ui, main_window, plugins_disabled):
-    """复用现有 IPC 服务，只在旧子进程退出后启动替代进程。"""
-    if plugins_disabled:
-        return False
-    if not cleanup_plugin_process(ui._plugin_process, stop_bridge=False):
-        return False
-    ui._plugin_process = None
-    deadline = time.monotonic() + 5.0
-    while _plugin_manager_is_running():
-        if time.monotonic() >= deadline:
-            logger.warning("插件管理器互斥体未释放，无法重启")
-            return False
-        time.sleep(0.1)
-    ui._plugin_process = start_plugin_process(ui, main_window, plugins_disabled)
-    return ui._plugin_process is not None

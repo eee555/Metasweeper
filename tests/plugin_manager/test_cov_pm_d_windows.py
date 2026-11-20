@@ -7,10 +7,9 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
 from PySide6.QtGui import QIcon, QMouseEvent, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QWidget
+from PySide6.QtWidgets import QApplication, QWidget
 
 from plugin_manager.main_window import (
-    ConnectionStatusWidget,
     DetachedPluginWindow,
     _resolve_plugin_config_path,
 )
@@ -74,8 +73,8 @@ def test_detached_window_init_parents_widget_and_sets_title(qtbot):
     assert dialog._plugin_name == "Alpha"
     assert dialog._widget is widget
     assert widget.parent() is dialog
-    assert dialog.layout().count() == 2
-    assert dialog.layout().itemAt(1).widget() is widget
+    assert dialog.layout().count() == 1
+    assert dialog.layout().itemAt(0).widget() is widget
     assert widget.isVisible() or not widget.isHidden()
     dialog.show()
     assert widget.isVisible()
@@ -167,39 +166,3 @@ def test_detached_window_close_emits_and_blocked_close_does_not(qtbot):
     blocked.show()
     blocked.close()
     assert blocked_seen == []
-
-
-def test_connection_status_widget_all_combinations(qtbot):
-    widget = ConnectionStatusWidget("tcp://127.0.0.1:5555")
-    qtbot.addWidget(widget)
-    assert widget._endpoint == "tcp://127.0.0.1:5555"
-    assert "未连接" in widget._status_label.text()
-    assert widget._reconnect_label.text() == ""
-
-    widget.set_status(True, 0)
-    assert "已连接" in widget._status_label.text()
-    assert "green" in widget._status_label.styleSheet()
-    assert widget._reconnect_label.isHidden()
-
-    widget.set_status(True, 3)
-    assert "3" in widget._reconnect_label.text()
-    assert not widget._reconnect_label.isHidden()
-
-    widget.set_status(False, 2)
-    assert "未连接" in widget._status_label.text()
-    assert "red" in widget._status_label.styleSheet()
-    assert "2" in widget._reconnect_label.text()
-    assert not widget._reconnect_label.isHidden()
-
-    widget.set_status(False, 0)
-    assert widget._reconnect_label.isHidden()
-
-
-def test_connection_status_widget_with_parent(qtbot):
-    parent = QWidget()
-    qtbot.addWidget(parent)
-    widget = ConnectionStatusWidget("inproc://x", parent)
-    qtbot.addWidget(widget)
-    assert widget.parent() is parent
-    assert any(isinstance(widget.layout().itemAt(i).widget(), QLabel)
-               for i in range(widget.layout().count()))

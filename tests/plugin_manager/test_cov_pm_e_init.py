@@ -9,13 +9,13 @@ import pytest
 from PySide6.QtCore import QEvent
 from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
-    QApplication, QListWidget, QMessageBox, QPushButton, QSystemTrayIcon, QWidget,
+    QApplication, QListWidget, QMessageBox, QPushButton, QStatusBar, QSystemTrayIcon, QWidget,
 )
 
 import plugin_manager.main_window as mw
 import plugin_manager.logging_setup as logging_setup
 import plugin_manager.app_paths as app_paths
-from plugin_manager.main_window import ConnectionStatusWidget, PluginManagerWindow
+from plugin_manager.main_window import PluginManagerWindow
 from plugin_sdk.plugin_base import PluginLifecycle
 from tests.plugin_manager.test_cov_pm_e_helpers import (  # noqa: F401
     _offscreen, make_manager, make_plugin, real_window, shell,
@@ -42,14 +42,16 @@ def test_full_init_builds_ui_signals_and_tray(qtbot, monkeypatch, tmp_path):
     plugin.info.required_controls = []
     w = real_window(qtbot, monkeypatch, tmp_path, {"alpha": plugin})
     try:
-
+        assert w.windowTitle() == w.tr("插件管理器")
         assert w._menu_plugins.title() == w.tr("插件")
         assert w._act_plugin_market.isEnabled()
         assert w._act_plugin_environment in w._menu_settings.actions()
         assert w._list.count() == 1
         assert w._list.item(0).text() == "alpha"
-        assert w._conn_status is not None
-        assert isinstance(w._conn_status, ConnectionStatusWidget)
+        assert w._connection_notice.isHidden()
+        assert w._operation_notice.isHidden()
+        assert w.findChild(QStatusBar) is None
+        assert w.centralWidget().layout().itemAt(1).widget() is w._connection_notice
         assert w._tray_icon.isVisible()
         assert w._tray_act_show in w._tray_menu.actions()
         assert w._tray_act_quit in w._tray_menu.actions()
@@ -77,7 +79,7 @@ def test_full_init_without_tray_and_language_change(qtbot, monkeypatch, tmp_path
         # 无托盘时属性存在但为 None，retranslateUi 不应抛 AttributeError
         assert w._tray_icon is None
         w.retranslateUi()
-        assert w._status_bar_msg == w.tr("已连接到主进程")
+        assert w._connection_notice.isHidden()
         w.changeEvent(QEvent(QEvent.Type.LanguageChange))
         w.changeEvent(QEvent(QEvent.Type.Paint))
         assert w.windowTitle() == w.tr("插件管理器")
@@ -191,30 +193,34 @@ def test_connect_signals_wires_controls(qtbot, monkeypatch):
     w = shell(qtbot)
     w._refresh_btn = QPushButton("refresh")
     qtbot.addWidget(w._refresh_btn)
-    w._control_auth_btn = QPushButton("auth")
-    qtbot.addWidget(w._control_auth_btn)
+    w._plugin_details_btn = QPushButton("details")
+    qtbot.addWidget(w._plugin_details_btn)
     w._list = QListWidget()
     qtbot.addWidget(w._list)
+    w._tab_widget = mw.DetachableTabWidget()
+    qtbot.addWidget(w._tab_widget)
     calls = []
     monkeypatch.setattr(w, "_refresh_plugin_list",
                         lambda: calls.append("refresh"))
     monkeypatch.setattr(w, "_on_list_double_clicked",
                         lambda item: calls.append(("double", item)))
+    monkeypatch.setattr(w, "_on_list_clicked",
+                        lambda item: calls.append(("click", item)))
     monkeypatch.setattr(w, "_on_list_context_menu",
                         lambda pos: calls.append(("menu", pos)))
     monkeypatch.setattr(w, "_on_conn_changed",
                         lambda ok: calls.append(("conn", ok)))
-    monkeypatch.setattr(w, "_open_control_auth_dialog",
-                        lambda: calls.append("auth"))
+    monkeypatch.setattr(w, "_show_current_plugin_diagnostics",
+                        lambda: calls.append("details"))
     w._connect_signals()
     w._refresh_btn.click()
-    w._control_auth_btn.click()
+    w._plugin_details_btn.click()
     w.set_connected(False)
-    assert calls == ["refresh", "auth", ("conn", False)]
-    # itemDoubleClicked / customContextMenuRequested connections exist.
+    assert calls == ["refresh", "details", ("conn", False)]
+    w._list.itemClicked.emit(None)
     w._list.itemDoubleClicked.emit(None)
     w._list.customContextMenuRequested.emit(w._list.viewport().pos())
-    assert calls[-2:] == [("double", None), ("menu", w._list.viewport().pos())]
+    assert calls[-3:] == [("click", None), ("double", None), ("menu", w._list.viewport().pos())]
 
 
 def test_basic_settings_dialog_wires_callback(qtbot, monkeypatch):
@@ -274,14 +280,14 @@ def test_on_settings_changed_applies_level_and_status(qtbot, monkeypatch):
         "settings-saved" if text == "设置已保存" else text))
     w._on_settings_changed()
     assert seen == ["WARNING"]
-    assert w.statusBar().currentMessage() == "settings-saved"
+    assert w._operation_notice.text() == "settings-saved"
 
 
 def test_on_environment_changed_hints_restart_for_lib_dir(qtbot, monkeypatch):
     w = shell(qtbot)
     monkeypatch.setattr(w, "tr", lambda text: text)
     w._on_plugin_environment_changed()
-    assert "重启" in w.statusBar().currentMessage()
+    assert "重启" in w._operation_notice.text()
 
 
 def test_clear_all_logs_confirms_and_truncates(qtbot, monkeypatch, tmp_path):
@@ -312,7 +318,7 @@ def test_clear_all_logs_confirms_and_truncates(qtbot, monkeypatch, tmp_path):
     assert (log_dir / "plugins" / "alpha.log").read_text(encoding="utf-8") == ""
     assert cleared_viewer == [True]
     assert not warnings
-    assert w.statusBar().currentMessage() == w.tr("已清理 {n} 个日志文件").format(n=2)
+    assert w._operation_notice.text() == w.tr("已清理 {n} 个日志文件").format(n=2)
 
 
 def test_clear_all_logs_cancelled_changes_nothing(qtbot, monkeypatch, tmp_path):
@@ -429,26 +435,25 @@ def test_open_control_auth_dialog_collects_ready_required(qtbot, monkeypatch):
 
 def test_connection_status_branches_and_poll_exception(qtbot):
     w = shell(qtbot)
-    calls = []
-    w._conn_status = SimpleNamespace(
-        set_status=lambda ok, rc: calls.append(("status", ok, rc)))
+    notice = w._connection_notice
     w._manager = SimpleNamespace(reconnect_count=0)
     w.connection_changed.connect(w._on_conn_changed)
     w.set_connected(True)
-    assert w.statusBar().currentMessage() == w.tr("已连接到主进程")
+    assert notice.isHidden()
 
     w._manager.reconnect_count = 0
     w.set_connected(False)
-    assert w.tr("未连接到主进程") in w.statusBar().currentMessage()
+    assert not notice.isHidden()
+    assert w.tr("未连接到主进程") in notice.text()
 
     w._manager.reconnect_count = 3
     w.set_connected(False)
-    assert "3" in w.statusBar().currentMessage()
+    assert "3" in notice.text()
 
     w._manager.reconnect_count = 1
     w._manager.is_connected = False
     w._poll_connection_status()
-    assert calls[-1] == ("status", False, 1)
+    assert "1" in notice.text()
 
     class Broken:
         @property
@@ -459,7 +464,10 @@ def test_connection_status_branches_and_poll_exception(qtbot):
 
     w._manager = Broken()
     w._poll_connection_status()
-    assert calls[-1] == ("status", False, 1)
+    assert not notice.isHidden()
+    assert "1" in notice.text()
+    w.set_connected(True)
+    assert notice.isHidden()
 
 
 def test_start_debug_success_and_failure_branches(qtbot, monkeypatch):
@@ -477,7 +485,7 @@ def test_start_debug_success_and_failure_branches(qtbot, monkeypatch):
     assert listens[0][0][0] == ("0.0.0.0", 5678)
     assert PluginManagerWindow._debug_active is True
     assert not w._debug_act.isEnabled()
-    assert "5678" in w.statusBar().currentMessage()
+    assert "5678" in w._operation_notice.text()
 
     monkeypatch.setitem(sys.modules, "debugpy", SimpleNamespace(
         listen=lambda *a, **k: (_ for _ in ()).throw(ImportError("missing"))))
@@ -525,7 +533,7 @@ def test_plugin_ready_and_stopped_refresh(qtbot, monkeypatch):
     monkeypatch.setattr(w, "_refresh_plugin_list", lambda: seen.append("refresh"))
     p = SimpleNamespace(name="demo")
     w._on_plugin_ready(p)
-    assert w.tr("插件 {name} 就绪").format(name="demo") in w.statusBar().currentMessage()
+    assert w._operation_notice.isHidden()
     w._on_plugin_stopped(p)
     assert seen == ["refresh", "refresh"]
 

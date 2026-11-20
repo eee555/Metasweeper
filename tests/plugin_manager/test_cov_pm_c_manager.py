@@ -273,7 +273,7 @@ def test_start_with_gui_uses_existing_app_and_falls_back_to_action_icon(
     manager.start_with_gui(qapp, show_main_window=True)
     assert manager._app is qapp
     assert icons == ["app"]
-    assert manager.main_window.title == "插件管理器 - inproc://coverage"
+    assert manager.main_window.title is None
     assert manager.main_window.shown == 1
     qapp.setWindowIcon(old_icon)
 

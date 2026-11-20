@@ -216,14 +216,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
 </context>
 <context>
-    <name>DetachedPluginWindow</name>
-    <message>
-        <location filename="../plugin_manager/main_window.py" line="134"/>
-        <source>关闭此窗口将释放插件界面</source>
-        <translation>Zamknięcie tego okna zwalnia widok wtyczki</translation>
-    </message>
-</context>
-<context>
     <name>Dialog</name>
     <message>
         <location filename="../shared_types/widgets/confirm_dialog.py" line="56"/>
@@ -1576,6 +1568,9 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
 </context>
 <context>
     <name>PluginDownloadDialog</name>
+    <message><source>不能读取 ZIP 文件，压缩包可能已损坏。</source><translation>Nie można odczytać pliku ZIP. Archiwum może być uszkodzone.</translation></message>
+    <message><source>ZIP 必须包含一个带有 __init__.py 的插件包。</source><translation>Archiwum ZIP musi zawierać jeden pakiet wtyczki z plikiem __init__.py.</translation></message>
+    <message><source>无法从 ZIP 中确定有效的插件目录名。</source><translation>Nie można ustalić poprawnej nazwy folderu wtyczki na podstawie archiwum ZIP.</translation></message>
     <message><source>仅支持读取 GitHub 和 Gitee 仓库的 README。</source><translation>Pliki README można wczytywać z repozytoriów GitHub i Gitee.</translation></message>
     <message><source>托管平台返回了意外的 README 响应。</source><translation>Usługa hostingowa zwróciła nieoczekiwaną odpowiedź dotyczącą pliku README.</translation></message>
     <message><source>README 文件超过 1 MiB 或响应超过大小限制。</source><translation>Plik README przekracza 1 MiB lub odpowiedź przekracza limit rozmiaru.</translation></message>
@@ -1861,6 +1856,58 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
 </context>
 <context>
     <name>PluginManagerWindow</name>
+    <message><source>关于</source><translation>Informacje</translation></message>
+    <message><source>关于插件管理器</source><translation>Informacje o menedżerze wtyczek</translation></message>
+    <message><source>版本 {version}</source><translation>Wersja {version}</translation></message>
+    <message><source>从 ZIP 导入插件…</source><translation>Importuj wtyczkę z ZIP…</translation></message>
+    <message><source>ZIP 压缩包 (*.zip)</source><translation>Archiwa ZIP (*.zip)</translation></message>
+    <message><source>重启插件管理器</source><translation>Uruchom ponownie menedżer wtyczek</translation></message>
+    <message><source>导入完成，插件已加入列表。</source><translation>Import zakończony. Wtyczka została dodana do listy.</translation></message>
+    <message><source>导入完成，重启插件管理器后生效。</source><translation>Import zakończony. Uruchom ponownie menedżer, aby wczytać wtyczkę.</translation></message>
+    <message><source>插件已安装，但加载失败。请查看插件列表中的详情或日志。</source><translation>Wtyczkę zainstalowano, ale nie udało się jej wczytać. Sprawdź szczegóły lub dzienniki.</translation></message>
+    <message><source>插件市场</source><translation>Katalog wtyczek</translation></message>
+    <message><source>打开插件市场</source><translation>Otwórz katalog wtyczek</translation></message>
+    <message><source>暂无插件</source><translation>Brak wtyczek</translation></message>
+    <message><source>从插件市场查找并安装插件。</source><translation>Znajdź i zainstaluj wtyczki z katalogu.</translation></message>
+    <message><source>未打开插件窗口</source><translation>Brak otwartych okien wtyczek</translation></message>
+    <message><source>双击左侧的就绪插件，或选中后按 Enter。</source><translation>Kliknij dwukrotnie gotową wtyczkę na liście po lewej lub wybierz ją i naciśnij Enter.</translation></message>
+    <message><source>查看详情</source><translation>Pokaż szczegóły</translation></message>
+    <message>
+        <source>未启动</source>
+        <translation>Nie uruchomiono</translation>
+    </message>
+    <message>
+        <source>初始化中</source>
+        <translation>Inicjalizowanie</translation>
+    </message>
+    <message>
+        <source>停止中</source>
+        <translation>Zatrzymywanie</translation>
+    </message>
+    <message>
+        <source>已就绪</source>
+        <translation>Gotowy</translation>
+    </message>
+    <message>
+        <source>已停止</source>
+        <translation>Zatrzymany</translation>
+    </message>
+    <message>
+        <source>缺少依赖</source>
+        <translation>Brak zależności</translation>
+    </message>
+    <message>
+        <source>依赖版本冲突</source>
+        <translation>Konflikt zależności</translation>
+    </message>
+    <message>
+        <source>依赖待检查</source>
+        <translation>Zależności niesprawdzone</translation>
+    </message>
+    <message>
+        <source>初始化失败</source>
+        <translation>Błąd inicjalizacji</translation>
+    </message>
     <message><source>自动更新插件</source><translation>Automatycznie aktualizuj wtyczki</translation></message>
     <message><source>重启</source><translation>Uruchom ponownie</translation></message>
     <message><source>已自动更新 {count} 个插件。重启插件管理器后生效。</source><translation>Liczba automatycznie zaktualizowanych wtyczek: {count}. Uruchom ponownie menedżer wtyczek, aby zastosować aktualizacje.</translation></message>

@@ -109,6 +109,37 @@ def test_environment_replacement_defers_import(runtime, monkeypatch, tmp_path):
     assert package.name not in sys.modules
 
 
+def test_zip_import_from_menu_loads_the_plugin(runtime, qtbot, monkeypatch, tmp_path):
+    from zipfile import ZipFile
+    from plugin_manager import main_window
+    from tests.plugin_manager.test_cov_pm_e_helpers import real_window
+
+    manager, package = runtime
+    archive = tmp_path / "offline.zip"
+    with ZipFile(archive, "w") as output:
+        output.writestr("metasweeper_offline_demo/__init__.py", SOURCE)
+    window = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    window._auto_update_timer.stop()
+    monkeypatch.setattr(main_window, "get_executable_dir", lambda: tmp_path)
+    monkeypatch.setattr(main_window, "get_all_plugin_dirs", lambda: [package.parent])
+    monkeypatch.setattr(main_window.QFileDialog, "getOpenFileName",
+                        lambda *args: (str(archive), ""))
+    window._manager = manager
+    window._state_mgr = manager.state_manager
+    window._act_import_zip.trigger()
+    try:
+        progress = window._install_progress
+        qtbot.waitUntil(lambda: progress._status.text() == "导入完成，插件已加入列表。")
+        imported = package.parent / "metasweeper_offline_demo"
+        assert plugin_uninstall.is_managed_plugin(imported)
+        assert manager.get_plugin("live-demo") is not None
+        assert window._list.count() == 1
+        assert window._list.item(0).text() == "live-demo"
+        progress.close()
+    finally:
+        sys.modules.pop("metasweeper_offline_demo", None)
+
+
 def test_async_initialization_failure_is_available_for_the_plugin_list(runtime, qtbot):
     manager, package = runtime
     (package / "__init__.py").write_text(

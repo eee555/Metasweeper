@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QMainWindow, QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QMainWindow, QSystemTrayIcon, QVBoxLayout, QWidget
 
 import plugin_manager.main_window as mw
 from plugin_manager import plugin_updates
@@ -29,6 +29,9 @@ def shell(qtbot) -> PluginManagerWindow:
     """A QMainWindow-initialized shell with only light-weight state attached."""
     w = PluginManagerWindow.__new__(PluginManagerWindow)
     QMainWindow.__init__(w)
+    central = QWidget()
+    w.setCentralWidget(central)
+    w._setup_notices(QVBoxLayout(central))
     w.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
     # qtbot closes registered widgets at teardown; avoid a real confirmation
     # dialog from closeEvent (which would block forever offscreen).

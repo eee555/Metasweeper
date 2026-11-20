@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Callable
 from urllib.parse import quote, unquote, urljoin, urlsplit
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 import requests
 from PySide6.QtCore import QCoreApplication
@@ -717,11 +717,7 @@ class PluginDownloader:
         tag_prefix: str = "",
         before_publish: Callable[[Path], None] | None = None,
     ) -> Path:
-        destination = plugin_dir / repository.module_name
-        for directory in [plugin_dir, *search_dirs]:
-            if (directory / repository.module_name).exists() or (directory / f"{repository.module_name}.py").exists():
-                raise FileExistsError(_tr("插件目录已存在，不会覆盖：{path}").format(
-                    path=directory / repository.module_name))
+        destination = self._new_destination(repository.module_name, plugin_dir, search_dirs)
         self._check_cancelled()
         plugin_dir.mkdir(parents=True, exist_ok=True)
         # Hidden from PluginLoader until the complete package is ready.
@@ -757,6 +753,62 @@ class PluginDownloader:
             # Same filesystem: publish only after download and preparation succeed.
             package.rename(destination)
         return destination
+
+    @staticmethod
+    def _new_destination(name: str, plugin_dir: Path, search_dirs: list[Path]) -> Path:
+        for directory in [plugin_dir, *search_dirs]:
+            for existing in (directory / name, directory / f"{name}.py"):
+                if existing.exists() or existing.is_symlink():
+                    raise FileExistsError(_tr("插件目录已存在，不会覆盖：{path}").format(
+                        path=existing))
+        return plugin_dir / name
+
+    def import_zip(
+        self, archive: Path, plugin_dir: Path, search_dirs: list[Path], *,
+        before_publish: Callable[[Path, str], None],
+    ) -> Path:
+        """Stage a local package, prepare it, then publish it under user_plugins."""
+        from .plugin_catalog import LOCAL_ZIP_SOURCE, META_FILENAME
+
+        if archive.stat().st_size > _MAX_DOWNLOAD:
+            raise ValueError(_tr("插件压缩包超过 100 MiB。"))
+        self._check_cancelled()
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(prefix="_import_", dir=plugin_dir) as temporary:
+            try:
+                extracted = self._extract(archive, Path(temporary) / "source", local=True)
+            except BadZipFile as exc:
+                raise ValueError(_tr("不能读取 ZIP 文件，压缩包可能已损坏。")) from exc
+            package = self._find_zip_package(extracted)
+            raw_name = archive.stem if package == extracted else package.name
+            name = re.sub(r"[^\w]+", "_", raw_name).strip("_")
+            if not name.isidentifier() or name == "services":
+                name = f"plugin_{name}"
+            if not name.isidentifier():
+                raise ValueError(_tr("无法从 ZIP 中确定有效的插件目录名。"))
+            destination = self._new_destination(name, plugin_dir, search_dirs)
+            (package / META_FILENAME).write_text(
+                json.dumps({"source": LOCAL_ZIP_SOURCE}), encoding="utf-8")
+            self._check_cancelled()
+            before_publish(package, name)
+            self._check_cancelled()
+            self._new_destination(name, plugin_dir, search_dirs)
+            package.rename(destination)
+        return destination
+
+    @staticmethod
+    def _find_zip_package(extracted: Path) -> Path:
+        if (extracted / "__init__.py").is_file():
+            return extracted
+        directories = [path for path in extracted.iterdir()
+                       if path.is_dir() and path.name != "__MACOSX" and not path.name.startswith(".")]
+        packages = [path for path in directories if (path / "__init__.py").is_file()]
+        if not packages and len(directories) == 1:
+            packages = [path for path in directories[0].iterdir()
+                        if path.is_dir() and (path / "__init__.py").is_file()]
+        if len(packages) != 1:
+            raise ValueError(_tr("ZIP 必须包含一个带有 __init__.py 的插件包。"))
+        return packages[0]
 
     def update(self, repository: PluginRepository, tag: RepositoryTag, plugin_dir: Path,
                *, plugin_version: str = "", tag_prefix: str = "",
@@ -818,7 +870,8 @@ class PluginDownloader:
                     self.progress(received, total)
         return digest.hexdigest()
 
-    def _extract(self, archive: Path, target: Path) -> Path:
+    def _extract(self, archive: Path, target: Path, *, local: bool = False) -> Path:
+        target.mkdir(exist_ok=True)
         with ZipFile(archive) as source:
             entries = source.infolist()
             if sum(entry.file_size for entry in entries) > _MAX_EXTRACTED:
@@ -844,6 +897,8 @@ class PluginDownloader:
                         while chunk := input_file.read(_CHUNK_SIZE):
                             self._check_cancelled()
                             output.write(chunk)
+            if local:
+                return target
             if len(roots) != 1:
                 raise ValueError(_tr("压缩包必须包含一个仓库根目录。"))
             return target / roots.pop()

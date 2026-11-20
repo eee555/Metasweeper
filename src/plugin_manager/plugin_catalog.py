@@ -37,6 +37,7 @@ DEFAULT_TAG_PREFIX = "metasweeper-v"
 INDEX_SCHEMA_VERSION = 1
 INDEX_FILENAME = "metasweeper-plugins.json"
 META_FILENAME = ".metasweeper-plugin.json"
+LOCAL_ZIP_SOURCE = "local_zip"
 
 
 class CatalogError(ValueError):

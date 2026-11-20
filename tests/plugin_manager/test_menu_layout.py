@@ -5,11 +5,12 @@ import subprocess
 import sys
 
 import pytest
-from PySide6.QtCore import QEvent, QTranslator
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QEvent, Qt, QTranslator
+from PySide6.QtWidgets import QApplication, QMessageBox, QToolBar
 
+from config.constants import APP_VERSION
 from plugin_manager.main_window import PluginManagerWindow
-from tests.plugin_manager.test_cov_pm_e_helpers import real_window
+from tests.plugin_manager.test_cov_pm_e_helpers import make_plugin, real_window
 
 
 def find_lrelease() -> Path:
@@ -27,6 +28,7 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     calls = []
     handlers = {
         "_open_plugin_market": "market",
+        "_import_plugin_zip": "import zip",
         "restart_plugin_manager": "restart",
         "_open_basic_settings_dialog": "settings",
         "_open_plugin_environment_dialog": "environment",
@@ -40,6 +42,8 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
         monkeypatch.setattr(PluginManagerWindow, method,
                             lambda self, *args, name=name: calls.append(name))
     w = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    assert not w.findChildren(QToolBar)
+    assert w._market_btn.parentWidget() is w._refresh_btn.parentWidget()
     assert [action.menu() for action in w.menuBar().actions()] == [
         w._menu_plugins, w._menu_settings, w._menu_tools, w._menu_help,
     ]
@@ -49,29 +53,75 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     ]
     assert all(action.icon().isNull() for action in w.menuBar().actions())
     plugin_actions = w._menu_plugins.actions()
-    assert plugin_actions[:2] == [w._act_plugin_market, w._act_auto_update]
-    assert plugin_actions[2].isSeparator()
-    assert plugin_actions[3:] == [w._act_restart]
+    assert plugin_actions[:3] == [w._act_plugin_market, w._act_import_zip, w._act_auto_update]
+    assert plugin_actions[3].isSeparator()
+    assert plugin_actions[4:] == [w._act_restart]
     assert not w._act_auto_update.icon().isNull()
-    assert w._act_restart.text() == "重启"
-    assert w._menu_settings.actions() == [
+    assert w._act_restart.text() == "重启插件管理器"
+    settings = w._menu_settings.actions()
+    assert settings[:3] == [
         w._act_basic_settings, w._act_plugin_environment, w._act_control_auth,
     ]
+    assert settings[3].isSeparator()
+    assert settings[4:] == [w._act_plugin_list]
+    assert not w._act_plugin_list.icon().isNull() and w._act_plugin_list.isIconVisibleInMenu()
     tools = w._menu_tools.actions()
     assert tools[:2] == [w._act_log_viewer, w._act_clear_logs]
     assert tools[2].isSeparator()
     assert tools[3:] == [w._debug_act]
-    assert w._menu_help.actions() == [w._act_dev_guide]
-    for action in (w._act_plugin_market, w._act_restart,
+    assert w._menu_help.actions() == [w._act_dev_guide, w._act_about]
+    for action in (w._act_plugin_market, w._act_import_zip, w._act_restart,
                    w._act_basic_settings,
                    w._act_plugin_environment, w._act_control_auth,
                    w._act_log_viewer, w._act_clear_logs, w._debug_act,
                    w._act_dev_guide):
         action.trigger()
-    w._control_auth_btn.click()
-    assert calls == ["market", "restart", "settings", "environment",
+    w._market_btn.click()
+    w._empty_market_btn.click()
+    assert calls == ["market", "import zip", "restart", "settings", "environment",
                      "authorization", "logs", "clear", "debug", "guide",
-                     "authorization"]
+                     "market", "market"]
+
+
+def test_plugin_list_collapses_and_restores_from_both_controls(qtbot, monkeypatch, tmp_path):
+    plugin = make_plugin(qtbot, "demo")
+    window = real_window(qtbot, monkeypatch, tmp_path, {"demo": plugin}, tray=False)
+    window.show()
+    initial_width = window._workspace.width()
+    button = window._plugin_list_btn
+    assert window.menuBar().cornerWidget(Qt.Corner.TopLeftCorner) is button
+    assert button.geometry().right() < window.menuBar().actionGeometry(
+        window._menu_plugins.menuAction()).left()
+    assert button.isChecked()
+
+    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(lambda: window._workspace.width() > initial_width)
+    assert window._plugin_list_panel.isHidden()
+    assert not window._act_plugin_list.isChecked()
+    assert button.isVisible() and button.arrowType() == Qt.ArrowType.RightArrow
+    assert window._tab_widget.currentWidget() is plugin.widget
+
+    reopened = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    assert reopened._plugin_list_panel.isHidden()
+    assert not reopened._act_plugin_list.isChecked()
+    assert reopened._plugin_list_btn.arrowType() == Qt.ArrowType.RightArrow
+
+    window._act_plugin_list.trigger()
+    qtbot.waitUntil(lambda: window._workspace.width() == initial_width)
+    assert window._plugin_list_panel.isVisible()
+    assert button.isChecked() and button.arrowType() == Qt.ArrowType.LeftArrow
+    assert window._tab_widget.currentWidget() is plugin.widget
+    expanded = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    assert not expanded._plugin_list_panel.isHidden()
+    assert expanded._act_plugin_list.isChecked()
+
+
+def test_about_shows_the_shared_application_version(qtbot, monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(QMessageBox, "about", lambda *args: calls.append(args))
+    window = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    window._act_about.trigger()
+    assert calls == [(window, "关于插件管理器", f"元扫雷（Metasweeper）\n版本 {APP_VERSION}")]
 
 
 def test_auto_update_menu_starts_worker_and_persists_setting(qtbot, monkeypatch, tmp_path):
@@ -88,7 +138,7 @@ def test_auto_update_menu_starts_worker_and_persists_setting(qtbot, monkeypatch,
     monkeypatch.setattr(main_window, "PluginAutoUpdateTask", UpdateTask)
     w = real_window(qtbot, monkeypatch, tmp_path, tray=False)
     assert w._act_auto_update.isChecked()
-    qtbot.waitUntil(lambda: "已自动更新 1 个插件" in w.statusBar().currentMessage())
+    qtbot.waitUntil(lambda: "已自动更新 1 个插件" in w._operation_notice.text())
 
     w._act_auto_update.trigger()
     assert not w._auto_update_timer.isActive()
@@ -98,7 +148,7 @@ def test_auto_update_menu_starts_worker_and_persists_setting(qtbot, monkeypatch,
     assert not reopened._act_auto_update.isChecked()
     assert not reopened._auto_update_timer.isActive()
     reopened._act_auto_update.trigger()
-    qtbot.waitUntil(lambda: "已自动更新 1 个插件" in reopened.statusBar().currentMessage())
+    qtbot.waitUntil(lambda: "已自动更新 1 个插件" in reopened._operation_notice.text())
     assert SettingsManager(tmp_path).settings.auto_update_plugins
     reopened._stop_auto_update()
 
@@ -127,15 +177,19 @@ def test_menu_runtime_language_change_during_debug_install(
         assert [action.text() for action in w.menuBar().actions()] == titles
         assert all(action.icon().isNull() for action in w.menuBar().actions())
         assert w._act_log_viewer.text() == log_text
+        assert w._market_btn.text() == translator.translate("PluginManagerWindow", "插件市场")
+        assert w._empty_title.text() == translator.translate("PluginManagerWindow", "暂无插件")
         for action, source in (
             (w._act_plugin_market, "插件市场..."),
             (w._act_auto_update, "自动更新插件"),
-            (w._act_restart, "重启"),
+            (w._act_import_zip, "从 ZIP 导入插件…"),
+            (w._act_restart, "重启插件管理器"),
             (w._act_basic_settings, "基础设置..."),
             (w._act_plugin_environment, "插件依赖环境..."),
             (w._act_control_auth, "控制授权..."),
             (w._act_clear_logs, "清理全部日志..."),
             (w._act_dev_guide, "插件开发指南"),
+            (w._act_about, "关于"),
         ):
             translated = translator.translate("PluginManagerWindow", source)
             assert translated and translated != source

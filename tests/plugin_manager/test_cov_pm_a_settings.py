@@ -22,6 +22,7 @@ def test_basic_settings_defaults_and_to_dict():
         ],
         "plugin_market_source": "github",
         "auto_update_plugins": True,
+        "show_plugin_list": True,
     }
 
 
@@ -48,6 +49,7 @@ def test_basic_settings_from_dict_full():
         "plugin_pip_indexes": ["https://packages.example/simple"],
         "plugin_market_source": "gitee",
         "auto_update_plugins": False,
+        "show_plugin_list": False,
     }
     assert BasicSettings.from_dict(data).to_dict() == data
 
