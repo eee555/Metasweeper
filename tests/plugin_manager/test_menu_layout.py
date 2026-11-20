@@ -53,9 +53,14 @@ def test_menu_structure_and_actions(qtbot, monkeypatch, tmp_path):
     ]
     assert all(action.icon().isNull() for action in w.menuBar().actions())
     plugin_actions = w._menu_plugins.actions()
-    assert plugin_actions[:3] == [w._act_plugin_market, w._act_import_zip, w._act_auto_update]
-    assert plugin_actions[3].isSeparator()
-    assert plugin_actions[4:] == [w._act_restart]
+    assert plugin_actions[:4] == [
+        w._act_plugin_market, w._act_import_zip,
+        w._act_export_plugin_data, w._act_import_plugin_data,
+    ]
+    assert plugin_actions[4].isSeparator()
+    assert plugin_actions[5:] == [w._act_auto_update, w._act_restart]
+    assert w._act_export_plugin_data.icon().cacheKey() != \
+        w._act_import_plugin_data.icon().cacheKey()
     assert not w._act_auto_update.icon().isNull()
     assert w._act_restart.text() == "重启插件管理器"
     settings = w._menu_settings.actions()

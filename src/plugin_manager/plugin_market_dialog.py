@@ -338,7 +338,7 @@ class PluginMarketDialog(QDialog):
         self.filter.addItem(_tr("可更新"), "updatable")
         self.filter.addItem(_tr("未安装"), "not_installed")
         self.update_all = QPushButton(_tr("全部更新"))
-        set_action_icon(self.update_all, "download")
+        set_action_icon(self.update_all, "update")
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(self.search, 1)
         filter_layout.addWidget(self.filter)
@@ -362,7 +362,7 @@ class PluginMarketDialog(QDialog):
         self.version = QComboBox()
         self.version.setEnabled(False)
         self.action = QPushButton(_tr("安装"))
-        set_action_icon(self.action, "download")
+        set_action_icon(self.action, "install")
         self.action.setEnabled(False)
         self.uninstall = QPushButton(_tr("卸载"))
         self.uninstall.setEnabled(False)
@@ -679,12 +679,16 @@ class PluginMarketDialog(QDialog):
             and is_managed_plugin(row.installed.directory))
         if row is None:
             self.action.setText(_tr("安装"))
+            set_action_icon(self.action, "install")
         elif row.installed is None:
             self.action.setText(_tr("安装"))
+            set_action_icon(self.action, "install")
         elif row.state == _tr(STATE_UPDATE):
             self.action.setText(_tr("更新"))
+            set_action_icon(self.action, "update")
         else:
             self.action.setText(_tr("重装"))
+            set_action_icon(self.action, "install")
 
     def _uninstall_selected(self) -> None:
         row = self._selected_row()

@@ -13,11 +13,16 @@
     <file alias="enable.svg">icons/enable.svg</file>
     <file alias="guide.svg">icons/guide.svg</file>
     <file alias="info.svg">icons/info.svg</file>
+    <file alias="import.svg">icons/import.svg</file>
+    <file alias="install.svg">icons/install.svg</file>
     <file alias="log.svg">icons/log.svg</file>
+    <file alias="market.svg">icons/market.svg</file>
     <file alias="quit.svg">icons/quit.svg</file>
     <file alias="refresh.svg">icons/refresh.svg</file>
     <file alias="settings.svg">icons/settings.svg</file>
     <file alias="tag.svg">icons/tag.svg</file>
+    <file alias="upload.svg">icons/upload.svg</file>
+    <file alias="update.svg">icons/update.svg</file>
     <file alias="window.svg">icons/window.svg</file>
     <file alias="window-close.svg">icons/window-close.svg</file>
   </qresource>

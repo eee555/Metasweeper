@@ -158,6 +158,11 @@
         <source>○ 未授权</source>
         <translation>○ 未認可</translation>
     </message>
+    <message>
+                <source>类名:</source>
+                <translation>クラス名:</translation>
+            </message>
+
 </context>
 <context>
     <name>CsvExportProgressDialog</name>
@@ -1113,6 +1118,11 @@
         <source>允许 %1</source>
         <translation>%1 を許可&gt;</translation>
     </message>
+    <message>
+                <source>此插件无自定义配置</source>
+                <translation>このプラグインにはカスタム設定がありません。</translation>
+            </message>
+
 </context>
 <context>
     <name>LogViewerDialog</name>
@@ -1650,6 +1660,156 @@
         <source>正在取消...</source>
         <translation>キャンセル中...</translation>
     </message>
+    <message>
+                <source>GitHub API 匿名请求额度已用完；尝试从标签网页读取版本。</source>
+                <translation>GitHub API の匿名リクエスト上限に達したため、タグページからバージョンを取得します。</translation>
+            </message>
+
+    <message>
+                <source>GitHub API 已限流，且无法从公开标签网页读取版本。</source>
+                <translation>GitHub API がレート制限中で、公開タグページからもバージョンを取得できません。</translation>
+            </message>
+
+    <message>
+                <source>GitHub 搜索 API 已限流，且公开搜索页面无法解析。</source>
+                <translation>GitHub 検索 API がレート制限中で、公開検索ページも解析できません。</translation>
+            </message>
+
+    <message>
+                <source>GitHub 搜索结果不完整，改用公开搜索页面。</source>
+                <translation>GitHub の検索結果が不完全なため、公開検索ページを使用します。</translation>
+            </message>
+
+    <message>
+                <source>下载服务器返回了不完整的重定向。</source>
+                <translation>ダウンロードサーバーが不完全なリダイレクトを返しました。</translation>
+            </message>
+
+    <message>
+                <source>下载重定向到未授权的主机，已拒绝。</source>
+                <translation>未許可のホストへのリダイレクトを拒否しました。</translation>
+            </message>
+
+    <message>
+                <source>下载重定向次数超过限制。</source>
+                <translation>ダウンロードのリダイレクト回数が上限を超えました。</translation>
+            </message>
+
+    <message>
+                <source>下载链接不是 HTTPS，已拒绝。</source>
+                <translation>ダウンロード URL が HTTPS ではないため拒否しました。</translation>
+            </message>
+
+    <message>
+                <source>下载链接使用未授权的端口，已拒绝。</source>
+                <translation>未許可のポートを使用するダウンロード URL を拒否しました。</translation>
+            </message>
+
+    <message>
+                <source>下载链接包含无效端口，已拒绝。</source>
+                <translation>ダウンロード URL のポートが無効なため拒否しました。</translation>
+            </message>
+
+    <message>
+                <source>下载链接包含非法主机，已拒绝。</source>
+                <translation>ダウンロード URL のホスト名が無効なため拒否しました。</translation>
+            </message>
+
+    <message>
+                <source>不支持此托管平台。</source>
+                <translation>このホスティングプラットフォームには対応していません。</translation>
+            </message>
+
+    <message>
+                <source>不支持的插件搜索源：{source}</source>
+                <translation>サポートされていないプラグイン検索元: {source}</translation>
+            </message>
+
+    <message>
+                <source>不能更新非普通插件目录。</source>
+                <translation>通常のプラグインディレクトリ以外は更新できません。</translation>
+            </message>
+
+    <message>
+                <source>仓库或版本不存在，或仓库不是公开仓库。</source>
+                <translation>リポジトリまたはバージョンが存在しないか、公開リポジトリではありません。</translation>
+            </message>
+
+    <message>
+                <source>仓库根目录必须含 __init__.py，或只包含一个插件包目录。</source>
+                <translation>リポジトリのルートには __init__.py またはプラグインパッケージディレクトリが 1 つ必要です。</translation>
+            </message>
+
+    <message>
+                <source>压缩包包含不安全的路径或符号链接。</source>
+                <translation>アーカイブに安全でないパスまたはシンボリックリンクが含まれています。</translation>
+            </message>
+
+    <message>
+                <source>压缩包必须包含一个仓库根目录。</source>
+                <translation>アーカイブにはリポジトリのルートディレクトリが 1 つ必要です。</translation>
+            </message>
+
+    <message>
+                <source>托管平台拒绝请求或请求次数已达上限，请稍后重试。</source>
+                <translation>ホスティングサービスがリクエストを拒否したか、リクエスト上限に達しました。しばらくしてから再試行してください。</translation>
+            </message>
+
+    <message>
+                <source>插件压缩包超过 100 MiB。</source>
+                <translation>プラグインアーカイブが 100 MiB を超えています。</translation>
+            </message>
+
+    <message>
+                <source>插件来源不匹配，不能自动更新。</source>
+                <translation>プラグインの取得元が一致しないため、自動更新できません。</translation>
+            </message>
+
+    <message>
+                <source>插件目录已存在，不会覆盖：{path}</source>
+                <translation>プラグインディレクトリは既に存在するため上書きしません: {path}</translation>
+            </message>
+
+    <message>
+                <source>插件索引文件超过 1 MiB。</source>
+                <translation>プラグインインデックスファイルが 1 MiB を超えています。</translation>
+            </message>
+
+    <message>
+                <source>插件解压后超过 500 MiB。</source>
+                <translation>展開後のプラグインが 500 MiB を超えています。</translation>
+            </message>
+
+    <message>
+                <source>无法自动识别此站点，请选择托管平台。</source>
+                <translation>このサイトを自動判別できません。ホスティングプラットフォームを選択してください。</translation>
+            </message>
+
+    <message>
+                <source>无法解析 GitHub 插件搜索结果。</source>
+                <translation>GitHub プラグイン検索結果を解析できません。</translation>
+            </message>
+
+    <message>
+                <source>标签对应的 commit 不是有效的十六进制哈希，拒绝下载可变引用。</source>
+                <translation>タグの commit が有効な 16 進数ハッシュではないため、可変参照のダウンロードを拒否しました。</translation>
+            </message>
+
+    <message>
+                <source>自建站点不允许使用内网或保留 IP 地址。</source>
+                <translation>セルフホストのサイトではプライベート IP または予約済み IP を使用できません。</translation>
+            </message>
+
+    <message>
+                <source>请输入有效的仓库 HTTPS 链接。</source>
+                <translation>有効なリポジトリの HTTPS URL を入力してください。</translation>
+            </message>
+
+    <message>
+                <source>链接与所选托管平台不匹配。</source>
+                <translation>URL と選択したホスティングプラットフォームが一致しません。</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginEnvironmentDialog</name>
@@ -1799,6 +1959,124 @@
         <source>所选目录不存在，且其父目录也不存在。</source>
         <translation>選択したディレクトリとその親ディレクトリが存在しません。</translation>
     </message>
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1136"/>
+                <source>使用当前运行环境安装兼容的 wheel。目录变更后需重启插件管理器。</source>
+                <translation>Zainstaluj zgodne pakiety wheel w bieżącym środowisku. Po zmianie katalogu uruchom ponownie menedżera wtyczek.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1159"/>
+                <source>恢复默认</source>
+                <translation>Przywróć domyślne</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1168"/>
+                <source>创建依赖目录</source>
+                <translation>Utwórz katalog zależności</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1199"/>
+                <location filename="../plugin_manager/main_window.py" line="1259"/>
+                <source>创建依赖目录失败</source>
+                <translation>Nie udało się utworzyć katalogu zależności</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1221"/>
+                <source>目录尚不存在；可点击“创建依赖目录”手动创建</source>
+                <translation>Katalog jeszcze nie istnieje; kliknij „Utwórz katalog zależności”, aby go utworzyć.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/plugin_lib_env.py" line="76"/>
+                <source>Python {major}.{minor} ({bits} 位)</source>
+                <translation>Python {major}.{minor}（{bits} ビット）</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/settings_manager.py" line="34"/>
+                <source>无效的 Python 包源 URL：{url}</source>
+                <translation>無効な Python パッケージソース URL: {url}</translation>
+            </message>
+
+    <message>
+                <source>使用库目录: {path}</source>
+                <translation>ライブラリディレクトリを使用: {path}</translation>
+            </message>
+
+    <message>
+                <source>使用虚拟环境: {path}</source>
+                <translation>仮想環境を使用: {path}</translation>
+            </message>
+
+    <message>
+                <source>使用虚拟环境的依赖目录: {path}</source>
+                <translation>仮想環境の依存ディレクトリを使用: {path}</translation>
+            </message>
+
+    <message>
+                <source>依赖目录不存在或不是目录</source>
+                <translation>依存ディレクトリが存在しないか、ディレクトリではありません</translation>
+            </message>
+
+    <message>
+                <source>创建依赖目录失败: {error}</source>
+                <translation>依存ディレクトリを作成できませんでした: {error}</translation>
+            </message>
+
+    <message>
+                <source>创建虚拟环境失败: {error}</source>
+                <translation>仮想環境を作成できませんでした: {error}</translation>
+            </message>
+
+    <message>
+                <source>已创建虚拟环境: {path}</source>
+                <translation>仮想環境を作成しました: {path}</translation>
+            </message>
+
+    <message>
+                <source>无法确认虚拟环境与当前 {tag} 兼容，请选择普通库目录</source>
+                <translation>仮想環境が現在の {tag} と互換か確認できません。通常のライブラリディレクトリを選択してください。</translation>
+            </message>
+
+    <message>
+                <source>无法读取虚拟环境配置: {error}</source>
+                <translation>仮想環境の設定を読み取れません: {error}</translation>
+            </message>
+
+    <message>
+                <source>未找到与当前 {tag} 匹配的解释器，无法创建虚拟环境</source>
+                <translation>現在の {tag} に一致するインタープリターがないため、仮想環境を作成できません。</translation>
+            </message>
+
+    <message>
+                <source>目录不存在</source>
+                <translation>ディレクトリが存在しません</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境不完整，未找到 Python 解释器</source>
+                <translation>仮想環境が不完全です: Python インタープリターが見つかりません</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境不完整，未找到 site-packages</source>
+                <translation>仮想環境が不完全です: site-packages が見つかりません</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境创建后未找到 site-packages</source>
+                <translation>仮想環境の作成後に site-packages が見つかりません</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境解释器与当前 {tag} 不匹配</source>
+                <translation>仮想環境のインタープリターが現在の {tag} と一致しません</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginInfoDialog</name>
@@ -1853,6 +2131,21 @@
         <source>无</source>
         <translation>なし</translation>
     </message>
+    <message>
+                <source>已授予</source>
+                <translation>許可済み</translation>
+            </message>
+
+    <message>
+                <source>未授予</source>
+                <translation>未許可</translation>
+            </message>
+
+    <message>
+                <source>类名:</source>
+                <translation>クラス名:</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginManagerWindow</name>
@@ -2434,6 +2727,332 @@
         <source>关闭窗口将停止插件管理器，确定吗？</source>
         <translation>終了するとプラグインマネージャーが停止します。よろしいですか？</translation>
     </message>
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2076"/>
+                <location filename="../plugin_manager/main_window.py" line="2336"/>
+                <location filename="../plugin_manager/main_window.py" line="2494"/>
+                <source>导出插件数据…</source>
+                <translation>プラグインデータをエクスポート…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2080"/>
+                <location filename="../plugin_manager/main_window.py" line="2337"/>
+                <location filename="../plugin_manager/main_window.py" line="2510"/>
+                <source>导入插件数据…</source>
+                <translation>プラグインデータをインポート…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2466"/>
+                <source>数据传输失败：{error}</source>
+                <translation>データ転送に失敗しました: {error}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2470"/>
+                <source>成功：{ok}，失败：{failed}，跳过：{skipped}</source>
+                <translation>成功: {ok}、失敗: {failed}、スキップ: {skipped}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2478"/>
+                <source>部分插件处理失败：
+    {details}</source>
+                <translation>一部のプラグインを処理できませんでした:
+    {details}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2502"/>
+                <source>导出插件数据</source>
+                <translation>プラグインデータをエクスポート</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2502"/>
+                <source>正在导出插件数据…</source>
+                <translation>プラグインデータをエクスポート中…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2503"/>
+                <source>插件数据导出完成</source>
+                <translation>プラグインデータのエクスポートが完了しました</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2515"/>
+                <location filename="../plugin_manager/main_window.py" line="2522"/>
+                <source>导入插件数据</source>
+                <translation>プラグインデータをインポート</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2516"/>
+                <source>导入会覆盖归档中包含的插件数据文件，继续吗？</source>
+                <translation>アーカイブに含まれるプラグインデータファイルを上書きします。続行しますか？</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2522"/>
+                <source>正在导入插件数据…</source>
+                <translation>プラグインデータをインポート中…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2523"/>
+                <source>插件数据导入完成</source>
+                <translation>プラグインデータのインポートが完了しました</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2634"/>
+                <source>重启插件管理器失败：{error}</source>
+                <translation>プラグインマネージャーの再起動に失敗しました: {error}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3129"/>
+                <source>{name}（初始化失败）</source>
+                <translation>{name}（初期化に失敗）</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3310"/>
+                <source>卸载插件…</source>
+                <translation>プラグインをアンインストール…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3397"/>
+                <source>无法卸载插件</source>
+                <translation>プラグインをアンインストールできません</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3406"/>
+                <source>卸载 {name}？</source>
+                <translation>{name} をアンインストールしますか？</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3408"/>
+                <source>此安装目录包含：{names}</source>
+                <translation>このインストールディレクトリには次が含まれます: {names}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3411"/>
+                <location filename="../plugin_manager/main_window.py" line="3457"/>
+                <source>同时清理独享依赖：{packages}</source>
+                <translation>専用依存関係も削除: {packages}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3415"/>
+                <source>勾选后也会清理这组独享依赖，其中有包缺少安装归属记录：{packages}</source>
+                <translation>選択すると次の専用依存関係も削除します。一部のパッケージには所有記録がありません: {packages}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3419"/>
+                <source>共享或无法确认归属的依赖将保留：{packages}</source>
+                <translation>共有または所有者を確認できない依存関係は保持されます: {packages}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3423"/>
+                <source>保留插件配置、历史记录和存档。</source>
+                <translation>プラグイン設定、履歴、アーカイブは保持されます。</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3425"/>
+                <location filename="../plugin_manager/main_window.py" line="3452"/>
+                <source>卸载插件</source>
+                <translation>プラグインをアンインストール</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3431"/>
+                <source>同时清理这组独享依赖</source>
+                <translation>これらの専用依存関係も削除</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3433"/>
+                <source>卸载</source>
+                <translation>アンインストール</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3450"/>
+                <source>插件仍在停止，请稍后重试。</source>
+                <translation>プラグインはまだ停止中です。後でもう一度お試しください。</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3452"/>
+                <source>正在卸载…</source>
+                <translation>アンインストール中…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3483"/>
+                <source>重启后卸载</source>
+                <translation>再起動後にアンインストール</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3484"/>
+                <source>文件可能正在使用，已恢复原有文件。要现在重启插件管理器并在加载插件前执行同一卸载计划吗？</source>
+                <translation>ファイルが使用中の可能性があるため元に戻しました。今すぐ再起動し、プラグイン読み込み前に同じアンインストール計画を実行しますか？</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3492"/>
+                <source>无法安排卸载</source>
+                <translation>アンインストールを予約できません</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3496"/>
+                <location filename="../plugin_manager/main_window.py" line="3530"/>
+                <source>卸载失败</source>
+                <translation>アンインストールに失敗しました</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3511"/>
+                <location filename="../plugin_manager/main_window.py" line="3519"/>
+                <source>插件已卸载。请重启插件管理器以刷新运行环境。</source>
+                <translation>プラグインをアンインストールしました。実行環境を更新するにはプラグインマネージャーを再起動してください。</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3518"/>
+                <source>卸载完成</source>
+                <translation>アンインストール完了</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3528"/>
+                <source>卸载失败：{error}</source>
+                <translation>アンインストールに失敗しました: {error}</translation>
+            </message>
+
+    <message>
+                <source>Cannot read requirements: {error}</source>
+                <translation>requirements.txt を読み取れません: {error}</translation>
+            </message>
+
+    <message>
+                <source>Cannot verify requirement: {error}</source>
+                <translation>依存関係を検証できません: {error}</translation>
+            </message>
+
+    <message>
+                <source>Direct URLs and extras cannot be verified</source>
+                <translation>直接 URL と extras は検証できません</translation>
+            </message>
+
+    <message>
+                <source>Distribution lists a linked path</source>
+                <translation>配布物にリンクされたパスがあります</translation>
+            </message>
+
+    <message>
+                <source>Distribution lists a non-file path</source>
+                <translation>配布物にファイルでないパスがあります</translation>
+            </message>
+
+    <message>
+                <source>Distribution lists files outside its environment</source>
+                <translation>配布物に環境外のファイルがあります</translation>
+            </message>
+
+    <message>
+                <source>Distribution metadata not found</source>
+                <translation>配布メタデータが見つかりません</translation>
+            </message>
+
+    <message>
+                <source>Distribution metadata unavailable in packaged application</source>
+                <translation>パッケージ版では配布メタデータを利用できません</translation>
+            </message>
+
+    <message>
+                <source>Environment marker does not apply</source>
+                <translation>環境マーカーは適用されません</translation>
+            </message>
+
+    <message>
+                <source>Installed version does not satisfy constraint</source>
+                <translation>インストール済みバージョンが条件を満たしていません</translation>
+            </message>
+
+    <message>
+                <source>Missing distribution file list</source>
+                <translation>配布物のファイル一覧がありません</translation>
+            </message>
+
+    <message>
+                <source>Unsupported or invalid requirement</source>
+                <translation>サポートされていないか、無効な依存関係指定です</translation>
+            </message>
+
+    <message>
+                <source>只支持卸载由管理器安装的用户插件。</source>
+                <translation>管理者がインストールしたユーザープラグインのみアンインストールできます。</translation>
+            </message>
+
+    <message>
+                <source>插件或依赖环境已变化，请重新确认卸载。</source>
+                <translation>プラグインまたは依存環境が変更されました。アンインストールを再確認してください。</translation>
+            </message>
+
+    <message>
+                <source>无效的插件目录</source>
+                <translation>無効なプラグインディレクトリ</translation>
+            </message>
+
+    <message>
+                <source>无法完整核对已安装包的文件清单，已保留共享环境中的包。</source>
+                <translation>インストール済みパッケージのファイルを完全に確認できないため、共有環境のパッケージを保持しました。</translation>
+            </message>
+
+    <message>
+                <source>无法确认依赖关系，已保留共享环境中的包。</source>
+                <translation>依存関係を確認できないため、共有環境のパッケージを保持しました。</translation>
+            </message>
+
+    <message>
+                <source>无法读取插件依赖环境，卸载时会保留其中的包。</source>
+                <translation>プラグイン依存環境を読み取れないため、アンインストール時もパッケージを保持します。</translation>
+            </message>
+
+    <message>
+                <source>部分文件恢复失败，备份仍在原处：
+    {files}</source>
+                <translation>一部のファイルを復元できませんでした。バックアップはそのまま残っています:
+    {files}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/restart.py" line="155"/>
+                <source>Plugin manager restart failed:
+    {error}</source>
+                <translation>プラグインマネージャーの再起動に失敗しました:
+    {error}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/restart.py" line="157"/>
+                <source>Plugin manager</source>
+                <translation>プラグインマネージャー</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginSettingsDialog</name>
@@ -2503,6 +3122,46 @@
         <source>配置无效</source>
         <translation>設定が無効です</translation>
     </message>
+    <message>
+                <source>DEBUG</source>
+                <translation>DEBUG</translation>
+            </message>
+
+    <message>
+                <source>ERROR (仅错误)</source>
+                <translation>ERROR（エラーのみ）</translation>
+            </message>
+
+    <message>
+                <source>INFO (常规)</source>
+                <translation>INFO（通常）</translation>
+            </message>
+
+    <message>
+                <source>TRACE (最详细)</source>
+                <translation>TRACE（最も詳細）</translation>
+            </message>
+
+    <message>
+                <source>WARNING</source>
+                <translation>WARNING</translation>
+            </message>
+
+    <message>
+                <source>不自动加载</source>
+                <translation>自動読み込みなし</translation>
+            </message>
+
+    <message>
+                <source>标签页内</source>
+                <translation>タブ内</translation>
+            </message>
+
+    <message>
+                <source>独立窗口</source>
+                <translation>独立ウィンドウ</translation>
+            </message>
+
 </context>
 <context>
     <name>ReleaseFrame</name>
@@ -2871,6 +3530,11 @@
         <source>该插件目录下未找到 README.md</source>
         <translation>プラグインディレクトリに README.md がありません</translation>
     </message>
+    <message>
+                <source>{name} - README</source>
+                <translation>{name} - README</translation>
+            </message>
+
 </context>
 <context>
     <name>parent</name>
@@ -3097,5 +3761,73 @@
     <message><source>正在 Gitee 搜索插件并检查版本...</source><translation>Gitee でプラグインを検索し、バージョンを確認中...</translation></message>
     <message><source>刷新</source><translation>更新</translation></message>
     <message><source>不支持的插件搜索源：{source}</source><translation>サポートされていないプラグイン検索元: {source}</translation></message>
+    <message>
+                <source>不支持的索引版本：{version}</source>
+                <translation>サポートされていないインデックスバージョン: {version}</translation>
+            </message>
+
+    <message>
+                <source>卸载</source>
+                <translation>アンインストール</translation>
+            </message>
+
+    <message>
+                <source>已取消。</source>
+                <translation>キャンセルしました。</translation>
+            </message>
+
+    <message>
+                <source>已安装，但加载失败：{names}。请在插件列表查看依赖详情或日志。</source>
+                <translation>インストール済みですが読み込みに失敗しました: {names}。プラグイン一覧で依存関係の詳細またはログを確認してください。</translation>
+            </message>
+
+    <message>
+                <source>插件已卸载。请重启插件管理器以刷新运行环境。</source>
+                <translation>プラグインをアンインストールしました。実行環境を更新するにはプラグインマネージャーを再起動してください。</translation>
+            </message>
+
+    <message>
+                <source>插件条目缺少 repository</source>
+                <translation>プラグイン項目に repository がありません</translation>
+            </message>
+
+    <message>
+                <source>新插件已加入插件列表，并按启用设置启动。</source>
+                <translation>新しいプラグインを一覧に追加し、有効設定に従って起動しました。</translation>
+            </message>
+
+    <message>
+                <source>有插件需要重启插件管理器后生效。</source>
+                <translation>有効にするにはプラグインマネージャーの再起動が必要なプラグインがあります。</translation>
+            </message>
+
+    <message>
+                <source>索引不是合法的 JSON：{error}</source>
+                <translation>インデックスが有効な JSON ではありません: {error}</translation>
+            </message>
+
+    <message>
+                <source>索引根节点必须是对象</source>
+                <translation>インデックスのルートはオブジェクトである必要があります</translation>
+            </message>
+
+    <message>
+                <source>索引缺少 plugins 列表</source>
+                <translation>インデックスに plugins リストがありません</translation>
+            </message>
+
+    <message>
+                <source>部分插件已安装；后续安装失败：{error}</source>
+                <translation>一部のプラグインはインストールされましたが、後続のインストールに失敗しました: {error}</translation>
+            </message>
+
+</context>
+<context><name>DetachedPluginWindow</name>
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="176"/>
+                <source>{name} - 插件</source>
+                <translation>{name} - プラグイン</translation>
+            </message>
+
 </context>
 </TS>

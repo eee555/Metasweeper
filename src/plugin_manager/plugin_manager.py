@@ -35,6 +35,13 @@ from .plugin_uninstall import is_managed_plugin
 from .plugin_state import PluginState, PluginStateManager
 from .settings_manager import SettingsManager
 from .translations import TranslationManager
+from .plugin_data_transfer import (
+    DataTransferResult,
+    export_plugin,
+    export_plugins,
+    import_plugin,
+    import_plugins,
+)
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication, QWidget
@@ -639,6 +646,44 @@ class PluginManager:
 
     def get_plugin(self, name: str) -> BasePlugin | None:
         return self._plugins.get(name)
+
+    def export_plugin_data(self, output: Path, *,
+                           progress: Callable[[str], None] | None = None) -> DataTransferResult:
+        """Export every loaded plugin into one manager-level ZIP archive."""
+        with self._plugins_lock:
+            plugins = dict(self._plugins)
+        return export_plugins(plugins, output, progress=progress)
+
+    def import_plugin_data(self, source: Path, *,
+                           progress: Callable[[str], None] | None = None) -> DataTransferResult:
+        """Import plugin data from a manager-level ZIP archive."""
+        with self._plugins_lock:
+            plugins = dict(self._plugins)
+        return import_plugins(plugins, source, progress=progress)
+
+    def export_single_plugin_data(
+            self, name: str, output: Path,
+            *, progress: Callable[[str], None] | None = None) -> DataTransferResult:
+        """Export one plugin's own ZIP for its list context menu."""
+        with self._plugins_lock:
+            plugin = self._plugins.get(name)
+        if plugin is None:
+            raise KeyError(f"Unknown plugin: {name}")
+        if progress:
+            progress(f"导出插件数据：{name}")
+        return export_plugin(plugin, name, output)
+
+    def import_single_plugin_data(
+            self, name: str, source: Path,
+            *, progress: Callable[[str], None] | None = None) -> DataTransferResult:
+        """Import one plugin's own ZIP for its list context menu."""
+        with self._plugins_lock:
+            plugin = self._plugins.get(name)
+        if plugin is None:
+            raise KeyError(f"Unknown plugin: {name}")
+        if progress:
+            progress(f"导入插件数据：{name}")
+        return import_plugin(plugin, name, source)
 
     @property
     def module_dependency_statuses(self) -> dict[str, PluginDependencyStatus]:

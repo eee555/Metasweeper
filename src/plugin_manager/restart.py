@@ -151,11 +151,14 @@ def acquire_after_restart(acquire, timeout: float = 10.0) -> bool:
 
 def report_restart_failure(error: Exception) -> None:
     """Report failure even when the predecessor's window no longer exists."""
-    message = f"Plugin manager restart failed:\n{error}"
+    from PySide6.QtCore import QCoreApplication
+    message = QCoreApplication.translate(
+        "PluginManagerWindow", "Plugin manager restart failed:\n{error}").format(error=error)
+    title = QCoreApplication.translate("PluginManagerWindow", "Plugin manager")
     if sys.platform == "win32":
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None, message, "Plugin manager", 0x10)
+        ctypes.windll.user32.MessageBoxW(None, message, title, 0x10)
     else:
         from PySide6.QtWidgets import QApplication, QMessageBox
         app = QApplication.instance() or QApplication([])
-        QMessageBox.critical(None, "Plugin manager", message)
+        QMessageBox.critical(None, title, message)

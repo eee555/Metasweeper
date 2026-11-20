@@ -158,6 +158,11 @@ The dropdown only shows plugins that declare the permission.</translation>
         <source>○ 未授权</source>
         <translation>○ Unauthorized</translation>
     </message>
+    <message>
+                <source>类名:</source>
+                <translation>Class name:</translation>
+            </message>
+
 </context>
 <context>
     <name>CsvExportProgressDialog</name>
@@ -1113,6 +1118,11 @@ The dropdown only shows plugins that declare the permission.</translation>
         <source>允许 %1</source>
         <translation>Allow %1&gt;</translation>
     </message>
+    <message>
+                <source>此插件无自定义配置</source>
+                <translation>This plugin has no custom settings.</translation>
+            </message>
+
 </context>
 <context>
     <name>LogViewerDialog</name>
@@ -1650,6 +1660,156 @@ The dropdown only shows plugins that declare the permission.</translation>
         <source>正在取消...</source>
         <translation>Cancelling...</translation>
     </message>
+    <message>
+                <source>GitHub API 匿名请求额度已用完；尝试从标签网页读取版本。</source>
+                <translation>GitHub API anonymous request limit reached; trying the tag page.</translation>
+            </message>
+
+    <message>
+                <source>GitHub API 已限流，且无法从公开标签网页读取版本。</source>
+                <translation>GitHub API rate limited; unable to read versions from the public tag page.</translation>
+            </message>
+
+    <message>
+                <source>GitHub 搜索 API 已限流，且公开搜索页面无法解析。</source>
+                <translation>GitHub search API is rate limited and the public search page could not be parsed.</translation>
+            </message>
+
+    <message>
+                <source>GitHub 搜索结果不完整，改用公开搜索页面。</source>
+                <translation>GitHub search results are incomplete; using the public search page.</translation>
+            </message>
+
+    <message>
+                <source>下载服务器返回了不完整的重定向。</source>
+                <translation>The download server returned an incomplete redirect.</translation>
+            </message>
+
+    <message>
+                <source>下载重定向到未授权的主机，已拒绝。</source>
+                <translation>The download redirected to an unauthorized host and was rejected.</translation>
+            </message>
+
+    <message>
+                <source>下载重定向次数超过限制。</source>
+                <translation>The download exceeded the redirect limit.</translation>
+            </message>
+
+    <message>
+                <source>下载链接不是 HTTPS，已拒绝。</source>
+                <translation>The download URL is not HTTPS and was rejected.</translation>
+            </message>
+
+    <message>
+                <source>下载链接使用未授权的端口，已拒绝。</source>
+                <translation>The download URL uses an unauthorized port and was rejected.</translation>
+            </message>
+
+    <message>
+                <source>下载链接包含无效端口，已拒绝。</source>
+                <translation>The download URL contains an invalid port and was rejected.</translation>
+            </message>
+
+    <message>
+                <source>下载链接包含非法主机，已拒绝。</source>
+                <translation>The download URL contains an invalid host and was rejected.</translation>
+            </message>
+
+    <message>
+                <source>不支持此托管平台。</source>
+                <translation>This hosting platform is not supported.</translation>
+            </message>
+
+    <message>
+                <source>不支持的插件搜索源：{source}</source>
+                <translation>Unsupported plugin search source: {source}</translation>
+            </message>
+
+    <message>
+                <source>不能更新非普通插件目录。</source>
+                <translation>Non-standard plugin directories cannot be updated.</translation>
+            </message>
+
+    <message>
+                <source>仓库或版本不存在，或仓库不是公开仓库。</source>
+                <translation>The repository or version does not exist, or the repository is not public.</translation>
+            </message>
+
+    <message>
+                <source>仓库根目录必须含 __init__.py，或只包含一个插件包目录。</source>
+                <translation>The repository root must contain __init__.py or one plugin package directory.</translation>
+            </message>
+
+    <message>
+                <source>压缩包包含不安全的路径或符号链接。</source>
+                <translation>The archive contains an unsafe path or symbolic link.</translation>
+            </message>
+
+    <message>
+                <source>压缩包必须包含一个仓库根目录。</source>
+                <translation>The archive must contain one repository root directory.</translation>
+            </message>
+
+    <message>
+                <source>托管平台拒绝请求或请求次数已达上限，请稍后重试。</source>
+                <translation>The hosting platform rejected the request or the rate limit was reached. Try again later.</translation>
+            </message>
+
+    <message>
+                <source>插件压缩包超过 100 MiB。</source>
+                <translation>The plugin archive exceeds 100 MiB.</translation>
+            </message>
+
+    <message>
+                <source>插件来源不匹配，不能自动更新。</source>
+                <translation>The plugin source does not match; automatic update is unavailable.</translation>
+            </message>
+
+    <message>
+                <source>插件目录已存在，不会覆盖：{path}</source>
+                <translation>The plugin directory already exists and will not be overwritten: {path}</translation>
+            </message>
+
+    <message>
+                <source>插件索引文件超过 1 MiB。</source>
+                <translation>The plugin index file exceeds 1 MiB.</translation>
+            </message>
+
+    <message>
+                <source>插件解压后超过 500 MiB。</source>
+                <translation>The extracted plugin exceeds 500 MiB.</translation>
+            </message>
+
+    <message>
+                <source>无法自动识别此站点，请选择托管平台。</source>
+                <translation>This site could not be identified automatically. Select a hosting platform.</translation>
+            </message>
+
+    <message>
+                <source>无法解析 GitHub 插件搜索结果。</source>
+                <translation>Could not parse GitHub plugin search results.</translation>
+            </message>
+
+    <message>
+                <source>标签对应的 commit 不是有效的十六进制哈希，拒绝下载可变引用。</source>
+                <translation>The commit for the tag is not a valid hexadecimal hash; variable references are rejected.</translation>
+            </message>
+
+    <message>
+                <source>自建站点不允许使用内网或保留 IP 地址。</source>
+                <translation>Self-hosted sites may not use private or reserved IP addresses.</translation>
+            </message>
+
+    <message>
+                <source>请输入有效的仓库 HTTPS 链接。</source>
+                <translation>Enter a valid HTTPS repository URL.</translation>
+            </message>
+
+    <message>
+                <source>链接与所选托管平台不匹配。</source>
+                <translation>The URL does not match the selected hosting platform.</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginEnvironmentDialog</name>
@@ -1799,6 +1959,124 @@ The dropdown only shows plugins that declare the permission.</translation>
         <source>所选目录不存在，且其父目录也不存在。</source>
         <translation>The selected directory and its parent do not exist.</translation>
     </message>
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1136"/>
+                <source>使用当前运行环境安装兼容的 wheel。目录变更后需重启插件管理器。</source>
+                <translation>Install compatible wheels using the current environment. Restart the plugin manager after changing the directory.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1159"/>
+                <source>恢复默认</source>
+                <translation>Restore defaults</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1168"/>
+                <source>创建依赖目录</source>
+                <translation>Create dependency directory</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1199"/>
+                <location filename="../plugin_manager/main_window.py" line="1259"/>
+                <source>创建依赖目录失败</source>
+                <translation>Failed to create dependency directory</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="1221"/>
+                <source>目录尚不存在；可点击“创建依赖目录”手动创建</source>
+                <translation>The directory does not exist yet; click “Create dependency directory” to create it.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/plugin_lib_env.py" line="76"/>
+                <source>Python {major}.{minor} ({bits} 位)</source>
+                <translation>Python {major}.{minor} ({bits}-bit)</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/settings_manager.py" line="34"/>
+                <source>无效的 Python 包源 URL：{url}</source>
+                <translation>Invalid Python package index URL: {url}</translation>
+            </message>
+
+    <message>
+                <source>使用库目录: {path}</source>
+                <translation>Using library directory: {path}</translation>
+            </message>
+
+    <message>
+                <source>使用虚拟环境: {path}</source>
+                <translation>Using virtual environment: {path}</translation>
+            </message>
+
+    <message>
+                <source>使用虚拟环境的依赖目录: {path}</source>
+                <translation>Using virtual environment dependencies: {path}</translation>
+            </message>
+
+    <message>
+                <source>依赖目录不存在或不是目录</source>
+                <translation>Dependency directory does not exist or is not a directory</translation>
+            </message>
+
+    <message>
+                <source>创建依赖目录失败: {error}</source>
+                <translation>Failed to create dependency directory: {error}</translation>
+            </message>
+
+    <message>
+                <source>创建虚拟环境失败: {error}</source>
+                <translation>Failed to create virtual environment: {error}</translation>
+            </message>
+
+    <message>
+                <source>已创建虚拟环境: {path}</source>
+                <translation>Created virtual environment: {path}</translation>
+            </message>
+
+    <message>
+                <source>无法确认虚拟环境与当前 {tag} 兼容，请选择普通库目录</source>
+                <translation>Could not verify that the virtual environment is compatible with {tag}. Select a regular library directory.</translation>
+            </message>
+
+    <message>
+                <source>无法读取虚拟环境配置: {error}</source>
+                <translation>Could not read virtual environment configuration: {error}</translation>
+            </message>
+
+    <message>
+                <source>未找到与当前 {tag} 匹配的解释器，无法创建虚拟环境</source>
+                <translation>No interpreter matching {tag} was found, so a virtual environment cannot be created.</translation>
+            </message>
+
+    <message>
+                <source>目录不存在</source>
+                <translation>Directory does not exist</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境不完整，未找到 Python 解释器</source>
+                <translation>Virtual environment is incomplete: Python interpreter not found</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境不完整，未找到 site-packages</source>
+                <translation>Virtual environment is incomplete: site-packages not found</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境创建后未找到 site-packages</source>
+                <translation>site-packages was not found after creating the virtual environment</translation>
+            </message>
+
+    <message>
+                <source>虚拟环境解释器与当前 {tag} 不匹配</source>
+                <translation>Virtual environment interpreter does not match {tag}</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginInfoDialog</name>
@@ -1853,6 +2131,21 @@ The dropdown only shows plugins that declare the permission.</translation>
         <source>无</source>
         <translation>None</translation>
     </message>
+    <message>
+                <source>已授予</source>
+                <translation>Granted</translation>
+            </message>
+
+    <message>
+                <source>未授予</source>
+                <translation>Not granted</translation>
+            </message>
+
+    <message>
+                <source>类名:</source>
+                <translation>Class name:</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginManagerWindow</name>
@@ -2435,6 +2728,332 @@ The files may be in use by another program.</translation>
         <source>关闭窗口将停止插件管理器，确定吗？</source>
         <translation>Closing will stop the plugin manager. Are you sure?</translation>
     </message>
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2076"/>
+                <location filename="../plugin_manager/main_window.py" line="2336"/>
+                <location filename="../plugin_manager/main_window.py" line="2494"/>
+                <source>导出插件数据…</source>
+                <translation>Export plugin data…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2080"/>
+                <location filename="../plugin_manager/main_window.py" line="2337"/>
+                <location filename="../plugin_manager/main_window.py" line="2510"/>
+                <source>导入插件数据…</source>
+                <translation>Import plugin data…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2466"/>
+                <source>数据传输失败：{error}</source>
+                <translation>Data transfer failed: {error}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2470"/>
+                <source>成功：{ok}，失败：{failed}，跳过：{skipped}</source>
+                <translation>Succeeded: {ok}, failed: {failed}, skipped: {skipped}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2478"/>
+                <source>部分插件处理失败：
+    {details}</source>
+                <translation>Some plugins could not be processed:
+    {details}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2502"/>
+                <source>导出插件数据</source>
+                <translation>Export plugin data</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2502"/>
+                <source>正在导出插件数据…</source>
+                <translation>Exporting plugin data…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2503"/>
+                <source>插件数据导出完成</source>
+                <translation>Plugin data export complete</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2515"/>
+                <location filename="../plugin_manager/main_window.py" line="2522"/>
+                <source>导入插件数据</source>
+                <translation>Import plugin data</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2516"/>
+                <source>导入会覆盖归档中包含的插件数据文件，继续吗？</source>
+                <translation>This will overwrite plugin data files included in the archive. Continue?</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2522"/>
+                <source>正在导入插件数据…</source>
+                <translation>Importing plugin data…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2523"/>
+                <source>插件数据导入完成</source>
+                <translation>Plugin data import complete</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="2634"/>
+                <source>重启插件管理器失败：{error}</source>
+                <translation>Failed to restart the plugin manager: {error}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3129"/>
+                <source>{name}（初始化失败）</source>
+                <translation>{name} (initialization failed)</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3310"/>
+                <source>卸载插件…</source>
+                <translation>Uninstall plugin…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3397"/>
+                <source>无法卸载插件</source>
+                <translation>Cannot uninstall plugin</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3406"/>
+                <source>卸载 {name}？</source>
+                <translation>Uninstall {name}?</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3408"/>
+                <source>此安装目录包含：{names}</source>
+                <translation>This installation directory contains: {names}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3411"/>
+                <location filename="../plugin_manager/main_window.py" line="3457"/>
+                <source>同时清理独享依赖：{packages}</source>
+                <translation>Also remove exclusive dependencies: {packages}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3415"/>
+                <source>勾选后也会清理这组独享依赖，其中有包缺少安装归属记录：{packages}</source>
+                <translation>Selecting this also removes these exclusive dependencies; some packages have no ownership record: {packages}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3419"/>
+                <source>共享或无法确认归属的依赖将保留：{packages}</source>
+                <translation>Shared or unverified dependencies will be kept: {packages}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3423"/>
+                <source>保留插件配置、历史记录和存档。</source>
+                <translation>Plugin settings, history, and archives will be kept.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3425"/>
+                <location filename="../plugin_manager/main_window.py" line="3452"/>
+                <source>卸载插件</source>
+                <translation>Uninstall plugin</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3431"/>
+                <source>同时清理这组独享依赖</source>
+                <translation>Also remove these exclusive dependencies</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3433"/>
+                <source>卸载</source>
+                <translation>Uninstall</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3450"/>
+                <source>插件仍在停止，请稍后重试。</source>
+                <translation>The plugin is still stopping. Try again later.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3452"/>
+                <source>正在卸载…</source>
+                <translation>Uninstalling…</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3483"/>
+                <source>重启后卸载</source>
+                <translation>Uninstall after restart</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3484"/>
+                <source>文件可能正在使用，已恢复原有文件。要现在重启插件管理器并在加载插件前执行同一卸载计划吗？</source>
+                <translation>Files may be in use and were restored. Restart the plugin manager now and apply the same uninstall plan before loading plugins?</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3492"/>
+                <source>无法安排卸载</source>
+                <translation>Cannot schedule uninstall</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3496"/>
+                <location filename="../plugin_manager/main_window.py" line="3530"/>
+                <source>卸载失败</source>
+                <translation>Uninstall failed</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3511"/>
+                <location filename="../plugin_manager/main_window.py" line="3519"/>
+                <source>插件已卸载。请重启插件管理器以刷新运行环境。</source>
+                <translation>Plugin uninstalled. Restart the plugin manager to refresh the runtime.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3518"/>
+                <source>卸载完成</source>
+                <translation>Uninstall complete</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="3528"/>
+                <source>卸载失败：{error}</source>
+                <translation>Uninstall failed: {error}</translation>
+            </message>
+
+    <message>
+                <source>Cannot read requirements: {error}</source>
+                <translation>Cannot read requirements: {error}</translation>
+            </message>
+
+    <message>
+                <source>Cannot verify requirement: {error}</source>
+                <translation>Cannot verify requirement: {error}</translation>
+            </message>
+
+    <message>
+                <source>Direct URLs and extras cannot be verified</source>
+                <translation>Direct URLs and extras cannot be verified</translation>
+            </message>
+
+    <message>
+                <source>Distribution lists a linked path</source>
+                <translation>Distribution lists a linked path</translation>
+            </message>
+
+    <message>
+                <source>Distribution lists a non-file path</source>
+                <translation>Distribution lists a non-file path</translation>
+            </message>
+
+    <message>
+                <source>Distribution lists files outside its environment</source>
+                <translation>Distribution lists files outside its environment</translation>
+            </message>
+
+    <message>
+                <source>Distribution metadata not found</source>
+                <translation>Distribution metadata not found</translation>
+            </message>
+
+    <message>
+                <source>Distribution metadata unavailable in packaged application</source>
+                <translation>Distribution metadata unavailable in packaged application</translation>
+            </message>
+
+    <message>
+                <source>Environment marker does not apply</source>
+                <translation>Environment marker does not apply</translation>
+            </message>
+
+    <message>
+                <source>Installed version does not satisfy constraint</source>
+                <translation>Installed version does not satisfy the constraint</translation>
+            </message>
+
+    <message>
+                <source>Missing distribution file list</source>
+                <translation>Missing distribution file list</translation>
+            </message>
+
+    <message>
+                <source>Unsupported or invalid requirement</source>
+                <translation>Unsupported or invalid requirement</translation>
+            </message>
+
+    <message>
+                <source>只支持卸载由管理器安装的用户插件。</source>
+                <translation>Only manager-installed user plugins can be uninstalled.</translation>
+            </message>
+
+    <message>
+                <source>插件或依赖环境已变化，请重新确认卸载。</source>
+                <translation>The plugin or dependency environment changed. Confirm the uninstall again.</translation>
+            </message>
+
+    <message>
+                <source>无效的插件目录</source>
+                <translation>Invalid plugin directory</translation>
+            </message>
+
+    <message>
+                <source>无法完整核对已安装包的文件清单，已保留共享环境中的包。</source>
+                <translation>Could not fully verify installed package files; shared environment packages were kept.</translation>
+            </message>
+
+    <message>
+                <source>无法确认依赖关系，已保留共享环境中的包。</source>
+                <translation>Dependency ownership could not be confirmed; shared environment packages were kept.</translation>
+            </message>
+
+    <message>
+                <source>无法读取插件依赖环境，卸载时会保留其中的包。</source>
+                <translation>The plugin dependency environment could not be read; its packages will be kept during uninstall.</translation>
+            </message>
+
+    <message>
+                <source>部分文件恢复失败，备份仍在原处：
+    {files}</source>
+                <translation>Some files could not be restored; the backup remains in place:
+    {files}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/restart.py" line="155"/>
+                <source>Plugin manager restart failed:
+    {error}</source>
+                <translation>Plugin manager restart failed:
+    {error}</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/restart.py" line="157"/>
+                <source>Plugin manager</source>
+                <translation>Plugin manager</translation>
+            </message>
+
 </context>
 <context>
     <name>PluginSettingsDialog</name>
@@ -2504,6 +3123,46 @@ The files may be in use by another program.</translation>
         <source>配置无效</source>
         <translation>Invalid configuration</translation>
     </message>
+    <message>
+                <source>DEBUG</source>
+                <translation>DEBUG</translation>
+            </message>
+
+    <message>
+                <source>ERROR (仅错误)</source>
+                <translation>ERROR (errors only)</translation>
+            </message>
+
+    <message>
+                <source>INFO (常规)</source>
+                <translation>INFO (normal)</translation>
+            </message>
+
+    <message>
+                <source>TRACE (最详细)</source>
+                <translation>TRACE (most detailed)</translation>
+            </message>
+
+    <message>
+                <source>WARNING</source>
+                <translation>WARNING</translation>
+            </message>
+
+    <message>
+                <source>不自动加载</source>
+                <translation>Do not load automatically</translation>
+            </message>
+
+    <message>
+                <source>标签页内</source>
+                <translation>In tab</translation>
+            </message>
+
+    <message>
+                <source>独立窗口</source>
+                <translation>Separate window</translation>
+            </message>
+
 </context>
 <context>
     <name>ReleaseFrame</name>
@@ -2872,6 +3531,11 @@ The files may be in use by another program.</translation>
         <source>该插件目录下未找到 README.md</source>
         <translation>README.md not found in the plugin directory</translation>
     </message>
+    <message>
+                <source>{name} - README</source>
+                <translation>{name} - README</translation>
+            </message>
+
 </context>
 <context>
     <name>parent</name>
@@ -3097,5 +3761,79 @@ The files may be in use by another program.</translation>
     <message><source>正在 Gitee 搜索插件并检查版本...</source><translation>Searching Gitee for plugins and checking versions...</translation></message>
     <message><source>刷新</source><translation>Refresh</translation></message>
     <message><source>不支持的插件搜索源：{source}</source><translation>Unsupported plugin search source: {source}</translation></message>
+    <message>
+                <source>不支持的索引版本：{version}</source>
+                <translation>Unsupported index version: {version}</translation>
+            </message>
+
+    <message>
+                <source>卸载</source>
+                <translation>Uninstall</translation>
+            </message>
+
+    <message>
+                <source>已取消。</source>
+                <translation>Cancelled.</translation>
+            </message>
+
+    <message>
+                <source>已安装，但加载失败：{names}。请在插件列表查看依赖详情或日志。</source>
+                <translation>Installed, but failed to load: {names}. Check dependency details or the log in the plugin list.</translation>
+            </message>
+
+    <message>
+                <source>插件已卸载。请重启插件管理器以刷新运行环境。</source>
+                <translation>Plugin uninstalled. Restart the plugin manager to refresh the runtime.</translation>
+            </message>
+
+    <message>
+                <source>插件条目缺少 repository</source>
+                <translation>Plugin entry is missing repository</translation>
+            </message>
+
+    <message>
+                <source>新插件已加入插件列表，并按启用设置启动。</source>
+                <translation>New plugins were added to the list and started according to the enabled settings.</translation>
+            </message>
+
+    <message>
+                <source>有插件需要重启插件管理器后生效。</source>
+                <translation>Some plugins require a plugin manager restart to take effect.</translation>
+            </message>
+
+    <message>
+                <location filename="../plugin_manager/plugin_updates.py" line="38"/>
+                <source>插件依赖安装完成。</source>
+                <translation>Plugin dependencies installed.</translation>
+            </message>
+
+    <message>
+                <source>索引不是合法的 JSON：{error}</source>
+                <translation>The index is not valid JSON: {error}</translation>
+            </message>
+
+    <message>
+                <source>索引根节点必须是对象</source>
+                <translation>The index root must be an object</translation>
+            </message>
+
+    <message>
+                <source>索引缺少 plugins 列表</source>
+                <translation>The index is missing the plugins list</translation>
+            </message>
+
+    <message>
+                <source>部分插件已安装；后续安装失败：{error}</source>
+                <translation>Some plugins were installed; a later installation failed: {error}</translation>
+            </message>
+
+</context>
+<context><name>DetachedPluginWindow</name>
+    <message>
+                <location filename="../plugin_manager/main_window.py" line="176"/>
+                <source>{name} - 插件</source>
+                <translation>{name} - Plugin</translation>
+            </message>
+
 </context>
 </TS>

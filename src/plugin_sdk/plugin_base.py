@@ -579,6 +579,45 @@ class BasePlugin(QObject, Generic[ConfigT]):
         """
         self.gui_call.emit(func, args, kwargs)
 
+    def call_in_plugin_thread(self, func: Callable[..., _T], *args,
+                              timeout: float = 60.0, **kwargs) -> _T:
+        """Synchronously call a hook on the plugin's worker thread.
+
+        The plugin manager uses this for data transfer hooks so custom
+        implementations can safely access resources owned by the plugin.
+        Calls made from the worker thread execute immediately.
+        """
+        if QThread.currentThread() == self._thread or not self._thread.isRunning():
+            return func(*args, **kwargs)
+        future: Future[_T] = Future()
+
+        def execute(_: Any) -> None:
+            try:
+                future.set_result(func(*args, **kwargs))
+            except Exception as exc:
+                future.set_exception(exc)
+
+        if not self._enqueue_event(execute, None):
+            raise RuntimeError(f"Plugin is not available: {self.name}")
+        return future.result(timeout=timeout)
+
+    def export_data(self) -> bytes:
+        """Export this plugin's data directory as a ZIP byte string.
+
+        Override this method when a plugin needs to flush or transform data
+        before backup. The manager invokes the hook on the plugin thread.
+        """
+        from .data_archive import export_directory
+        return export_directory(self.data_dir)
+
+    def import_data(self, archive_data: bytes) -> None:
+        """Restore a ZIP produced by :meth:`export_data`.
+
+        Override this method when a plugin needs custom migration or cleanup.
+        """
+        from .data_archive import import_directory
+        import_directory(self.data_dir, archive_data)
+
     def run_on_widget(
         self, func: Callable[..., None], *args, **kwargs
     ) -> None:

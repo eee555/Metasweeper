@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from packaging.version import InvalidVersion, Version
+from PySide6.QtCore import QCoreApplication
 
 from .plugin_repositories import PluginRepository
 
@@ -37,6 +38,10 @@ DEFAULT_TAG_PREFIX = "metasweeper-v"
 INDEX_SCHEMA_VERSION = 1
 INDEX_FILENAME = "metasweeper-plugins.json"
 META_FILENAME = ".metasweeper-plugin.json"
+
+
+def _tr(text: str) -> str:
+    return QCoreApplication.translate("PluginMarketDialog", text)
 LOCAL_ZIP_SOURCE = "local_zip"
 
 
@@ -127,7 +132,7 @@ def parse_tag_version(tag_name: str, prefix: str = DEFAULT_TAG_PREFIX) -> Versio
 
 def _parse_repository(value: Any, platform: str) -> PluginRepository:
     if not isinstance(value, str) or not value.strip():
-        raise CatalogError("插件条目缺少 repository")
+        raise CatalogError(_tr("插件条目缺少 repository"))
     try:
         return PluginRepository.from_url(value, platform or "auto")
     except ValueError as exc:
@@ -140,17 +145,17 @@ def parse_index(payload: str | bytes | dict[str, Any]) -> list[CatalogEntry]:
         try:
             data = json.loads(payload)
         except json.JSONDecodeError as exc:
-            raise CatalogError(f"索引不是合法的 JSON：{exc}") from exc
+            raise CatalogError(_tr("索引不是合法的 JSON：{error}").format(error=exc)) from exc
     else:
         data = payload
     if not isinstance(data, dict):
-        raise CatalogError("索引根节点必须是对象")
+        raise CatalogError(_tr("索引根节点必须是对象"))
     schema = data.get("schema_version", INDEX_SCHEMA_VERSION)
     if not isinstance(schema, int) or schema > INDEX_SCHEMA_VERSION:
-        raise CatalogError(f"不支持的索引版本：{schema}")
+        raise CatalogError(_tr("不支持的索引版本：{version}").format(version=schema))
     raw_plugins = data.get("plugins")
     if not isinstance(raw_plugins, list):
-        raise CatalogError("索引缺少 plugins 列表")
+        raise CatalogError(_tr("索引缺少 plugins 列表"))
 
     entries: list[CatalogEntry] = []
     seen: set[str] = set()

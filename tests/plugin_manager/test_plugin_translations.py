@@ -1,17 +1,86 @@
 """插件翻译文件、Qt 线程及语言事件顺序的回归测试。"""
 from __future__ import annotations
 
+import ast
 import subprocess
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QThread
+from PySide6.QtCore import QCoreApplication, QThread, QTranslator
 from PySide6.QtWidgets import QApplication
 
 from plugin_manager.dependency_scan import scan_plugin_dependencies
 from plugin_manager.plugin_loader import PluginLoader
 from plugin_manager.translations import TranslationManager
 from shared_types.events import LanguageChangeEvent, GameFinishedEvent
+
+
+def _manager_translation_keys() -> set[tuple[str, str]]:
+    source_dir = Path(__file__).resolve().parents[2] / "src"
+    manager_dir = source_dir / "plugin_manager"
+    helper_contexts = {
+        "dependency_scan.py": "PluginManagerWindow",
+        "icons.py": "PluginManagerWindow",
+        "plugin_catalog.py": "PluginMarketDialog",
+        "plugin_download.py": "PluginDownloadDialog",
+        "plugin_lib_env.py": "PluginEnvironmentDialog",
+        "plugin_market_dialog.py": "PluginMarketDialog",
+        "plugin_repositories.py": "PluginDownloadDialog",
+        "plugin_uninstall.py": "PluginManagerWindow",
+        "settings_manager.py": "PluginEnvironmentDialog",
+    }
+    messages: set[tuple[str, str]] = set()
+    for path in manager_dir.glob("*.py"):
+        if path.name == "actions_rc.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        parents = {child: node for node in ast.walk(tree)
+                   for child in ast.iter_child_nodes(node)}
+        constants = {
+            node.targets[0].id: node.value.value
+            for node in tree.body
+            if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id.startswith("STATE_")
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str))
+        }
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            function, args = ast.unparse(node.func), node.args
+            context = source = None
+            if function in {"self.tr", "cls.tr"} and args:
+                owner = node
+                while owner in parents and not isinstance(owner, ast.ClassDef):
+                    owner = parents[owner]
+                context = owner.name if isinstance(owner, ast.ClassDef) else None
+                source = args[0]
+            elif function == "_tr" and args:
+                if len(args) > 1 and isinstance(args[0], ast.Constant):
+                    context, source = args[0].value, args[1]
+                else:
+                    context = helper_contexts.get(path.name)
+                    source = args[0]
+            elif (function in {"_translate", "QCoreApplication.translate",
+                               "QApplication.translate"}
+                  and len(args) > 1 and isinstance(args[0], ast.Constant)):
+                context, source = args[0].value, args[1]
+            text = (source.value if isinstance(source, ast.Constant)
+                    else constants.get(source.id) if isinstance(source, ast.Name)
+                    else None)
+            if context and isinstance(text, str):
+                messages.add((context, text))
+
+    sdk = ast.parse((source_dir / "plugin_sdk" / "plugin_base.py").read_text(encoding="utf-8"))
+    for node in ast.walk(sdk):
+        if isinstance(node, ast.FunctionDef) and node.name == "LABELS":
+            messages.update(
+                ("PluginSettingsDialog", item.value)
+                for item in ast.walk(node)
+                if isinstance(item, ast.Constant) and isinstance(item.value, str)
+            )
+    return messages
 
 
 def compile_catalog(directory: Path, locale: str, messages: list[tuple[str, str, str]]) -> None:
@@ -77,6 +146,26 @@ def test_catalog_switch_shared_context_fallback_and_cleanup(qapp, tmp_path, monk
     finally:
         manager.close()
     assert not manager._translators
+
+
+def test_all_manager_translation_literals_compile_for_each_locale(qapp, tmp_path):
+    source_dir = Path(__file__).resolve().parents[2] / "src"
+    from tests.plugin_manager.test_menu_layout import find_lrelease
+
+    keys = _manager_translation_keys()
+    for locale in ("en_US", "de_DE", "ja_JP", "pl_PL"):
+        source = source_dir / "ui" / f"{locale}.ts"
+        catalog = tmp_path / f"{locale}.qm"
+        subprocess.run(
+            [str(find_lrelease()), str(source), "-qm", str(catalog)],
+            check=True, capture_output=True,
+        )
+        loaded = QTranslator()
+        assert loaded.load(str(catalog))
+        qapp.installTranslator(loaded)
+        missing = sorted(key for key in keys if not QCoreApplication.translate(*key))
+        qapp.removeTranslator(loaded)
+        assert not missing, f"{locale} is missing translations for: {missing}"
 
 
 def test_worker_language_event_waits_for_gui_and_preserves_event_order(qapp, qtbot, tmp_path, monkeypatch):

@@ -129,10 +129,100 @@ def update_host() -> None:
     sources = variables['ALL_SOURCES'].split()
     if any('/plugins/' in source for source in sources):
         raise ValueError('Plugin source leaked into host extraction list')
-    for locale in LOCALES:
-        subprocess.run([str(qt_tool('lupdate')), *sources, '-ts', f'{locale}.ts',
-                        '-noobsolete', '-tr-function-alias', 'translate+=_translate'],
-                       check=True, cwd=directory)
+    # ``_tr()`` is deliberately a small one-argument wrapper around
+    # QCoreApplication.translate().  lupdate cannot infer its context or
+    # recognize the wrapper, so add a generated source file containing the
+    # same literal calls.  This keeps the hand-maintained source list useful
+    # while ensuring market/download/uninstall messages are never dropped by
+    # ``-noobsolete``.
+    all_paths = [directory / source for source in sources]
+    contexts = {
+        "plugin_download.py": "PluginDownloadDialog",
+        "plugin_repositories.py": "PluginDownloadDialog",
+        "plugin_market_dialog.py": "PluginMarketDialog",
+        "plugin_catalog.py": "PluginMarketDialog",
+        "plugin_uninstall.py": "PluginManagerWindow",
+        "plugin_lib_env.py": "PluginEnvironmentDialog",
+        "dependency_scan.py": "PluginManagerWindow",
+        "settings_manager.py": "PluginEnvironmentDialog",
+        "icons.py": "PluginManagerWindow",
+        "restart.py": "PluginManagerWindow",
+    }
+    literals: dict[str, set[str]] = {}
+    for path in all_paths:
+        if not path.is_file() or path.suffix != ".py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        parents = {child: node for node in ast.walk(tree)
+                   for child in ast.iter_child_nodes(node)}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            context = contexts.get(path.name)
+            text = None
+            if (isinstance(node.func, ast.Name)
+                    and node.func.id in {"_tr", "_translate"} and node.args):
+                if (len(node.args) >= 2 and isinstance(node.args[0], ast.Constant)
+                        and isinstance(node.args[0].value, str)):
+                    context = node.args[0].value
+                    text = node.args[1]
+                else:
+                    text = node.args[0]
+            elif (isinstance(node.func, ast.Attribute) and node.func.attr == "tr"
+                  and node.args):
+                # self.tr("...") belongs to the enclosing class context.
+                parent = node
+                while parent in parents and not isinstance(parent, ast.ClassDef):
+                    parent = parents[parent]
+                context = parent.name if isinstance(parent, ast.ClassDef) else None
+                text = node.args[0]
+            elif (isinstance(node.func, ast.Attribute) and node.func.attr == "translate"
+                  and len(node.args) >= 2 and isinstance(node.args[0], ast.Constant)):
+                context = node.args[0].value
+                text = node.args[1]
+            if context and isinstance(text, ast.Constant) and isinstance(text.value, str):
+                literals.setdefault(context, set()).add(text.value)
+        # Market states are passed through _tr(STATE_*), so include the
+        # constant values as well.
+        for node in tree.body:
+            if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                    and node.targets[0].id.startswith("STATE_")
+                    and isinstance(node.value, ast.Constant)
+                    and isinstance(node.value.value, str)):
+                literals.setdefault(context, set()).add(node.value.value)
+        # Enum labels are passed to self.tr() through a computed lookup, which
+        # Qt's extractor cannot follow. Keep those source labels translatable.
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "LABELS":
+                for value in ast.walk(node):
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                        literals.setdefault("PluginSettingsDialog", set()).add(value.value)
+
+    with tempfile.TemporaryDirectory(prefix="host-lupdate-") as temp:
+        hints = Path(temp) / "translation_hints.py"
+        lines = ["from PySide6.QtCore import QCoreApplication"]
+        for context, texts in sorted(literals.items()):
+            lines.extend(
+                "QCoreApplication.translate(" + json.dumps(context)
+                + ", " + json.dumps(text, ensure_ascii=False) + ")"
+                for text in sorted(texts)
+            )
+        hints.write_text("\n".join(lines), encoding="utf-8")
+        for locale in LOCALES:
+            target = directory / f'{locale}.ts'
+            subprocess.run([
+                str(qt_tool('lupdate')), *sources, str(hints), '-ts', f'{locale}.ts',
+                '-noobsolete', '-tr-function-alias', 'translate+=_translate',
+            ], check=True, cwd=directory)
+            # Hint calls are synthetic and must not leave a machine-specific
+            # temporary path in the checked-in catalog.
+            text = target.read_text(encoding='utf-8')
+            text = re.sub(
+                r'\s*<location filename="[^"]*translation_hints\.py" line="\d+"\s*/>',
+                '', text,
+            )
+            target.write_text(text, encoding='utf-8')
 
 
 def main():

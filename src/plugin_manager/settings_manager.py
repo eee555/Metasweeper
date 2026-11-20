@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
+from PySide6.QtCore import QCoreApplication
+
 from .atomic_json import atomic_write_json
 
 LogLevel = Literal["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -29,7 +31,9 @@ def normalize_pip_indexes(urls: list[str]) -> list[str]:
             continue
         parsed = urlsplit(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError(f"无效的 Python 包源 URL：{raw}")
+            raise ValueError(QCoreApplication.translate(
+                "PluginEnvironmentDialog", "无效的 Python 包源 URL：{url}"
+            ).format(url=raw))
         if url not in normalized:
             normalized.append(url)
     return normalized

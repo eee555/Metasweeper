@@ -19,10 +19,15 @@ from tempfile import NamedTemporaryFile, mkdtemp
 from loguru import logger
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
+from PySide6.QtCore import QCoreApplication
 
 from .app_paths import get_all_plugin_dirs, get_executable_dir
 from .plugin_catalog import LOCAL_ZIP_SOURCE, META_FILENAME, read_installed_metadata, read_installed_plugin
 from .plugin_download import is_plain_plugin_directory
+
+
+def _tr(text: str) -> str:
+    return QCoreApplication.translate("PluginManagerWindow", text)
 
 
 def _ledger_path(data_dir: Path, library: Path) -> Path:
@@ -138,7 +143,7 @@ def _closure(roots: set[str], graph: dict[str, set[str]]) -> set[str]:
 
 def _files(dist: metadata.Distribution, library: Path, scripts: Path | None) -> set[Path]:
     if dist.files is None:
-        raise ValueError("Missing distribution file list")
+        raise ValueError(_tr("Missing distribution file list"))
     paths = set()
     script_names = {entry.name for entry in dist.entry_points
                     if entry.group in {"console_scripts", "gui_scripts"}}
@@ -150,7 +155,7 @@ def _files(dist: metadata.Distribution, library: Path, scripts: Path | None) -> 
                 or (scripts is not None and original.parent == scripts
                     and original.name in launchers
                     and not re.fullmatch(r"pythonw?[\d.]*(?:\.exe)?", original.name, re.I))):
-            raise ValueError("Distribution lists files outside its environment")
+            raise ValueError(_tr("Distribution lists files outside its environment"))
         # Never traverse symlinks or junctions when moving files.
         current = original
         while current not in (library, scripts):
@@ -161,9 +166,9 @@ def _files(dist: metadata.Distribution, library: Path, scripts: Path | None) -> 
             else:
                 if (stat.S_ISLNK(info.st_mode)
                         or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT):
-                    raise ValueError("Distribution lists a linked path")
+                    raise ValueError(_tr("Distribution lists a linked path"))
                 if current == original and not stat.S_ISREG(info.st_mode):
-                    raise ValueError("Distribution lists a non-file path")
+                    raise ValueError(_tr("Distribution lists a non-file path"))
             current = current.parent
         paths.add(original)
     return paths
@@ -238,7 +243,7 @@ def _make_plan(package: Path, data_dir: Path, library: Path, scripts: Path | Non
                 if name not in removable:
                     # Without its file list we cannot rule out overlap with retained packages.
                     return RemovalPlan(package, library, kept=tuple(sorted(selected)),
-                                       note="无法完整核对已安装包的文件清单，已保留共享环境中的包。")
+                                       note=_tr("无法完整核对已安装包的文件清单，已保留共享环境中的包。"))
                 unsafe.add(name)
             else:
                 for path in paths:
@@ -263,13 +268,13 @@ def plan_removal(package: Path, data_dir: Path, *, include_unrecorded: bool = Fa
 
     with _BOOTSTRAP_LOCK:
         if not is_managed_plugin(package):
-            raise ValueError("只支持卸载由管理器安装的用户插件。")
+            raise ValueError(_tr("只支持卸载由管理器安装的用户插件。"))
         package = package.resolve()
         release = hashlib.sha256((package / META_FILENAME).read_bytes()).hexdigest()
         errors: list[str] = []
         library, python, use_target = _ensure_environment(data_dir, errors)
         if library is None or python is None:
-            return RemovalPlan(package, note="无法读取插件依赖环境，卸载时会保留其中的包。",
+            return RemovalPlan(package, note=_tr("无法读取插件依赖环境，卸载时会保留其中的包。"),
                                release=release, include_unrecorded=include_unrecorded)
         library = library.resolve()
         try:
@@ -279,7 +284,7 @@ def plan_removal(package: Path, data_dir: Path, *, include_unrecorded: bool = Fa
             return replace(result, release=release, include_unrecorded=include_unrecorded)
         except (InvalidRequirement, OSError, UnicodeError, ValueError) as exc:
             logger.warning("Could not plan dependency cleanup: {}", exc)
-            return RemovalPlan(package, library, note="无法确认依赖关系，已保留共享环境中的包。",
+            return RemovalPlan(package, library, note=_tr("无法确认依赖关系，已保留共享环境中的包。"),
                                release=release, include_unrecorded=include_unrecorded)
 
 
@@ -288,7 +293,7 @@ def remove_plugin(plan: RemovalPlan, data_dir: Path, *, progress: Callable[[int,
 
     with _BOOTSTRAP_LOCK:
         if plan_removal(plan.package, data_dir, include_unrecorded=plan.include_unrecorded) != plan:
-            raise RuntimeError("插件或依赖环境已变化，请重新确认卸载。")
+            raise RuntimeError(_tr("插件或依赖环境已变化，请重新确认卸载。"))
         backups = []
         moved: list[tuple[Path, Path]] = []
         rollback_failed = False
@@ -327,7 +332,8 @@ def remove_plugin(plan: RemovalPlan, data_dir: Path, *, progress: Callable[[int,
                     failed.append(f"{target} → {source}: {exc}")
             if failed:
                 rollback_failed = True
-                raise RuntimeError("部分文件恢复失败，备份仍在原处：\n" + "\n".join(failed))
+                raise RuntimeError(_tr("部分文件恢复失败，备份仍在原处：\n{files}").format(
+                    files="\n".join(failed)))
             raise
         finally:
             # Keep recoverable files if any rollback rename failed.
@@ -362,7 +368,7 @@ def queue_removal(plan: RemovalPlan, data_dir: Path) -> None:
 
     with _BOOTSTRAP_LOCK:
         if plan_removal(plan.package, data_dir, include_unrecorded=plan.include_unrecorded) != plan:
-            raise RuntimeError("插件或依赖环境已变化，请重新确认卸载。")
+            raise RuntimeError(_tr("插件或依赖环境已变化，请重新确认卸载。"))
         _write_json(data_dir / "pending-plugin-uninstall.json",
                     {"package": plan.package.name, "plan": _plan_key(plan),
                      "include_unrecorded": plan.include_unrecorded})
@@ -381,12 +387,12 @@ def apply_queued_removal(data_dir: Path) -> str:
     try:
         name = value.get("package") if isinstance(value, dict) else None
         if not isinstance(name, str) or Path(name).name != name or name in {".", ".."}:
-            raise ValueError("无效的插件目录")
+            raise ValueError(_tr("无效的插件目录"))
         package = get_executable_dir() / "user_plugins" / name
         plan = plan_removal(package, data_dir,
                             include_unrecorded=value.get("include_unrecorded") is True)
         if _plan_key(plan) != value.get("plan"):
-            raise RuntimeError("插件或依赖环境已变化，请重新确认卸载。")
+            raise RuntimeError(_tr("插件或依赖环境已变化，请重新确认卸载。"))
         remove_plugin(plan, data_dir)
     except (OSError, ValueError, RuntimeError) as exc:
         return f"重启时未能卸载插件：{exc}"

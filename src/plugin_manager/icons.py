@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from PySide6.QtCore import QByteArray, QFile, QIODevice, QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QByteArray, QFile, QIODevice, QCoreApplication, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import QAction, QIcon, QIconEngine, QPainter, QPalette, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialogButtonBox
@@ -19,8 +19,9 @@ assert actions_rc is not None  # importing registers the embedded Qt resources
 
 ACTION_ICON_NAMES = frozenset({
     "authorize", "cancel", "clear", "close", "confirm", "debug", "disable",
-    "download", "enable", "guide", "info", "log", "quit", "refresh",
-    "dependency", "settings", "tag", "window", "window-close",
+    "download", "enable", "guide", "info", "import", "install", "log",
+    "market", "quit", "refresh", "dependency", "settings", "tag", "upload",
+    "update", "window", "window-close",
 })
 ICON_NAMES = ACTION_ICON_NAMES | {"app"}
 _RESOURCE_PREFIX = ":/plugin_manager/actions/"
@@ -112,12 +113,13 @@ def set_action_icon(target: QAction | QAbstractButton, name: str) -> None:
 
 
 def set_button_box_icons(box: QDialogButtonBox) -> None:
-    """仅为管理器自己的标准按钮设置同套图标，不修改共享控件。"""
-    for standard, name in (
-        (QDialogButtonBox.StandardButton.Ok, "confirm"),
-        (QDialogButtonBox.StandardButton.Cancel, "cancel"),
-        (QDialogButtonBox.StandardButton.Close, "close"),
+    """为管理器的标准按钮设置本地化文字和图标。"""
+    for standard, label, name in (
+        (QDialogButtonBox.StandardButton.Ok, "确认", "confirm"),
+        (QDialogButtonBox.StandardButton.Cancel, "取消", "cancel"),
+        (QDialogButtonBox.StandardButton.Close, "关闭", "close"),
     ):
         button = box.button(standard)
         if button is not None:
+            button.setText(QCoreApplication.translate("PluginManagerWindow", label))
             set_action_icon(button, name)

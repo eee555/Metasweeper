@@ -32,6 +32,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import loguru
 from packaging.requirements import InvalidRequirement, Requirement
+from PySide6.QtCore import QCoreApplication
 
 from ._pip_worker import FLAG
 from .app_paths import is_frozen
@@ -44,6 +45,10 @@ _PIP_TIMEOUT = 600
 _BOOTSTRAP_LOCK = threading.RLock()
 _LIVE_ENV_CHANGED = threading.Event()
 _DEBUGPY_REQUIREMENT = "debugpy>=1.8.20"
+
+
+def _tr(text: str) -> str:
+    return QCoreApplication.translate("PluginEnvironmentDialog", text)
 
 
 @dataclass
@@ -68,7 +73,9 @@ def current_python_tag() -> tuple[int, int, int]:
 def python_tag_text() -> str:
     """当前解释器标签，用于界面提示"""
     major, minor, bits = current_python_tag()
-    return f"Python {major}.{minor} ({bits} 位)"
+    return QCoreApplication.translate(
+        "PluginEnvironmentDialog", "Python {major}.{minor} ({bits} 位)"
+    ).format(major=major, minor=minor, bits=bits)
 
 
 def _probe_python(exe: str) -> tuple[int, int, int] | None:
@@ -195,11 +202,11 @@ def list_installed_packages(directory: Path) -> list[tuple[str, str]]:
     if is_venv_dir(directory):
         site = venv_site_packages(directory)
         if site is None:
-            raise ValueError("虚拟环境不完整，未找到 site-packages")
+            raise ValueError(_tr("虚拟环境不完整，未找到 site-packages"))
     elif directory.is_dir():
         site = directory
     else:
-        raise ValueError("依赖目录不存在或不是目录")
+        raise ValueError(_tr("依赖目录不存在或不是目录"))
     packages = []
     for dist in metadata.distributions(path=[str(site)]):
         try:
@@ -247,28 +254,28 @@ def resolve_lib_path(path: str) -> tuple[Path | None, str]:
     if is_venv_dir(target):
         site = venv_site_packages(target)
         if site is None:
-            return None, "虚拟环境不完整，未找到 site-packages"
+            return None, _tr("虚拟环境不完整，未找到 site-packages")
         if is_frozen():
             try:
                 config = (target / "pyvenv.cfg").read_text(encoding="utf-8-sig")
             except (OSError, UnicodeError) as exc:
-                return None, f"无法读取虚拟环境配置: {exc}"
+                return None, _tr("无法读取虚拟环境配置: {error}").format(error=exc)
             version = re.search(r"(?m)^version(?:_info)?\s*=\s*(\d+)\.(\d+)", config)
             if version is None or tuple(map(int, version.groups())) != current_python_tag()[:2]:
-                return None, f"无法确认虚拟环境与当前 {python_tag_text()} 兼容，请选择普通库目录"
-            return site, f"使用虚拟环境的依赖目录: {target}"
+                return None, _tr("无法确认虚拟环境与当前 {tag} 兼容，请选择普通库目录").format(tag=python_tag_text())
+            return site, _tr("使用虚拟环境的依赖目录: {path}").format(path=target)
         executable = venv_python_executable(target)
         if not executable.is_file():
-            return None, "虚拟环境不完整，未找到 Python 解释器"
+            return None, _tr("虚拟环境不完整，未找到 Python 解释器")
         if _probe_python(str(executable)) != current_python_tag():
-            return None, f"虚拟环境解释器与当前 {python_tag_text()} 不匹配"
-        return site, f"使用虚拟环境: {target}"
+            return None, _tr("虚拟环境解释器与当前 {tag} 不匹配").format(tag=python_tag_text())
+        return site, _tr("使用虚拟环境: {path}").format(path=target)
 
     if target.exists() and not target.is_dir():
-        return None, "所选路径不是目录"
+        return None, _tr("所选路径不是目录")
     if target.is_dir():
-        return target, f"使用库目录: {target}"
-    return None, "目录不存在"
+        return target, _tr("使用库目录: {path}").format(path=target)
+    return None, _tr("目录不存在")
 
 
 def prepare_lib_dir(path: str) -> tuple[Path | None, str]:
@@ -285,33 +292,33 @@ def prepare_lib_dir(path: str) -> tuple[Path | None, str]:
         return resolve_lib_path(raw)
 
     if target.exists() and not target.is_dir():
-        return None, "所选路径不是目录"
+        return None, _tr("所选路径不是目录")
 
     if target.is_dir() and any(target.iterdir()):
-        return target, f"使用库目录: {target}"
+        return target, _tr("使用库目录: {path}").format(path=target)
 
     if is_frozen():
         try:
             target.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            return None, f"创建依赖目录失败: {exc}"
-        return target, f"使用库目录: {target}"
+            return None, _tr("创建依赖目录失败: {error}").format(error=exc)
+        return target, _tr("使用库目录: {path}").format(path=target)
 
     python_exe = find_matching_python()
     if python_exe is None:
         return None, (
-            f"未找到与当前 {python_tag_text()} 匹配的解释器，无法创建虚拟环境"
+            _tr("未找到与当前 {tag} 匹配的解释器，无法创建虚拟环境").format(tag=python_tag_text())
         )
 
     try:
         create_venv(target, python_exe)
     except (OSError, subprocess.SubprocessError, RuntimeError) as e:
-        return None, f"创建虚拟环境失败: {e}"
+        return None, _tr("创建虚拟环境失败: {error}").format(error=e)
 
     site = venv_site_packages(target)
     if site is None:
-        return None, "虚拟环境创建后未找到 site-packages"
-    return site, f"已创建虚拟环境: {target}"
+        return None, _tr("虚拟环境创建后未找到 site-packages")
+    return site, _tr("已创建虚拟环境: {path}").format(path=target)
 
 
 def apply_plugin_lib_dir(path: str) -> Path | None:

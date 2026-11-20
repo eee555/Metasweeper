@@ -216,7 +216,8 @@ class PluginInfoDialog(ConfirmDialog):
             label = command_label(cls)
             text = f"{label} ({tag})" if tag else label
             tooltip = (f"{label}\n{command_hint(cls)}\n"
-                       f"类名: {getattr(cls, '__name__', cls)}")
+                       f"{QCoreApplication.translate('PluginInfoDialog', '类名:')} "
+                       f"{getattr(cls, '__name__', cls)}")
             result.append((text, bool(tag) and tag in authorized_tags,
                            tooltip))
             shown.add(tag if tag else label)

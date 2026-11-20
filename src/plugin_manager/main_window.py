@@ -11,6 +11,7 @@ from __future__ import annotations
 import loguru
 import re
 import requests
+from datetime import datetime
 
 from ctypes.wintypes import MSG
 from pathlib import Path
@@ -69,6 +70,7 @@ from .plugin_uninstall import (
     run_removal_in_thread,
 )
 from .plugin_updates import PluginAutoUpdateTask, prepare_plugin_dependencies
+from .plugin_data_transfer import DataTransferResult
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager, normalize_pip_indexes
 from plugin_sdk.plugin_base import (
@@ -907,6 +909,25 @@ class _InstallWorker(QThread):
                 *self._args, output_callback=self.output.emit)
         except Exception as exc:
             self.error = str(exc) or type(exc).__name__
+
+
+class _DataTransferWorker(QThread):
+    """Run a manager-level plugin data export/import outside the GUI thread."""
+
+    output = Signal(str)
+    completed = Signal(object, object)
+
+    def __init__(self, operation, archive: Path, parent=None):
+        super().__init__(parent)
+        self._operation = operation
+        self._archive = archive
+
+    def run(self) -> None:
+        try:
+            result = self._operation(self._archive, progress=self.output.emit)
+            self.completed.emit(result, None)
+        except Exception as exc:
+            self.completed.emit(None, str(exc) or type(exc).__name__)
 
 
 class _InstallProgressDialog(TaskProgressDialog):
@@ -1826,7 +1847,7 @@ class ControlAuthorizationDialog(QDialog):
             name_item.setToolTip(
                 f"{cmd_label}\n"
                 f"{command_hint(cmd_type)}\n"
-                f"类名: {cmd_type.__name__}")
+                f"{self.tr('类名:')} {cmd_type.__name__}")
             name_item.setData(Qt.ItemDataRole.UserRole, cmd_type)  # 存储类型
             self._table.setItem(row, 0, name_item)
 
@@ -2046,17 +2067,25 @@ class PluginManagerWindow(QMainWindow):
         self._menu_plugins = menubar.addMenu(self.tr("插件"))
         self._act_plugin_market = self._menu_plugins.addAction(
             self.tr("插件市场..."))
-        set_action_icon(self._act_plugin_market, "download")
+        set_action_icon(self._act_plugin_market, "market")
         self._act_plugin_market.triggered.connect(self._open_plugin_market)
         self._act_import_zip = self._menu_plugins.addAction(self.tr("从 ZIP 导入插件…"))
-        set_action_icon(self._act_import_zip, "download")
+        set_action_icon(self._act_import_zip, "import")
         self._act_import_zip.triggered.connect(self._import_plugin_zip)
+        self._act_export_plugin_data = self._menu_plugins.addAction(
+            self.tr("导出插件数据…"))
+        set_action_icon(self._act_export_plugin_data, "upload")
+        self._act_export_plugin_data.triggered.connect(self._export_plugin_data)
+        self._act_import_plugin_data = self._menu_plugins.addAction(
+            self.tr("导入插件数据…"))
+        set_action_icon(self._act_import_plugin_data, "import")
+        self._act_import_plugin_data.triggered.connect(self._import_plugin_data)
+        self._menu_plugins.addSeparator()
         self._act_auto_update = self._menu_plugins.addAction(self.tr("自动更新插件"))
         set_action_icon(self._act_auto_update, "refresh")
         self._act_auto_update.setCheckable(True)
         self._act_auto_update.setChecked(self._settings_mgr.settings.auto_update_plugins)
         self._act_auto_update.triggered.connect(self._set_auto_update)
-        self._menu_plugins.addSeparator()
         self._act_restart = self._menu_plugins.addAction(self.tr("重启插件管理器"))
         set_action_icon(self._act_restart, "refresh")
         self._act_restart.triggered.connect(self.restart_plugin_manager)
@@ -2153,7 +2182,7 @@ class PluginManagerWindow(QMainWindow):
         self._title_label.setFont(title_font)
         heading.addWidget(self._title_label, 1)
         self._market_btn = QPushButton(self.tr("插件市场"))
-        set_action_icon(self._market_btn, "download")
+        set_action_icon(self._market_btn, "market")
         self._market_btn.clicked.connect(self._act_plugin_market.trigger)
         heading.addWidget(self._market_btn)
         self._refresh_btn = QToolButton()
@@ -2218,7 +2247,7 @@ class PluginManagerWindow(QMainWindow):
         self._empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(self._empty_hint)
         self._empty_market_btn = QPushButton(self.tr("打开插件市场"))
-        set_action_icon(self._empty_market_btn, "download")
+        set_action_icon(self._empty_market_btn, "market")
         self._empty_market_btn.clicked.connect(self._act_plugin_market.trigger)
         empty_layout.addWidget(self._empty_market_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
         empty_layout.addStretch()
@@ -2304,6 +2333,8 @@ class PluginManagerWindow(QMainWindow):
         self._menu_plugins.setTitle(self.tr("插件"))
         self._act_plugin_market.setText(self.tr("插件市场..."))
         self._act_import_zip.setText(self.tr("从 ZIP 导入插件…"))
+        self._act_export_plugin_data.setText(self.tr("导出插件数据…"))
+        self._act_import_plugin_data.setText(self.tr("导入插件数据…"))
         self._act_auto_update.setText(self.tr("自动更新插件"))
         self._act_restart.setText(self.tr("重启插件管理器"))
         self._menu_settings.setTitle(self.tr("设置"))
@@ -2342,7 +2373,8 @@ class PluginManagerWindow(QMainWindow):
             pass
 
     def changeEvent(self, event):
-        if event.type() == QEvent.Type.LanguageChange:
+        if (event.type() == QEvent.Type.LanguageChange
+                and hasattr(self, "_menu_plugins")):
             self.retranslateUi()
         super().changeEvent(event)
 
@@ -2418,6 +2450,126 @@ class PluginManagerWindow(QMainWindow):
 
         progress.installation_finished.connect(finish)
         progress.start()
+
+    def _start_data_transfer(self, title: str, status: str, archive: Path,
+                             operation, done_message: str) -> None:
+        progress = TaskProgressDialog(title, status, self)
+        app = QApplication.instance()
+        worker = _DataTransferWorker(operation, archive, app)
+        worker.output.connect(progress.append_output, Qt.ConnectionType.QueuedConnection)
+        app.aboutToQuit.connect(worker.wait)
+        progress.set_task_running(True)
+        progress.show()
+
+        def finished(result: DataTransferResult | None, error: str | None) -> None:
+            if error:
+                progress.set_completed(
+                    self.tr("数据传输失败：{error}").format(error=error), success=False)
+                QMessageBox.warning(self, title, error)
+            else:
+                assert result is not None
+                details = self.tr("成功：{ok}，失败：{failed}，跳过：{skipped}").format(
+                    ok=len(result.succeeded), failed=len(result.failed),
+                    skipped=len(result.skipped))
+                progress.set_completed(
+                    f"{done_message}\n{details}", success=not result.failed)
+                if result.failed:
+                    QMessageBox.warning(
+                        self, title,
+                        self.tr("部分插件处理失败：\n{details}").format(
+                            details="\n".join(
+                                f"{name}: {message}"
+                                for name, message in result.failed.items())))
+            try:
+                app.aboutToQuit.disconnect(worker.wait)
+            except (RuntimeError, TypeError):
+                # The application may already be shutting down; in that case
+                # the connection has been removed by Qt.
+                pass
+            worker.deleteLater()
+
+        worker.completed.connect(finished, Qt.ConnectionType.QueuedConnection)
+        worker.start()
+
+    def _export_plugin_data(self) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(self._export_plugin_data)):
+            return
+        default = get_data_dir() / f"plugin-data-{datetime.now():%Y%m%d-%H%M%S}.zip"
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self.tr("导出插件数据…"), str(default),
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        archive = Path(filename)
+        if archive.suffix.lower() != ".zip":
+            archive = archive.with_suffix(".zip")
+        self._start_data_transfer(
+            self.tr("导出插件数据"), self.tr("正在导出插件数据…"), archive,
+            self._manager.export_plugin_data, self.tr("插件数据导出完成"))
+
+    def _import_plugin_data(self) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(self._import_plugin_data)):
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self, self.tr("导入插件数据…"), "",
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        answer = QMessageBox.question(
+            self, self.tr("导入插件数据"),
+            self.tr("导入会覆盖归档中包含的插件数据文件，继续吗？"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._start_data_transfer(
+            self.tr("导入插件数据"), self.tr("正在导入插件数据…"), Path(filename),
+            self._manager.import_plugin_data, self.tr("插件数据导入完成"))
+
+    def _export_single_plugin_data(self, name: str) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(
+                    lambda: self._export_single_plugin_data(name))):
+            return
+        default = get_data_dir() / f"{name}-data-{datetime.now():%Y%m%d-%H%M%S}.zip"
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self.tr("导出插件数据…"), str(default),
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        archive = Path(filename)
+        if archive.suffix.lower() != ".zip":
+            archive = archive.with_suffix(".zip")
+        self._start_data_transfer(
+            self.tr("导出插件数据"), self.tr("正在导出插件数据…"), archive,
+            lambda output, progress=None: self._manager.export_single_plugin_data(
+                name, output, progress=progress),
+            self.tr("插件数据导出完成"))
+
+    def _import_single_plugin_data(self, name: str) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(
+                    lambda: self._import_single_plugin_data(name))):
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self, self.tr("导入插件数据…"), "",
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        answer = QMessageBox.question(
+            self, self.tr("导入插件数据"),
+            self.tr("导入会覆盖归档中包含的插件数据文件，继续吗？"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._start_data_transfer(
+            self.tr("导入插件数据"), self.tr("正在导入插件数据…"), Path(filename),
+            lambda source, progress=None: self._manager.import_single_plugin_data(
+                name, source, progress=progress),
+            self.tr("插件数据导入完成"))
 
     def _watch_plugin_lifecycle(self, plugin: BasePlugin) -> None:
         plugin.ready.connect(self._on_plugin_ready, Qt.ConnectionType.QueuedConnection)
@@ -2605,6 +2757,10 @@ class PluginManagerWindow(QMainWindow):
         self._refresh_btn.clicked.connect(self._refresh_plugin_list)
         self._list.itemClicked.connect(self._on_list_clicked)
         self._list.itemDoubleClicked.connect(self._on_list_double_clicked)
+        # QListWidget emits itemActivated for the platform's keyboard
+        # activation gesture (Enter/Return).  Relying only on QShortcut here
+        # is timing-sensitive with Qt 6.12 after the list regains focus.
+        self._list.itemActivated.connect(self._on_list_double_clicked)
         self._list.currentItemChanged.connect(self._update_plugin_details_action)
         self._plugin_details_btn.clicked.connect(self._show_current_plugin_diagnostics)
         open_shortcut = QShortcut(self._list)
@@ -3272,6 +3428,16 @@ class PluginManagerWindow(QMainWindow):
             set_action_icon(act_control_auth, "authorize")
             act_control_auth.triggered.connect(
                 lambda: self._authorize_plugin_controls(name))
+
+        menu.addSeparator()
+        act_export_data = menu.addAction(self.tr("导出插件数据…"))
+        act_import_data = menu.addAction(self.tr("导入插件数据…"))
+        set_action_icon(act_export_data, "upload")
+        set_action_icon(act_import_data, "import")
+        act_export_data.triggered.connect(
+            lambda: self._export_single_plugin_data(name))
+        act_import_data.triggered.connect(
+            lambda: self._import_single_plugin_data(name))
 
     def uninstall_market_plugin(self, package: Path, display_name: str,
                                 dialog: QDialog | None = None) -> bool:

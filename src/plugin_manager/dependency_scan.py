@@ -12,12 +12,18 @@ from importlib import metadata
 from pathlib import Path
 from typing import Literal
 
+from PySide6.QtCore import QCoreApplication
+
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 DependencyStatus = Literal["no_requirements", "satisfied", "missing", "conflict", "unknown"]
 ItemStatus = Literal["satisfied", "missing", "conflict", "unknown", "skipped"]
 ImportStatus = Literal["not_attempted", "loaded", "failed"]
+
+
+def _tr(text: str) -> str:
+    return QCoreApplication.translate("PluginManagerWindow", text)
 
 
 @dataclass(frozen=True)
@@ -54,7 +60,8 @@ def scan_plugin_dependencies(module_path: Path, module_name: str) -> PluginDepen
     except FileNotFoundError:
         return PluginDependencyStatus(module_name, module_path, path, "no_requirements")
     except (OSError, UnicodeError) as exc:
-        item = DependencyDiagnostic(0, "", "unknown", detail=f"Cannot read requirements: {exc}")
+        item = DependencyDiagnostic(
+            0, "", "unknown", detail=_tr("Cannot read requirements: {error}").format(error=exc))
         return PluginDependencyStatus(module_name, module_path, path, "unknown", (item,))
 
     items: list[DependencyDiagnostic] = []
@@ -67,29 +74,39 @@ def scan_plugin_dependencies(module_path: Path, module_name: str) -> PluginDepen
         try:
             req = Requirement(line)
         except InvalidRequirement:
-            items.append(DependencyDiagnostic(line_number, line, "unknown", detail="Unsupported or invalid requirement"))
+            items.append(DependencyDiagnostic(
+                line_number, line, "unknown", detail=_tr("Unsupported or invalid requirement")))
             continue
         try:
             if req.marker and not req.marker.evaluate():
-                items.append(DependencyDiagnostic(line_number, line, "skipped", detail="Environment marker does not apply"))
+                items.append(DependencyDiagnostic(
+                    line_number, line, "skipped", detail=_tr("Environment marker does not apply")))
                 continue
             if req.url or req.extras:
-                items.append(DependencyDiagnostic(line_number, line, "unknown", detail="Direct URLs and extras cannot be verified"))
+                items.append(DependencyDiagnostic(
+                    line_number, line, "unknown", detail=_tr("Direct URLs and extras cannot be verified")))
                 continue
             version = metadata.version(req.name)
             parsed_version = Version(version)
             if req.specifier and not req.specifier.contains(parsed_version, prereleases=None):
-                items.append(DependencyDiagnostic(line_number, line, "conflict", version, "Installed version does not satisfy constraint"))
+                items.append(DependencyDiagnostic(
+                    line_number, line, "conflict", version,
+                    _tr("Installed version does not satisfy constraint")))
             else:
                 items.append(DependencyDiagnostic(line_number, line, "satisfied", version))
         except metadata.PackageNotFoundError:
             # Frozen executables may omit distribution metadata for bundled modules.
             if getattr(sys, "frozen", False) or "__compiled__" in globals():
-                items.append(DependencyDiagnostic(line_number, line, "unknown", detail="Distribution metadata unavailable in packaged application"))
+                items.append(DependencyDiagnostic(
+                    line_number, line, "unknown",
+                    detail=_tr("Distribution metadata unavailable in packaged application")))
             else:
-                items.append(DependencyDiagnostic(line_number, line, "missing", detail="Distribution metadata not found"))
+                items.append(DependencyDiagnostic(
+                    line_number, line, "missing", detail=_tr("Distribution metadata not found")))
         except Exception as exc:
-            items.append(DependencyDiagnostic(line_number, line, "unknown", detail=f"Cannot verify requirement: {exc}"))
+            items.append(DependencyDiagnostic(
+                line_number, line, "unknown",
+                detail=_tr("Cannot verify requirement: {error}").format(error=exc)))
 
     if not items:
         return PluginDependencyStatus(module_name, module_path, path, "no_requirements")

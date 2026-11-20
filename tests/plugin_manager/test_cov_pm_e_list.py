@@ -236,8 +236,8 @@ def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
     assert [entry if entry == "sep" else entry.text() for entry in menu.items] == [
         "打开窗口", "关闭窗口", "设置...", "sep",
         "启用", "禁用", "sep",
-        "插件详情", "查看 README", "打开日志", "sep",
-        "一键授权控制权限",
+        "插件详情", "查看 README", "打开日志", "sep", "一键授权控制权限",
+        "sep", "导出插件数据…", "导入插件数据…",
     ]
     acts = _actions(menu)
     assert acts[0].isEnabled() is True and acts[1].isEnabled() is False
@@ -248,6 +248,7 @@ def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
         ("open", "demo"), ("close", "demo"), ("settings", "demo"),
         ("toggle", "demo", True), ("toggle", "demo", False),
         ("info", "demo"), ("readme", "demo"), ("log", "demo"), ("auth", "demo"),
+        ("export", "demo"), ("import", "demo"),
     ]
     monkeypatch.setattr(w, "_toggle_plugin",
                         lambda name, enabled: calls.append(("toggle", name, enabled)))
@@ -258,6 +259,8 @@ def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
         "_open_plugin_log": "log", "_open_plugin_readme": "readme",
         "_authorize_plugin_controls": "auth",
         "_open_plugin_settings": "settings",
+        "_export_single_plugin_data": "export",
+        "_import_single_plugin_data": "import",
     }
     for name, label in labels.items():
         monkeypatch.setattr(w, name, lambda n, label=label: calls.append((label, n)))
@@ -269,7 +272,7 @@ def test_context_menu_all_actions_enabled_plugin(qtbot, monkeypatch):
     assert len(calls) == len(acts)
     assert ("toggle", "demo", True) in calls
     assert ("toggle", "demo", False) in calls
-    assert calls[-1] == ("auth", "demo")
+    assert calls[-1] == ("import", "demo")
 
 
 def test_context_menu_disabled_and_closed_and_ready_tab(qtbot, monkeypatch):
@@ -285,7 +288,7 @@ def test_context_menu_disabled_and_closed_and_ready_tab(qtbot, monkeypatch):
     monkeypatch.setattr(w._list, "itemAt", lambda p: item)
     w._on_list_context_menu(QPoint(0, 0))
     acts = _actions(menus[0])
-    assert len(acts) == 8
+    assert len(acts) == 10
     assert acts[0].isEnabled() is False and acts[1].isEnabled() is False
     assert acts[3].isEnabled() is True and acts[4].isEnabled() is False
 
