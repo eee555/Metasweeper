@@ -30,7 +30,8 @@ from plugin_sdk.plugin_base import BasePlugin
 from .plugin_loader import PluginLoader
 from .dependency_scan import PluginDependencyStatus
 from .app_paths import get_all_plugin_dirs, get_bundle_dir, get_data_dir, patch_sys_path_for_frozen
-from .plugin_lib_env import apply_plugin_lib_dir
+from .plugin_lib_env import apply_plugin_lib_dir, dependency_environment_requires_restart
+from .plugin_uninstall import is_managed_plugin
 from .plugin_state import PluginState, PluginStateManager
 from .settings_manager import SettingsManager
 from .translations import TranslationManager
@@ -545,7 +546,10 @@ class PluginManager:
 
     def _load_plugins(self) -> None:
         plugins = self._loader.load_all()
+        self._register_plugins(plugins)
+        logger.info(f"Loaded {len(plugins)} plugin(s)")
 
+    def _register_plugins(self, plugins: list[BasePlugin]) -> None:
         with self._plugins_lock:
             for plugin in plugins:
                 self._plugins[plugin.name] = plugin
@@ -555,7 +559,35 @@ class PluginManager:
                 if stopped is not None:
                     stopped.connect(self._on_plugin_stopped)
 
-        logger.info(f"Loaded {len(plugins)} plugin(s)")
+    def load_installed_package(self, package: Path, prepare: Callable[[BasePlugin], None]) -> str:
+        """Load one newly published market package on the Qt application thread."""
+        if not self._started or self._shutdown_requested:
+            return "restart"
+        if (dependency_environment_requires_restart()
+                or SettingsManager(get_data_dir()).plugin_lib_dir != self._settings.plugin_lib_dir
+                or self._loader.was_imported(package.name)):
+            return "restart"
+        if not is_managed_plugin(package):
+            return "failed"
+        try:
+            with self._plugins_lock:
+                registered = set(self._plugins)
+            plugins = self._loader.load_new_package(package.resolve(), registered)
+            if not plugins:
+                return "failed"
+            with self._plugins_lock:
+                if self._shutdown_requested:
+                    return "restart"
+                self._register_plugins(plugins)
+            for plugin in plugins:
+                self._apply_saved_plugin_state(plugin)
+                prepare(plugin)
+            self._refresh_plugin_translations()
+            results = [self._initialize_plugin(plugin) for plugin in plugins]
+        except Exception:
+            logger.exception("Could not load newly installed plugin package {}", package)
+            return "failed"
+        return "loaded" if all(results) else "failed"
 
     def _on_plugin_stopped(self, plugin: BasePlugin) -> None:
         if not self._shutdown_requested and not plugin.is_enabled:
@@ -564,30 +596,37 @@ class PluginManager:
     def _apply_saved_plugin_states(self) -> None:
         """在创建窗口、启动插件线程之前应用持久化启用状态。"""
         for plugin in self._plugins.values():
-            info = plugin.info
-            state = self.state_manager.get_effective(plugin.name, PluginState(
-                enabled=info.enabled, show_window=info.show_window,
-                window_mode=info.window_mode, log_level=info.log_level,
-            ))
-            info.enabled = state.enabled
-            try:
-                plugin.set_log_level(state.log_level)
-            except (ValueError, TypeError):
-                logger.warning(f"Invalid saved log level for {plugin.name}: {state.log_level}")
-                plugin.set_log_level(info.log_level)
+            self._apply_saved_plugin_state(plugin)
+
+    def _apply_saved_plugin_state(self, plugin: BasePlugin) -> None:
+        info = plugin.info
+        state = self.state_manager.get_effective(plugin.name, PluginState(
+            enabled=info.enabled, show_window=info.show_window,
+            window_mode=info.window_mode, log_level=info.log_level,
+        ))
+        info.enabled = state.enabled
+        try:
+            plugin.set_log_level(state.log_level)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid saved log level for {plugin.name}: {state.log_level}")
+            plugin.set_log_level(info.log_level)
 
     def _initialize_plugins(self) -> None:
         with self._plugins_lock:
             for plugin in self._plugins.values():
                 if self._shutdown_requested:
                     break
-                try:
-                    if plugin.is_enabled:
-                        plugin.initialize()
-                        logger.info(f"Initialized plugin: {plugin.name}")
-                except Exception as e:
-                    logger.error(
-                        f"Failed to initialize plugin {plugin.name}: {e}", exc_info=True)
+                self._initialize_plugin(plugin)
+
+    def _initialize_plugin(self, plugin: BasePlugin) -> bool:
+        try:
+            if plugin.is_enabled:
+                plugin.initialize()
+                logger.info(f"Initialized plugin: {plugin.name}")
+        except Exception:
+            logger.exception("Failed to initialize plugin {}", plugin.name)
+            return False
+        return True
 
     def _shutdown_plugins(self) -> None:
         with self._plugins_lock:

@@ -336,6 +336,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
         self._event_dispatcher: EventDispatcher | None = None
         self._widget: QWidget | None = None
         self._lifecycle = PluginLifecycle.NEW
+        self.initialization_error: str | None = None
 
         # ── 线程安全基础设施 ──
         self._resource_lock = threading.RLock()  # 保护内部共享状态
@@ -650,6 +651,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
                 f"on_initialized error in '{self.name}': {e}",
                 exc_info=True,
             )
+            self.initialization_error = f"{type(e).__name__}: {e}"
             self._info.enabled = False
             with self._resource_lock:
                 already_stopping = self._lifecycle == PluginLifecycle.SHUTTING_DOWN
@@ -693,6 +695,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
         if self._thread.isRunning():
             return
         self._generation += 1
+        self.initialization_error = None
         self._lifecycle = PluginLifecycle.INITIALIZING
         try:
             self._setup_subscriptions()
@@ -700,7 +703,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
             self._widget = self._create_widget()
             self._connect_control_auth_signal()
             self._thread.start()
-        except Exception:
+        except Exception as exc:
+            self.initialization_error = f"{type(exc).__name__}: {exc}"
             self._info.enabled = False
             self.shutdown()
             raise

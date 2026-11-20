@@ -222,6 +222,8 @@ class PluginLoader:
         self,
         module_path: Path,
         module_name: str,
+        *,
+        reserved_names: set[str] | None = None,
     ) -> list[BasePlugin]:
         """从模块加载所有插件实例"""
         plugins: list[BasePlugin] = []
@@ -231,6 +233,31 @@ class PluginLoader:
             return plugins
 
         plugin_classes = self.get_plugin_classes(module)
+
+        if reserved_names is not None:
+            try:
+                names = set(reserved_names)
+                declarations = []
+                for plugin_class in dict.fromkeys(plugin_classes):
+                    info = self._get_plugin_info(plugin_class)
+                    if info.name in names:
+                        raise ValueError(f"Duplicate plugin name: {info.name}")
+                    names.add(info.name)
+                    declarations.append((plugin_class, info))
+                if not declarations:
+                    raise ValueError("No plugin classes exported by the package")
+                plugins = [cls(info) for cls, info in declarations]
+                loaded_names = {plugin.name for plugin in plugins}
+                if len(loaded_names) != len(plugins) or loaded_names & reserved_names:
+                    raise ValueError("Plugin instance names conflict with registered plugins")
+            except Exception as exc:
+                status = self._dependency_statuses[module_name]
+                self._dependency_statuses[module_name] = replace(
+                    status, import_status="failed", import_error=f"{type(exc).__name__}: {exc}")
+                logger.exception("Could not instantiate newly installed package {}", module_name)
+                return []
+            self._plugin_modules.update((plugin.name, module_name) for plugin in plugins)
+            return plugins
 
         for plugin_class in plugin_classes:
             try:
@@ -246,6 +273,23 @@ class PluginLoader:
                 )
 
         return plugins
+
+    def was_imported(self, module_name: str) -> bool:
+        """Previously executed code and its submodules may still be referenced."""
+        name = module_name.casefold()
+        aliases = (name, f"user_plugins.{name}")
+        return (module_name in self._dependency_statuses
+                or any(loaded == alias or loaded.startswith(f"{alias}.")
+                       for loaded in map(str.casefold, tuple(sys.modules)) for alias in aliases))
+
+    def load_new_package(self, package: Path, reserved_names: set[str]) -> list[BasePlugin]:
+        entry = package / "__init__.py"
+        if not any(p.resolve() == package.parent for p in self._plugin_dirs):
+            self.add_plugin_dir(package.parent)
+        if not any(name == package.name and path.resolve() == entry
+                   for path, name in self.discover_plugins()):
+            raise ValueError(f"Plugin package is not discoverable: {package}")
+        return self.load_plugins_from_module(entry, package.name, reserved_names=reserved_names)
 
     def _get_plugin_info(self, plugin_class: type[BasePlugin]) -> PluginInfo:
         """获取插件的元信息"""

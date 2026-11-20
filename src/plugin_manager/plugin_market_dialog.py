@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from pathlib import Path
 from threading import Event
 
 import requests
@@ -30,6 +31,7 @@ from .plugin_catalog import (
 from .plugin_download import DownloadCancelled, PluginDownloader
 from .plugin_readme_dialog import _PluginReadmeDialog
 from .plugin_repositories import PluginRepository, RepositoryTag
+from .plugin_uninstall import is_managed_plugin
 from .plugin_updates import prepare_plugin_dependencies
 from .settings_manager import SettingsManager
 
@@ -307,6 +309,7 @@ class PluginMarketDialog(QDialog):
         self._restart_scan_after_cancel = False
         self._queue: list[MarketRow] = []
         self._installed_paths: list[str] = []
+        self._activation_results: dict[str, str] = {}
 
         self.source = QComboBox()
         self.source.addItem("GitHub", "github")
@@ -357,10 +360,14 @@ class PluginMarketDialog(QDialog):
         self.action = QPushButton(_tr("安装"))
         set_action_icon(self.action, "download")
         self.action.setEnabled(False)
+        self.uninstall = QPushButton(_tr("卸载"))
+        self.uninstall.setEnabled(False)
+        self.uninstall.clicked.connect(self._uninstall_selected)
         action_layout = QHBoxLayout()
         action_layout.addWidget(QLabel(_tr("安装版本")))
         action_layout.addWidget(self.version, 1)
         action_layout.addWidget(self.action)
+        action_layout.addWidget(self.uninstall)
 
         self.progress = QProgressBar()
         self.progress.hide()
@@ -430,6 +437,7 @@ class PluginMarketDialog(QDialog):
         self.source.setEnabled(target is None)
         self.scan_button.setEnabled(False)
         self.action.setEnabled(False)
+        self.uninstall.setEnabled(False)
         self.update_all.setEnabled(False)
         self.progress.setRange(0, 0)
         self.progress.show()
@@ -456,6 +464,14 @@ class PluginMarketDialog(QDialog):
     def _show_installed(self, path: str) -> None:
         self._installed_paths.append(path)
         self.status.setText(_tr("插件和依赖安装完成。"))
+        task = self._task
+        target = task.target if task is not None else None
+        activate = getattr(self.parent(), "activate_installed_package", None)
+        if (self._closing or target is None or target.installed is not None
+                or not callable(activate)):
+            self._activation_results[path] = "restart"
+        else:
+            self._activation_results[path] = activate(Path(path))
 
     def _refresh_installed_state(self) -> None:
         installed = scan_installed(get_all_plugin_dirs())
@@ -465,19 +481,29 @@ class PluginMarketDialog(QDialog):
         self._populate()
 
     def _show_install_complete(self, error: str = "") -> None:
+        results = self._activation_results
+        requires_restart = not results or "restart" in results.values()
+        failed = [Path(path).name for path, result in results.items() if result == "failed"]
         dialog = QMessageBox(self)
-        dialog.setIcon(QMessageBox.Icon.Warning if error else QMessageBox.Icon.Information)
+        dialog.setIcon(QMessageBox.Icon.Warning if error or failed else QMessageBox.Icon.Information)
         dialog.setWindowTitle(_tr("部分安装完成") if error else _tr("安装完成"))
+        messages = []
         if error:
-            dialog.setText(_tr("部分插件已安装；后续安装失败：{error}\n"
-                               "已安装的插件重启插件管理器后生效。")
-                           .format(error=error))
-        else:
-            dialog.setText(_tr("插件及依赖已安装完成，重启插件管理器后生效。"))
-        restart = dialog.addButton(_tr("重启"), QMessageBox.ButtonRole.AcceptRole)
+            messages.append(_tr("部分插件已安装；后续安装失败：{error}").format(error=error))
+        if "loaded" in results.values():
+            messages.append(_tr("新插件已加入插件列表，并按启用设置启动。"))
+        if failed:
+            messages.append(_tr("已安装，但加载失败：{names}。请在插件列表查看依赖详情或日志。")
+                            .format(names="、".join(failed)))
+        if requires_restart:
+            messages.append(_tr("有插件需要重启插件管理器后生效。"))
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText("\n".join(messages))
+        restart = (dialog.addButton(_tr("重启"), QMessageBox.ButtonRole.AcceptRole)
+                   if requires_restart else None)
         dialog.addButton(_tr("确认"), QMessageBox.ButtonRole.RejectRole)
         dialog.exec()
-        if dialog.clickedButton() is restart:
+        if restart is not None and dialog.clickedButton() is restart:
             self.accept()
             self.restart_requested.emit()
 
@@ -519,6 +545,7 @@ class PluginMarketDialog(QDialog):
             self._refresh_installed_state()
             self._installed_paths.clear()
             self._show_install_complete(task.error if task is not None else "")
+            self._activation_results.clear()
 
     def _report_scan(self) -> None:
         total = len(self._rows)
@@ -573,8 +600,7 @@ class PluginMarketDialog(QDialog):
             set_action_icon(details, "info")
             details.clicked.connect(lambda _checked=False, item=row: self._open_details(item))
             self.table.setCellWidget(index, 4, details)
-        self.version.clear()
-        self.action.setEnabled(False)
+        self._selection_changed()
 
     @Slot(int, int)
     def _open_details_at(self, index: int, _column: int) -> None:
@@ -600,6 +626,7 @@ class PluginMarketDialog(QDialog):
         row = self._selected_row()
         self.version.clear()
         if row is None or row.releases is None or not row.releases.versions:
+            self.version.setEnabled(False)
             self._update_action_state()
             return
         for version, tag_name, _commit in row.releases.versions:
@@ -609,7 +636,11 @@ class PluginMarketDialog(QDialog):
 
     def _update_action_state(self) -> None:
         row = self._selected_row()
-        self.action.setEnabled(row is not None and row.can_install)
+        self.action.setEnabled(self._task is None and row is not None and row.can_install)
+        self.uninstall.setEnabled(
+            self._task is None and row is not None and row.installed is not None
+            and callable(getattr(self.parent(), "uninstall_market_plugin", None))
+            and is_managed_plugin(row.installed.directory))
         if row is None:
             self.action.setText(_tr("安装"))
         elif row.installed is None:
@@ -618,6 +649,15 @@ class PluginMarketDialog(QDialog):
             self.action.setText(_tr("更新"))
         else:
             self.action.setText(_tr("重装"))
+
+    def _uninstall_selected(self) -> None:
+        row = self._selected_row()
+        uninstall = getattr(self.parent(), "uninstall_market_plugin", None)
+        if self._task is not None or row is None or row.installed is None or not callable(uninstall):
+            return
+        if uninstall(row.installed.directory, row.entry.name, self):
+            self._refresh_installed_state()
+            self.status.setText(_tr("插件已卸载。请重启插件管理器以刷新运行环境。"))
 
     # ── 安装 ──────────────────────────────────────────────────
     def _install_selected(self) -> None:

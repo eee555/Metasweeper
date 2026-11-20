@@ -181,7 +181,11 @@ def _run_manager() -> int:
 
     # 启动时只准备/识别环境，不自动安装包；必须在插件导入和调试功能之前接入 sys.path。
     from loguru import logger
+    from .plugin_uninstall import apply_queued_removal
 
+    uninstall_error = apply_queued_removal(get_data_dir())
+    if uninstall_error:
+        logger.error(uninstall_error)
     setup_result = prepare_plugin_dependency_environment(get_data_dir())
     for error in setup_result.errors:
         logger.warning(f"插件依赖环境准备失败: {error}")

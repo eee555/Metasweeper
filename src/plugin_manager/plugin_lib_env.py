@@ -41,7 +41,8 @@ logger = loguru.logger.bind(name="PluginLibEnv")
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _VENV_TIMEOUT = 300
 _PIP_TIMEOUT = 600
-_BOOTSTRAP_LOCK = threading.Lock()
+_BOOTSTRAP_LOCK = threading.RLock()
+_LIVE_ENV_CHANGED = threading.Event()
 _DEBUGPY_REQUIREMENT = "debugpy>=1.8.20"
 
 
@@ -343,6 +344,38 @@ def _append_import_path(path: Path) -> None:
     importlib.invalidate_caches()
 
 
+def dependency_environment_requires_restart() -> bool:
+    return _LIVE_ENV_CHANGED.is_set()
+
+
+def _check_live_dependency_changes(library: Path, before: dict[str, str]) -> None:
+    from .plugin_uninstall import installed_fingerprints
+
+    after = installed_fingerprints(library)
+    if any(not fingerprint or after.get(name) != fingerprint
+           for name, fingerprint in before.items()):
+        _LIVE_ENV_CHANGED.set()
+        return
+    added = after.keys() - before.keys()
+    if not added:
+        return
+    loaded = {name.partition(".")[0].casefold() for name in tuple(sys.modules)}
+    for dist in metadata.distributions(path=[str(library)]):
+        name = dist.metadata.get("Name")
+        if not name or _package_name_key(name) not in added:
+            continue
+        if dist.files is None:
+            _LIVE_ENV_CHANGED.set()
+            return
+        # Include extension modules and namespace packages. Location matters:
+        # a bundled or previously imported module cannot switch versions live.
+        for file in dist.files:
+            root = file.parts[0].partition(".")[0].casefold()
+            if root in loaded:
+                _LIVE_ENV_CHANGED.set()
+                return
+
+
 def _pip_prefix(executable: Path) -> list[str]:
     if is_frozen():
         return [str(executable), FLAG]
@@ -581,6 +614,26 @@ def _install_requirements_file(
             return "; ".join(errors) or "Plugin dependency environment is unavailable"
         _append_import_path(library_path)
         from .settings_manager import SettingsManager
+        from .plugin_uninstall import installed_fingerprints, record_install
+
+        try:
+            before = installed_fingerprints(library_path)
+        except (OSError, ValueError) as exc:
+            logger.warning("Could not inspect plugin dependency ownership: {}", exc)
+            before = None
+
+        def complete_install() -> None:
+            importlib.invalidate_caches()
+            if before is None:
+                _LIVE_ENV_CHANGED.set()
+                return
+            try:
+                _check_live_dependency_changes(library_path, before)
+                record_install(data_dir, library_path, before)
+            except (OSError, ValueError) as exc:
+                _LIVE_ENV_CHANGED.set()
+                logger.warning("Could not record plugin dependency ownership: {}", exc)
+
         index_urls = SettingsManager(data_dir).plugin_pip_indexes
         if use_target:
             try:
@@ -594,7 +647,9 @@ def _install_requirements_file(
             except (OSError, ValueError) as exc:
                 return str(exc)
             if error is None:
-                importlib.invalidate_caches()
+                complete_install()
+            else:
+                _LIVE_ENV_CHANGED.set()
             return error
         error = _run_install(
             _pip_command(
@@ -607,8 +662,9 @@ def _install_requirements_file(
             output_callback,
         )
         if error:
+            _LIVE_ENV_CHANGED.set()
             return error
-        importlib.invalidate_caches()
+        complete_install()
         return None
 
 
@@ -726,6 +782,7 @@ def upgrade_installed_package(
                             "--progress-bar", "raw", "--timeout", "20", "--retries", "1",
                             "--", name))
             error = _run_install(command, f"Upgrading {name}", output_callback)
+            _LIVE_ENV_CHANGED.set()
             if error is None:
                 if use_target:
                     # pip --target leaves metadata from earlier versions in place.

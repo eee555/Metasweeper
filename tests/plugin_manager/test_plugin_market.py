@@ -296,6 +296,39 @@ def test_install_completion_uses_cached_catalog_and_local_metadata(qtbot, monkey
     assert complete == [""]
 
 
+def test_market_uninstall_refreshes_selected_row(qtbot, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QWidget
+
+    monkeypatch.setattr(market.QTimer, "singleShot", lambda *_: None)
+    monkeypatch.setattr(market, "is_managed_plugin", lambda path: path == tmp_path)
+    monkeypatch.setattr(market, "scan_installed", lambda *_: {})
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    calls = []
+
+    def uninstall(package, display_name, dialog):
+        calls.append((package, display_name, dialog))
+        return True
+
+    parent.uninstall_market_plugin = uninstall
+    dialog = market.PluginMarketDialog("", parent)
+    qtbot.addWidget(dialog)
+    entry = parse_index(json.loads(INDEX))[0]
+    row = market.MarketRow(entry, installed=InstalledPlugin(
+        name="training_stats", directory=tmp_path, version=None,
+        repository=entry.repository.url))
+    dialog._rows = [row]
+    dialog._populate()
+    dialog.table.selectRow(0)
+    assert dialog.uninstall.isEnabled()
+
+    dialog.uninstall.click()
+
+    assert calls == [(tmp_path, entry.name, dialog)]
+    assert row.installed is None
+    assert not dialog.uninstall.isEnabled()
+
+
 def test_filtered_market_row_opens_same_details_from_button_and_double_click(qtbot, monkeypatch):
     from dataclasses import replace
     from PySide6.QtCore import Qt
@@ -589,6 +622,39 @@ def test_completion_dialog_buttons(qtbot, monkeypatch, button, expected_restart)
     monkeypatch.setattr(market.QMessageBox, "exec", choose)
     dialog._show_install_complete()
     assert bool(requests) is expected_restart
+
+
+@pytest.mark.parametrize(("existing", "result", "restart"), [
+    (False, "loaded", False), (False, "failed", False),
+    (False, "restart", True), (True, "loaded", True),
+])
+def test_market_activation_and_completion_message(
+        qtbot, monkeypatch, tmp_path, existing, result, restart):
+    from types import SimpleNamespace
+    from PySide6.QtWidgets import QWidget
+
+    monkeypatch.setattr(market.QTimer, "singleShot", lambda *_: None)
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    calls = []
+    parent.activate_installed_package = lambda path: (calls.append(path) or result)
+    dialog = market.PluginMarketDialog("", parent)
+    qtbot.addWidget(dialog)
+    entry = parse_index(json.loads(INDEX))[0]
+    installed = InstalledPlugin(name=entry.name, directory=tmp_path) if existing else None
+    dialog._task = SimpleNamespace(target=market.MarketRow(entry, installed=installed))
+    dialog._show_installed(str(tmp_path))
+
+    def choose(box):
+        assert ("重启" in {item.text() for item in box.buttons()}) == restart
+        if not existing and result == "failed":
+            assert "加载失败" in box.text()
+        next(item for item in box.buttons() if item.text() == "确认").click()
+        return 0
+
+    monkeypatch.setattr(market.QMessageBox, "exec", choose)
+    dialog._show_install_complete()
+    assert calls == ([] if existing else [tmp_path])
 
 
 @pytest.mark.parametrize("selected", ["1.0.0", "1.2.0"])

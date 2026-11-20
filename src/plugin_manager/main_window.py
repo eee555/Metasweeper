@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
 
 from .plugin_info_dialog import PluginInfoDialog
 from .plugin_market_dialog import PluginMarketDialog
+from .plugin_uninstall import is_managed_plugin, plan_removal, queue_removal, remove_plugin
 from .plugin_updates import PluginAutoUpdateTask
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager, normalize_pip_indexes
@@ -1965,10 +1966,7 @@ class PluginManagerWindow(QMainWindow):
 
         # 连接所有插件的 ready 信号，就绪后自动刷新列表
         for p in self._manager.plugins.values():
-            p.ready.connect(self._on_plugin_ready,
-                            Qt.ConnectionType.QueuedConnection)
-            p.stopped.connect(self._on_plugin_stopped,
-                              Qt.ConnectionType.QueuedConnection)
+            self._watch_plugin_lifecycle(p)
 
         self._refresh_plugin_list()
 
@@ -2264,6 +2262,27 @@ class PluginManagerWindow(QMainWindow):
         finally:
             self._market_dialog = None
             dialog.deleteLater()
+
+    def activate_installed_package(self, package: Path) -> str:
+        new_plugins = []
+
+        def prepare(plugin: BasePlugin) -> None:
+            self._watch_plugin_lifecycle(plugin)
+            new_plugins.append(plugin)
+            state = self._effective_state(plugin.name)
+            if not state.show_window or state.window_mode == WindowMode.CLOSED:
+                self._closed_plugins.add(plugin.name)
+
+        result = self._manager.load_installed_package(package, prepare)
+        for plugin in new_plugins:
+            if plugin.name in self._closed_plugins:
+                plugin.close_widget()
+        self._refresh_plugin_list()
+        return result
+
+    def _watch_plugin_lifecycle(self, plugin: BasePlugin) -> None:
+        plugin.ready.connect(self._on_plugin_ready, Qt.ConnectionType.QueuedConnection)
+        plugin.stopped.connect(self._on_plugin_stopped, Qt.ConnectionType.QueuedConnection)
 
     @Slot()
     def show_and_raise(self) -> None:
@@ -2771,6 +2790,8 @@ class PluginManagerWindow(QMainWindow):
         _pending_detach: list[str] = []
 
         for name, p in self._manager.plugins.items():
+            if name in getattr(self, "_uninstalled_plugin_names", ()):
+                continue
             display_name = self._plugin_display_name(p)
             li = QListWidgetItem(display_name)
             li.setData(Qt.ItemDataRole.UserRole, name)
@@ -2809,6 +2830,11 @@ class PluginManagerWindow(QMainWindow):
                     self.tr("版本: {version}").format(version=version)
                     if version else display_name
                 )
+            init_error = getattr(p, "initialization_error", None)
+            if isinstance(init_error, str) and init_error:
+                li.setText(self.tr("{name}（初始化失败）").format(name=display_name))
+                li.setToolTip(f"{li.toolTip()}\n{self.tr('初始化失败')}：{init_error}")
+                li.setForeground(QColor("#c62828"))
 
             lst.addItem(li)
 
@@ -2826,6 +2852,8 @@ class PluginManagerWindow(QMainWindow):
         # 导入失败的插件没有实例，仍保留条目以展示依赖诊断。
         statuses = getattr(self._manager, "module_dependency_statuses", {})
         for module_name, dependency in statuses.items():
+            if module_name in getattr(self, "_uninstalled_plugin_modules", ()):
+                continue
             if dependency.import_status != "failed":
                 continue
             li = QListWidgetItem(self.tr("{name}（加载失败）").format(name=module_name))
@@ -2851,8 +2879,10 @@ class PluginManagerWindow(QMainWindow):
             if index >= 0:
                 t._detach_tab(index, name)
 
-        total = len(self._manager.plugins)
-        en = sum(1 for p in self._manager.plugins.values() if p.is_enabled)
+        visible = [plugin for name, plugin in self._manager.plugins.items()
+                   if name not in getattr(self, "_uninstalled_plugin_names", ())]
+        total = len(visible)
+        en = sum(1 for p in visible if p.is_enabled)
         self.statusBar().showMessage(
             self.tr("已加载 {total} 个插件，{enabled} 个已启用").format(
                 total=total, enabled=en
@@ -2993,6 +3023,15 @@ class PluginManagerWindow(QMainWindow):
             return
 
         menu = QMenu(self)
+        get_status = getattr(self._manager, "get_module_dependency_status", None)
+        dependency = get_status(module_name) if module_name and callable(get_status) else None
+        package = dependency.module_path.parent if (
+            dependency is not None and dependency.module_path.name == "__init__.py") else None
+        if package is not None and is_managed_plugin(package):
+            uninstall = menu.addAction(self.tr("卸载插件…"))
+            uninstall.triggered.connect(
+                lambda: self.uninstall_market_plugin(package, self._module_display_name(module_name)))
+            menu.addSeparator()
         if not plugin:
             action = menu.addAction(self.tr("查看依赖详情"))
             set_action_icon(action, "dependency")
@@ -3070,6 +3109,94 @@ class PluginManagerWindow(QMainWindow):
                 lambda: self._authorize_plugin_controls(name))
 
         menu.exec(self._list.viewport().mapToGlobal(pos))
+
+    def uninstall_market_plugin(self, package: Path, display_name: str,
+                                dialog: QDialog | None = None) -> bool:
+        parent = dialog if dialog is not None else self
+        if self._installation_in_progress():
+            return False
+        if self._defer_for_auto_update(
+                lambda: self.uninstall_market_plugin(package, display_name, dialog)):
+            return False
+        data_dir = get_data_dir()
+        try:
+            plan = plan_removal(package, data_dir)
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.warning(parent, self.tr("无法卸载插件"), str(exc))
+            return False
+
+        names = []
+        for name, plugin in self._manager.plugins.items():
+            status = self._manager.get_plugin_dependency_status(name)
+            if (status is not None and status.module_path.name == "__init__.py"
+                    and status.module_path.parent.resolve() == plan.package):
+                names.append((name, plugin))
+        message = [self.tr("卸载 {name}？").format(name=display_name), str(plan.package)]
+        if names:
+            message.append(self.tr("此安装目录包含：{names}").format(
+                names="、".join(self._plugin_display_name(plugin) for _, plugin in names)))
+        if plan.packages:
+            message.append(self.tr("同时清理独享依赖：{packages}").format(
+                packages="、".join(f"{name} {version}" for name, version in plan.packages)))
+        if plan.kept:
+            message.append(self.tr("共享或无法确认归属的依赖将保留：{packages}").format(
+                packages="、".join(plan.kept)))
+        if plan.note:
+            message.append(self.tr(plan.note))
+        message.append(self.tr("保留插件配置、历史记录和存档。"))
+        confirm = QMessageBox(parent)
+        confirm.setWindowTitle(self.tr("卸载插件"))
+        confirm.setIcon(QMessageBox.Icon.Question)
+        confirm.setTextFormat(Qt.TextFormat.PlainText)
+        confirm.setText("\n\n".join(message))
+        proceed = confirm.addButton(self.tr("卸载"), QMessageBox.ButtonRole.DestructiveRole)
+        cancel = confirm.addButton(QMessageBox.StandardButton.Cancel)
+        confirm.setDefaultButton(cancel)
+        confirm.exec()
+        if confirm.clickedButton() is not proceed:
+            return False
+
+        stopped = []
+        try:
+            for name, plugin in names:
+                was_enabled = plugin.is_enabled
+                stopped.append((name, plugin, was_enabled))
+                self._remove_plugin_window(name)
+                self._manager.disable_plugin(name)
+                if plugin.lifecycle != PluginLifecycle.STOPPED:
+                    raise RuntimeError(self.tr("插件仍在停止，请稍后重试。"))
+            remove_plugin(plan, data_dir)
+        except (OSError, ValueError, RuntimeError) as exc:
+            for name, plugin, was_enabled in stopped:
+                if was_enabled and plugin.lifecycle == PluginLifecycle.STOPPED:
+                    self._manager.enable_plugin(name)
+            self._refresh_plugin_list()
+            if isinstance(exc, PermissionError):
+                answer = QMessageBox.question(
+                    parent, self.tr("重启后卸载"),
+                    self.tr("文件可能正在使用，已恢复原有文件。"
+                            "要现在重启插件管理器并在加载插件前执行同一卸载计划吗？"),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
+                if answer == QMessageBox.StandardButton.Yes:
+                    try:
+                        queue_removal(plan, data_dir)
+                    except (OSError, ValueError, RuntimeError) as queue_error:
+                        QMessageBox.warning(parent, self.tr("无法安排卸载"), str(queue_error))
+                    else:
+                        self.restart_plugin_manager()
+                    return False
+            QMessageBox.warning(parent, self.tr("卸载失败"), str(exc))
+            return False
+
+        self._uninstalled_plugin_names = getattr(self, "_uninstalled_plugin_names", set())
+        self._uninstalled_plugin_names.update(name for name, _ in names)
+        self._uninstalled_plugin_modules = getattr(self, "_uninstalled_plugin_modules", set())
+        self._uninstalled_plugin_modules.add(plan.package.name)
+        self._refresh_plugin_list()
+        QMessageBox.information(parent, self.tr("卸载完成"),
+                                self.tr("插件已卸载。请重启插件管理器以刷新运行环境。"))
+        return True
 
     def _authorize_plugin_controls(self, name: str) -> None:
         """一键授权：将插件声明的所有控制权限授权给它"""
