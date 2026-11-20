@@ -180,10 +180,15 @@ def test_set_skin_command_reaches_host_handler(monkeypatch):
     assert response.request_id == "skin-host"
 
 
-def test_end_to_end_command_to_handler():
+def test_end_to_end_command_to_handler(monkeypatch, tmp_path):
     """序列化 → 解码 → handler 分派 → configure 全链路。"""
     from lib_zmq_plugins.serializer import Serializer
     from app import plugin_commands
+    from plugin_manager import app_paths
+
+    (tmp_path / "control_authorization.json").write_text(
+        '{"set_sound": ["test-plugin"]}', encoding="utf-8")
+    monkeypatch.setattr(app_paths, "get_data_dir", lambda: tmp_path)
 
     s = Serializer()
     s.register_command_types(*COMMAND_TYPES)
