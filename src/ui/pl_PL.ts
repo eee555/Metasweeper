@@ -53,6 +53,16 @@
         <translation>Zmień dźwięk</translation>
     </message>
     <message>
+        <location filename="../shared_types/commands.py" line="253"/>
+        <source>设置比赛标识</source>
+        <translation>Ustaw identyfikator zawodów</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="267"/>
+        <source>待开局时设置并保存比赛标识（空字符串清除，独立授权）</source>
+        <translation>Ustaw i zapisz identyfikator zawodów przed rozpoczęciem gry (pusty ciąg usuwa identyfikator, osobne uprawnienie)</translation>
+    </message>
+    <message>
         <location filename="../shared_types/commands.py" line="223"/>
         <source>插件重开新局（等价于按 F2，不影响成绩）</source>
         <translation>Wtyczka rozpoczyna nową grę (odpowiednik F2; nie wpływa na wynik)</translation>

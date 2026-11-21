@@ -53,6 +53,16 @@
         <translation>効果音変更</translation>
     </message>
     <message>
+        <location filename="../shared_types/commands.py" line="253"/>
+        <source>设置比赛标识</source>
+        <translation>大会識別子を設定</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="267"/>
+        <source>待开局时设置并保存比赛标识（空字符串清除，独立授权）</source>
+        <translation>開始待機中に大会識別子を設定して保存（空文字列でクリア、独立した権限）</translation>
+    </message>
+    <message>
         <location filename="../shared_types/commands.py" line="223"/>
         <source>插件重开新局（等价于按 F2，不影响成绩）</source>
         <translation>プラグインが新局を開始します（F2 キーと同等、成績に影響しません）</translation>

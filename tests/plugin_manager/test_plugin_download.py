@@ -379,9 +379,172 @@ def test_import_zip_publishes_one_local_package(tmp_path, prefix, name):
     assert read_installed_metadata(installed) == {"source": "local_zip"}
     assert read_installed_plugin(installed) is None
     assert PluginLoader([root]).discover_plugins() == [(installed / "__init__.py", name)]
-    with pytest.raises(FileExistsError):
-        downloader.import_zip(archive, root, [], before_publish=prepare)
+    (installed / "obsolete.py").write_text("old file", encoding="utf-8")
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == installed
+    assert not (installed / "obsolete.py").exists()
     assert list(root.iterdir()) == [installed]
+
+
+def plugin_source(version="1.0", name="stable_demo"):
+    return f'''
+raise RuntimeError("must not execute during import")
+class Demo:
+    @classmethod
+    def plugin_info(cls):
+        return PluginInfo(name={name!r}, version={version!r})
+'''
+
+
+@pytest.mark.parametrize("prefix", ["", "demo/", "demo-metasweeper-v2.0/", "demo-sha/demo/"])
+def test_import_zip_updates_across_archive_names_and_layouts(tmp_path, prefix):
+    archive = tmp_path / "demo-1.0.zip"
+    archive.write_bytes(make_archive([("demo/plugin.py", plugin_source()), ("demo/__init__.py", "")]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    installed = downloader.import_zip(archive, root, [], before_publish=lambda *_: None)
+    assert installed == root / "stable_demo"
+    (installed / "obsolete.py").write_text("old file", encoding="utf-8")
+    data = tmp_path / "data/plugin_data/stable_demo/settings.json"
+    data.parent.mkdir(parents=True)
+    data.write_text('{"user_id":23}', encoding="utf-8")
+    archive = tmp_path / "demo-2.0.zip"
+    archive.write_bytes(make_archive([
+        (prefix + "__init__.py", ""), (prefix + "plugin.py", plugin_source("2.0")),
+    ]))
+    prepared = []
+
+    def prepare(package, name):
+        assert "1.0" in (installed / "plugin.py").read_text()
+        assert "2.0" in (package / "plugin.py").read_text()
+        prepared.append(name)
+
+    assert downloader.import_zip(archive, root, [root], before_publish=prepare) == installed
+    assert prepared == ["stable_demo"]
+    assert "2.0" in (installed / "plugin.py").read_text()
+    assert not (installed / "obsolete.py").exists()
+    assert data.read_text() == '{"user_id":23}'
+    assert list(root.iterdir()) == [installed]
+
+
+def test_zip_can_update_market_install_without_duplicate_or_stale_metadata(tmp_path):
+    from plugin_manager.plugin_catalog import read_installed_metadata, scan_installed
+
+    body = make_archive([("repo-sha/__init__.py", ""), ("repo-sha/plugin.py", plugin_source())])
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(FakeResponse(body=body)), lambda: False, lambda *_: None)
+    installed = downloader.install(REPOSITORY, TAG, root, [], plugin_version="1.0", tag_prefix="release/v")
+    archive = tmp_path / "downloaded-release.zip"
+    archive.write_bytes(make_archive([
+        ("my-plugin-metasweeper-v2.0/__init__.py", ""),
+        ("my-plugin-metasweeper-v2.0/plugin.py", plugin_source("2.0")),
+    ]))
+
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == installed
+    metadata = read_installed_metadata(installed)
+    assert metadata == {"source": "local_zip", "repository": REPOSITORY.url,
+                        "platform": REPOSITORY.platform, "tag_prefix": "release/v", "version": "2.0"}
+    assert scan_installed([root])[REPOSITORY.url].version.public == "2.0"
+    assert list(root.iterdir()) == [installed]
+
+
+@pytest.mark.parametrize("failure", ["prepare", "publish", "cancel"])
+def test_zip_update_failure_preserves_installed_package(tmp_path, monkeypatch, failure):
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", "# old")]))
+    root = tmp_path / "user_plugins"
+    cancelled = Event()
+    downloader = PluginDownloader(FakeSession(), cancelled.is_set, lambda *_: None)
+    installed = downloader.import_zip(archive, root, [], before_publish=lambda *_: None)
+    old_metadata = (installed / ".metasweeper-plugin.json").read_bytes()
+    archive.write_bytes(make_archive([("demo/__init__.py", "# new")]))
+    rename = download.Path.rename
+
+    def fail_publish(path, destination):
+        if path.name == "demo" and path != installed and destination == installed:
+            raise OSError("publish failed")
+        return rename(path, destination)
+
+    def prepare(*_):
+        if failure == "prepare":
+            raise RuntimeError("preparation failed")
+        if failure == "cancel":
+            cancelled.set()
+
+    if failure == "publish":
+        monkeypatch.setattr(download.Path, "rename", fail_publish)
+    with pytest.raises((RuntimeError, OSError, DownloadCancelled)):
+        downloader.import_zip(archive, root, [], before_publish=prepare)
+    assert (installed / "__init__.py").read_text() == "# old"
+    assert (installed / ".metasweeper-plugin.json").read_bytes() == old_metadata
+    assert list(root.iterdir()) == [installed]
+
+
+@pytest.mark.parametrize("location", ["user_plugins", "plugins"])
+def test_zip_does_not_overwrite_unmanaged_or_bundled_plugin(tmp_path, location):
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source("2.0"))]))
+    root = tmp_path / "user_plugins"
+    existing = tmp_path / location / "different_module"
+    existing.mkdir(parents=True)
+    (existing / "__init__.py").write_text(plugin_source(), encoding="utf-8")
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(FileExistsError, match="不能覆盖"):
+        downloader.import_zip(archive, root, [existing.parent], before_publish=lambda *_: pytest.fail("unsafe update"))
+    assert "1.0" in (existing / "__init__.py").read_text()
+
+
+def test_zip_refuses_ambiguous_installed_matches(tmp_path):
+    root = tmp_path / "user_plugins"
+    for name in ["first", "second"]:
+        package = root / name
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text(plugin_source(), encoding="utf-8")
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source("2.0"))]))
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(ValueError, match="多个同名插件"):
+        downloader.import_zip(archive, root, [], before_publish=lambda *_: pytest.fail("ambiguous update"))
+
+
+def test_zip_refuses_same_directory_with_different_plugin_identity(tmp_path):
+    root = tmp_path / "user_plugins"
+    package = root / "stable_demo"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(plugin_source(name="other"), encoding="utf-8")
+    (package / ".metasweeper-plugin.json").write_text('{"source":"local_zip"}')
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source())]))
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(FileExistsError, match="标识不匹配"):
+        downloader.import_zip(archive, root, [], before_publish=lambda *_: pytest.fail("identity conflict"))
+    assert "other" in (package / "__init__.py").read_text()
+
+
+def test_zip_update_does_not_reuse_market_version_when_new_version_is_unknown(tmp_path):
+    from plugin_manager.plugin_catalog import read_installed_plugin, read_installed_metadata
+
+    root = tmp_path / "user_plugins"
+    package = root / "stable_demo"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(plugin_source(), encoding="utf-8")
+    (package / ".metasweeper-plugin.json").write_text(json.dumps({
+        "repository": REPOSITORY.url, "tag": "metasweeper-v1.0", "version": "1.0",
+    }))
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source().replace("version='1.0'", "version=VERSION"))]))
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == package
+    assert read_installed_plugin(package).version is None
+    assert read_installed_metadata(package) == {"source": "local_zip", "repository": REPOSITORY.url}
+
+
+def test_zip_statically_matches_positional_plugin_info_name(tmp_path):
+    archive = tmp_path / "source-2.0.zip"
+    source = plugin_source().replace("name='stable_demo'", "'stable_demo'")
+    archive.write_bytes(make_archive([("source-2.0/__init__.py", source)]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == root / "stable_demo"
 
 
 @pytest.mark.parametrize("contents", [

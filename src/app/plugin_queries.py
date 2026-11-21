@@ -90,6 +90,8 @@ def register_plugin_queries(bridge, ui):
             "progress": (solved / bbbv) if (parsed and bbbv > 0) else None,
             "is_official": getattr(ms_board, "is_official", None),
             "is_fair": getattr(ms_board, "is_fair", None),
+            "board_constraint": bool(getattr(ui, "board_constraint", "")),
+            "race_identifier": str(getattr(ui, "race_identifier", "") or ""),
             "software": str(getattr(ms_board, "software", "") or ""),
             "permissions": {
                 "allowed_controls": sorted(ui._allowed_controls),

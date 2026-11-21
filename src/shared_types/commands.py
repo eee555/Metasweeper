@@ -149,6 +149,18 @@ class SetSoundCommand(BaseCommand, tag="set_sound"):
     play_event: Optional[str] = None
 
 
+class SetRaceIdentifierCommand(BaseCommand, tag="set_race_identifier"):
+    """在待开局（ready）状态下设置比赛标识，并保存到 gameSetting.ini。
+
+    不重开游戏，不修改棋盘或已生成录像，不计入 allowed_controls 作弊开关。
+    仅受插件管理器的独立控制授权约束，主进程不复查授权文件。
+
+    Attributes:
+        race_identifier: 比赛标识；去除首尾空白，空字符串表示清除。
+    """
+    race_identifier: str = ""
+
+
 # 皮肤资源 key（主进程解码校验与插件打包共用；不含窗口图标）
 SKIN_CELL_KEYS = (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 14, 15, 16, 17, 100)
 SKIN_LED_KEYS = tuple(range(10))
@@ -174,14 +186,17 @@ SKIN_COLOR_KEYS = (
 
 COMMAND_TYPES = [NewGameCommand, NewPresetGameCommand,
                  MouseClickCommand, InitOpenCommand, SetSkinCommand,
-                 SetSoundCommand]
+                 SetSoundCommand, SetRaceIdentifierCommand]
 
 # 不计入 allowed_controls 作弊开关的命令（单一事实来源）。
 # 这些命令不改变或泄露局面：外观命令只改皮肤/音效；重开新局等价于玩家
 # 按 F2（只重置到 ready，不埋雷）。它们仍受 ControlAuthorizationManager
 # 的独立授权约束，但授权它们不应让整局被判成 JOKING、录像被作废。
+# 比赛标识命令只在 ready 时更新标识和配置，也不改变或泄露局面。
 # 高级设置对话框、主进程 ini 清理、命令 handler 都以此为准。
-NON_CHEAT_TAGS = frozenset({"set_skin", "set_sound", "new_random_game"})
+NON_CHEAT_TAGS = frozenset({
+    "set_skin", "set_sound", "new_random_game", "set_race_identifier",
+})
 
 # ── 控制命令说明（可多语言）────────────────────────────────────
 # 供插件管理器「控制授权」对话框、插件详情对话框，以及主程序
@@ -199,6 +214,7 @@ COMMAND_LABELS: dict[str, str] = {
     "init_open": "初始化翻开",
     "set_skin": "更换皮肤",
     "set_sound": "更改音效",
+    "set_race_identifier": "设置比赛标识",
 }
 
 COMMAND_HINTS: dict[str, str] = {
@@ -208,6 +224,7 @@ COMMAND_HINTS: dict[str, str] = {
     "init_open": "预设局面初始化时翻开指定格子",
     "set_skin": "热替换主窗口图片皮肤（纯内存、不重启、独立授权）",
     "set_sound": "热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）",
+    "set_race_identifier": "待开局时设置并保存比赛标识（空字符串清除，独立授权）",
 }
 
 # 翻译上下文（对应 .ts 里的 <context><name>，三处界面共用同一份词条）
@@ -233,6 +250,7 @@ def _i18n_command_strings() -> None:
     _translate("Commands", "初始化翻开")
     _translate("Commands", "更换皮肤")
     _translate("Commands", "更改音效")
+    _translate("Commands", "设置比赛标识")
     _translate("Commands",
                "插件重开新局（等价于按 F2，不影响成绩）")
     _translate("Commands",
@@ -245,6 +263,8 @@ def _i18n_command_strings() -> None:
                "热替换主窗口图片皮肤（纯内存、不重启、独立授权）")
     _translate("Commands",
                "热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）")
+    _translate("Commands",
+               "待开局时设置并保存比赛标识（空字符串清除，独立授权）")
 
 
 def command_tag(cmd_type: type) -> str:

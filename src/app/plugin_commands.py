@@ -7,6 +7,7 @@ from config.constants import BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT
 from shared_types.commands import (
     NewGameCommand, NewPresetGameCommand, MouseClickCommand,
     InitOpenCommand, SetSkinCommand, SetSoundCommand,
+    SetRaceIdentifierCommand,
 )
 from shared_types.enums import GameLevel
 from utils.app_logger import logger
@@ -161,9 +162,40 @@ def register_plugin_commands(bridge, ui):
                                    error="未授权 SetSoundCommand")
         return handle_set_sound(ui, cmd)
 
+    def handle_set_race_identifier(cmd: SetRaceIdentifierCommand):
+        from lib_zmq_plugins.shared.base import CommandResponse
+
+        # 独立授权由插件管理器检查；主进程不复查授权文件，也不检查作弊开关。
+        if not isinstance(cmd.race_identifier, str):
+            return CommandResponse(
+                request_id=cmd.request_id, success=False,
+                error="SetRaceIdentifierCommand.race_identifier 必须是字符串")
+        # 录像在生成时才读取 ui.race_identifier，不允许给已开始的对局换标识。
+        if ui.game_state != "ready":
+            return CommandResponse(
+                request_id=cmd.request_id, success=False,
+                error="请在待开局（ready）状态下设置比赛标识")
+        identifier = cmd.race_identifier.strip()
+        key = "DEFAULT/race_identifier"
+        previous = ui.game_setting.value(key, "", str)
+        try:
+            ui.game_setting.set_value(key, identifier)
+            ui.game_setting.sync()
+        except (OSError, ValueError) as exc:
+            ui.game_setting.set_value(key, previous)
+            logger.warning(f"[SetRaceIdentifierCommand] 保存比赛标识失败: {exc}")
+            return CommandResponse(
+                request_id=cmd.request_id, success=False,
+                error=f"保存比赛标识失败: {exc}")
+        ui.race_identifier = identifier
+        ui.score_board_manager.with_namespace({"race_identifier": identifier})
+        ui.score_board_manager.show(ui.label.ms_board, index_type=1)
+        return CommandResponse(request_id=cmd.request_id, success=True)
+
     bridge.register_handler(NewGameCommand, handle_new_game)
     bridge.register_handler(NewPresetGameCommand, handle_new_preset_game)
     bridge.register_handler(MouseClickCommand, handle_mouse_click)
     bridge.register_handler(InitOpenCommand, handle_init_open)
     bridge.register_handler(SetSkinCommand, handle_set_skin_cmd)
     bridge.register_handler(SetSoundCommand, handle_set_sound_cmd)
+    bridge.register_handler(SetRaceIdentifierCommand, handle_set_race_identifier)

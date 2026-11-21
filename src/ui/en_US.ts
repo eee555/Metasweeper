@@ -53,6 +53,16 @@
         <translation>Change Sound</translation>
     </message>
     <message>
+        <location filename="../shared_types/commands.py" line="253"/>
+        <source>设置比赛标识</source>
+        <translation>Set Race Identifier</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="267"/>
+        <source>待开局时设置并保存比赛标识（空字符串清除，独立授权）</source>
+        <translation>Set and save the race identifier when ready (empty string clears it, separate permission)</translation>
+    </message>
+    <message>
         <location filename="../shared_types/commands.py" line="223"/>
         <source>插件重开新局（等价于按 F2，不影响成绩）</source>
         <translation>Plugin starts a new game (equivalent to pressing F2; does not affect the record)</translation>

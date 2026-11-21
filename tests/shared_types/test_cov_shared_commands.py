@@ -24,6 +24,7 @@ from shared_types.commands import (
     NON_CHEAT_TAGS,
     SetSkinCommand,
     SetSoundCommand,
+    SetRaceIdentifierCommand,
     SKIN_CELL_KEYS,
     SKIN_COLOR_KEYS,
     SKIN_FACE_KEYS,
@@ -64,11 +65,11 @@ class _Bare:
 
 
 def test_command_types_and_tags_are_unique(app):
-    assert len(COMMAND_TYPES) == 6
+    assert len(COMMAND_TYPES) == 7
     tags = [command_tag(t) for t in COMMAND_TYPES]
     assert tags == [
         "new_random_game", "new_preset_game", "mouse_click",
-        "init_open", "set_skin", "set_sound",
+        "init_open", "set_skin", "set_sound", "set_race_identifier",
     ]
     assert len(set(tags)) == len(tags), "tag 必须全局唯一"
     assert set(tags) == set(COMMAND_LABELS) == set(COMMAND_HINTS)
@@ -100,7 +101,7 @@ def test_i18n_dummy_function_covers_all_source_strings(app):
     assert expected_context == "Commands"
     with patch.object(mod, "_translate") as tr:
         assert mod._i18n_command_strings() is None
-    assert tr.call_count == len(COMMAND_LABELS) + len(COMMAND_HINTS) == 12
+    assert tr.call_count == len(COMMAND_LABELS) + len(COMMAND_HINTS) == 14
     seen = [(c.args[0], c.args[1]) for c in tr.call_args_list]
     assert all(ctx == "Commands" for ctx, _ in seen)
     assert {src for _, src in seen} == set(COMMAND_LABELS.values()) | set(
@@ -109,7 +110,7 @@ def test_i18n_dummy_function_covers_all_source_strings(app):
 
 def test_non_cheat_tags_are_declared(app):
     assert NON_CHEAT_TAGS == frozenset(
-        {"set_skin", "set_sound", "new_random_game"})
+        {"set_skin", "set_sound", "new_random_game", "set_race_identifier"})
     assert NON_CHEAT_TAGS <= set(COMMAND_LABELS)
 
 
@@ -137,6 +138,7 @@ def test_command_defaults_roundtrip_via_msgspec(app):
         (InitOpenCommand(), {"row": 0, "col": 0}),
         (SetSkinCommand(), {"reset": False, "frame_svg": None}),
         (SetSoundCommand(), {"enabled": None, "volume": None, "reset": False}),
+        (SetRaceIdentifierCommand(), {"race_identifier": ""}),
     ]
     for cmd, fields in cases:
         assert isinstance(cmd, BaseCommand)

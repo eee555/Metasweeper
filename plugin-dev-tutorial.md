@@ -434,6 +434,22 @@ result = self.request(some_query_command, timeout=5.0)
 |--------|------|------|
 | `NewGameCommand` | 开始新游戏 | `rows`, `cols`, `mines` |
 | `MouseClickCommand` | 模拟鼠标点击；传入 `cells` 时按顺序批量点击 | `row`, `col`, `button`, `modifiers`, 可选 `cells=[(row, col), ...]` |
+| `SetRaceIdentifierCommand` | 待开局时设置并保存比赛标识 | `race_identifier`（字符串，首尾空白自动去除，空字符串清除） |
+
+比赛标识命令仅在主程序处于 `ready` 状态时执行，不会重开游戏或修改已生成录像。
+它不需要主程序高级设置中的控制开关，主进程也不复查授权文件；
+插件仍须声明 `required_controls=[SetRaceIdentifierCommand]`，并在插件管理器中获得独立控制授权。
+设置会保存到 `gameSetting.ini` 的 `DEFAULT/race_identifier`，重启后仍保留。
+
+```python
+from shared_types import SetRaceIdentifierCommand
+
+result = self.request(SetRaceIdentifierCommand(race_identifier="G1234"))
+if result is None:
+    self.logger.warning("比赛标识设置未收到响应，请检查插件授权或连接")
+elif not result.success:
+    self.logger.warning(f"比赛标识设置失败: {result.error}")
+```
 
 ### 5.4 控制授权系统（重要！）
 

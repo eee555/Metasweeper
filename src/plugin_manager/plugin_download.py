@@ -1,6 +1,7 @@
 """Download tagged plugin packages without requiring a Git installation."""
 from __future__ import annotations
 
+import ast
 import base64
 import hashlib
 import html
@@ -726,17 +727,7 @@ class PluginDownloader:
             archive = work_dir / "source.zip"
             archive_sha256 = self._download(repository, tag, archive)
             extracted = self._extract(archive, work_dir / "source")
-            if (extracted / "__init__.py").is_file():
-                package = extracted
-            else:
-                candidates = [
-                    child for child in extracted.iterdir()
-                    if child.is_dir() and (child / "__init__.py").is_file()
-                ]
-                if len(candidates) != 1:
-                    raise ValueError(_tr(
-                        "仓库根目录必须含 __init__.py，或只包含一个插件包目录。"))
-                package = candidates[0]
+            package = self._find_zip_package(extracted)
             metadata = {"repository": repository.url, "platform": repository.platform,
                         "tag": tag.name, "commit": tag.commit,
                         "archive_sha256": archive_sha256}
@@ -767,8 +758,8 @@ class PluginDownloader:
         self, archive: Path, plugin_dir: Path, search_dirs: list[Path], *,
         before_publish: Callable[[Path, str], None],
     ) -> Path:
-        """Stage a local package, prepare it, then publish it under user_plugins."""
-        from .plugin_catalog import LOCAL_ZIP_SOURCE, META_FILENAME
+        """Install or replace a managed package without executing archive code."""
+        from .plugin_catalog import LOCAL_ZIP_SOURCE, META_FILENAME, read_installed_metadata
 
         if archive.stat().st_size > _MAX_DOWNLOAD:
             raise ValueError(_tr("插件压缩包超过 100 MiB。"))
@@ -780,21 +771,106 @@ class PluginDownloader:
             except BadZipFile as exc:
                 raise ValueError(_tr("不能读取 ZIP 文件，压缩包可能已损坏。")) from exc
             package = self._find_zip_package(extracted)
+            info = self._static_plugin_info(package)
             raw_name = archive.stem if package == extracted else package.name
+            if len(info) == 1:
+                raw_name = next(iter(info))
             name = re.sub(r"[^\w]+", "_", raw_name).strip("_")
             if not name.isidentifier() or name == "services":
                 name = f"plugin_{name}"
             if not name.isidentifier():
                 raise ValueError(_tr("无法从 ZIP 中确定有效的插件目录名。"))
-            destination = self._new_destination(name, plugin_dir, search_dirs)
+            destination = self._zip_destination(name, info, plugin_dir, search_dirs)
+            name = destination.name
+            metadata = {"source": LOCAL_ZIP_SOURCE}
+            if destination.exists():
+                # Retain the market identity, but never claim the old tag/commit
+                # describes the newly imported code. Unknown versions stay unknown.
+                previous = read_installed_metadata(destination)
+                if previous.get("repository"):
+                    metadata.update({key: previous[key] for key in
+                                     ("repository", "platform", "tag_prefix") if key in previous})
+                    versions = set(info.values())
+                    if len(versions) == 1 and "" not in versions:
+                        metadata["version"] = versions.pop()
             (package / META_FILENAME).write_text(
-                json.dumps({"source": LOCAL_ZIP_SOURCE}), encoding="utf-8")
+                json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
             self._check_cancelled()
             before_publish(package, name)
             self._check_cancelled()
-            self._new_destination(name, plugin_dir, search_dirs)
-            package.rename(destination)
+            # Recheck after dependency preparation, which can take a long time.
+            if self._zip_destination(name, info, plugin_dir, search_dirs) != destination:
+                raise ValueError(_tr("插件目录在导入期间发生变化，请重新导入。"))
+            if destination.exists():
+                self._replace_package(package, destination, Path(temporary) / "backup")
+            else:
+                package.rename(destination)
         return destination
+
+    @staticmethod
+    def _static_plugin_info(package: Path) -> dict[str, str]:
+        """Read literal PluginInfo names/versions; never import an unprepared plugin."""
+        result: dict[str, str] = {}
+        for path in package.rglob("*.py"):
+            if any(part.startswith(".") or part in {"tests", "__pycache__"}
+                   for part in path.relative_to(package).parts[:-1]):
+                continue
+            try:
+                source = path.read_bytes()
+                if b"plugin_info" not in source:
+                    continue
+                tree = ast.parse(source)
+            except (OSError, SyntaxError, ValueError):
+                continue
+            for method in ast.walk(tree):
+                if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) or method.name != "plugin_info":
+                    continue
+                for call in ast.walk(method):
+                    if not isinstance(call, ast.Call):
+                        continue
+                    function = call.func
+                    if (function.id if isinstance(function, ast.Name) else
+                            function.attr if isinstance(function, ast.Attribute) else "") != "PluginInfo":
+                        continue
+                    values = {item.arg: item.value.value for item in call.keywords
+                              if isinstance(item.value, ast.Constant) and isinstance(item.value.value, str)}
+                    if call.args and isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str):
+                        values.setdefault("name", call.args[0].value)
+                    if values.get("name"):
+                        result[values["name"]] = values.get("version", "")
+        return result
+
+    def _zip_destination(self, name: str, info: dict[str, str], plugin_dir: Path,
+                         search_dirs: list[Path]) -> Path:
+        from .plugin_catalog import LOCAL_ZIP_SOURCE, read_installed_metadata, read_installed_plugin
+
+        matches: set[Path] = set()
+        for directory in {plugin_dir.resolve(), *(path.resolve() for path in search_dirs)}:
+            if not directory.is_dir():
+                continue
+            for path in directory.iterdir():
+                same_name = path in {directory / name, directory / f"{name}.py"}
+                same_plugin = (info and is_plain_plugin_directory(path)
+                               and not path.name.startswith("_")
+                               and (path / "__init__.py").is_file()
+                               and set(self._static_plugin_info(path)) == set(info))
+                if same_name or same_plugin:
+                    matches.add(path)
+        if not matches:
+            return plugin_dir / name
+        if len(matches) != 1:
+            raise ValueError(_tr("存在多个同名插件，无法确定更新目标，请先清理重复安装。"))
+        destination = matches.pop()
+        if (destination.parent != plugin_dir.resolve()
+                or not is_plain_plugin_directory(destination)
+                or not (destination / "__init__.py").is_file()
+                or not (read_installed_metadata(destination).get("source") == LOCAL_ZIP_SOURCE
+                        or read_installed_plugin(destination) is not None)):
+            raise FileExistsError(_tr("插件目录已存在，且不是受管理的插件，不能覆盖：{path}").format(path=destination))
+        previous_info = self._static_plugin_info(destination)
+        if info and previous_info and set(info) != set(previous_info):
+            raise FileExistsError(_tr("插件目录名相同，但插件标识不匹配，不能覆盖：{path}").format(path=destination))
+        return plugin_dir / destination.name
 
     @staticmethod
     def _find_zip_package(extracted: Path) -> Path:
@@ -804,11 +880,19 @@ class PluginDownloader:
                        if path.is_dir() and path.name != "__MACOSX" and not path.name.startswith(".")]
         packages = [path for path in directories if (path / "__init__.py").is_file()]
         if not packages and len(directories) == 1:
-            packages = [path for path in directories[0].iterdir()
-                        if path.is_dir() and (path / "__init__.py").is_file()]
+            return PluginDownloader._find_zip_package(directories[0])
         if len(packages) != 1:
             raise ValueError(_tr("ZIP 必须包含一个带有 __init__.py 的插件包。"))
         return packages[0]
+
+    @staticmethod
+    def _replace_package(package: Path, destination: Path, backup: Path) -> None:
+        destination.rename(backup)
+        try:
+            package.rename(destination)
+        except BaseException:
+            backup.rename(destination)
+            raise
 
     def update(self, repository: PluginRepository, tag: RepositoryTag, plugin_dir: Path,
                *, plugin_version: str = "", tag_prefix: str = "",
@@ -839,12 +923,7 @@ class PluginDownloader:
                 tag_prefix=tag_prefix, before_publish=before_publish)
             self._check_cancelled()
             backup = work / "backup"
-            destination.rename(backup)
-            try:
-                package.rename(destination)
-            except BaseException:
-                backup.rename(destination)
-                raise
+            self._replace_package(package, destination, backup)
         return destination
 
     def _download(self, repository: PluginRepository, tag: RepositoryTag, archive: Path) -> str:

@@ -53,6 +53,16 @@
         <translation>Sound ändern</translation>
     </message>
     <message>
+        <location filename="../shared_types/commands.py" line="253"/>
+        <source>设置比赛标识</source>
+        <translation>Wettbewerbskennung festlegen</translation>
+    </message>
+    <message>
+        <location filename="../shared_types/commands.py" line="267"/>
+        <source>待开局时设置并保存比赛标识（空字符串清除，独立授权）</source>
+        <translation>Wettbewerbskennung vor Spielbeginn festlegen und speichern (leere Zeichenfolge zum Löschen, eigene Berechtigung)</translation>
+    </message>
+    <message>
         <location filename="../shared_types/commands.py" line="223"/>
         <source>插件重开新局（等价于按 F2，不影响成绩）</source>
         <translation>Plugin startet ein neues Spiel (entspricht F2; beeinflusst das Ergebnis nicht)</translation>

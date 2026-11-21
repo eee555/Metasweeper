@@ -117,7 +117,7 @@ def test_zip_import_from_menu_loads_the_plugin(runtime, qtbot, monkeypatch, tmp_
     manager, package = runtime
     archive = tmp_path / "offline.zip"
     with ZipFile(archive, "w") as output:
-        output.writestr("metasweeper_offline_demo/__init__.py", SOURCE)
+        output.writestr("metasweeper_offline_demo/__init__.py", SOURCE.replace("live-demo", "offline-demo"))
     window = real_window(qtbot, monkeypatch, tmp_path, tray=False)
     window._auto_update_timer.stop()
     monkeypatch.setattr(main_window, "get_executable_dir", lambda: tmp_path)
@@ -130,14 +130,45 @@ def test_zip_import_from_menu_loads_the_plugin(runtime, qtbot, monkeypatch, tmp_
     try:
         progress = window._install_progress
         qtbot.waitUntil(lambda: progress._status.text() == "导入完成，插件已加入列表。")
-        imported = package.parent / "metasweeper_offline_demo"
+        imported = package.parent / "offline_demo"
         assert plugin_uninstall.is_managed_plugin(imported)
-        assert manager.get_plugin("live-demo") is not None
+        assert manager.get_plugin("offline-demo") is not None
         assert window._list.count() == 1
-        assert window._list.item(0).text() == "live-demo"
+        qtbot.waitUntil(lambda: window._list.item(0).text() == "offline-demo")
         progress.close()
     finally:
-        sys.modules.pop("metasweeper_offline_demo", None)
+        sys.modules.pop("offline_demo", None)
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_zip_import_updates_loaded_market_plugin_and_requires_restart(runtime, qtbot, monkeypatch, tmp_path, enabled):
+    from zipfile import ZipFile
+    from plugin_manager import main_window
+    from tests.plugin_manager.test_cov_pm_e_helpers import real_window
+
+    manager, package = runtime
+    manager.state_manager.set("live-demo", PluginState(enabled=enabled))
+    assert manager.load_installed_package(package, lambda _: None) == "loaded"
+    old_instance = manager.get_plugin("live-demo")
+    archive = tmp_path / "offline-update-2.0.zip"
+    with ZipFile(archive, "w") as output:
+        output.writestr("repo-v2/plugin/__init__.py", SOURCE + "\nUPDATED = True\n")
+    window = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    window._auto_update_timer.stop()
+    monkeypatch.setattr(main_window, "get_executable_dir", lambda: tmp_path)
+    monkeypatch.setattr(main_window, "get_all_plugin_dirs", lambda: [package.parent])
+    monkeypatch.setattr(main_window.QFileDialog, "getOpenFileName", lambda *args: (str(archive), ""))
+    window._manager = manager
+    window._state_mgr = manager.state_manager
+    window._act_import_zip.trigger()
+    progress = window._install_progress
+    qtbot.waitUntil(lambda: progress._status.text() == "导入完成，重启插件管理器后生效。")
+    assert "UPDATED = True" in (package / "__init__.py").read_text()
+    assert manager.get_plugin("live-demo") is old_instance
+    assert manager.state_manager.get("live-demo").enabled == enabled
+    assert list(package.parent.iterdir()) == [package]
+    assert window._list.count() == 1
+    progress.close()
 
 
 def test_async_initialization_failure_is_available_for_the_plugin_list(runtime, qtbot):
