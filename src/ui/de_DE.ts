@@ -3613,6 +3613,10 @@ Die Dateien werden möglicherweise von einem anderen Programm verwendet.</transl
         <translation>Brett einfügen</translation>
     </message>
     <message>
+        <source>锁定/解锁鼠标到棋盘</source>
+        <translation>Maus am Spielbrett sperren/entsperren</translation>
+    </message>
+    <message>
         <source>菜单：新游戏</source>
         <translation>Menü: Neues Spiel</translation>
     </message>

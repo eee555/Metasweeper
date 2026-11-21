@@ -21,6 +21,7 @@ def _translate(context: str, text: str) -> str:
 SECTION = "KEYBINDINGS"
 WHEEL_MODIFIER_KEY = "board_wheel_modifier"
 PROBABILITY_ID = "show_probability"
+TOGGLE_CURSOR_LIMIT_ID = "toggle_cursor_limit"
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,8 @@ KEY_BINDINGS: tuple[KeyBinding, ...] = (
                "shortcut_hidden_score_board", "game"),
     KeyBinding("copy_board", _translate("KeyBindings", "复制局面"), "Ctrl+C", "shortcut", "shortcut_copy_board", "game"),
     KeyBinding("paste_board", _translate("KeyBindings", "粘贴局面"), "Ctrl+V", "shortcut", "shortcut_paste_board", "game"),
+    KeyBinding(TOGGLE_CURSOR_LIMIT_ID, _translate("KeyBindings", "锁定/解锁鼠标到棋盘"), "F4",
+               "shortcut", "frameShortcutCursorLimit", "game"),
 
     KeyBinding("menu_new_game", _translate("KeyBindings", "菜单：新游戏"), "N", "action", "actionnew_game", "menu"),
     KeyBinding("menu_beginner", _translate("KeyBindings", "菜单：初级"), "B", "action", "actionchu_ji", "menu"),
@@ -128,7 +131,7 @@ def apply_bindings(target, values: Dict[str, str]) -> None:
         sequence = QtGui.QKeySequence(values.get(binding.id, binding.default))
         if binding.target == "shortcut":
             obj.setKey(sequence)
-            if binding.id == PROBABILITY_ID:
+            if binding.id in (PROBABILITY_ID, TOGGLE_CURSOR_LIMIT_ID):
                 obj.setAutoRepeat(False)
         elif binding.target == "action":
             obj.setShortcut(sequence)

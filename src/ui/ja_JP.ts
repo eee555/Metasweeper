@@ -3613,6 +3613,10 @@
         <translation>局面を貼り付け</translation>
     </message>
     <message>
+        <source>锁定/解锁鼠标到棋盘</source>
+        <translation>マウスを盤面に固定/解除</translation>
+    </message>
+    <message>
         <source>菜单：新游戏</source>
         <translation>メニュー: 新しいゲーム</translation>
     </message>
