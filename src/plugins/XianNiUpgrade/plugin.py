@@ -40,7 +40,9 @@ from typing import Any
 from PySide6.QtCore import QCoreApplication, QTimer, Signal, Slot
 from PySide6.QtWidgets import QWidget, QMessageBox
 
-_translate = QCoreApplication.translate
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("XianNiUpgrade")
 
 
 # 游戏设置默认玩家标识，站点与插件均拒绝以此上传
@@ -131,11 +133,13 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
+            # name 是配置目录、日志、状态键与授权记录的稳定标识，不随语言变化
             name="雷修境界",
+            display_name=_translate("XianNiUpgrade", "雷修境界"),
             version="1.0.0",
             author="eee555",
             description=_translate(
-                "Form", "仙逆背景的修炼体系 - 每局扫雷胜利获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者"),
+                "XianNiUpgrade", "仙逆背景的修炼体系 - 每局扫雷胜利获得经验，从凡人修炼到一招摧毁108颗修正星的绝世强者"),
             icon=make_plugin_icon("#8E24AA", "仙", 64),
             window_mode=WindowMode.TAB,
             other_info=XianNiUpgradeConfig,
@@ -238,7 +242,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         auto_upload = bool(pending.get("auto_upload", False))
         if auto_upload and identifier in _ANONYMOUS_IDENTIFIERS:
             errors["auto_upload"] = _translate(
-                "Form",
+                "XianNiUpgrade",
                 "当前仍是默认匿名标识，请先在游戏设置中修改玩家标识后再开启自动上传。",
             )
         return errors
@@ -286,21 +290,21 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         except urllib.error.HTTPError as e:
             if e.code == 403:
                 return _translate(
-                    "Form",
+                    "XianNiUpgrade",
                     "令牌与当前玩家标识不匹配。请确认上传令牌，或更换玩家标识后重试。",
                 )
-            return _translate("Form", "无法校验上传令牌（HTTP %1）").replace(
+            return _translate("XianNiUpgrade", "无法校验上传令牌（HTTP %1）").replace(
                 "%1", str(e.code)
             )
         except (urllib.error.URLError, TimeoutError, OSError) as e:
             self.logger.warning(f"校验上传令牌失败: {e}")
-            return _translate("Form", "无法校验上传令牌，请检查网络。")
+            return _translate("XianNiUpgrade", "无法校验上传令牌，请检查网络。")
         except Exception as e:
             self.logger.warning(f"校验上传令牌异常: {e}")
-            return _translate("Form", "无法校验上传令牌，请检查网络。")
+            return _translate("XianNiUpgrade", "无法校验上传令牌，请检查网络。")
 
         if not (200 <= status < 300):
-            return _translate("Form", "无法校验上传令牌（HTTP %1）").replace(
+            return _translate("XianNiUpgrade", "无法校验上传令牌（HTTP %1）").replace(
                 "%1", str(status)
             )
         # registered: false 或其它 200 均通过
@@ -453,7 +457,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
     def _get_or_create_pid(self, identifier: str) -> int:
         identifier = identifier.strip()
         if not identifier:
-            identifier = _translate("Form", "匿名玩家")
+            identifier = _translate("XianNiUpgrade", "匿名玩家")
         try:
             return self._identifiers.index(identifier)
         except ValueError:
@@ -818,7 +822,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                     self._show_upload_result,
                     False,
                     _translate(
-                        "Form",
+                        "XianNiUpgrade",
                         "当前玩家标识为空或仍是默认「匿名玩家」，无法上传排行。请先在游戏设置中修改玩家标识。",
                     ),
                     False,
@@ -889,7 +893,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             self.run_on_gui(
                 self._show_upload_result,
                 False,
-                _translate("Form", "上传失败: %1").replace("%1", str(e)),
+                _translate("XianNiUpgrade", "上传失败: %1").replace("%1", str(e)),
                 False,
             )
 
@@ -922,7 +926,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                     self.run_on_gui(
                         self._show_upload_result,
                         True,
-                        _translate("Form", "排行已上传。"),
+                        _translate("XianNiUpgrade", "排行已上传。"),
                         silent,
                     )
                     return
@@ -930,7 +934,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                 self.run_on_gui(
                     self._show_upload_result,
                     False,
-                    _translate("Form", "上传失败（HTTP %1）").replace(
+                    _translate("XianNiUpgrade", "上传失败（HTTP %1）").replace(
                         "%1", str(status)),
                     silent,
                 )
@@ -956,17 +960,17 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             )
             if timed_out:
                 self.logger.warning("排行上传超时")
-                msg = _translate("Form", "上传超时，请检查网络或排行站地址。")
+                msg = _translate("XianNiUpgrade", "上传超时，请检查网络或排行站地址。")
             else:
                 self.logger.warning(f"排行上传无法连接: {reason}")
-                msg = _translate("Form", "无法连接排行站，请检查网络或 API 地址。")
+                msg = _translate("XianNiUpgrade", "无法连接排行站，请检查网络或 API 地址。")
             self.run_on_gui(self._show_upload_result, False, msg, silent)
         except TimeoutError:
             self.logger.warning("排行上传超时")
             self.run_on_gui(
                 self._show_upload_result,
                 False,
-                _translate("Form", "上传超时，请检查网络或排行站地址。"),
+                _translate("XianNiUpgrade", "上传超时，请检查网络或排行站地址。"),
                 silent,
             )
         except Exception as e:
@@ -974,7 +978,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
             self.run_on_gui(
                 self._show_upload_result,
                 False,
-                _translate("Form", "上传失败: %1").replace("%1", str(e)),
+                _translate("XianNiUpgrade", "上传失败: %1").replace("%1", str(e)),
                 silent,
             )
 
@@ -989,7 +993,7 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
                               or parsed.get("detail") or "")
                     if parsed.get("error_code") == 1010 or parsed.get("error_name") == "browser_signature_banned":
                         return _translate(
-                            "Form",
+                            "XianNiUpgrade",
                             "排行站 Cloudflare 拦截了上传（1010）。请在 Pages 项目关闭 Bot Fight Mode 后重试。",
                         )
             except Exception:
@@ -997,22 +1001,22 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         if code == 403:
             if "令牌" in err or "token" in err.lower():
                 return _translate(
-                    "Form",
+                    "XianNiUpgrade",
                     "令牌不匹配，无法更新该标识。请确认上传令牌，或更换玩家标识后重试。",
                 )
             if err:
-                return _translate("Form", "上传被拒绝：%1").replace("%1", err)
+                return _translate("XianNiUpgrade", "上传被拒绝：%1").replace("%1", err)
             return _translate(
-                "Form",
+                "XianNiUpgrade",
                 "令牌不匹配，无法更新该标识。请确认上传令牌，或更换玩家标识后重试。",
             )
         if code == 429:
-            return _translate("Form", "上传过于频繁，请稍后再试。")
+            return _translate("XianNiUpgrade", "上传过于频繁，请稍后再试。")
         if code == 400:
             if err:
-                return _translate("Form", "服务器拒绝了本次数据：%1").replace("%1", err)
-            return _translate("Form", "服务器拒绝了本次数据（校验失败）。")
-        return _translate("Form", "上传失败（HTTP %1）").replace("%1", str(code))
+                return _translate("XianNiUpgrade", "服务器拒绝了本次数据：%1").replace("%1", err)
+            return _translate("XianNiUpgrade", "服务器拒绝了本次数据（校验失败）。")
+        return _translate("XianNiUpgrade", "上传失败（HTTP %1）").replace("%1", str(code))
 
     def _schedule_pending_after_result(self) -> None:
         if getattr(self, "_pending_upload", False):
@@ -1042,12 +1046,12 @@ class XianNiUpgradePlugin(BasePlugin[XianNiUpgradeConfig]):
         self.run_on_widget(lambda ui: ui.set_upload_enabled(True))
         if success:
             QMessageBox.information(
-                widget, _translate("Form", "上传排行"), message
+                widget, _translate("XianNiUpgrade", "上传排行"), message
             )
             self._maybe_open_site()
         else:
             QMessageBox.warning(
-                widget, _translate("Form", "上传排行"), message
+                widget, _translate("XianNiUpgrade", "上传排行"), message
             )
 
     def _maybe_open_site(self) -> None:

@@ -11,8 +11,9 @@ from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 from plugin_sdk import OtherInfoBase, BoolConfig, TextConfig
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("XianNiUpgrade")
 
 DEFAULT_API_URL = "https://leixiu-rank.pages.dev"
 DEFAULT_IDENTIFIER = "匿名玩家(anonymous player)"
@@ -60,11 +61,11 @@ def api_url_transport_error(url: str) -> str | None:
     try:
         parsed = urllib.parse.urlparse(raw)
     except ValueError:
-        return _translate("Form", "排行站地址无效")
+        return _translate("XianNiUpgrade", "排行站地址无效")
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        return _translate("Form", "排行站地址无效")
+        return _translate("XianNiUpgrade", "排行站地址无效")
     if not is_loopback_hostname(parsed.hostname) and parsed.scheme != "https":
-        return _translate("Form", "排行站地址须使用 HTTPS")
+        return _translate("XianNiUpgrade", "排行站地址须使用 HTTPS")
     return None
 
 
@@ -96,20 +97,20 @@ def _validate_api_url(url: str) -> str | None:
         with urllib.request.urlopen(req, timeout=VALIDATE_TIMEOUT_SEC) as resp:
             status = int(getattr(resp, "status", 200))
             if not (200 <= status < 300):
-                return _translate("Form", "无法连接排行站")
+                return _translate("XianNiUpgrade", "无法连接排行站")
             final_url = str(getattr(resp, "geturl", lambda: health_url)())
             if _origin_key(final_url) != _origin_key(health_url):
-                return _translate("Form", "无法连接排行站")
+                return _translate("XianNiUpgrade", "无法连接排行站")
             raw_body = resp.read(_HEALTH_MAX_BYTES)
     except (urllib.error.URLError, TimeoutError, OSError, ValueError):
-        return _translate("Form", "无法连接排行站")
+        return _translate("XianNiUpgrade", "无法连接排行站")
 
     try:
         data = json.loads(raw_body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
-        return _translate("Form", "无法连接排行站")
+        return _translate("XianNiUpgrade", "无法连接排行站")
     if not is_rank_health_payload(data):
-        return _translate("Form", "该地址不是雷修排行站")
+        return _translate("XianNiUpgrade", "该地址不是雷修排行站")
     return None
 
 
@@ -118,9 +119,9 @@ class XianNiUpgradeConfig(OtherInfoBase):
 
     api_url = TextConfig(
         default=DEFAULT_API_URL,
-        label=_translate("Form", "排行站地址"),
+        label=_translate("XianNiUpgrade", "排行站地址"),
         description=_translate(
-            "Form", "官方排行站地址（固定），上传时会 POST 到 {地址}/api/upload"),
+            "XianNiUpgrade", "官方排行站地址（固定），上传时会 POST 到 {地址}/api/upload"),
         placeholder="https://leixiu-rank.pages.dev",
         validator=_validate_api_url,
         readonly=True,
@@ -128,41 +129,41 @@ class XianNiUpgradeConfig(OtherInfoBase):
 
     auto_upload = BoolConfig(
         default=False,
-        label=_translate("Form", "自动上传排行"),
+        label=_translate("XianNiUpgrade", "自动上传排行"),
         description=_translate(
-            "Form",
+            "XianNiUpgrade",
             "每局胜利后静默上传。60 秒内不连发；成功不弹窗、不打开浏览器",
         ),
     )
 
     upload_token = TextConfig(
         default="",
-        label=_translate("Form", "上传令牌"),
+        label=_translate("XianNiUpgrade", "上传令牌"),
         password=True,
         copy_button=True,
         description=_translate(
-            "Form",
+            "XianNiUpgrade",
             "首次上传前自动生成。换电脑请点击右侧「复制」，在新电脑设置里粘贴。"
             "建议生成后立即备份；误改且已保存后，只有旧备份或旧 config 能恢复",
         ),
-        placeholder=_translate("Form", "首次上传前自动生成"),
+        placeholder=_translate("XianNiUpgrade", "首次上传前自动生成"),
     )
 
     @classmethod
     def settings_extra_hints(cls, config_path: Path) -> list[str]:
         """插件设置对话框底部显示的动态说明。"""
         return [
-            _translate("Form", "配置文件：{path}").format(path=str(config_path)),
+            _translate("XianNiUpgrade", "配置文件：{path}").format(path=str(config_path)),
             _translate(
-                "Form",
+                "XianNiUpgrade",
                 "建议生成后立即点「复制」备份；误改且已保存后，只有旧备份或旧 config 能恢复。",
             ),
         ]
 
     open_site_after_upload = BoolConfig(
         default=False,
-        label=_translate("Form", "上传成功后打开排行页"),
-        description=_translate("Form", "成功上传后用系统浏览器打开排行站（仅手动上传）"),
+        label=_translate("XianNiUpgrade", "上传成功后打开排行页"),
+        description=_translate("XianNiUpgrade", "成功上传后用系统浏览器打开排行站（仅手动上传）"),
     )
 
     rules_dialog_seen = BoolConfig(

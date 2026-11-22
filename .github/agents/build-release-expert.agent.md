@@ -27,7 +27,7 @@ agents: []
 | `requirements.txt`、`pyproject.toml` | 依赖与项目元数据 |
 | `src/superGUI.py` | 主程序版本信息 |
 | `src/dialogs/CheckUpdateGui.py`、`src/network/githubApi.py` | 更新检查 |
-| `.gitignore`、`.githooks/pre-commit`、`.githooks/pre-push` | 忽略规则与测试门禁 |
+| `.gitignore`、`.githooks/pre-push` | 忽略规则与推送前测试门禁 |
 
 ## Git 流程
 
@@ -41,9 +41,9 @@ agents: []
 
 ## 测试门禁
 
-- 提交或推送前，本次变更涉及的测试必须通过；按当前仓库门禁要求执行完整 `pytest tests/`。相关失败解决并重跑前，不提交或推送。
+- 提交时不自动运行测试；推送前按仓库门禁执行完整 `pytest tests/`，确保通过后再推送。
 - 优先使用目标仓库 `.venv`；Qt 测试设置 `QT_QPA_PLATFORM=offscreen`。
-- 核对 `.githooks/pre-commit`、`.githooks/pre-push` 与 `core.hooksPath` 配置，遵守仓库测试门禁，不使用 `SKIP`、`--no-verify` 等绕过。
+- 核对 `.githooks/pre-push` 与 `core.hooksPath` 配置，不使用 `SKIP`、`--no-verify` 等绕过推送测试门禁。
 - 钩子检查当前工作区，不自动证明拆分提交可独立检出运行；拆分时额外检查依赖和暂存内容。
 
 ## 构建与版本

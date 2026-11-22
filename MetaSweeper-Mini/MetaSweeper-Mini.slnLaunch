@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "MetaSweeper-Mini",
+    "Projects": [
+      {
+        "Path": "MetaSweeper-Mini.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

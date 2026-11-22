@@ -9,7 +9,7 @@ if not defined NUITKA_JOBS set "NUITKA_JOBS=4"
 if not defined NUITKA_CONSOLE_MODE set "NUITKA_CONSOLE_MODE=disable"
 if not defined NUITKA_OUTPUT_DIR set "NUITKA_OUTPUT_DIR=dist\metasweeper-nuitka"
 if not defined NUITKA_ZIP_NAME set "NUITKA_ZIP_NAME=metasweeper-nuitka.zip"
-set "EXCLUDE_OPTIONS=--nofollow-import-to=debugpy,numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests,PySide6.QtQuickWidgets,PySide6.QtQuick,PySide6.QtQml,PySide6.QtCharts"
+set "EXCLUDE_OPTIONS=--nofollow-import-to=debugpy,numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests,PySide6.QtQuickWidgets,PySide6.QtQuick,PySide6.QtQml,PySide6.QtCharts,_tkinter,tkinter,idlelib,lib2to3,PySide6.QtMultimedia,PySide6.QtMultimediaWidgets,PySide6.QtPdf,PySide6.QtPdfWidgets,PySide6.QtOpenGL,PySide6.QtOpenGLWidgets"
 if defined PYTHONPATH (
     set "PYTHONPATH=%CD%\src;%PYTHONPATH%"
 ) else (
@@ -76,6 +76,11 @@ for %%L in (en_US de_DE pl_PL ja_JP) do (
         exit /b 1
     )
 )
+"%PYTHON%" develop_tools\compile_plugin_translations.py
+if errorlevel 1 (
+    popd
+    exit /b 1
+)
 
 rem src\media\cat.ico is gitignored. build.bat generates it before PyInstaller;
 rem Nuitka needs the same file both for the exe resource icon and at runtime
@@ -129,8 +134,6 @@ if exist "%MANAGER_STAGE%" (
     --include-data-files=src\de_DE.qm=de_DE.qm ^
     --include-data-files=src\pl_PL.qm=pl_PL.qm ^
     --include-data-files=src\ja_JP.qm=ja_JP.qm ^
-    --include-package=textdistance ^
-    --include-package-data=textdistance ^
     --include-module=ms_toollib ^
     --include-module=win32api ^
     --include-module=win32event ^
@@ -143,11 +146,22 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem Discover available stdlib modules using the build interpreter for dynamic plugins.
+set "STDLIB_OPTIONS="
+for /f "delims=" %%I in ('"%PYTHON%" package_tool\nuitka_stdlib_options.py') do set "STDLIB_OPTIONS=%%I"
+if not defined STDLIB_OPTIONS (
+    echo Failed to discover standard library modules.
+    popd
+    exit /b 1
+)
+
 "%PYTHON%" -m nuitka ^
     --mode=standalone ^
     --enable-plugin=pyside6 ^
     --assume-yes-for-downloads ^
     %EXCLUDE_OPTIONS% ^
+    %STDLIB_OPTIONS% ^
+    --nofollow-import-to=test,unittest,*.test,*.tests,*.test_*,*._test*,pip._vendor.platformdirs.pytest_plugin ^
     --windows-console-mode=%NUITKA_CONSOLE_MODE% ^
     --output-dir="%MANAGER_STAGE%" ^
     --output-filename=plugin_manager.exe ^
@@ -160,10 +174,14 @@ if errorlevel 1 (
     --include-data-files=src\pl_PL.qm=pl_PL.qm ^
     --include-data-files=src\ja_JP.qm=ja_JP.qm ^
     --include-package=msgspec ^
+    --include-package=plugin_manager ^
+    --include-package=pip ^
+    --include-package-data=pip ^
+    --include-distribution-metadata=pip ^
+    --include-package=packaging ^
     --include-package=zmq ^
     --include-package=loguru ^
     --include-package=requests ^
-    --include-package=textdistance ^
     --include-package=cryptography ^
     --include-package=PyMCUlib ^
     --include-package=ms_toollib ^
@@ -172,9 +190,9 @@ if errorlevel 1 (
     --include-package=shared_types ^
     --include-module=config.constants ^
     --include-module=utils.app_logger ^
-    --include-package-data=textdistance ^
     --include-module=sqlite3 ^
     --include-module=PySide6.QtSvg ^
+    --include-module=PySide6.QtNetwork ^
     --include-module=code ^
     --include-module=xmlrpc.server ^
     --include-module=xmlrpc.client ^
@@ -234,7 +252,7 @@ if errorlevel 1 (
     popd
     exit /b 1
 )
-if not exist "%PACKAGE_DIR%\internal\plugins\history\plugin.py" (
+if not exist "%PACKAGE_DIR%\internal\plugins\challenge_mode\__init__.py" (
     echo Built-in plugin source files were not copied to the package.
     popd
     exit /b 1
@@ -254,11 +272,6 @@ if not exist "%PACKAGE_DIR%\metasweeper.exe" (
 )
 if not exist "%PACKAGE_DIR%\plugin_manager.exe" (
     echo Plugin manager executable missing from merged package.
-    popd
-    exit /b 1
-)
-if not exist "%PACKAGE_DIR%\internal\plugins\history\plugin.py" (
-    echo Built-in HistoryPlugin source missing from merged package.
     popd
     exit /b 1
 )

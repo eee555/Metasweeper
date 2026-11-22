@@ -169,11 +169,43 @@ class LogLevel(StrEnum):
         }
 
 
+def resolve_display_name(value: str | None, fallback: str) -> str:
+    """解析面向用户的显示名，未声明时回退到稳定标识。
+
+    ``value`` 可以是 :class:`utils.plugin_i18n.PluginText`（保留上下文与源文本，
+    语言切换后重新解析），也可以是普通字符串。本函数只做鸭子类型解析，
+    避免 SDK 依赖宿主 ``utils`` 包。
+
+    Args:
+        value: 插件声明的显示名；``None`` 表示未声明。
+        fallback: 回退值，通常是 ``PluginInfo.name``。
+
+    Returns:
+        当前语言下的显示名；无法解析时返回 ``fallback``。
+    """
+    if value is None or not isinstance(value, str):
+        return fallback
+    resolver = getattr(value, "translated", None)
+    if callable(resolver):
+        try:
+            value = resolver()
+        except Exception:  # 翻译器异常不得影响管理器的展示逻辑
+            value = str(value)
+    text = str(value)
+    return text if text.strip() else fallback
+
+
 @dataclass
 class PluginInfo(Generic[ConfigT]):
-    """插件元信息"""
+    """插件元信息
 
-    name: str  # 插件名称
+    ``name`` 是稳定标识：用于插件字典索引、配置目录、日志文件名、
+    状态键、控制授权记录、标签页/窗口查找，**不得随语言变化**。
+    面向用户的名称请使用 ``display_name``（可传入插件 ``PluginTranslate``
+    产生的 ``PluginText``，语言切换后重新解析）；未声明时展示回退到 ``name``。
+    """
+
+    name: str  # 插件稳定标识（不可随语言变化）
     version: str = "1.0.0"  # 版本号
     author: str = ""  # 作者
     description: str = ""  # 描述
@@ -188,6 +220,9 @@ class PluginInfo(Generic[ConfigT]):
     other_info: Type[ConfigT] = cast(Any, OtherInfoBase)
     # 声明需要的控制权限（命令类型列表）
     required_controls: list[type] = field(default_factory=list)
+    # 面向用户的显示名（可传 PluginText 以便语言切换后重新解析）；
+    # None 时回退到 name。不得用于任何索引、路径或持久化键。
+    display_name: str | None = None
 
     def __post_init__(self) -> None:
         """拒绝会被当作路径片段解释的名称，同时保留中文等 Unicode 展示名。"""
@@ -301,6 +336,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
         self._event_dispatcher: EventDispatcher | None = None
         self._widget: QWidget | None = None
         self._lifecycle = PluginLifecycle.NEW
+        self.initialization_error: str | None = None
 
         # ── 线程安全基础设施 ──
         self._resource_lock = threading.RLock()  # 保护内部共享状态
@@ -366,7 +402,16 @@ class BasePlugin(QObject, Generic[ConfigT]):
 
     @property
     def name(self) -> str:
+        """稳定标识：用于索引、配置目录、日志、状态键与查找，不随语言变化。"""
         return self._info.name
+
+    @property
+    def display_name(self) -> str:
+        """当前语言下面向用户的名称；未声明 ``display_name`` 时回退到 ``name``。
+
+        每次访问都重新解析，因此语言切换后无需重建插件即可得到新文本。
+        """
+        return resolve_display_name(self._info.display_name, self._info.name)
 
     @property
     def plugin_dir(self) -> Path:
@@ -534,6 +579,45 @@ class BasePlugin(QObject, Generic[ConfigT]):
         """
         self.gui_call.emit(func, args, kwargs)
 
+    def call_in_plugin_thread(self, func: Callable[..., _T], *args,
+                              timeout: float = 60.0, **kwargs) -> _T:
+        """Synchronously call a hook on the plugin's worker thread.
+
+        The plugin manager uses this for data transfer hooks so custom
+        implementations can safely access resources owned by the plugin.
+        Calls made from the worker thread execute immediately.
+        """
+        if QThread.currentThread() == self._thread or not self._thread.isRunning():
+            return func(*args, **kwargs)
+        future: Future[_T] = Future()
+
+        def execute(_: Any) -> None:
+            try:
+                future.set_result(func(*args, **kwargs))
+            except Exception as exc:
+                future.set_exception(exc)
+
+        if not self._enqueue_event(execute, None):
+            raise RuntimeError(f"Plugin is not available: {self.name}")
+        return future.result(timeout=timeout)
+
+    def export_data(self) -> bytes:
+        """Export this plugin's data directory as a ZIP byte string.
+
+        Override this method when a plugin needs to flush or transform data
+        before backup. The manager invokes the hook on the plugin thread.
+        """
+        from .data_archive import export_directory
+        return export_directory(self.data_dir)
+
+    def import_data(self, archive_data: bytes) -> None:
+        """Restore a ZIP produced by :meth:`export_data`.
+
+        Override this method when a plugin needs custom migration or cleanup.
+        """
+        from .data_archive import import_directory
+        import_directory(self.data_dir, archive_data)
+
     def run_on_widget(
         self, func: Callable[..., None], *args, **kwargs
     ) -> None:
@@ -606,6 +690,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
                 f"on_initialized error in '{self.name}': {e}",
                 exc_info=True,
             )
+            self.initialization_error = f"{type(e).__name__}: {e}"
             self._info.enabled = False
             with self._resource_lock:
                 already_stopping = self._lifecycle == PluginLifecycle.SHUTTING_DOWN
@@ -649,6 +734,7 @@ class BasePlugin(QObject, Generic[ConfigT]):
         if self._thread.isRunning():
             return
         self._generation += 1
+        self.initialization_error = None
         self._lifecycle = PluginLifecycle.INITIALIZING
         try:
             self._setup_subscriptions()
@@ -656,7 +742,8 @@ class BasePlugin(QObject, Generic[ConfigT]):
             self._widget = self._create_widget()
             self._connect_control_auth_signal()
             self._thread.start()
-        except Exception:
+        except Exception as exc:
+            self.initialization_error = f"{type(exc).__name__}: {exc}"
             self._info.enabled = False
             self.shutdown()
             raise

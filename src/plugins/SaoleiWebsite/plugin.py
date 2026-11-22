@@ -11,6 +11,9 @@ from plugins.services.saolei_website import SaoleiUserInfo, SaoleiWebsiteService
 
 from .client import SaoleiWebsiteClient
 from .config import DEFAULT_API_BASE_URL, DEFAULT_TIMEOUT_SEC, SaoleiWebsiteConfig
+from utils.plugin_i18n import PluginTranslate
+
+_translate = PluginTranslate("SaoleiWebsite")
 
 
 class SaoleiWebsitePlugin(BasePlugin[SaoleiWebsiteConfig]):
@@ -19,9 +22,11 @@ class SaoleiWebsitePlugin(BasePlugin[SaoleiWebsiteConfig]):
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
+            # name 是配置目录、日志、状态键与授权记录的稳定标识，不随语言变化
             name="SaoleiWebsite",
+            display_name=_translate("SaoleiWebsite", "开源扫雷网"),
             version="1.0.0",
-            description="开源扫雷网 HTTP API 客户端",
+            description=_translate("SaoleiWebsite", "开源扫雷网 HTTP API 客户端"),
             window_mode=WindowMode.CLOSED,
             other_info=SaoleiWebsiteConfig,
         )

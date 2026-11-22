@@ -18,6 +18,7 @@ from typing import List, Tuple
 from shared_types.events import LanguageChangeEvent
 from shared_types.commands import SKIN_LED_KEYS, SKIN_FACE_KEYS
 from config.constants import (
+    APP_VERSION,
     BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT,
     FACE_SMILE, FACE_CLICK, FACE_LOST, FACE_WIN, FACE_SMILE_DOWN,
     LEVEL_NAME_BEGINNER, LEVEL_NAME_INTERMEDIATE, LEVEL_NAME_EXPERT, LEVEL_NAME_CUSTOM,
@@ -27,7 +28,7 @@ from config.key_bindings import apply_bindings, load_bindings
 from utils.app_logger import logger
 from plugin_sdk import GameServerBridge
 
-version = "元3.3.4"
+version = f"元{APP_VERSION}"
 # AES-GCM 加密。请勿开发恶意篡改历史记录的工具，可以开发有益的应用。
 STATS_DAT_KEY = bytes([173, 239, 218, 129, 84, 35, 95, 237,
                       23, 47, 166, 30, 121, 187, 124, 187])  # 16字节 AES-128 key
@@ -683,16 +684,10 @@ class Ui_MainWindow(Ui_MainWindow):
             "DEFAULT/cursor_limit", False, bool)
         self.double_click_restart = self.game_setting.get_or_set_value(
             'DEFAULT/double_click_restart', False, bool)
-        # 开格打击感：棋盘抖动特效，默认开启
+        # 开格震动特效，默认关闭
         self.board_shake = self.game_setting.get_or_set_value(
-            "DEFAULT/board_shake", True, bool)
+            "DEFAULT/board_shake", False, bool)
         self.label.shake_enabled = self.board_shake
-        # 游戏性音效：主程序只负责默认音效（media/sounds/*.wav）的开关与
-        # 音量；音效包的选择与热切换完全由「皮肤与音效」插件负责。
-        self.sound_enabled = self.game_setting.get_or_set_value(
-            "DEFAULT/sound_enabled", False, bool)
-        self.sound_volume = self.game_setting.get_or_set_value(
-            "DEFAULT/sound_volume", 70, int)
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER
         elif (self.row, self.column, self.minenum) == BOARD_INTERMEDIATE:
@@ -711,14 +706,6 @@ class Ui_MainWindow(Ui_MainWindow):
         self.attempt_times_limit = self.game_setting.get_or_set_value(
             f"{level}/attempt_times_limit", 100000, int)
         self.game_setting.sync()
-        # QApplication 此时已存在，初始化音效（懒加载 QSoundEffect 并预加载 wav）。
-        # 直接调模块单例而不依赖子类方法，保证父类方法可被独立调用/测试。
-        try:
-            from utils.sound_manager import SoundManager
-            SoundManager.instance().configure(
-                enabled=self.sound_enabled, volume=self.sound_volume)
-        except Exception:
-            logger.warning("音效初始化失败，已保持静音", exc_info=True)
 
     def read_or_create_record(self):
         record_key_name_list = ["BFLAG", "BNF", "BWIN7", "BSS", "BWS", "BCS", "BTBS", "BSG",

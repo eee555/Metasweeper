@@ -3,7 +3,6 @@ from PySide6 import QtCore
 from PySide6.QtCore import QTimer, QCoreApplication, Qt, QRect, QUrl
 from PySide6.QtGui import QPixmap, QDesktopServices
 import msgspec
-from textdistance import length
 from dialogs import gameDefinedParameter
 from plugin_sdk.server_bridge import GameServerBridge
 from shared_types.events import GameFinishedEvent, BoardUpdateEvent, GameStatusChangeEvent, CloseEvent, ShowPluginManagerEvent

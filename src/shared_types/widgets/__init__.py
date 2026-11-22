@@ -6,9 +6,11 @@
 from .editable_combo_box import EditableComboBox
 from .confirm_dialog import ConfirmDialog
 from .toggle_switch import ToggleSwitch
+from .task_progress_dialog import TaskProgressDialog
 
 __all__ = [
     "EditableComboBox",
     "ConfirmDialog",
     "ToggleSwitch",
+    "TaskProgressDialog",
 ]

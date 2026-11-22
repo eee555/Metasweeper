@@ -18,30 +18,22 @@ set CONFIG=../config/key_bindings.py
 set REPLAY_ANALYSIS=../replay_analysis/combo_click.py ../replay_analysis/flag.py ../replay_analysis/guess.py ../replay_analysis/one_point_five_click.py
 
 @REM ---------- 公共类型与工具 ----------
-set SHARED=../shared_types/enums.py ../shared_types/commands.py ../shared_types/sounds.py ../shared_types/widgets/confirm_dialog.py ../utils/csv_export.py ../utils/helpers.py ../utils/sound_manager.py
+set SHARED=../shared_types/enums.py ../shared_types/commands.py ../shared_types/sounds.py ../shared_types/widgets/confirm_dialog.py ../utils/csv_export.py ../utils/helpers.py
 
 @REM ---------- 插件 SDK 与插件管理器 ----------
-set PLUGIN_SDK=../plugin_sdk/config_types/base_config.py ../plugin_sdk/config_types/file_config.py ../plugin_sdk/config_types/path_config.py ../plugin_sdk/config_types/text_config.py
-set PLUGIN_MANAGER=../plugin_manager/config_widget.py ../plugin_manager/main_window.py ../plugin_manager/plugin_download.py ../plugin_manager/plugin_download_dialog.py ../plugin_manager/plugin_info_dialog.py ../plugin_manager/plugin_repositories.py
+set PLUGIN_SDK=../plugin_sdk/plugin_base.py ../plugin_sdk/config_types/base_config.py ../plugin_sdk/config_types/file_config.py ../plugin_sdk/config_types/path_config.py ../plugin_sdk/config_types/text_config.py
+set PLUGIN_MANAGER=../plugin_manager/config_widget.py ../plugin_manager/dependency_scan.py ../plugin_manager/icons.py ../plugin_manager/main_window.py ../plugin_manager/plugin_catalog.py ../plugin_manager/plugin_download.py ../plugin_manager/plugin_download_dialog.py ../plugin_manager/plugin_info_dialog.py ../plugin_manager/plugin_lib_env.py ../plugin_manager/plugin_list_delegate.py ../plugin_manager/plugin_market_dialog.py ../plugin_manager/plugin_manager.py ../plugin_manager/plugin_readme_dialog.py ../plugin_manager/plugin_repositories.py ../plugin_manager/plugin_uninstall.py ../plugin_manager/restart.py ../plugin_manager/plugin_updates.py ../plugin_manager/settings_manager.py
 
-@REM ---------- 插件 ----------
-set HISTORY_PLUGIN=../plugins/history/columns_dialog.py ../plugins/history/computed_columns_dialog.py ../plugins/history/filter_dialog.py ../plugins/history/history_table.py ../plugins/history/main_widget.py ../plugins/history/models.py ../plugins/history/plugin.py ../plugins/history/query_builder.py ../plugins/history/sort_dialog.py ../plugins/history/table_views.py
-set LLM_PLUGIN=../plugins/llm_minesweeper_controller/config.py ../plugins/llm_minesweeper_controller/widgets.py ../plugins/llm_minesweeper_controller/plugin.py
-set XIANNI_PLUGIN=../plugins/XianNiUpgrade/config.py ../plugins/XianNiUpgrade/models.py ../plugins/XianNiUpgrade/plugin.py ../plugins/XianNiUpgrade/widgets.py
-set CHALLENGE_PLUGIN=../plugins/challenge_mode/plugin.py ../plugins/challenge_mode/widgets.py
-set CLIPBOARD_PLUGIN=../plugins/clipboard_replay/widgets.py
-set SAOLEI_PLUGIN=../plugins/SaoleiWebsite/config.py
-set SKINMANAGER_PLUGIN=../plugins/skin_manager/config.py ../plugins/skin_manager/plugin.py ../plugins/skin_manager/widgets.py ../plugins/skin_manager/sound.py ../plugins/skin_manager/zip_import.py
+@REM ---------- 插件全部独立提取（递归扫描包内源码，绑定唯一上下文） ----------
+@REM 插件源码及其翻译由下方脚本单独处理，不再并入主清单；
+@REM 主清单只负责主程序、对话框、SDK 与插件管理器。
+set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %CONFIG% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER%
 
-set ALL_SOURCES=%UI_FILES% %MAIN% %DIALOGS% %CONFIG% %REPLAY_ANALYSIS% %SHARED% %PLUGIN_SDK% %PLUGIN_MANAGER% %HISTORY_PLUGIN% %LLM_PLUGIN% %XIANNI_PLUGIN% %CHALLENGE_PLUGIN% %CLIPBOARD_PLUGIN% %SAOLEI_PLUGIN% %SKINMANAGER_PLUGIN%
+python ../../develop_tools/update_plugin_translations.py
+if errorlevel 1 exit /b 1
 
-pyside6-lupdate %ALL_SOURCES% -ts en_US.ts -noobsolete -tr-function-alias translate+=_translate
-
-pyside6-lupdate %ALL_SOURCES% -ts pl_PL.ts -noobsolete -tr-function-alias translate+=_translate
-
-pyside6-lupdate %ALL_SOURCES% -ts de_DE.ts -noobsolete -tr-function-alias translate+=_translate
-
-pyside6-lupdate %ALL_SOURCES% -ts ja_JP.ts -noobsolete -tr-function-alias translate+=_translate
+python ../../develop_tools/update_plugin_translations.py --host
+if errorlevel 1 exit /b 1
 
 @REM 编译 .qm（与 build.bat 保持一致）：
 @REM pyside6-lrelease en_US.ts -qm ../en_US.qm

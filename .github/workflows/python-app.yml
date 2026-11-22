@@ -37,6 +37,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pyside6-lrelease src/ui/ja_JP.ts -qm src/ja_JP.qm
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python develop_tools/compile_plugin_translations.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Generate metasweeper_checksum.pyd
         run: |
@@ -73,14 +75,24 @@ jobs:
             --exclude psutil --exclude numpy `
             --exclude pytest --exclude _pytest --exclude-module debugpy `
             --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
-            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
+            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtMultimediaWidgets --exclude-module PySide6.QtPdf --exclude-module PySide6.QtPdfWidgets --exclude-module PySide6.QtOpenGL --exclude-module PySide6.QtOpenGLWidgets `
             src/main.py
 
       - name: Package plugin_manager with PyInstaller
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
         run: |
           pyinstaller `
             --noconfirm `
             --name plugin_manager `
+            --collect-all pip `
+            --additional-hooks-dir package_tool/pyinstaller_hooks `
+            --exclude-module test --exclude-module unittest `
+            --exclude-module _tkinter --exclude-module tkinter --exclude-module idlelib --exclude-module lib2to3 `
+            --exclude-module pip._vendor.certifi.tests `
+            --exclude-module pip._vendor.platformdirs.pytest_plugin `
+            --hidden-import plugin_manager.__main__ `
+            --collect-submodules plugin_manager `
             --windowed `
             --paths src `
             --icon src/media/plugin_manager.ico `
@@ -101,10 +113,12 @@ jobs:
             --hidden-import email `
             --hidden-import email.utils `
             --hidden-import requests `
+            --hidden-import packaging `
             --hidden-import win32api `
             --hidden-import win32event `
             --hidden-import winerror `
             --hidden-import PySide6.QtSvg `
+            --hidden-import PySide6.QtNetwork `
             --hidden-import ms_toollib `
             --hidden-import shared_types.aes_gcm `
             --hidden-import config.constants `
@@ -114,7 +128,7 @@ jobs:
             --exclude psutil --exclude numpy `
             --exclude pytest --exclude _pytest --exclude-module debugpy `
             --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
-            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
+            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtMultimediaWidgets --exclude-module PySide6.QtPdf --exclude-module PySide6.QtPdfWidgets --exclude-module PySide6.QtOpenGL --exclude-module PySide6.QtOpenGLWidgets `
             --distpath dist\plugin_manager_out `
             src\plugin_manager\_run.py
 

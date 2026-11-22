@@ -6,8 +6,9 @@ from __future__ import annotations
 from PySide6.QtCore import QCoreApplication
 
 from plugin_sdk import OtherInfoBase, IntConfig, TextConfig
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("SaoleiWebsite")
 
 DEFAULT_API_BASE_URL = "https://openms.top"
 DEFAULT_TIMEOUT_SEC = 10
@@ -18,9 +19,9 @@ class SaoleiWebsiteConfig(OtherInfoBase):
 
     api_base_url = TextConfig(
         default=DEFAULT_API_BASE_URL,
-        label=_translate("Form", "API 根地址"),
+        label=_translate("SaoleiWebsite", "API 根地址"),
         description=_translate(
-            "Form",
+            "SaoleiWebsite",
             "开源扫雷网站点根地址，用于查询标识绑定与用户信息",
         ),
         placeholder=DEFAULT_API_BASE_URL,
@@ -28,8 +29,8 @@ class SaoleiWebsiteConfig(OtherInfoBase):
 
     timeout_sec = IntConfig(
         default=DEFAULT_TIMEOUT_SEC,
-        label=_translate("Form", "请求超时（秒）"),
-        description=_translate("Form", "HTTP 请求超时时间"),
+        label=_translate("SaoleiWebsite", "请求超时（秒）"),
+        description=_translate("SaoleiWebsite", "HTTP 请求超时时间"),
         min_value=1,
         max_value=120,
     )

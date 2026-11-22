@@ -6,7 +6,7 @@
 ; 程序名称
 #define MyAppName "Metasweeper"
 ; 程序版本
-#define MyAppVersion "3.3.4"
+#define MyAppVersion "3.4.0"
 ; 发行商
 #define MyAppPublisher "eee555"
 ; 官网
@@ -64,6 +64,12 @@ chinese.FileAssocPageDesc=勾选对应的文件类型，以添加对应文件类
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkablealone
+
+[InstallDelete]
+Type: files; Name: "{app}\{#AppPath}\_internal\plugins\services\history.py"
+Type: filesandordirs; Name: "{app}\{#AppPath}\_internal\plugins\history"
+Type: filesandordirs; Name: "{app}\{#AppPath}\_internal\plugins\clipboard_replay"
+Type: filesandordirs; Name: "{app}\{#AppPath}\_internal\plugins\llm_minesweeper_controller"
 
 [Files]
 Source: {#RootPath}\{#AppPath}\{#MyAppExeName}; DestDir: "{app}\{#AppPath}"; Flags: ignoreversion

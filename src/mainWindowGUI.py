@@ -3,7 +3,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtCore import QTimer, QFileInfo
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence
-from config.key_bindings import event_matches_sequence
 import sys
 # 重写QMainWindow
 
@@ -69,8 +68,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._probability_sequence = QKeySequence(key_text)
 
     def keyReleaseEvent(self, event):
-        if not event.isAutoRepeat() and event_matches_sequence(
-                event, self._probability_sequence):
+        # 修饰键可能先于主键释放；仅用主键识别释放，避免概率显示卡住。
+        if (not event.isAutoRepeat() and not self._probability_sequence.isEmpty()
+                and event.key() == self._probability_sequence[0].key()):
             self.keyRelease.emit('Space')
 
     def resizeEvent(self, event):

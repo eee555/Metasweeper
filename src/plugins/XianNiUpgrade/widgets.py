@@ -24,7 +24,14 @@ from pathlib import Path
 
 _XOR_KEY = b"XianNiAssetKey2026!"
 
-_translate = QCoreApplication.translate
+from utils.plugin_i18n import PluginTranslate
+from utils.translated_widgets import (
+    TranslatedLabel as QLabel, TranslatedPushButton as QPushButton,
+    TranslatedDialog as QDialog, TranslatedLineEdit as QLineEdit,
+    TranslatedTextBrowser as QTextBrowser, TranslatedGroupBox as QGroupBox,
+)
+
+_translate = PluginTranslate("XianNiUpgrade")
 
 # 道行四个分项：基础 / 稀有局面 / 竞速 / 效率，顺序与 plugin 落库的 parts 一致
 _XP_PART_COLORS = ("#42A5F5", "#AB47BC", "#FFA726", "#26A69A")
@@ -34,10 +41,10 @@ _XP_CAP = 99999  # 单局道行上限
 
 def _xp_part_labels() -> list[str]:
     return [
-        _translate("Form", "基础经验"),
-        _translate("Form", "稀有局面"),
-        _translate("Form", "竞速经验"),
-        _translate("Form", "效率经验"),
+        _translate("XianNiUpgrade", "基础经验"),
+        _translate("XianNiUpgrade", "稀有局面"),
+        _translate("XianNiUpgrade", "竞速经验"),
+        _translate("XianNiUpgrade", "效率经验"),
     ]
 
 
@@ -164,7 +171,7 @@ class XpPiePopup(QWidget):
         p.setPen(QColor("#6A1B9A"))
         p.drawText(QRect(self.MARGIN, 6, self.WIDTH - 2 * self.MARGIN, 22),
                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                   _translate("Form", "道行构成"))
+                   _translate("XianNiUpgrade", "道行构成"))
 
         # 环形饼图：按四个分项的原始浮点值比例划分，中心显示最终取整后的道行
         pie_rect = QRect(self.MARGIN, self.PIE_TOP, self.PIE_SIZE, self.PIE_SIZE)
@@ -200,7 +207,7 @@ class XpPiePopup(QWidget):
         p.setFont(hint_font)
         p.setPen(QColor("#9E9E9E"))
         p.drawText(QRect(hole.left(), hole.top() + 29, hole.width(), 14),
-                   Qt.AlignmentFlag.AlignCenter, _translate("Form", "道行"))
+                   Qt.AlignmentFlag.AlignCenter, _translate("XianNiUpgrade", "道行"))
 
         # 图例：色块 + 分项名 + 原始值 + 占比
         name_font = QFont()
@@ -225,9 +232,9 @@ class XpPiePopup(QWidget):
                        Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
                        f"{self._parts[i]:,.1f}  {pct:.1f}%")
 
-        note = (_translate("Form", "本局已达 99999 上限，分项按比例折算")
+        note = (_translate("XianNiUpgrade", "本局已达 99999 上限，分项按比例折算")
                 if self._capped else
-                _translate("Form", "分项按最终道行等比折算，合计即本局道行"))
+                _translate("XianNiUpgrade", "分项按最终道行等比折算，合计即本局道行"))
         note_font = QFont()
         note_font.setPixelSize(9)
         p.setFont(note_font)
@@ -250,52 +257,52 @@ class AbsorbDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self):
-        self.setWindowTitle(_translate("Form", "吸收灵气"))
+        self.setWindowTitle(_translate("XianNiUpgrade", "吸收灵气"))
         self.resize(500, 210)
         layout = QVBoxLayout(self)
 
-        sep_old = QLabel(_translate("Form", "━━━ 元扫雷 3.2.2 ━━━"))
+        sep_old = QLabel(_translate("XianNiUpgrade", "━━━ 元扫雷 3.2.2 ━━━"))
         sep_old.setStyleSheet(
             "color: #9E9E9E; font-size: 11px; font-weight: bold;")
         layout.addWidget(sep_old)
 
         exe_row = QHBoxLayout()
         self._exe_edit = QLineEdit()
-        self._exe_edit.setPlaceholderText(_translate("Form", "选择验证法器..."))
-        browse_exe = QPushButton(_translate("Form", "浏览"))
+        self._exe_edit.setPlaceholderText(_translate("XianNiUpgrade", "选择验证法器..."))
+        browse_exe = QPushButton(_translate("XianNiUpgrade", "浏览"))
         browse_exe.clicked.connect(self._browse_exe)
-        exe_row.addWidget(QLabel(_translate("Form", "验证法器:")))
+        exe_row.addWidget(QLabel(_translate("XianNiUpgrade", "验证法器:")))
         exe_row.addWidget(self._exe_edit)
         exe_row.addWidget(browse_exe)
         layout.addLayout(exe_row)
 
         replay_row = QHBoxLayout()
         self._replay_edit = QLineEdit()
-        self._replay_edit.setPlaceholderText(_translate("Form", "选择灵箓目录..."))
-        browse_replay = QPushButton(_translate("Form", "浏览"))
+        self._replay_edit.setPlaceholderText(_translate("XianNiUpgrade", "选择灵箓目录..."))
+        browse_replay = QPushButton(_translate("XianNiUpgrade", "浏览"))
         browse_replay.clicked.connect(self._browse_replay)
-        replay_row.addWidget(QLabel(_translate("Form", "灵箓目录:")))
+        replay_row.addWidget(QLabel(_translate("XianNiUpgrade", "灵箓目录:")))
         replay_row.addWidget(self._replay_edit)
         replay_row.addWidget(browse_replay)
         layout.addLayout(replay_row)
 
-        sep_new = QLabel(_translate("Form", "━━━ 元扫雷 3.3.1+ ━━━"))
+        sep_new = QLabel(_translate("XianNiUpgrade", "━━━ 元扫雷 3.3.1+ ━━━"))
         sep_new.setStyleSheet(
             "color: #9E9E9E; font-size: 11px; font-weight: bold;")
         layout.addWidget(sep_new)
 
         save_row = QHBoxLayout()
         self._save_edit = QLineEdit()
-        self._save_edit.setPlaceholderText(_translate("Form", "选择道藏目录..."))
-        browse_save = QPushButton(_translate("Form", "浏览"))
+        self._save_edit.setPlaceholderText(_translate("XianNiUpgrade", "选择道藏目录..."))
+        browse_save = QPushButton(_translate("XianNiUpgrade", "浏览"))
         browse_save.clicked.connect(self._browse_save_dir)
-        save_row.addWidget(QLabel(_translate("Form", "导入道行存档:")))
+        save_row.addWidget(QLabel(_translate("XianNiUpgrade", "导入道行存档:")))
         save_row.addWidget(self._save_edit)
         save_row.addWidget(browse_save)
         layout.addLayout(save_row)
 
         hint = QLabel(_translate(
-            "Form", "提示：请选择旧版安装目录下 data/plugin_data/XianNiUpgrade/ 文件夹"))
+            "XianNiUpgrade", "提示：请选择旧版安装目录下 data/plugin_data/XianNiUpgrade/ 文件夹"))
         hint.setStyleSheet("color: #9E9E9E; font-size: 10px;")
         layout.addWidget(hint)
 
@@ -303,9 +310,9 @@ class AbsorbDialog(QDialog):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        ok_btn = QPushButton(_translate("Form", "确认"))
+        ok_btn = QPushButton(_translate("XianNiUpgrade", "确认"))
         ok_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton(_translate("Form", "取消"))
+        cancel_btn = QPushButton(_translate("XianNiUpgrade", "取消"))
         cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(ok_btn)
         btn_row.addWidget(cancel_btn)
@@ -313,19 +320,19 @@ class AbsorbDialog(QDialog):
 
     def _browse_exe(self):
         path, _ = QFileDialog.getOpenFileName(self, _translate(
-            "Form", "选择验证法器"), "", _translate("Form", "法器 (*.exe);;所有文件 (*)"))
+            "XianNiUpgrade", "选择验证法器"), "", _translate("XianNiUpgrade", "法器 (*.exe);;所有文件 (*)"))
         if path:
             self._exe_edit.setText(path)
 
     def _browse_replay(self):
         path = QFileDialog.getExistingDirectory(
-            self, _translate("Form", "选择灵箓目录"))
+            self, _translate("XianNiUpgrade", "选择灵箓目录"))
         if path:
             self._replay_edit.setText(path)
 
     def _browse_save_dir(self):
         path = QFileDialog.getExistingDirectory(
-            self, _translate("Form", "选择道藏目录"))
+            self, _translate("XianNiUpgrade", "选择道藏目录"))
         if path:
             self._save_edit.setText(path)
 
@@ -341,7 +348,7 @@ class RulesDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(_translate("Form", "天地法则"))
+        self.setWindowTitle(_translate("XianNiUpgrade", "天地法则"))
         self.resize(660, 520)
         layout = QVBoxLayout(self)
 
@@ -361,7 +368,7 @@ class RulesDialog(QDialog):
     @staticmethod
     def _build_content() -> str:
         rank_url = DEFAULT_API_URL
-        return _translate("Form", """\
+        return _translate("XianNiUpgrade", """\
 <style>
 h2 { color: #6A1B9A; border-bottom: 2px solid #CE93D8; padding-bottom: 4px; }
 h3 { color: #8E24AA; margin-top: 16px; }
@@ -522,7 +529,7 @@ class LevelDisplay(QWidget):
         self._player_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self._player_label)
 
-        self._rank_label = QLabel(_translate("Form", "凡人"))
+        self._rank_label = QLabel(_translate("XianNiUpgrade", "凡人"))
         self._rank_label.setStyleSheet(
             "color: #01579B; font-size: 28px; font-weight: bold; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
         self._rank_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -535,7 +542,7 @@ class LevelDisplay(QWidget):
         self._level_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self._level_label)
 
-        self._total_xp_label = QLabel(_translate("Form", "修为: 0"))
+        self._total_xp_label = QLabel(_translate("XianNiUpgrade", "修为: 0"))
         self._total_xp_label.setStyleSheet(
             "color: #0288D1; font-size: 14px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;")
         self._total_xp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -555,7 +562,7 @@ class LevelDisplay(QWidget):
         info_layout.addWidget(self._progress)
 
         btn_row = QHBoxLayout()
-        self._law_btn = QPushButton(_translate("Form", "天地法则"))
+        self._law_btn = QPushButton(_translate("XianNiUpgrade", "天地法则"))
         self._law_btn.setFixedHeight(22)
         self._law_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._law_btn.setStyleSheet(
@@ -566,7 +573,7 @@ class LevelDisplay(QWidget):
         self._law_btn.clicked.connect(self.law_clicked.emit)
         btn_row.addWidget(self._law_btn)
 
-        self._absorb_btn = QPushButton(_translate("Form", "吸收灵气"))
+        self._absorb_btn = QPushButton(_translate("XianNiUpgrade", "吸收灵气"))
         self._absorb_btn.setFixedHeight(22)
         self._absorb_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._absorb_btn.setStyleSheet(
@@ -577,7 +584,7 @@ class LevelDisplay(QWidget):
         self._absorb_btn.clicked.connect(self.absorb_clicked.emit)
         btn_row.addWidget(self._absorb_btn)
 
-        self._upload_btn = QPushButton(_translate("Form", "上传排行"))
+        self._upload_btn = QPushButton(_translate("XianNiUpgrade", "上传排行"))
         self._upload_btn.setFixedHeight(22)
         self._upload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._upload_btn.setStyleSheet(
@@ -599,14 +606,14 @@ class LevelDisplay(QWidget):
             "QLabel { background: #E1F5FE; "
             " border: 2px solid #4FC3F7; color: #0277BD; font-size: 14px; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }"
         )
-        self._image_label.setText(_translate("Form", "等待仙躯\n形象加载..."))
+        self._image_label.setText(_translate("XianNiUpgrade", "等待仙躯\n形象加载..."))
         layout.addWidget(self._image_label)
 
     def retranslateUi(self):
-        self._law_btn.setText(_translate("Form", "天地法则"))
-        self._absorb_btn.setText(_translate("Form", "吸收灵气"))
-        self._upload_btn.setText(_translate("Form", "上传排行"))
-        self._image_label.setText(_translate("Form", "等待仙躯\n形象加载..."))
+        self._law_btn.setText(_translate("XianNiUpgrade", "天地法则"))
+        self._absorb_btn.setText(_translate("XianNiUpgrade", "吸收灵气"))
+        self._upload_btn.setText(_translate("XianNiUpgrade", "上传排行"))
+        self._image_label.setText(_translate("XianNiUpgrade", "等待仙躯\n形象加载..."))
 
     def set_upload_enabled(self, enabled: bool):
         self._upload_btn.setEnabled(enabled)
@@ -616,22 +623,22 @@ class LevelDisplay(QWidget):
             self._image_label.set_raw(raw_bytes)
             return
         self._image_label.set_raw(None)
-        self._image_label.setText(_translate("Form", "暂无仙躯\n形象"))
+        self._image_label.setText(_translate("XianNiUpgrade", "暂无仙躯\n形象"))
 
     def update_info(self, player_name: str, rank: str, level: int, total_xp: int, xp_curr: int, xp_need: int):
         self._player_label.setText(player_name)
         self._rank_label.setText(rank)
         self._level_label.setText(f"Lv.{level}")
         self._total_xp_label.setText(_translate(
-            "Form", "修为: %1").replace("%1", str(total_xp)))
+            "XianNiUpgrade", "修为: %1").replace("%1", str(total_xp)))
         if xp_need > 0:
             pct = min(xp_curr * 100 // xp_need, 100)
             self._progress.setValue(pct)
-            self._progress.setFormat(_translate("Form", "%1% | 还需 %2 道行").replace(
+            self._progress.setFormat(_translate("XianNiUpgrade", "%1% | 还需 %2 道行").replace(
                 "%1", str(pct)).replace("%2", str(xp_need - xp_curr)))
         else:
             self._progress.setValue(100)
-            self._progress.setFormat(_translate("Form", "已圆满"))
+            self._progress.setFormat(_translate("XianNiUpgrade", "已圆满"))
 
 
 class XianNiUpgradeUI(QWidget):
@@ -651,6 +658,7 @@ class XianNiUpgradeUI(QWidget):
         self._first_visible_cb = None
         self._first_visible_scheduled = False
         self._row_breakdowns: list[dict | None] = []
+        self._last_update = None
         self._xp_popup: XpPiePopup | None = None
         self._hover_key: tuple | None = None
         self._hover_pos = QPoint()
@@ -705,7 +713,7 @@ class XianNiUpgradeUI(QWidget):
         self._level_display.upload_clicked.connect(self._on_upload_clicked)
         layout.addWidget(self._level_display, 3)
 
-        self._log_group = QGroupBox(_translate("Form", "修行日志"))
+        self._log_group = QGroupBox(_translate("XianNiUpgrade", "修行日志"))
         self._log_group.setStyleSheet(
             "QGroupBox { font-size: 14px; font-weight: bold; font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; }")
         group_layout = QVBoxLayout(self._log_group)
@@ -716,8 +724,8 @@ class XianNiUpgradeUI(QWidget):
         self._table.setStyleSheet(
             "QTableWidget { font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; } QTableWidget::item { border-bottom: 1px solid #E0E0E0; } QHeaderView::section { font-family: 'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif; border: none; }")
         self._table.setShowGrid(False)
-        self._table.setHorizontalHeaderLabels([_translate("Form", "时刻"), _translate("Form", "境阶"), _translate(
-            "Form", "法式"), _translate("Form", "耗时"), _translate("Form", "衍数"), _translate("Form", "道行")])
+        self._table.setHorizontalHeaderLabels([_translate("XianNiUpgrade", "时刻"), _translate("XianNiUpgrade", "境阶"), _translate(
+            "XianNiUpgrade", "法式"), _translate("XianNiUpgrade", "耗时"), _translate("XianNiUpgrade", "衍数"), _translate("XianNiUpgrade", "道行")])
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self._table.setColumnWidth(0, 150)
         for c in range(1, 6):
@@ -785,17 +793,24 @@ class XianNiUpgradeUI(QWidget):
         if self._xp_popup is not None and self._xp_popup.isVisible():
             self._xp_popup.hide()
 
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange and hasattr(self, "_log_group"):
+            self.retranslateUi()
+
     def retranslateUi(self):
-        self._log_group.setTitle(_translate("Form", "修行日志"))
+        self._log_group.setTitle(_translate("XianNiUpgrade", "修行日志"))
         self._table.setHorizontalHeaderLabels([
-            _translate("Form", "时刻"),
-            _translate("Form", "境阶"),
-            _translate("Form", "法式"),
-            _translate("Form", "耗时"),
-            _translate("Form", "衍数"),
-            _translate("Form", "道行"),
+            _translate("XianNiUpgrade", "时刻"),
+            _translate("XianNiUpgrade", "境阶"),
+            _translate("XianNiUpgrade", "法式"),
+            _translate("XianNiUpgrade", "耗时"),
+            _translate("XianNiUpgrade", "衍数"),
+            _translate("XianNiUpgrade", "道行"),
         ])
         self._level_display.retranslateUi()
+        if self._last_update is not None:
+            self._do_update(self._last_update)
 
     def set_image_dir(self, image_dir: Path):
         self._image_dir = image_dir
@@ -820,7 +835,7 @@ class XianNiUpgradeUI(QWidget):
     def _on_upload_clicked(self):
         if not self._upload_cb:
             QMessageBox.warning(self, _translate(
-                "Form", "提示"), _translate("Form", "插件未就绪"))
+                "XianNiUpgrade", "提示"), _translate("XianNiUpgrade", "插件未就绪"))
             return
         self.set_upload_enabled(False)
         self._upload_cb()
@@ -832,7 +847,7 @@ class XianNiUpgradeUI(QWidget):
     def _on_absorb_clicked(self):
         if not self._validate_cb or not self._absorb_cb:
             QMessageBox.warning(self, _translate(
-                "Form", "提示"), _translate("Form", "插件未就绪"))
+                "XianNiUpgrade", "提示"), _translate("XianNiUpgrade", "插件未就绪"))
             return
         dialog = AbsorbDialog(self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -846,13 +861,13 @@ class XianNiUpgradeUI(QWidget):
         if exe_path and replay_path:
             preview = self._validate_cb(exe_path, replay_path)
             if preview is None:
-                msgs.append(_translate("Form", "3.2.2 验证失败，查看日志"))
+                msgs.append(_translate("XianNiUpgrade", "3.2.2 验证失败，查看日志"))
             elif not preview["new_files"]:
-                msgs.append(_translate("Form", "3.2.2 没有新的灵箓"))
+                msgs.append(_translate("XianNiUpgrade", "3.2.2 没有新的灵箓"))
             else:
                 gained = self._absorb_cb(preview)
                 total_gained += gained
-                msgs.append(_translate("Form", "3.2.2 新增 %1 道灵箓，获 %2 道行").replace(
+                msgs.append(_translate("XianNiUpgrade", "3.2.2 新增 %1 道灵箓，获 %2 道行").replace(
                     "%1", str(len(preview['new_files']))).replace("%2", str(gained)))
 
         # ── 方式二：3.3.1+ 存档导入 ──
@@ -860,30 +875,31 @@ class XianNiUpgradeUI(QWidget):
         if save_dir and self._validate_save_cb and self._absorb_save_cb:
             preview = self._validate_save_cb(save_dir)
             if preview is None:
-                msgs.append(_translate("Form", "3.3.1+ 未找到有效道藏"))
+                msgs.append(_translate("XianNiUpgrade", "3.3.1+ 未找到有效道藏"))
             else:
                 p = preview["preview"]
                 ret = QMessageBox.question(
-                    self, _translate("Form", "导入道藏"),
-                    _translate("Form", "发现 %1 位道友，共 %2 道行，确认导入？").replace(
+                    self, _translate("XianNiUpgrade", "导入道藏"),
+                    _translate("XianNiUpgrade", "发现 %1 位道友，共 %2 道行，确认导入？").replace(
                         "%1", str(p["total_players"])).replace("%2", str(p["total_xp"])),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
                 if ret == QMessageBox.StandardButton.Yes:
                     gained = self._absorb_save_cb(preview)
                     total_gained += gained
-                    msgs.append(_translate("Form", "3.3.1+ 导入 %1 位道友，获 %2 道行").replace(
+                    msgs.append(_translate("XianNiUpgrade", "3.3.1+ 导入 %1 位道友，获 %2 道行").replace(
                         "%1", str(p["total_players"])).replace("%2", str(gained)))
 
         if not msgs:
             QMessageBox.information(self, _translate(
-                "Form", "提示"), _translate("Form", "请填写至少一种吸收方式"))
+                "XianNiUpgrade", "提示"), _translate("XianNiUpgrade", "请填写至少一种吸收方式"))
         else:
             QMessageBox.information(self, _translate(
-                "Form", "吸收灵气完成"), "\n".join(msgs))
+                "XianNiUpgrade", "吸收灵气完成"), "\n".join(msgs))
 
     @Slot(object)
     def _do_update(self, data: dict):
+        self._last_update = dict(data)
         self._hide_xp_popup()
         rank = LEVEL_NAMES.get(data["level"], "")
         self._level_display.update_info(
@@ -926,5 +942,5 @@ class XianNiUpgradeUI(QWidget):
                 item = QTableWidgetItem(val)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 if col == _XP_COLUMN and breakdown is None:
-                    item.setToolTip(_translate("Form", "此记录未保存分项数据"))
+                    item.setToolTip(_translate("XianNiUpgrade", "此记录未保存分项数据"))
                 self._table.setItem(i, col, item)

@@ -18,7 +18,7 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 │   EventDispatcher ──→ 事件分发       │
 │        │                             │
 │   BasePlugin(QObject + moveToThread) × N
-│     ├─ HistoryPlugin (内置)          │
+│     ├─ HistoryPlugin (第三方)        │
 │     ├─ 你的插件A (用户)              │
 │     └─ 你的插件B (用户)              │
 │                                      │
@@ -42,8 +42,7 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 │   ├── my_complex/             # 包形式插件（唯一支持的插件结构）
 │   │   ├── __init__.py
 │   │   └── utils.py
-│   └── services/               # 👈 服务接口定义
-│       └── history.py          # HistoryService 接口
+│   └── services/               # 内置插件的共享服务接口
 ├── plugin_sdk/                 # 插件开发 SDK
 │   ├── plugin_base.py          # 👈 BasePlugin 基类
 │   ├── service_registry.py     # 服务注册表
@@ -90,7 +89,7 @@ plugins/
     └── requirements.txt  # 当前插件需要的第三方发行包及版本约束
 ```
 
-各插件的 `requirements.txt` 独立声明额外依赖，使用 Python 发行包名称，例如 `requests>=2`；应用/SDK 已提供的包不需要重复声明。插件管理器启动时使用已配置的依赖目录并检查这些约束，不会自动创建虚拟环境或安装依赖；「插件依赖环境」设置默认预填 `<data_dir>/plugin_venv`，用户可手动选择目录并创建虚拟环境。列表只标记有问题的插件，右键「查看依赖详情」可逐项查看要求、安装版本和状态，并由用户点击按钮手动安装。缺少 `debugpy` 时，用户点击调试功能并确认后才安装。所有插件共享依赖环境，版本要求可能互相冲突。
+各插件的 `requirements.txt` 独立声明额外依赖，使用 Python 发行包名称，例如 `requests>=2`；应用/SDK 已提供的包不需要重复声明。插件管理器启动时使用已配置的依赖目录并检查这些约束，不会自动创建虚拟环境或安装依赖；启动时默认创建并使用 `<data_dir>/plugin_libs`，可在「插件依赖环境」中选择其他目录。向普通库目录安装时只接受兼容的 wheel。列表只标记有问题的插件，右键「查看依赖详情」可逐项查看要求、安装版本和状态，并由用户点击按钮手动安装。缺少 `debugpy` 时，用户点击调试功能并确认后才安装。所有插件共享依赖环境，版本要求可能互相冲突。
 
 ## 自动发现规则
 

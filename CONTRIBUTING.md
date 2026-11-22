@@ -38,27 +38,23 @@ Not Planned for Development:
 
 * Following the developer’s habits, the code accepts comments in Chinese, English, and other major languages.
 
-# 提交与推送前测试
+# 推送前测试
 
-提交代码或推送分支前，必须先让测试通过。最低要求是本次改动涉及的测试全部通过；若其余测试也可运行，应运行完整测试套件并确保全部通过。测试失败时不得提交或推送。
-
-本仓库提供 `.githooks/pre-commit` 和 `.githooks/pre-push`，两者都会运行 `pytest tests/`。克隆仓库后启用一次：
+提交时不会自动运行测试。推送前需确认测试通过；仓库的 `.githooks/pre-push` 会运行完整 `pytest tests/`，失败时阻止推送。克隆仓库后启用一次：
 
 ```powershell
 git config core.hooksPath .githooks
 ```
 
-钩子优先使用仓库的 `.venv`，并默认设置 `QT_QPA_PLATFORM=offscreen`。CI 也会在 push 和 pull request 时运行完整测试套件。
+推送钩子优先使用仓库的 `.venv`，并默认设置 `QT_QPA_PLATFORM=offscreen`。CI 也会在 push 和 pull request 时运行完整测试套件。
 
-# Tests Before Commit and Push
+# Tests Before Push
 
-All tests relevant to the changed code must pass before committing or pushing. Run the full test suite and require all tests to pass whenever the rest of the suite is runnable. Do not commit or push while applicable tests are failing.
-
-The repository provides `.githooks/pre-commit` and `.githooks/pre-push`; both run `pytest tests/`. Enable them once after cloning:
+Commits do not run tests automatically. Before pushing, confirm the tests pass; the repository's `.githooks/pre-push` runs the full `pytest tests/` suite and blocks the push if it fails. Enable the hook once after cloning:
 
 ```powershell
 git config core.hooksPath .githooks
 ```
 
-The hooks prefer the repository's `.venv` and default `QT_QPA_PLATFORM` to `offscreen`. CI also runs the full test suite on pushes and pull requests.
+The pre-push hook prefers the repository's `.venv` and defaults `QT_QPA_PLATFORM` to `offscreen`. CI also runs the full test suite on pushes and pull requests.
 

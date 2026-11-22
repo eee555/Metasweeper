@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import io
 import json
@@ -34,12 +35,17 @@ class FakeResponse:
         self.status_code = status
         self.headers = {"Content-Length": str(len(body))}
         self.headers.update(headers or {})
+        self.text = body.decode("utf-8", errors="replace")
+        self.closed = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, *args):
-        pass
+        self.close()
+
+    def close(self):
+        self.closed = True
 
     def json(self):
         return self.data
@@ -91,6 +97,161 @@ def test_invalid_repository_url(url):
         PluginRepository.from_url(url)
 
 
+GITEE_REPOSITORY = PluginRepository.from_url("https://gitee.com/example/my-plugin")
+
+
+def readme_client(*responses, cancelled=lambda: False):
+    session = FakeSession(*responses)
+    return PluginDownloader(session, cancelled, lambda *_: None), session
+
+
+def test_fetch_github_readme_uses_api_branch_and_file_directory():
+    response = FakeResponse(body=json.dumps({
+        "path": "docs/ReadMe.markdown",
+        "html_url": "https://github.com/Example/my-plugin/blob/release%2Fdocs/docs/ReadMe.markdown",
+        "encoding": "base64",
+        "content": base64.encodebytes("\ufeff# 文档\n[图片](images/example.png)".encode()).decode(),
+    }).encode())
+    client, session = readme_client(response)
+    assert client.fetch_readme(REPOSITORY) == (
+        "# 文档\n[图片](images/example.png)",
+        "https://github.com/example/my-plugin/tree/release%2Fdocs/docs/",
+    )
+    [(url, options)] = session.calls
+    assert url == "https://api.github.com/repos/example/my-plugin/readme"
+    assert options["stream"] and options["timeout"] == (3, 8)
+    assert response.closed
+
+
+def test_fetch_github_readme_returns_none_for_404():
+    missing = FakeResponse(status=404)
+    client, session = readme_client(missing)
+    assert client.fetch_readme(REPOSITORY) is None
+    assert len(session.calls) == 1
+    assert missing.closed
+
+
+def test_fetch_github_readme_uses_head_on_rate_limit():
+    limited = FakeResponse(status=403, headers={"X-RateLimit-Remaining": "0"})
+    client, session = readme_client(limited, FakeResponse(body=b"# Default branch"))
+    assert client.fetch_readme(REPOSITORY) == (
+        "# Default branch", REPOSITORY.url + "/tree/HEAD/",
+    )
+    assert session.calls[1][0] == "https://raw.githubusercontent.com/example/my-plugin/HEAD/README.md"
+    assert limited.closed
+
+
+def test_fetch_gitee_readme_uses_default_branch_and_allows_official_cdn():
+    metadata = FakeResponse(body=b'{"default_branch":"docs/v2"}')
+    missing = FakeResponse(status=404)
+    cdn_url = "https://raw.giteeusercontent.com/example/my-plugin/raw/docs%2Fv2/Readme.md"
+    redirect = FakeResponse(status=302, headers={"Location": cdn_url})
+    document = FakeResponse(body=b"# Gitee\n")
+    client, session = readme_client(metadata, missing, redirect, document)
+    assert client.fetch_readme(GITEE_REPOSITORY) == (
+        "# Gitee\n", GITEE_REPOSITORY.url + "/tree/docs%2Fv2/",
+    )
+    assert [call[0] for call in session.calls] == [
+        "https://gitee.com/api/v5/repos/example/my-plugin",
+        GITEE_REPOSITORY.url + "/raw/docs%2Fv2/README.md",
+        GITEE_REPOSITORY.url + "/raw/docs%2Fv2/Readme.md",
+        cdn_url,
+    ]
+    assert all(response.closed for response in (metadata, missing, redirect, document))
+
+
+def test_fetch_gitee_readme_resolves_head_on_api_rejection():
+    head = b"a" * 40 + b" HEAD\0multi_ack symref=HEAD:refs/heads/trunk agent=gitee\n"
+    refs = b"001e# service=git-upload-pack\n0000" + f"{len(head) + 4:04x}".encode() + head + b"0000"
+    client, session = readme_client(
+        FakeResponse(status=403),
+        FakeResponse(body=refs, headers={"Content-Type": "application/x-git-upload-pack-advertisement"}),
+        FakeResponse(body=b"# Trunk"),
+    )
+    assert client.fetch_readme(GITEE_REPOSITORY) == ("# Trunk", GITEE_REPOSITORY.url + "/tree/trunk/")
+    assert session.calls[1][0] == GITEE_REPOSITORY.url + ".git/info/refs"
+    assert session.calls[1][1]["params"] == {"service": "git-upload-pack"}
+    assert session.calls[2][0] == GITEE_REPOSITORY.url + "/raw/trunk/README.md"
+
+
+def test_fetch_gitee_readme_tries_common_names_and_returns_none_if_missing():
+    missing = [FakeResponse(status=404) for _ in download._README_FILENAMES]
+    client, session = readme_client(FakeResponse(body=b'{"default_branch":"trunk"}'), *missing)
+    assert client.fetch_readme(GITEE_REPOSITORY) is None
+    candidates = {url.rsplit("/", 1)[-1] for url, _ in session.calls[1:]}
+    assert {"README.md", "Readme.md", "ReadMe.md", "readme.MD", "README.markdown", "README.txt", "README"} <= candidates
+    assert all(response.closed for response in missing)
+
+
+@pytest.mark.parametrize("location", [
+    "http://raw.giteeusercontent.com/file",
+    "https://raw.giteeusercontent.com:8443/file",
+    "https://untrusted.example/file",
+    "https://127.0.0.1/file",
+])
+def test_fetch_readme_rejects_unsafe_redirects(location):
+    redirect = FakeResponse(status=302, headers={"Location": location})
+    client, session = readme_client(FakeResponse(body=b'{"default_branch":"main"}'), redirect)
+    with pytest.raises(ValueError):
+        client.fetch_readme(GITEE_REPOSITORY)
+    assert len(session.calls) == 2
+    assert redirect.closed
+
+
+@pytest.mark.parametrize("body, headers", [
+    (b"", {"Content-Length": str(download._MAX_README_BYTES + 1)}),
+    (b"x" * (download._MAX_README_BYTES + 1), {"Content-Length": "1"}),
+    (b"<html>challenge</html>", {"Content-Type": "text/html; charset=UTF-8"}),
+    (b"\xff", {}),
+], ids=["declared-size", "streamed-size", "html", "invalid-utf8"])
+def test_fetch_readme_rejects_invalid_or_oversized_content(body, headers):
+    document = FakeResponse(body=body, headers=headers)
+    client, _ = readme_client(FakeResponse(body=b'{"default_branch":"main"}'), document)
+    with pytest.raises(ValueError):
+        client.fetch_readme(GITEE_REPOSITORY)
+    assert document.closed
+
+
+def test_fetch_github_readme_rejects_offsite_api_file_link():
+    response = FakeResponse(body=b'{"path":"README.md","html_url":"https://untrusted.example/example/my-plugin/blob/main/README.md"}')
+    client, session = readme_client(response)
+    with pytest.raises(ValueError):
+        client.fetch_readme(REPOSITORY)
+    assert len(session.calls) == 1
+    assert response.closed
+
+
+def test_fetch_readme_does_not_treat_server_failure_as_missing():
+    response = FakeResponse(status=502)
+    client, _ = readme_client(response)
+    with pytest.raises(requests.HTTPError):
+        client.fetch_readme(REPOSITORY)
+    assert response.closed
+
+
+def test_fetch_readme_closes_response_when_cancelled_during_stream():
+    interrupted = Event()
+
+    class CancelledResponse(FakeResponse):
+        def iter_content(self, chunk_size):
+            interrupted.set()
+            yield b"# Partial"
+
+    document = CancelledResponse()
+    client, _ = readme_client(
+        FakeResponse(body=b'{"default_branch":"main"}'), document, cancelled=interrupted.is_set)
+    with pytest.raises(DownloadCancelled):
+        client.fetch_readme(GITEE_REPOSITORY)
+    assert document.closed
+
+
+def test_fetch_readme_rejects_unsupported_repository_before_request():
+    client, session = readme_client()
+    with pytest.raises(ValueError):
+        client.fetch_readme(PluginRepository.from_url("https://gitlab.com/example/my-plugin"))
+    assert session.calls == []
+
+
 def test_tags_pagination_and_pinned_commit():
     session = FakeSession(
         FakeResponse(data=[{"name": TAG.name, "commit": {"sha": TAG.commit}}], links={"next": {}}),
@@ -99,6 +260,321 @@ def test_tags_pagination_and_pinned_commit():
     client = PluginDownloader(session, lambda: False, lambda *_: None)
     assert client.list_tags(REPOSITORY) == [TAG, RepositoryTag("v0", "b" * 40)]
     assert [call[1]["params"]["page"] for call in session.calls] == [1, 2]
+
+
+def test_discover_plugins_falls_back_to_public_search_page_when_api_is_limited():
+    payload = {
+        "payload": {"blackbirdSearchRoute": {
+            "results": [{
+                "repo": {"repository": {
+                    "name": "my-plugin", "owner_login": "example"}},
+                "hl_trunc_description": "<em>Sample</em> &amp; plugin",
+            }],
+            "page_count": 1,
+        }},
+    }
+    html = (
+        '<script type="application/json" data-target="react-app.embeddedData">'
+        + json.dumps(payload)
+        + "</script>"
+    ).encode()
+    session = FakeSession(
+        FakeResponse(status=403, headers={"X-RateLimit-Remaining": "0"}),
+        FakeResponse(body=html),
+    )
+    client = PluginDownloader(session, lambda: False, lambda *_: None)
+
+    entries = client.discover_plugins()
+
+    assert len(entries) == 1
+    assert entries[0].repository.url == "https://github.com/example/my-plugin"
+    assert entries[0].description == "Sample & plugin"
+    assert session.calls[1][0] == "https://github.com/search"
+
+
+def test_list_tags_falls_back_to_public_html_when_github_api_is_limited():
+    commit = "a" * 40
+    html = (
+        '<h2><a href="/example/my-plugin/releases/tag/metasweeper-v1.0.0">'
+        'metasweeper-v1.0.0</a></h2>'
+        f'<a href="/example/my-plugin/commit/{commit}">commit</a>'
+    ).encode()
+    session = FakeSession(
+        FakeResponse(status=403, headers={"X-RateLimit-Remaining": "0"}),
+        FakeResponse(body=html),
+        FakeResponse(body=b"no more tags"),
+    )
+    repository = PluginRepository.from_url("https://github.com/example/my-plugin")
+    client = PluginDownloader(session, lambda: False, lambda *_: None)
+
+    assert client.list_tags(repository) == [RepositoryTag("metasweeper-v1.0.0", commit)]
+    assert len(session.calls) == 3
+    assert session.calls[1][0] == "https://github.com/example/my-plugin/tags"
+    assert session.calls[2][0] == "https://github.com/example/my-plugin/tags?page=2"
+
+
+def test_install_does_not_publish_when_preparation_fails(tmp_path):
+    body = make_archive([
+        ("repo-sha/training_stats/__init__.py", ""),
+        ("repo-sha/training_stats/requirements.txt", "pandas>=2"),
+    ])
+    client = PluginDownloader(
+        FakeSession(FakeResponse(body=body)), lambda: False, lambda *_: None)
+    root = tmp_path / "user_plugins"
+
+    def fail_preparation(package):
+        assert (package / "requirements.txt").is_file()
+        raise RuntimeError("dependency installation failed")
+
+    with pytest.raises(RuntimeError, match="dependency installation failed"):
+        client.install(
+            REPOSITORY, TAG, root, [], before_publish=fail_preparation)
+
+    assert not (root / REPOSITORY.module_name).exists()
+    assert list(root.iterdir()) == []
+
+
+def test_install_accepts_single_plugin_subdirectory(tmp_path):
+    body = make_archive([
+        ("repo-sha/README.md", "project readme"),
+        ("repo-sha/tests/test_sample.py", ""),
+        ("repo-sha/training_stats/__init__.py", ""),
+        ("repo-sha/training_stats/plugin.py", ""),
+    ])
+    client = PluginDownloader(FakeSession(FakeResponse(body=body)), lambda: False, lambda *_: None)
+    root = tmp_path / "user_plugins"
+    path = client.install(REPOSITORY, TAG, root, [])
+    assert (path / "__init__.py").is_file()
+    assert (path / "plugin.py").is_file()
+    assert not (path / "README.md").exists()
+    assert PluginLoader([root]).discover_plugins() == [
+        (path / "__init__.py", REPOSITORY.module_name)]
+
+
+@pytest.mark.parametrize(("prefix", "name"), [
+    ("", "example_zip"),
+    ("sample/", "sample"),
+    ("source-main/sample/", "sample"),
+])
+def test_import_zip_publishes_one_local_package(tmp_path, prefix, name):
+    from plugin_manager.plugin_catalog import read_installed_metadata, read_installed_plugin
+
+    archive = tmp_path / "example-zip.zip"
+    archive.write_bytes(make_archive([
+        (prefix + "__init__.py", ""),
+        (prefix + "assets/example.txt", "asset"),
+        (prefix + ".metasweeper-plugin.json", '{"repository":"https://github.com/example/other"}'),
+    ]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+
+    def prepare(package, module_name):
+        assert module_name == name
+        assert (package / "__init__.py").is_file()
+        assert not (root / name).exists()
+
+    installed = downloader.import_zip(archive, root, [], before_publish=prepare)
+    assert installed == root / name
+    assert (installed / "assets/example.txt").read_text() == "asset"
+    assert read_installed_metadata(installed) == {"source": "local_zip"}
+    assert read_installed_plugin(installed) is None
+    assert PluginLoader([root]).discover_plugins() == [(installed / "__init__.py", name)]
+    (installed / "obsolete.py").write_text("old file", encoding="utf-8")
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == installed
+    assert not (installed / "obsolete.py").exists()
+    assert list(root.iterdir()) == [installed]
+
+
+def plugin_source(version="1.0", name="stable_demo"):
+    return f'''
+raise RuntimeError("must not execute during import")
+class Demo:
+    @classmethod
+    def plugin_info(cls):
+        return PluginInfo(name={name!r}, version={version!r})
+'''
+
+
+@pytest.mark.parametrize("prefix", ["", "demo/", "demo-metasweeper-v2.0/", "demo-sha/demo/"])
+def test_import_zip_updates_across_archive_names_and_layouts(tmp_path, prefix):
+    archive = tmp_path / "demo-1.0.zip"
+    archive.write_bytes(make_archive([("demo/plugin.py", plugin_source()), ("demo/__init__.py", "")]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    installed = downloader.import_zip(archive, root, [], before_publish=lambda *_: None)
+    assert installed == root / "stable_demo"
+    (installed / "obsolete.py").write_text("old file", encoding="utf-8")
+    data = tmp_path / "data/plugin_data/stable_demo/settings.json"
+    data.parent.mkdir(parents=True)
+    data.write_text('{"user_id":23}', encoding="utf-8")
+    archive = tmp_path / "demo-2.0.zip"
+    archive.write_bytes(make_archive([
+        (prefix + "__init__.py", ""), (prefix + "plugin.py", plugin_source("2.0")),
+    ]))
+    prepared = []
+
+    def prepare(package, name):
+        assert "1.0" in (installed / "plugin.py").read_text()
+        assert "2.0" in (package / "plugin.py").read_text()
+        prepared.append(name)
+
+    assert downloader.import_zip(archive, root, [root], before_publish=prepare) == installed
+    assert prepared == ["stable_demo"]
+    assert "2.0" in (installed / "plugin.py").read_text()
+    assert not (installed / "obsolete.py").exists()
+    assert data.read_text() == '{"user_id":23}'
+    assert list(root.iterdir()) == [installed]
+
+
+def test_zip_can_update_market_install_without_duplicate_or_stale_metadata(tmp_path):
+    from plugin_manager.plugin_catalog import read_installed_metadata, scan_installed
+
+    body = make_archive([("repo-sha/__init__.py", ""), ("repo-sha/plugin.py", plugin_source())])
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(FakeResponse(body=body)), lambda: False, lambda *_: None)
+    installed = downloader.install(REPOSITORY, TAG, root, [], plugin_version="1.0", tag_prefix="release/v")
+    archive = tmp_path / "downloaded-release.zip"
+    archive.write_bytes(make_archive([
+        ("my-plugin-metasweeper-v2.0/__init__.py", ""),
+        ("my-plugin-metasweeper-v2.0/plugin.py", plugin_source("2.0")),
+    ]))
+
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == installed
+    metadata = read_installed_metadata(installed)
+    assert metadata == {"source": "local_zip", "repository": REPOSITORY.url,
+                        "platform": REPOSITORY.platform, "tag_prefix": "release/v", "version": "2.0"}
+    assert scan_installed([root])[REPOSITORY.url].version.public == "2.0"
+    assert list(root.iterdir()) == [installed]
+
+
+@pytest.mark.parametrize("failure", ["prepare", "publish", "cancel"])
+def test_zip_update_failure_preserves_installed_package(tmp_path, monkeypatch, failure):
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", "# old")]))
+    root = tmp_path / "user_plugins"
+    cancelled = Event()
+    downloader = PluginDownloader(FakeSession(), cancelled.is_set, lambda *_: None)
+    installed = downloader.import_zip(archive, root, [], before_publish=lambda *_: None)
+    old_metadata = (installed / ".metasweeper-plugin.json").read_bytes()
+    archive.write_bytes(make_archive([("demo/__init__.py", "# new")]))
+    rename = download.Path.rename
+
+    def fail_publish(path, destination):
+        if path.name == "demo" and path != installed and destination == installed:
+            raise OSError("publish failed")
+        return rename(path, destination)
+
+    def prepare(*_):
+        if failure == "prepare":
+            raise RuntimeError("preparation failed")
+        if failure == "cancel":
+            cancelled.set()
+
+    if failure == "publish":
+        monkeypatch.setattr(download.Path, "rename", fail_publish)
+    with pytest.raises((RuntimeError, OSError, DownloadCancelled)):
+        downloader.import_zip(archive, root, [], before_publish=prepare)
+    assert (installed / "__init__.py").read_text() == "# old"
+    assert (installed / ".metasweeper-plugin.json").read_bytes() == old_metadata
+    assert list(root.iterdir()) == [installed]
+
+
+@pytest.mark.parametrize("location", ["user_plugins", "plugins"])
+def test_zip_does_not_overwrite_unmanaged_or_bundled_plugin(tmp_path, location):
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source("2.0"))]))
+    root = tmp_path / "user_plugins"
+    existing = tmp_path / location / "different_module"
+    existing.mkdir(parents=True)
+    (existing / "__init__.py").write_text(plugin_source(), encoding="utf-8")
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(FileExistsError, match="不能覆盖"):
+        downloader.import_zip(archive, root, [existing.parent], before_publish=lambda *_: pytest.fail("unsafe update"))
+    assert "1.0" in (existing / "__init__.py").read_text()
+
+
+def test_zip_refuses_ambiguous_installed_matches(tmp_path):
+    root = tmp_path / "user_plugins"
+    for name in ["first", "second"]:
+        package = root / name
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text(plugin_source(), encoding="utf-8")
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source("2.0"))]))
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(ValueError, match="多个同名插件"):
+        downloader.import_zip(archive, root, [], before_publish=lambda *_: pytest.fail("ambiguous update"))
+
+
+def test_zip_refuses_same_directory_with_different_plugin_identity(tmp_path):
+    root = tmp_path / "user_plugins"
+    package = root / "stable_demo"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(plugin_source(name="other"), encoding="utf-8")
+    (package / ".metasweeper-plugin.json").write_text('{"source":"local_zip"}')
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source())]))
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(FileExistsError, match="标识不匹配"):
+        downloader.import_zip(archive, root, [], before_publish=lambda *_: pytest.fail("identity conflict"))
+    assert "other" in (package / "__init__.py").read_text()
+
+
+def test_zip_update_does_not_reuse_market_version_when_new_version_is_unknown(tmp_path):
+    from plugin_manager.plugin_catalog import read_installed_plugin, read_installed_metadata
+
+    root = tmp_path / "user_plugins"
+    package = root / "stable_demo"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(plugin_source(), encoding="utf-8")
+    (package / ".metasweeper-plugin.json").write_text(json.dumps({
+        "repository": REPOSITORY.url, "tag": "metasweeper-v1.0", "version": "1.0",
+    }))
+    archive = tmp_path / "demo.zip"
+    archive.write_bytes(make_archive([("demo/__init__.py", plugin_source().replace("version='1.0'", "version=VERSION"))]))
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == package
+    assert read_installed_plugin(package).version is None
+    assert read_installed_metadata(package) == {"source": "local_zip", "repository": REPOSITORY.url}
+
+
+def test_zip_statically_matches_positional_plugin_info_name(tmp_path):
+    archive = tmp_path / "source-2.0.zip"
+    source = plugin_source().replace("name='stable_demo'", "'stable_demo'")
+    archive.write_bytes(make_archive([("source-2.0/__init__.py", source)]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    assert downloader.import_zip(archive, root, [], before_publish=lambda *_: None) == root / "stable_demo"
+
+
+@pytest.mark.parametrize("contents", [
+    b"not a zip",
+    make_archive([("../outside.py", ""), ("sample/__init__.py", "")]),
+    make_archive([("first/__init__.py", ""), ("second/__init__.py", "")]),
+])
+def test_import_zip_rejects_invalid_archives_and_cleans_staging(tmp_path, contents):
+    archive = tmp_path / "invalid.zip"
+    archive.write_bytes(contents)
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+    with pytest.raises(ValueError):
+        downloader.import_zip(archive, root, [], before_publish=lambda *_: pytest.fail("invalid archive"))
+    assert list(root.iterdir()) == []
+    assert not (tmp_path / "outside.py").exists()
+
+
+def test_import_zip_does_not_publish_when_preparation_fails(tmp_path):
+    archive = tmp_path / "sample.zip"
+    archive.write_bytes(make_archive([("__init__.py", "")]))
+    root = tmp_path / "user_plugins"
+    downloader = PluginDownloader(FakeSession(), lambda: False, lambda *_: None)
+
+    def prepare(*args):
+        raise RuntimeError("dependency preparation failed")
+
+    with pytest.raises(RuntimeError, match="dependency preparation failed"):
+        downloader.import_zip(archive, root, [], before_publish=prepare)
+    assert list(root.iterdir()) == []
 
 
 def test_install_is_discoverable_without_executing_plugin(tmp_path):
@@ -114,7 +590,7 @@ def test_install_is_discoverable_without_executing_plugin(tmp_path):
     assert path == root / REPOSITORY.module_name
     assert (path / "assets/icon.txt").read_text() == "asset"
     assert json.loads((path / ".metasweeper-plugin.json").read_text())["tag"] == TAG.name
-    assert session.calls[0][0].endswith("/zipball/" + TAG.commit)
+    assert session.calls[0][0] == "https://codeload.github.com/example/my-plugin/zip/" + TAG.commit
     assert progress[-1] == (len(body), len(body))
     assert list(root.iterdir()) == [path]
     assert PluginLoader([root]).discover_plugins() == [(path / "__init__.py", REPOSITORY.module_name)]
@@ -342,7 +818,10 @@ def test_each_provider_downloads_selected_commit(tmp_path, url, platform, api, a
     path = client.install(repository, tags[0], tmp_path, [])
     assert session.calls[0][0] == api + "/tags"
     assert session.calls[0][1]["params"] == {**page_size, "page": 1}
-    assert session.calls[1][0] == api + archive_suffix
+    expected_archive = (
+        f"https://codeload.github.com/{repository.path}/zip/{TAG.commit}"
+        if repository.platform == "github" else api + archive_suffix)
+    assert session.calls[1][0] == expected_archive
     assert session.calls[1][1]["params"] == archive_params
     assert ("X-GitHub-Api-Version" in session.calls[1][1]["headers"]) == (repository.platform == "github")
     metadata = json.loads((path / ".metasweeper-plugin.json").read_text())
@@ -353,6 +832,34 @@ def test_each_provider_downloads_selected_commit(tmp_path, url, platform, api, a
         "commit": TAG.commit,
         "archive_sha256": hashlib.sha256(archive).hexdigest(),
     }
+
+
+@pytest.mark.parametrize("status", [403, 429])
+def test_gitee_tags_fall_back_to_public_http_refs(status):
+    repository = PluginRepository.from_url("https://gitee.com/team/plugin")
+    packets = [
+        b"# service=git-upload-pack\n", b"",
+        b"a" * 40 + b" HEAD\0symref=HEAD:refs/heads/main\n",
+        b"b" * 40 + b" refs/tags/v1\n",
+        b"c" * 40 + b" refs/tags/v2\n",
+        b"d" * 40 + b" refs/tags/v2^{}\n", b"",
+    ]
+    body = b"".join(f"{len(packet) + 4:04x}".encode() + packet if packet else b"0000"
+                    for packet in packets)
+    session = FakeSession(
+        FakeResponse(status=status),
+        FakeResponse(body=body, headers={
+            "Content-Type": "application/x-git-upload-pack-advertisement",
+        }),
+    )
+    client = PluginDownloader(session, lambda: False, lambda *_: None)
+
+    assert client.list_tags(repository) == [
+        RepositoryTag("v1", "b" * 40), RepositoryTag("v2", "d" * 40),
+    ]
+    url, kwargs = session.calls[-1]
+    assert url == "https://gitee.com/team/plugin.git/info/refs"
+    assert kwargs["params"] == {"service": "git-upload-pack"}
 
 
 def test_gitlab_pagination_header():

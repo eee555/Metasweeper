@@ -24,6 +24,7 @@ from shared_types.commands import (
     NON_CHEAT_TAGS,
     SetSkinCommand,
     SetSoundCommand,
+    SetRaceIdentifierCommand,
     SKIN_CELL_KEYS,
     SKIN_COLOR_KEYS,
     SKIN_FACE_KEYS,
@@ -64,11 +65,11 @@ class _Bare:
 
 
 def test_command_types_and_tags_are_unique(app):
-    assert len(COMMAND_TYPES) == 6
+    assert len(COMMAND_TYPES) == 7
     tags = [command_tag(t) for t in COMMAND_TYPES]
     assert tags == [
         "new_random_game", "new_preset_game", "mouse_click",
-        "init_open", "set_skin", "set_sound",
+        "init_open", "set_skin", "set_sound", "set_race_identifier",
     ]
     assert len(set(tags)) == len(tags), "tag 必须全局唯一"
     assert set(tags) == set(COMMAND_LABELS) == set(COMMAND_HINTS)
@@ -100,7 +101,7 @@ def test_i18n_dummy_function_covers_all_source_strings(app):
     assert expected_context == "Commands"
     with patch.object(mod, "_translate") as tr:
         assert mod._i18n_command_strings() is None
-    assert tr.call_count == len(COMMAND_LABELS) + len(COMMAND_HINTS) == 12
+    assert tr.call_count == len(COMMAND_LABELS) + len(COMMAND_HINTS) == 14
     seen = [(c.args[0], c.args[1]) for c in tr.call_args_list]
     assert all(ctx == "Commands" for ctx, _ in seen)
     assert {src for _, src in seen} == set(COMMAND_LABELS.values()) | set(
@@ -109,7 +110,7 @@ def test_i18n_dummy_function_covers_all_source_strings(app):
 
 def test_non_cheat_tags_are_declared(app):
     assert NON_CHEAT_TAGS == frozenset(
-        {"set_skin", "set_sound", "new_random_game"})
+        {"set_skin", "set_sound", "new_random_game", "set_race_identifier"})
     assert NON_CHEAT_TAGS <= set(COMMAND_LABELS)
 
 
@@ -132,9 +133,12 @@ def test_command_defaults_roundtrip_via_msgspec(app):
         (NewPresetGameCommand(board=[[0, 1], [1, -1]]),
          {"board": [[0, 1], [1, -1]], "mode": 0}),
         (MouseClickCommand(), {"row": 0, "col": 0, "button": 0, "modifiers": 0}),
+        (MouseClickCommand(cells=[(1, 2), (3, 4)]),
+         {"cells": [(1, 2), (3, 4)]}),
         (InitOpenCommand(), {"row": 0, "col": 0}),
         (SetSkinCommand(), {"reset": False, "frame_svg": None}),
         (SetSoundCommand(), {"enabled": None, "volume": None, "reset": False}),
+        (SetRaceIdentifierCommand(), {"race_identifier": ""}),
     ]
     for cmd, fields in cases:
         assert isinstance(cmd, BaseCommand)
@@ -142,6 +146,24 @@ def test_command_defaults_roundtrip_via_msgspec(app):
         restored = msgspec.msgpack.decode(blob, type=type(cmd))
         for name, value in fields.items():
             assert getattr(restored, name) == value
+
+
+def test_mouse_click_legacy_payload_defaults_batch_cells_to_none():
+    """Old clients omit cells and keep using the original row/col fields."""
+    import msgspec
+
+    legacy_payload = msgspec.msgpack.encode({
+        "type": "mouse_click", "request_id": "legacy",
+        "row": 2, "col": 3, "button": 0, "modifiers": 0,
+    })
+    restored = msgspec.msgpack.decode(legacy_payload, type=MouseClickCommand)
+
+    assert (restored.row, restored.col, restored.button) == (2, 3, 0)
+    assert restored.cells is None
+    batch = MouseClickCommand(cells=[(4, 5), (6, 7)])
+    assert (batch.row, batch.col) == (4, 5)
+    assert (MouseClickCommand(cells=[]).row,
+            MouseClickCommand(cells=[]).col) == (-1, -1)
 
 
 def test_set_skin_and_set_sound_dict_defaults_are_independent(app):

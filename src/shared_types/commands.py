@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import msgspec
 
@@ -68,11 +68,24 @@ class MouseClickCommand(BaseCommand, tag="mouse_click"):
             - 1: 中键
             - 2: 右键（标旗）
         modifiers: 键盘修饰符（保留）
+        cells: 可选的批量坐标列表，每项为 (row, col)。提供后按列表顺序执行，
+            并对每个格子使用相同的 button；省略时保持旧版单格行为。
     """
     row: int = 0
     col: int = 0
     button: int = 0
     modifiers: int = 0
+    cells: Optional[List[Tuple[int, int]]] = None
+
+    def __post_init__(self) -> None:
+        # Older hosts ignore the optional cells field and execute row/col.
+        # Mirror the first requested coordinate so that fallback remains
+        # intentional; an empty batch maps to an invalid coordinate/no-op.
+        if self.cells is not None:
+            if self.cells and len(self.cells[0]) == 2:
+                self.row, self.col = self.cells[0]
+            else:
+                self.row = self.col = -1
 
 
 class InitOpenCommand(BaseCommand, tag="init_open"):
@@ -113,27 +126,26 @@ class SetSkinCommand(BaseCommand, tag="set_skin"):
 
 
 class SetSoundCommand(BaseCommand, tag="set_sound"):
-    """热更新游戏音效（纯内存、不写 gameSetting.ini、不重启）。
+    """旧版插件的音效命令。保留消息格式，主程序接收后忽略。"""
 
-    与 `SetSkinCommand` 完全独立：独立的 tag、独立的控制授权，插件可以只
-    申请音效权限而不影响皮肤权限。主进程只把它转调给
-    `utils.sound_manager.SoundManager`，游戏逻辑代码不感知。
-
-    Attributes:
-        enabled: 是否启用音效；None 表示保持当前值
-        volume: 音量 0~100；None 表示保持当前值
-        pack: 音效包目录名；空串表示默认音效；None 表示保持当前值
-        extra_dir: 额外音效库目录；None 表示保持当前值
-        reset: True 时恢复主进程启动时从 ini 读入的音效设置（忽略以上字段）
-        play_event: 可选，应用设置后试听一个事件（如 "open" / "win"）；
-            仅用于插件界面试听，不属于游戏性音效触发
-    """
     enabled: Optional[bool] = None
     volume: Optional[int] = None
     pack: Optional[str] = None
     extra_dir: Optional[str] = None
     reset: bool = False
     play_event: Optional[str] = None
+
+
+class SetRaceIdentifierCommand(BaseCommand, tag="set_race_identifier"):
+    """在待开局（ready）状态下设置比赛标识，并保存到 gameSetting.ini。
+
+    不重开游戏，不修改棋盘或已生成录像，不计入 allowed_controls 作弊开关。
+    仅受插件管理器的独立控制授权约束，主进程不复查授权文件。
+
+    Attributes:
+        race_identifier: 比赛标识；去除首尾空白，空字符串表示清除。
+    """
+    race_identifier: str = ""
 
 
 # 皮肤资源 key（主进程解码校验与插件打包共用；不含窗口图标）
@@ -161,14 +173,17 @@ SKIN_COLOR_KEYS = (
 
 COMMAND_TYPES = [NewGameCommand, NewPresetGameCommand,
                  MouseClickCommand, InitOpenCommand, SetSkinCommand,
-                 SetSoundCommand]
+                 SetSoundCommand, SetRaceIdentifierCommand]
 
 # 不计入 allowed_controls 作弊开关的命令（单一事实来源）。
-# 这些命令不改变或泄露局面：外观命令只改皮肤/音效；重开新局等价于玩家
+# 这些命令不改变或泄露局面：外观命令只改皮肤；重开新局等价于玩家
 # 按 F2（只重置到 ready，不埋雷）。它们仍受 ControlAuthorizationManager
 # 的独立授权约束，但授权它们不应让整局被判成 JOKING、录像被作废。
+# 比赛标识命令只在 ready 时更新标识和配置，也不改变或泄露局面。
 # 高级设置对话框、主进程 ini 清理、命令 handler 都以此为准。
-NON_CHEAT_TAGS = frozenset({"set_skin", "set_sound", "new_random_game"})
+NON_CHEAT_TAGS = frozenset({
+    "set_skin", "set_sound", "new_random_game", "set_race_identifier",
+})
 
 # ── 控制命令说明（可多语言）────────────────────────────────────
 # 供插件管理器「控制授权」对话框、插件详情对话框，以及主程序
@@ -185,16 +200,18 @@ COMMAND_LABELS: dict[str, str] = {
     "mouse_click": "鼠标点击",
     "init_open": "初始化翻开",
     "set_skin": "更换皮肤",
-    "set_sound": "更改音效",
+    "set_sound": "旧版音效命令",
+    "set_race_identifier": "设置比赛标识",
 }
 
 COMMAND_HINTS: dict[str, str] = {
     "new_random_game": "插件重开新局（等价于按 F2，不影响成绩）",
     "new_preset_game": "按指定棋盘开局（模式为 UPK，可含官方记录）",
-    "mouse_click": "对指定格子模拟左 / 中 / 右键点击",
+    "mouse_click": "对指定格子或坐标列表模拟左 / 中 / 右键点击",
     "init_open": "预设局面初始化时翻开指定格子",
     "set_skin": "热替换主窗口图片皮肤（纯内存、不重启、独立授权）",
-    "set_sound": "热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）",
+    "set_sound": "兼容旧版插件，主程序会忽略此命令",
+    "set_race_identifier": "待开局时设置并保存比赛标识（空字符串清除，独立授权）",
 }
 
 # 翻译上下文（对应 .ts 里的 <context><name>，三处界面共用同一份词条）
@@ -219,19 +236,22 @@ def _i18n_command_strings() -> None:
     _translate("Commands", "鼠标点击")
     _translate("Commands", "初始化翻开")
     _translate("Commands", "更换皮肤")
-    _translate("Commands", "更改音效")
+    _translate("Commands", "旧版音效命令")
+    _translate("Commands", "设置比赛标识")
     _translate("Commands",
                "插件重开新局（等价于按 F2，不影响成绩）")
     _translate("Commands",
                "按指定棋盘开局（模式为 UPK，可含官方记录）")
     _translate("Commands",
-               "对指定格子模拟左 / 中 / 右键点击")
+               "对指定格子或坐标列表模拟左 / 中 / 右键点击")
     _translate("Commands",
                "预设局面初始化时翻开指定格子")
     _translate("Commands",
                "热替换主窗口图片皮肤（纯内存、不重启、独立授权）")
     _translate("Commands",
-               "热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）")
+               "兼容旧版插件，主程序会忽略此命令")
+    _translate("Commands",
+               "待开局时设置并保存比赛标识（空字符串清除，独立授权）")
 
 
 def command_tag(cmd_type: type) -> str:

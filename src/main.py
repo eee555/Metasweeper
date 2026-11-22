@@ -1,3 +1,6 @@
+import os
+import sys
+
 from policy_guard import enforce_policy_integrity
 
 if __name__ == "__main__":
@@ -6,17 +9,16 @@ if __name__ == "__main__":
 import time
 from PySide6 import QtWidgets
 from PySide6.QtNetwork import QLocalSocket, QLocalServer
-import sys
-import os
 import argparse
 import mainWindowGUI as mainWindowGUI
 import mineSweeperGUI as mineSweeperGUI
 import ms_toollib as ms
 from pathlib import Path
+from typing import cast
 from utils.app_logger import logger
 from app.startup_platform import on_new_connection, configure_capture_guard
 from app.cli_check import cli_check_file
-from app.plugin_process import start_plugin_process, cleanup_plugin_process, install_restart_action
+from app.plugin_process import start_plugin_process, cleanup_plugin_process
 from app.plugin_commands import register_plugin_commands
 from app.plugin_queries import register_plugin_queries
 
@@ -105,47 +107,23 @@ if __name__ == "__main__":
         ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
         ui.mainWindow.show()
 
-        # 程序就绪音：主窗口已显示、音效设置也已由 superGUI 初始化完成。
-        # 内部延迟一小段等待音频后端，默认关闭音效时此方法直接返回。
-        # 同时记录启动设置，供 SetSoundCommand(reset=True) 精确还原。
-        try:
-            from utils.sound_manager import SoundManager
-            from app.sound_applier import capture_startup_settings
-            capture_startup_settings(ui)
-            SoundManager.instance().play_ready()
-        except Exception as exc:
-            from utils.app_logger import logger
-            logger.warning(f"启动音效初始化失败，已静默: {exc}")
-
         # ── 启动 ZMQ Server + 插件管理器 ──
 
-        plugin_process = start_plugin_process(ui, mainWindow, plugins_disabled)
-
-        ui._plugin_process = plugin_process  # 保存引用，供重启和退出时使用
-
-        install_restart_action(ui, mainWindow, plugins_disabled)
-
-        # 等插件连接后同步初始语言
-        from PySide6.QtCore import QTimer
+        # 子进程可能立即请求快照；先缓存实际语言并注册业务处理器，
+        # 不依赖 PUB/SUB 的连接速度或启动延迟。
         from shared_types.events import LanguageChangeEvent
         if not plugins_disabled:
-            QTimer.singleShot(2000, lambda: GameServerBridge.instance().send_event(
-                LanguageChangeEvent(language=ui.language))) # type: ignore
-
+            GameServerBridge.instance().send_event(
+                LanguageChangeEvent(language=cast(str, ui.language)))
         register_plugin_commands(GameServerBridge.instance(), ui)
         register_plugin_queries(GameServerBridge.instance(), ui)
+
+        plugin_process = start_plugin_process(ui, mainWindow, plugins_disabled)
 
         configure_capture_guard(ui)
 
         def _on_about_to_quit():
-            # 退出前停掉所有在响的音效并取消未播出的补播，避免 Qt 音频后端
-            # 在播放中被销毁导致告警/崩溃。
-            try:
-                from utils.sound_manager import SoundManager
-                SoundManager.instance().stop_all()
-            except Exception:
-                pass
-            cleanup_plugin_process(ui._plugin_process)
+            cleanup_plugin_process(plugin_process)
 
         app.aboutToQuit.connect(_on_about_to_quit)
         sys.exit(app.exec())

@@ -87,54 +87,19 @@ def test_finding_38_auth_status_column_uses_cached_candidates(qtbot, monkeypatch
 # ── #2 托盘不可用时 retranslateUi 不得崩溃 ────────────────
 
 
-def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch):
+def test_finding_02_retranslate_survives_missing_tray(qtbot, monkeypatch, tmp_path):
     """#2：系统托盘不可用时 retranslateUi 不应抛 AttributeError。"""
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtGui import QAction
-    from PySide6.QtWidgets import (
-        QLabel, QMainWindow, QMenu, QPushButton, QSystemTrayIcon, QToolBar,
-    )
-
-    from plugin_manager.main_window import PluginManagerWindow
+    from PySide6.QtWidgets import QSystemTrayIcon
+    from tests.plugin_manager.test_cov_pm_e_helpers import real_window
 
     monkeypatch.setattr(
         QSystemTrayIcon, "isSystemTrayAvailable", staticmethod(lambda: False)
     )
 
-    class _Shell(PluginManagerWindow):
-        """只装配 retranslateUi 所需控件的最小窗口。"""
-
-        def __init__(self) -> None:
-            QMainWindow.__init__(self)
-            self._menu_plugins = QMenu(self)
-            self._menu_settings = QMenu(self)
-            self._menu_tools = QMenu(self)
-            self._menu_help = QMenu(self)
-            self._act_download_plugin = QAction(self)
-            self._act_basic_settings = QAction(self)
-            self._act_plugin_environment = QAction(self)
-            self._act_control_auth = QAction(self)
-            self._act_dev_guide = QAction(self)
-            self._act_log_viewer = QAction(self)
-            self._act_clear_logs = QAction(self)
-            self._debug_act = QAction(self)
-            self._toolbar = QToolBar(self)
-            self._refresh_btn = QPushButton(self)
-            self._control_auth_btn = QPushButton(self)
-            self._title_label = QLabel(self)
-            self._manager = None
-            self._state_mgr = SimpleNamespace(save=lambda: None)
-            # 真实 __init__ 中的同一守卫：托盘不可用时提前置空
-            self._tray_icon = None
-
-    shell = _Shell()
-    qtbot.addWidget(shell)
-
-    shell._setup_tray_icon()
-    # 托盘不可用时属性存在但为 None（而非未定义）
-    assert shell._tray_icon is None
-
-    shell.retranslateUi()  # 不再抛 AttributeError
+    window = real_window(qtbot, monkeypatch, tmp_path, tray=False)
+    assert window._tray_icon is None
+    window.retranslateUi()
 
 
 def test_finding_02_real_window_initializes_tray_attribute(monkeypatch):
@@ -159,7 +124,7 @@ def test_finding_02_real_window_initializes_tray_attribute(monkeypatch):
 
 def test_finding_03_color_scheme_connection_is_disconnectable():
     """#3：README 对话框连接全局信号后必须在关闭时断开。"""
-    text = _read("src/plugin_manager/main_window.py")
+    text = _read("src/plugin_manager/plugin_readme_dialog.py")
     assert "colorSchemeChanged.connect(self._apply_theme)" in text
     assert "colorSchemeChanged.disconnect(self._apply_theme)" in text
 
@@ -465,11 +430,11 @@ def test_finding_30_version_is_consistent():
     """#30：pyproject、安装脚本与运行时常量版本一致。"""
     pyproject = _read("pyproject.toml")
     iss = _read("package_tool/Metaminesweeper.iss")
-    gui = _read("src/superGUI.py")
+    from config.constants import APP_VERSION
 
     version = pyproject.split('version = "', 1)[1].split('"', 1)[0]
     assert f'#define MyAppVersion "{version}"' in iss
-    assert f'version = "元{version}"' in gui
+    assert APP_VERSION == version
 
 
 # ── #34 同名插件不得重复写日志 ──────────────────────────
@@ -500,11 +465,14 @@ def test_finding_34_duplicate_plugin_sinks_are_reused(tmp_path):
 # ── #37 重连文案括号成对 ─────────────────────────────────
 
 
-def test_finding_37_reconnect_text_has_closing_paren():
+def test_finding_37_reconnect_text_has_closing_paren(qtbot):
     """#37：重连次数文案必须括号成对。"""
-    text = _read("src/plugin_manager/main_window.py")
-    assert 'self.tr("(重连 {n} 次)")' in text
-    assert 'self.tr("(重连 {n} 次")' not in text
+    from tests.plugin_manager.test_cov_pm_e_helpers import shell
+
+    window = shell(qtbot)
+    window._manager = SimpleNamespace(reconnect_count=3)
+    window._on_conn_changed(False)
+    assert "(重连 3 次)" in window._connection_notice.text()
 
 
 # ── #39 retranslateUi 不得重置状态栏消息 ──────────────────

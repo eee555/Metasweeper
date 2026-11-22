@@ -3,26 +3,32 @@
 
 独立进程的主界面，用于管理和展示插件
 - 支持标签页双击/拖拽弹出为独立窗口
+- 支持将独立插件窗口拖回标签栏
 - 关闭独立窗口时释放插件界面（析构 widget）；程序化嵌回入口仍保留
-- 增强型连接状态显示（含 endpoint、重连次数、实时心跳检测）
+- 在连接异常时显示提示
 """
 from __future__ import annotations
 import loguru
 import re
+import requests
+from datetime import datetime
 
+from ctypes.wintypes import MSG
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
-from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QTimer, QEvent, QThread
-from PySide6.QtGui import QColor, QMouseEvent, QIcon
+from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QRect, QRectF, QSize, QTimer, QEvent, QThread, QSignalBlocker
+from PySide6.QtGui import QColor, QCursor, QMouseEvent, QIcon, QKeySequence, QPainter, QPalette, QResizeEvent, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -39,35 +45,52 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QStatusBar,
+    QStackedWidget,
     QSystemTrayIcon,
     QTabBar,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
-    QToolBar,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
+from config.constants import APP_VERSION
+from shared_types.widgets import TaskProgressDialog
+from .plugin_download import PluginDownloader
 from .plugin_info_dialog import PluginInfoDialog
-from .plugin_download_dialog import PluginDownloadDialog
+from .plugin_list_delegate import PluginListDelegate, PluginListWidget, set_plugin_row
+from .plugin_market_dialog import PluginMarketDialog
+from .plugin_uninstall import (
+    is_managed_plugin,
+    plan_removal,
+    queue_removal,
+    remove_plugin,
+    run_removal_in_thread,
+)
+from .plugin_updates import PluginAutoUpdateTask, prepare_plugin_dependencies
+from .plugin_data_transfer import DataTransferResult
 from .plugin_state import PluginStateManager, PluginState
 from .settings_manager import SettingsManager, normalize_pip_indexes
-from plugin_sdk.plugin_base import PluginLifecycle, WindowMode, LogLevel, BasePlugin
+from plugin_sdk.plugin_base import (
+    PluginLifecycle,
+    WindowMode,
+    LogLevel,
+    BasePlugin,
+    resolve_display_name,
+)
 from shared_types.widgets.toggle_switch import ToggleSwitch
-from shared_types.widgets.confirm_dialog import ConfirmDialog
+from .plugin_readme_dialog import _PluginReadmeDialog
 from shared_types.commands import command_hint, command_label
 from plugin_sdk.control_auth import ControlAuthorizationManager
 from plugin_sdk.config_types import OtherInfoBase
-from .app_paths import get_data_dir
+from .app_paths import get_all_plugin_dirs, get_data_dir, get_executable_dir
 from .icons import action_icon, set_action_icon, set_button_box_icons
 from .plugin_lib_env import (
     check_package_updates_async,
     install_debugpy,
     install_plugin_requirements,
-    create_venv,
-    find_matching_python,
     is_venv_dir,
     list_installed_packages,
     python_tag_text,
@@ -97,6 +120,7 @@ def _resolve_plugin_config_path(plugin: BasePlugin | None) -> Path | None:
 
 
 logger = loguru.logger.bind(name="MainWindow")
+_DIAGNOSTIC_ROLE = Qt.ItemDataRole.UserRole + 6
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -110,45 +134,59 @@ class DetachedPluginWindow(QDialog):
     特性：
     - 用户点击窗口 X 关闭时，走 close_requested 请求析构插件 widget（不嵌回标签页）
     - 程序化把独立窗口切回标签页由 _open_tab_window 直接调用 _attach_tab
-    - 标题栏显示"关闭即释放窗口"提示
+    - ``_plugin_name`` 始终是稳定标识；窗口标题使用可本地化的显示名
     """
 
     # 用户主动关闭窗口：请求释放插件视图（不嵌回、不回写配置）
     close_requested = Signal(str)
+    drag_position_changed = Signal(object)
+    drag_finished = Signal(str, QPoint)
 
-    def __init__(self, plugin_name: str, widget: QWidget, parent=None):
+    _WM_MOVING = 0x0216
+    _WM_ENTERSIZEMOVE = 0x0231
+    _WM_EXITSIZEMOVE = 0x0232
+
+    def __init__(self, plugin_name: str, widget: QWidget, parent=None,
+                 title: str | None = None):
         super().__init__(parent)
         self._plugin_name = plugin_name
         self._widget = widget
+        self._display_title = title or plugin_name
         self._icon: QIcon | None = None
         self._dragging = False
         self._drag_offset = QPoint()
+        self._native_drag_origin: QPoint | None = None
+        self._native_moving = False
 
-        self.setWindowTitle(f"{plugin_name} - {self.tr('插件')}")
+        self._apply_title()
         self.setMinimumSize(400, 300)
         self.resize(600, 450)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        # 顶部提示栏（保留此栏：_attach_tab 依赖 layout 第 1 项为插件 widget）
-        hint_bar = QLabel(self.tr("关闭此窗口将释放插件界面"))
-        hint_bar.setFixedHeight(25)
-        hint_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hint_bar.setStyleSheet("""
-            QLabel {
-                background: #e8f4fd;
-                color: #1976d2;
-                padding: 4px;
-                font-size: 12px;
-                border-bottom: 1px solid #b3d9ff;
-            }
-        """)
-        layout.addWidget(hint_bar)
         # 将 widget 从旧父窗口转移到新窗口，并确保可见
         widget.setParent(self)
         layout.addWidget(widget)
         widget.setVisible(True)
         widget.show()
+
+    def _apply_title(self) -> None:
+        """按当前显示名重建窗口标题；稳定标识不参与显示。"""
+        self.setWindowTitle(
+            self.tr("{name} - 插件").format(name=self._display_title))
+
+    def set_display_title(self, title: str) -> None:
+        """更新显示名（语言切换时由管理器调用），保持稳定标识不变。"""
+        if not title or title == self._display_title:
+            return
+        self._display_title = title
+        self._apply_title()
+
+    def changeEvent(self, event) -> None:
+        """语言切换时刷新标题中的固定文本。"""
+        if event.type() == QEvent.Type.LanguageChange:
+            self._apply_title()
+        super().changeEvent(event)
 
     def start_drag(self, global_pos: QPoint) -> None:
         """启动拖拽模式（从外部调用）"""
@@ -166,14 +204,39 @@ class DetachedPluginWindow(QDialog):
 
     def mouseMoveEvent(self, event) -> None:
         if self._dragging and event.buttons() & Qt.MouseButton.LeftButton:
-            self.move(event.globalPos() - self._drag_offset)
+            position = event.globalPosition().toPoint()
+            self.move(position - self._drag_offset)
+            self.drag_position_changed.emit(position)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            was_dragging = self._dragging
             self._dragging = False
             self.releaseMouse()
+            if was_dragging:
+                self.drag_position_changed.emit(None)
+                self.drag_finished.emit(self._plugin_name, event.globalPosition().toPoint())
         super().mouseReleaseEvent(event)
+
+    def nativeEvent(self, event_type, message):
+        if event_type == b"windows_generic_MSG":
+            event = MSG.from_address(int(message)).message
+            if event == self._WM_ENTERSIZEMOVE:
+                self._native_drag_origin = self.pos()
+                self._native_moving = False
+            elif event == self._WM_MOVING:
+                self._native_moving = True
+                self.drag_position_changed.emit(QCursor.pos())
+            elif event == self._WM_EXITSIZEMOVE:
+                moved = self._native_moving and self.pos() != self._native_drag_origin
+                if self._native_moving:
+                    self.drag_position_changed.emit(None)
+                self._native_moving = False
+                self._native_drag_origin = None
+                if moved:
+                    self.drag_finished.emit(self._plugin_name, QCursor.pos())
+        return False, 0
 
     def closeEvent(self, event) -> None:
         """用户点 X：请求析构插件视图；程序化 close() 不触发该请求。
@@ -190,13 +253,22 @@ class DetachedPluginWindow(QDialog):
 
 
 class _DetachableTabBar(QTabBar):
-    """支持拖拽弹出的标签栏"""
+    """支持拖拽弹出的标签栏。
 
-    drag_initiated = Signal(int, str, QPoint)  # index, name, global_pos
+    ``tabText`` 是当前语言下的显示名；稳定标识存放在 ``tabData``，
+    拖拽信号只携带稳定标识，避免显示名影响任何查找逻辑。
+    """
+
+    drag_initiated = Signal(int, str, QPoint)  # index, plugin_key, global_pos
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._drag_start_pos: QPoint | None = None
+
+    def _key_at(self, index: int) -> str:
+        """读取标签的稳定标识，未显式设置时回退到显示名。"""
+        data = self.tabData(index)
+        return str(data) if data is not None else self.tabText(index)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -216,8 +288,8 @@ class _DetachableTabBar(QTabBar):
                     # 判断是否向下拖出了标签栏区域（垂直偏移大）
                     delta_y = event.globalPos().y() - self._drag_start_pos.y()
                     if abs(delta_y) > QApplication.startDragDistance():
-                        name = self.tabText(idx)
-                        self.drag_initiated.emit(idx, name, event.globalPos())
+                        key = self._key_at(idx)
+                        self.drag_initiated.emit(idx, key, event.globalPos())
                         self._drag_start_pos = None
                         return
         super().mouseMoveEvent(event)
@@ -226,8 +298,8 @@ class _DetachableTabBar(QTabBar):
         if event.button() == Qt.MouseButton.LeftButton:
             idx = self.tabAt(event.pos())
             if idx >= 0:
-                name = self.tabText(idx)
-                self.drag_initiated.emit(idx, name, event.globalPos())
+                self.drag_initiated.emit(
+                    idx, self._key_at(idx), event.globalPos())
                 return
         super().mouseDoubleClickEvent(event)
 
@@ -239,14 +311,15 @@ class DetachableTabWidget(QTabWidget):
     操作方式：
     - 双击标签页 → 弹出为独立窗口
     - 向下拖拽标签页 → 弹出为独立窗口
+    - 将独立窗口拖到标签栏 → 嵌回标签页
     - 关闭独立窗口 → 析构插件视图（不嵌回）
     - 程序化 _open_tab_window → 可把独立窗口嵌回标签页
     """
 
-    tab_detached = Signal(str)             # 标签页被弹出 (plugin_name)
-    tab_attach_requested = Signal(str)      # 请求嵌回 (plugin_name)
-    tab_close_requested = Signal(str)       # 请求关闭标签页 (plugin_name)
-    window_close_requested = Signal(str)    # 独立窗口被用户关闭 (plugin_name)
+    tab_detached = Signal(str)             # 标签页被弹出 (plugin_key)
+    tab_attach_requested = Signal(str)      # 请求嵌回 (plugin_key)
+    tab_close_requested = Signal(str)       # 请求关闭标签页 (plugin_key)
+    window_close_requested = Signal(str)    # 独立窗口被用户关闭 (plugin_key)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -260,6 +333,11 @@ class DetachableTabWidget(QTabWidget):
         self.setMovable(True)         # 允许内部重排序
 
         self._detached_windows: dict[str, DetachedPluginWindow] = {}
+        self._dock_preview_window: DetachedPluginWindow | None = None
+        self._dock_preview = QFrame(self)
+        self._dock_preview.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._dock_preview.hide()
+        self._dock_marker = QFrame(self._dock_preview)
 
         # 连接自定义标签栏的拖拽信号
         self._tab_bar.drag_initiated.connect(self._on_drag_from_bar)
@@ -343,34 +421,102 @@ class DetachableTabWidget(QTabWidget):
             if current_index >= 0:
                 self._on_tab_close_requested(current_index)
 
-    def add_detachable_tab(self, widget: QWidget, name: str, icon=None) -> int:
-        """添加一个可分离的标签页，返回 index"""
-        idx = self.addTab(widget, name)
+    def tab_key(self, index: int) -> str | None:
+        """返回标签页的稳定标识（不是显示名），无标签时返回 None。
+
+        稳定标识优先从视图的 ``_plugin_key`` 属性读取（随视图移动，
+        不受标签重排影响），其次回退到 ``QTabBar`` 的 item data，
+        最后兼容未标记的旧调用点直接使用标签文本。
+        """
+        if index < 0 or index >= self.count():
+            return None
+        widget = self.widget(index)
+        if widget is not None:
+            key = widget.property("_plugin_key")
+            if key:
+                return str(key)
+        data = self.tabBar().tabData(index)
+        if data:
+            return str(data)
+        return self.tabText(index)
+
+    def _set_tab_key(self, index: int, key: str) -> None:
+        """记录标签页的稳定标识（视图属性 + tab bar data 双份）。"""
+        widget = self.widget(index)
+        if widget is not None:
+            widget.setProperty("_plugin_key", key)
+        self.tabBar().setTabData(index, key)
+
+    def index_of_key(self, key: str) -> int:
+        """按稳定标识查找标签页下标；不依赖当前语言下的标题文本。"""
+        for index in range(self.count()):
+            if self.tab_key(index) == key:
+                return index
+        return -1
+
+    def set_tab_display_name(self, key: str, display_name: str) -> None:
+        """更新单个标签页的显示名，保留稳定标识与图标。"""
+        index = self.index_of_key(key)
+        if index >= 0:
+            self.setTabText(index, display_name)
+        window = self._detached_windows.get(key)
+        if window is not None:
+            window.set_display_title(display_name)
+
+    def apply_display_names(self, names: dict[str, str]) -> None:
+        """按 ``{稳定标识: 显示名}`` 刷新所有标签页与独立窗口标题。"""
+        for index in range(self.count()):
+            key = self.tab_key(index)
+            if key is not None and key in names:
+                self.setTabText(index, names[key])
+        for key, window in list(self._detached_windows.items()):
+            if key in names:
+                window.set_display_title(names[key])
+
+    def add_detachable_tab(self, widget: QWidget, name: str, icon=None,
+                           key: str | None = None, *, index: int = -1) -> int:
+        """添加一个可分离的标签页，返回 index。
+
+        Args:
+            widget: 插件视图。
+            name: 当前语言下的显示名（仅用于展示）。
+            icon: 标签页图标。
+            key: 稳定标识；默认与显示名相同，便于旧调用点兼容。
+            index: 插入位置，默认追加到末尾。
+        """
+        key = name if key is None else key
+        # The first tab can emit currentChanged from inside insertTab().
+        widget.setProperty("_plugin_key", key)
+        idx = self.insertTab(index, widget, name)
+        self._set_tab_key(idx, key)
         if icon is not None:
             self.setTabIcon(idx, icon)
         return idx
 
-    def _on_drag_from_bar(self, index: int, name: str, pos: QPoint) -> None:
+    def _on_drag_from_bar(self, index: int, key: str, pos: QPoint) -> None:
         """响应标签栏发起的拖拽/双击弹出"""
-        self._detach_tab(index, name, pos=pos)
+        self._detach_tab(index, key, pos=pos)
 
-    def _detach_tab(self, index: int, name: str, pos: QPoint | None = None) -> None:
-        """将指定标签页弹出为独立窗口"""
+    def _detach_tab(self, index: int, key: str, pos: QPoint | None = None) -> None:
+        """将指定标签页弹出为独立窗口（``key`` 为稳定标识）。"""
         widget = self.widget(index)
         if widget is None:
             return
 
         icon = self.tabIcon(index)
+        title = self.tabText(index)
         self.removeTab(index)
 
-        window = DetachedPluginWindow(name, widget, parent=self.window())
+        window = DetachedPluginWindow(key, widget, parent=self.window(), title=title)
         window._icon = icon
         if icon and not icon.isNull():
             window.setWindowIcon(icon)
         # 用户点独立窗口 X → 转发给管理器走析构路径。
         # 程序化嵌回由 _open_tab_window 直接调用 _attach_tab，无需信号连线。
         window.close_requested.connect(self.window_close_requested)
-        self._detached_windows[name] = window
+        window.drag_position_changed.connect(self._on_window_drag_position)
+        window.drag_finished.connect(self._on_window_drag_finished, Qt.ConnectionType.QueuedConnection)
+        self._detached_windows[key] = window
 
         if pos is not None:
             # 先显示窗口以获取正确的尺寸
@@ -387,138 +533,157 @@ class DetachableTabWidget(QTabWidget):
             window.show()
         window.activateWindow()
 
-        self.tab_detached.emit(name)
+        self.tab_detached.emit(key)
+
+    def _dock_area(self) -> QRect:
+        height = max(self._tab_bar.height(), self.fontMetrics().height() + 8)
+        return self.rect().intersected(QRect(0, 0, self.width(), height))
+
+    def _dock_insertion(self, x: int) -> tuple[int, int]:
+        """返回插入索引及其在标签区内的横坐标。"""
+        bar = self._tab_bar
+        rtl = bar.isRightToLeft()
+        marker_x = self.width() if rtl else 0
+        for index in range(self.count()):
+            if not bar.isTabVisible(index):
+                continue
+            rect = bar.tabRect(index).translated(bar.pos())
+            before_center = x >= rect.center().x() if rtl else x <= rect.center().x()
+            if before_center:
+                return index, rect.right() + 1 if rtl else rect.left()
+            marker_x = rect.left() if rtl else rect.right() + 1
+        return self.count(), marker_x
+
+    @Slot(object)
+    def _on_window_drag_position(self, global_pos: QPoint | None) -> None:
+        window = self.sender()
+        if not self.isVisible() or global_pos is None:
+            self._clear_dock_preview()
+            return
+        area = self._dock_area()
+        position = self.mapFromGlobal(global_pos)
+        if not area.contains(position):
+            self._clear_dock_preview()
+            return
+        _, marker_x = self._dock_insertion(position.x())
+        marker_left = max(2, min(marker_x - area.x() - 2, area.width() - 6))
+        marker = QRect(marker_left, 3, 4, max(0, area.height() - 6))
+        if (self._dock_preview_window is window
+                and self._dock_preview.geometry() == area
+                and self._dock_marker.geometry() == marker):
+            return
+        if self._dock_preview_window is not window:
+            self._clear_dock_preview()
+            color = self.palette().highlight().color()
+            border = color.name()
+            fill = f"rgba({color.red()}, {color.green()}, {color.blue()}, 72)"
+            self._dock_preview.setStyleSheet(
+                f"background-color: {fill}; border: 2px solid {border};")
+            self._dock_marker.setStyleSheet(f"background-color: {border}; border: none;")
+            self._dock_preview_window = window
+            window.setWindowOpacity(0.78)
+        self._dock_preview.setGeometry(area)
+        self._dock_marker.setGeometry(marker)
+        self._dock_preview.raise_()
+        self._dock_preview.show()
+        self._dock_preview.repaint()
+
+    def _clear_dock_preview(self) -> None:
+        window = self._dock_preview_window
+        if window is not None:
+            self._dock_preview_window = None
+            self._dock_preview.hide()
+            window.setWindowOpacity(1.0)
+
+    def hideEvent(self, event) -> None:
+        self._clear_dock_preview()
+        super().hideEvent(event)
+
+    @Slot(str, QPoint)
+    def _on_window_drag_finished(self, name: str, global_pos: QPoint) -> None:
+        if not self.isVisible() or self._detached_windows.get(name) is not self.sender():
+            return
+        position = self.mapFromGlobal(global_pos)
+        if not self._dock_area().contains(position):
+            return
+        insertion_index, _ = self._dock_insertion(position.x())
+        self._attach_tab(name, index=insertion_index)
+        index = self.index_of_key(name)
+        if index >= 0:
+            self.setCurrentIndex(index)
 
     def _cleanup_detached(self, name: str) -> None:
         """安全清理 detached 窗口引用"""
         if name in self._detached_windows:
-            w = self._detached_windows[name]
+            w = self._detached_windows.pop(name)
+            if self._dock_preview_window is w:
+                self._clear_dock_preview()
             w.blockSignals(True)
             w.close()
             w.deleteLater()
-            del self._detached_windows[name]
 
-    def _attach_tab(self, name: str) -> None:
+    def _attach_tab(self, name: str, *, index: int = -1) -> None:
         """将弹出的窗口嵌回标签页"""
         if name not in self._detached_windows:
             return
 
         window = self._detached_windows[name]
+        if self._dock_preview_window is window:
+            self._clear_dock_preview()
         saved_icon = window._icon  # type: ignore[attr-defined]
+        title = window._display_title
         # 防止重复调用：手动关闭时已清理过的情况
-        lay = window.layout()
-        if lay is None or lay.count() < 2:
-            self._cleanup_detached(name)
-            return
-
-        item = lay.itemAt(1)
-        if item is None:
-            self._cleanup_detached(name)
-            return
-        widget = item.widget()
+        layout = window.layout()
+        item = layout.itemAt(0) if layout is not None else None
+        widget = item.widget() if item is not None else None
         if widget is None:
             self._cleanup_detached(name)
             return
 
         # 从窗口取出 widget
-        window.layout().removeWidget(widget)
+        layout.removeWidget(widget)
         widget.setParent(None)  # type: ignore
 
         window.deleteLater()
         del self._detached_windows[name]
 
-        # 检查是否已存在同名标签页
-        for i in range(self.count()):
-            if self.tabText(i) == name:
-                self.insertTab(i, widget, name)
-                if saved_icon and not saved_icon.isNull():
-                    self.setTabIcon(i, saved_icon)
-                widget.setVisible(True)
-                return
+        # 检查是否已存在同一稳定标识的标签页
+        existing = self.index_of_key(name)
+        if existing >= 0:
+            self.insertTab(existing, widget, title)
+            self._set_tab_key(existing, name)
+            if saved_icon and not saved_icon.isNull():
+                self.setTabIcon(existing, saved_icon)
+            widget.setVisible(True)
+            return
 
-        idx = self.addTab(widget, name)
-        if saved_icon and not saved_icon.isNull():
-            self.setTabIcon(idx, saved_icon)
+        self.add_detachable_tab(widget, title, icon=saved_icon, key=name, index=index)
         widget.setVisible(True)
         self.tab_attach_requested.emit(name)
 
     def _on_tab_close_requested(self, index: int) -> None:
         """处理标签页关闭按钮点击：仅移交关闭请求，视图由插件管理器销毁。"""
-        name = self.tabText(index)
-        if self.widget(index) is None:
+        key = self.tab_key(index)
+        if key is None or self.widget(index) is None:
             return
         self.removeTab(index)
-        self.tab_close_requested.emit(name)
+        self.tab_close_requested.emit(key)
 
 
 # ═══════════════════════════════════════════════════════════════════
 # 连接状态组件
 # ═══════════════════════════════════════════════════════════════════
 
-class ConnectionStatusWidget(QWidget):
-    """增强型连接状态显示组件"""
-
-    def __init__(self, endpoint: str, parent=None):
-        super().__init__(parent)
-        self._endpoint = endpoint
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        # 状态指示灯
-        self._status_label = QLabel(self.tr("● 未连接"))
-        self._status_label.setStyleSheet("color: red; font-weight: bold;")
-        layout.addWidget(self._status_label)
-
-        # 重连次数
-        self._reconnect_label = QLabel("")
-        self._reconnect_label.setStyleSheet(
-            "color: orange; font-size: 11px; margin-left: 6px;"
-        )
-        layout.addWidget(self._reconnect_label)
-
-        layout.addStretch()
-
-        # 端点地址
-        ep_label = QLabel(endpoint)
-        ep_label.setStyleSheet("color: gray; font-size: 11px;")
-        layout.addWidget(ep_label)
-
-    def set_status(
-        self,
-        connected: bool,
-        reconnect_count: int = 0,
-    ) -> None:
-        """更新连接状态显示"""
-        if connected:
-            self._status_label.setText(self.tr("● 已连接"))
-            self._status_label.setStyleSheet(
-                "color: green; font-weight: bold;")
-            if reconnect_count > 0:
-                self._reconnect_label.setText(
-                    self.tr("(重连 {n} 次)").format(n=reconnect_count)
-                )
-                self._reconnect_label.show()
-            else:
-                self._reconnect_label.hide()
-        else:
-            self._status_label.setText(self.tr("● 未连接"))
-            self._status_label.setStyleSheet("color: red; font-weight: bold;")
-            if reconnect_count > 0:
-                self._reconnect_label.setText(
-                    self.tr("(断开, 重连 {n} 次)").format(n=reconnect_count)
-                )
-                self._reconnect_label.show()
-            else:
-                self._reconnect_label.hide()
-
-
 # ═══════════════════════════════════════════════════════════════════
 # 插件设置编辑对话框
 # ═══════════════════════════════════════════════════════════════════
 
 class PluginSettingsDialog(QDialog):
-    """编辑单个插件的持久化状态"""
+    """编辑单个插件的持久化状态
+
+    ``plugin_name`` / ``_name`` 始终是稳定标识（状态键、配置路径）；
+    窗口标题中的名称使用可本地化的 ``display_name``。
+    """
 
     def __init__(
         self,
@@ -527,15 +692,17 @@ class PluginSettingsDialog(QDialog):
         other_info: OtherInfoBase | None = None,
         parent=None,
         plugin: BasePlugin | None = None,
+        display_name: str | None = None,
     ):
         super().__init__(parent)
         self._name = plugin_name
+        self._display_name = display_name or plugin_name
         self._other_info = other_info
         self._plugin = plugin
 
         if plugin is not None:
             self.setWindowIcon(plugin.plugin_icon)
-        self.setWindowTitle(self.tr("插件设置 - {n}").format(n=plugin_name))
+        self._apply_title()
         self.setMinimumWidth(400)
         self.setMinimumHeight(300)
         self.setModal(True)
@@ -647,12 +814,22 @@ class PluginSettingsDialog(QDialog):
         set_button_box_icons(btns)
         layout.addWidget(btns)
 
+    def _apply_title(self) -> None:
+        """按当前显示名重建标题；稳定标识仅作为回退。"""
+        self.setWindowTitle(
+            self.tr("插件设置 - {n}").format(n=self._display_name))
+
+    def changeEvent(self, event) -> None:
+        """语言切换时刷新标题中的固定文本。"""
+        if event.type() == QEvent.Type.LanguageChange:
+            self._apply_title()
+        super().changeEvent(event)
+
     def _on_ok_clicked(self) -> None:
         """点确定：字段 validator → plugin.validate_config，失败不关窗。"""
         if self._config_widget is None:
             self.accept()
             return
-
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             errors = self._config_widget.validate_pending(self._plugin)
@@ -699,47 +876,19 @@ class PluginSettingsDialog(QDialog):
 # 插件依赖环境
 # ═══════════════════════════════════════════════════════════════════
 
-class _ElidedPathLabel(QLabel):
-    """随可用宽度中间省略路径，工具提示保留完整内容。"""
-
-    def set_path(self, path: str) -> None:
-        self._path = path
-        self.setToolTip(path)
-        self._update_text()
-
-    def _update_text(self) -> None:
-        self.setText(self.fontMetrics().elidedText(
-            getattr(self, "_path", ""), Qt.TextElideMode.ElideMiddle,
-            max(0, self.contentsRect().width())))
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        self._update_text()
-
-
 class _EnvironmentWorker(QThread):
-    """耗时的解释器探测和虚拟环境创建不占用 GUI 线程。"""
-
-    def __init__(self, target: Path | None = None, executable: str = "", parent=None):
+    def __init__(self, target: Path, parent=None):
         super().__init__(parent)
         self.target = target
-        self.executable = executable
-        self.result = None
-        self.error = None
+        self.error: str | None = None
 
     def run(self) -> None:
         try:
-            if self.target is None:
-                self.result = find_matching_python()
-            else:
-                # 再次检查，防止用户选择后目录已经有内容。
-                if self.target.exists() and (
-                        not self.target.is_dir() or any(self.target.iterdir())):
-                    raise ValueError("directory is not empty or is not a directory")
-                if not self.target.parent.is_dir():
-                    raise ValueError("parent directory does not exist")
-                create_venv(self.target, self.executable)
-        except Exception as exc:
+            if self.target.exists() and (
+                    not self.target.is_dir() or any(self.target.iterdir())):
+                raise ValueError("directory is not empty or is not a directory")
+            self.target.mkdir(exist_ok=True)
+        except (OSError, ValueError) as exc:
             self.error = str(exc)
 
 
@@ -762,36 +911,36 @@ class _InstallWorker(QThread):
             self.error = str(exc) or type(exc).__name__
 
 
-class _InstallProgressDialog(QDialog):
+class _DataTransferWorker(QThread):
+    """Run a manager-level plugin data export/import outside the GUI thread."""
+
+    output = Signal(str)
+    completed = Signal(object, object)
+
+    def __init__(self, operation, archive: Path, parent=None):
+        super().__init__(parent)
+        self._operation = operation
+        self._archive = archive
+
+    def run(self) -> None:
+        try:
+            result = self._operation(self._archive, progress=self.output.emit)
+            self.completed.emit(result, None)
+        except Exception as exc:
+            self.completed.emit(None, str(exc) or type(exc).__name__)
+
+
+class _InstallProgressDialog(TaskProgressDialog):
     """显示手动安装输出，直到工作线程结束才允许关闭。"""
 
     installation_finished = Signal(object)
 
     def __init__(self, title: str, installer, args: tuple, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(title)
-        self.resize(620, 380)
-        self.setMinimumSize(400, 250)
-        self._active = True
-        layout = QVBoxLayout(self)
-        self._status = QLabel(self.tr("正在安装…"))
-        self._status.setWordWrap(True)
-        layout.addWidget(self._status)
-        self._output = QPlainTextEdit(self)
-        self._output.setReadOnly(True)
-        self._output.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
-        scroll_bar = self._output.verticalScrollBar()
-        scroll_bar.rangeChanged.connect(lambda _minimum, maximum: scroll_bar.setValue(maximum))
-        layout.addWidget(self._output, 1)
-        self._close_button = QPushButton(self.tr("关闭"))
-        self._close_button.setEnabled(False)
-        self._close_button.clicked.connect(self.accept)
-        layout.addWidget(self._close_button, alignment=Qt.AlignmentFlag.AlignRight)
-
+        super().__init__(title, self.tr("正在安装…"), parent)
         # 线程归应用所有，窗口意外销毁也不会销毁活动线程。应用退出时等待收尾。
         app = QApplication.instance()
         self._worker = _InstallWorker(installer, args, app)
-        self._worker.output.connect(self._append_output, Qt.ConnectionType.QueuedConnection)
+        self._worker.output.connect(self.task_output.emit, Qt.ConnectionType.QueuedConnection)
         worker = self._worker
         app.aboutToQuit.connect(worker.wait)
 
@@ -803,40 +952,21 @@ class _InstallProgressDialog(QDialog):
         worker.finished.connect(self._on_finished, Qt.ConnectionType.QueuedConnection)
 
     def start(self) -> None:
+        self.set_task_running(True)
+        parent = self.parent()
+        update_buttons = getattr(parent, "_update_buttons", None)
+        if callable(update_buttons):
+            update_buttons()
         self.show()
         self._worker.start()
 
-    @Slot(str)
-    def _append_output(self, text: str) -> None:
-        cursor = self._output.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        cursor.insertText(text)
-        self._output.setTextCursor(cursor)
-        self._output.ensureCursorVisible()
-
-    @Slot()
     def _on_finished(self) -> None:
         error = self._worker.error
-        self._active = False
-        self._close_button.setEnabled(True)
         if error:
-            self.set_result(self.tr("安装失败：{error}").format(error=error))
+            self.set_completed(self.tr("安装失败：{error}").format(error=error), success=False)
         else:
-            self.set_result(self.tr("安装完成"))
+            self.set_completed(self.tr("安装完成"))
         self.installation_finished.emit(error)
-
-    def set_result(self, text: str) -> None:
-        self._status.setText(text)
-
-    def reject(self) -> None:
-        if not self._active:
-            super().reject()
-
-    def closeEvent(self, event) -> None:
-        if self._active:
-            event.ignore()
-        else:
-            super().closeEvent(event)
 
 
 class _InstalledPackagesDialog(QDialog):
@@ -999,12 +1129,11 @@ class PluginEnvironmentDialog(QDialog):
     def __init__(self, settings_manager: "SettingsManager", parent=None) -> None:
         super().__init__(parent)
         self._settings_manager = settings_manager
-        self._matching_python = None
         self._worker = None
         self.setWindowTitle(self.tr("插件依赖环境"))
         self.setMinimumWidth(480)
         layout = QVBoxLayout(self)
-        hint = QLabel(self.tr("选择已有库目录或虚拟环境目录。依赖包需手动安装；目录变更后需重启插件管理器。"))
+        hint = QLabel(self.tr("使用当前运行环境安装兼容的 wheel。目录变更后需重启插件管理器。"))
         hint.setWordWrap(True)
         layout.addWidget(hint)
 
@@ -1020,34 +1149,24 @@ class PluginEnvironmentDialog(QDialog):
 
         layout.addWidget(QLabel(self.tr("当前运行环境：{tag}").format(tag=python_tag_text())))
 
-        python_row = QHBoxLayout()
-        python_row.addWidget(QLabel(self.tr("匹配的 Python：")))
-        self._python_path_label = _ElidedPathLabel()
-        self._python_path_label.setMinimumWidth(0)
-        self._python_path_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self._python_path_label.set_path(self.tr("正在检测…"))
-        python_row.addWidget(self._python_path_label, 1)
-        layout.addLayout(python_row)
-
         row = QHBoxLayout()
-        initial_dir = settings_manager.plugin_lib_dir or str(
-            get_data_dir() / "plugin_venv")
-        self._lib_dir_edit = QLineEdit(initial_dir)
+        self._lib_dir_edit = QLineEdit(settings_manager.plugin_lib_dir)
         self._lib_dir_edit.setPlaceholderText(self.tr("选择插件依赖环境目录"))
         row.addWidget(self._lib_dir_edit, 1)
         self._lib_browse_btn = QPushButton(self.tr("选择…"))
         self._lib_browse_btn.clicked.connect(self._on_browse_lib_dir)
         row.addWidget(self._lib_browse_btn)
-        self._lib_clear_btn = QPushButton(self.tr("清空"))
-        self._lib_clear_btn.clicked.connect(self._lib_dir_edit.clear)
+        self._lib_clear_btn = QPushButton(self.tr("恢复默认"))
+        self._lib_clear_btn.clicked.connect(
+            lambda: self._lib_dir_edit.setText(str(self._settings_manager.default_plugin_lib_dir)))
         row.addWidget(self._lib_clear_btn)
         layout.addLayout(row)
 
         self._lib_status_label = QLabel()
         self._lib_status_label.setWordWrap(True)
         layout.addWidget(self._lib_status_label)
-        self._create_btn = QPushButton(self.tr("创建虚拟环境"))
-        self._create_btn.clicked.connect(self._on_create_venv)
+        self._create_btn = QPushButton(self.tr("创建依赖目录"))
+        self._create_btn.clicked.connect(self._on_create_lib_dir)
         layout.addWidget(self._create_btn)
         self._packages_btn = QPushButton(self.tr("查看已安装的包"))
         self._packages_btn.clicked.connect(self._show_installed_packages)
@@ -1056,11 +1175,9 @@ class PluginEnvironmentDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self._buttons.accepted.connect(self._on_accept)
         self._buttons.rejected.connect(self.reject)
-        self._buttons.setEnabled(False)
         set_button_box_icons(self._buttons)
         layout.addWidget(self._buttons)
         self._lib_dir_edit.textChanged.connect(self._refresh_lib_status)
-        self._start_worker(_EnvironmentWorker(parent=self))
         self._refresh_lib_status()
 
     def _start_worker(self, worker: _EnvironmentWorker) -> None:
@@ -1075,21 +1192,11 @@ class PluginEnvironmentDialog(QDialog):
             return
         self._worker = None
         self._buttons.setEnabled(True)
-        if worker.target is None:
-            self._matching_python = worker.result
-            self._python_path_label.set_path(
-                worker.result or self.tr("未找到匹配的 Python"))
-        else:
-            self._lib_dir_edit.setEnabled(True)
-            self._lib_browse_btn.setEnabled(True)
-            self._lib_clear_btn.setEnabled(True)
-            self._buttons.setEnabled(True)
-            if worker.error:
-                QMessageBox.warning(self, self.tr("创建虚拟环境失败"),
-                                    self.tr("无法创建虚拟环境：{error}").format(error=worker.error))
-            else:
-                QMessageBox.information(self, self.tr("插件依赖环境"),
-                                        self.tr("虚拟环境已创建。依赖包需手动安装。"))
+        self._lib_dir_edit.setEnabled(True)
+        self._lib_browse_btn.setEnabled(True)
+        self._lib_clear_btn.setEnabled(True)
+        if worker.error:
+            QMessageBox.warning(self, self.tr("创建依赖目录失败"), worker.error)
         worker.deleteLater()
         self._refresh_lib_status()
 
@@ -1104,17 +1211,18 @@ class PluginEnvironmentDialog(QDialog):
                 text = self.tr("所选目录是虚拟环境")
             elif path.is_dir():
                 text = self.tr("所选目录不是虚拟环境（可作为普通库目录）")
-                can_create = not any(path.iterdir())
             elif path.exists():
                 text = self.tr("所选路径不是目录")
             else:
                 can_create = path.parent.is_dir()
-                text = self.tr("目录尚不存在；可点击“创建虚拟环境”手动创建") if can_create else self.tr(
-                    "目录及其父目录不存在")
+                if not can_create:
+                    text = self.tr("目录及其父目录不存在")
+                else:
+                    text = self.tr("目录尚不存在；可点击“创建依赖目录”手动创建")
         except (OSError, ValueError) as exc:
             text = self.tr("无法检查目录：{error}").format(error=exc)
         self._lib_status_label.setText(text)
-        self._create_btn.setEnabled(bool(can_create and self._matching_python and not self._worker))
+        self._create_btn.setEnabled(bool(can_create and not self._worker))
 
     def _show_installed_packages(self) -> None:
         raw = self._lib_dir_edit.text().strip()
@@ -1136,9 +1244,9 @@ class PluginEnvironmentDialog(QDialog):
         if chosen:
             self._lib_dir_edit.setText(chosen)
 
-    def _on_create_venv(self) -> None:
+    def _on_create_lib_dir(self) -> None:
         raw = self._lib_dir_edit.text().strip()
-        if not raw or not self._matching_python or self._worker:
+        if not raw or self._worker:
             return
         target = Path(raw).expanduser()
         try:
@@ -1148,14 +1256,15 @@ class PluginEnvironmentDialog(QDialog):
             if not target.parent.is_dir():
                 raise ValueError(self.tr("目标目录的父目录不存在"))
         except (OSError, ValueError) as exc:
-            QMessageBox.warning(self, self.tr("创建虚拟环境失败"), str(exc))
+            title = self.tr("创建依赖目录失败")
+            QMessageBox.warning(self, title, str(exc))
             self._refresh_lib_status()
             return
         self._lib_dir_edit.setEnabled(False)
         self._lib_browse_btn.setEnabled(False)
         self._lib_clear_btn.setEnabled(False)
         self._buttons.setEnabled(False)
-        self._start_worker(_EnvironmentWorker(target, self._matching_python, self))
+        self._start_worker(_EnvironmentWorker(target, self))
         self._refresh_lib_status()
 
     def _on_accept(self) -> None:
@@ -1168,24 +1277,20 @@ class PluginEnvironmentDialog(QDialog):
         except ValueError as exc:
             QMessageBox.warning(self, self.tr("无效的依赖下载源"), str(exc))
             return
-        if raw:
-            candidate = Path(raw).expanduser()
-            if candidate.exists():
-                try:
-                    target, message = resolve_lib_path(raw)
-                except (OSError, ValueError) as exc:
-                    target, message = None, str(exc)
-                if target is None:
-                    QMessageBox.warning(self, self.tr("插件依赖环境"), message)
-                    return
-            elif not candidate.parent.is_dir():
-                QMessageBox.warning(
-                    self, self.tr("插件依赖环境"),
-                    self.tr("所选目录不存在，且其父目录也不存在。"))
-                return
+        try:
+            candidate = (Path(raw).expanduser().resolve() if raw
+                         else self._settings_manager.default_plugin_lib_dir)
+            if not candidate.exists():
+                candidate.mkdir(exist_ok=True)
+            target, message = resolve_lib_path(str(candidate))
+        except (OSError, RuntimeError, ValueError) as exc:
+            target, message = None, str(exc)
+        if target is None:
+            QMessageBox.warning(self, self.tr("插件依赖环境"), message)
+            return
         changed = False
-        if raw != self._settings_manager.plugin_lib_dir:
-            self._settings_manager.set_plugin_lib_dir(raw)
+        if str(candidate) != self._settings_manager.plugin_lib_dir:
+            self._settings_manager.set_plugin_lib_dir(str(candidate))
             changed = True
         if indexes != self._settings_manager.plugin_pip_indexes:
             self._settings_manager.set_plugin_pip_indexes(indexes)
@@ -1347,16 +1452,18 @@ class LogViewerDialog(QDialog):
         initial_level: str = "DEBUG",
         auto_scroll: bool = True,
         show_source: bool = False,
-        parent=None
+        parent=None,
+        display_names: dict[str, str] | None = None,
     ) -> None:
         """
         Args:
-            plugin_names: 插件名称列表
-            initial_log: 初始显示的日志（"main" 或插件名）
+            plugin_names: 插件稳定标识列表（日志源 key）
+            initial_log: 初始显示的日志（"main" 或插件标识）
             initial_level: 初始日志等级
             auto_scroll: 自动滚动默认值
             show_source: 显示来源信息默认值
             parent: 父窗口
+            display_names: ``{稳定标识: 显示名}``；缺失时回退到标识本身
         """
         super().__init__(parent)
         self.setWindowTitle(QCoreApplication.translate(
@@ -1366,6 +1473,7 @@ class LogViewerDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
 
         self._plugin_names = plugin_names
+        self._display_names: dict[str, str] = dict(display_names or {})
         self._current_log = initial_log
         self._current_level = initial_level
         self._auto_scroll_default = auto_scroll
@@ -1375,6 +1483,21 @@ class LogViewerDialog(QDialog):
         self._setup_ui()
         self._log_signal.connect(self._append_log_line)
         self._attach_sink(initial_log)
+
+    def _plugin_label(self, key: str) -> str:
+        """日志源下拉项文本：显示名 + 模板；稳定标识仅用于查找。"""
+        return QCoreApplication.translate(
+            "LogViewerDialog", "插件: {name}").replace(
+                "{name}", self._display_names.get(key, key))
+
+    def update_display_names(self, display_names: dict[str, str]) -> None:
+        """语言切换时刷新插件来源项文本；选择项与 sink 保持不变。"""
+        self._display_names.update(display_names)
+        for index in range(self._log_combo.count()):
+            key = self._log_combo.itemData(index)
+            if key in (None, "main"):
+                continue
+            self._log_combo.setItemText(index, self._plugin_label(str(key)))
 
     def _setup_ui(self) -> None:
         _translate = QCoreApplication.translate
@@ -1388,8 +1511,7 @@ class LogViewerDialog(QDialog):
         self._log_combo = QComboBox()
         self._log_combo.addItem(_translate("LogViewerDialog", "主进程"), "main")
         for name in self._plugin_names:
-            self._log_combo.addItem(_translate(
-                "LogViewerDialog", "插件: {name}").replace("{name}", name), name)
+            self._log_combo.addItem(self._plugin_label(name), name)
         self._log_combo.currentIndexChanged.connect(self._on_log_changed)
         top_layout.addWidget(self._log_combo)
 
@@ -1561,7 +1683,7 @@ class LogViewerDialog(QDialog):
         # 如果日志源不在列表中，添加它
         index = self._log_combo.findData(log_name)
         if index < 0 and log_name != "main":
-            self._log_combo.addItem(f"插件: {log_name}", log_name)
+            self._log_combo.addItem(self._plugin_label(log_name), log_name)
             index = self._log_combo.count() - 1
 
         if index >= 0:
@@ -1611,20 +1733,25 @@ class ControlAuthorizationDialog(QDialog):
         self,
         plugin_controls: dict[str, list[type]],
         parent=None,
+        display_names: dict[str, str] | None = None,
     ):
         """
         Args:
-            plugin_controls: {plugin_name: [command_type, ...]}
-                插件声明需要的控制权限
+            plugin_controls: {plugin_key: [command_type, ...]}
+                插件声明需要的控制权限（key 为稳定标识）
+            parent: 父窗口
+            display_names: ``{稳定标识: 显示名}``；下拉框只展示显示名，
+                授权记录仍写入稳定标识
         """
         super().__init__(parent)
         self._plugin_controls = plugin_controls
+        self._display_names: dict[str, str] = dict(display_names or {})
         self._auth_manager = ControlAuthorizationManager.instance()
-        # 每行下拉框的初始值（row → plugin_name / None）。
+        # 每行下拉框的初始值（row → plugin_key / None）。
         # 确定时只保存「用户实际改动过」的行，避免把当前不在候选列表里的
         # 既有授权静默撤销。
         self._initial: dict[int, str | None] = {}
-        # 每行声明了该权限的候选插件（row → [plugin_name, ...]），
+        # 每行声明了该权限的候选插件（row → [plugin_key, ...]），
         # 供下拉框变化时刷新状态列复用。
         self._row_eligible: dict[int, list[str]] = {}
 
@@ -1635,6 +1762,10 @@ class ControlAuthorizationDialog(QDialog):
 
         self._setup_ui()
         self._load_authorizations()
+
+    def _combo_label(self, key: str) -> str:
+        """下拉框展示文本：显示名优先，未声明时回退到稳定标识。"""
+        return self._display_names.get(key, key)
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -1673,6 +1804,26 @@ class ControlAuthorizationDialog(QDialog):
         set_button_box_icons(btns)
         layout.addWidget(btns)
 
+    def update_display_names(self, display_names: dict[str, str]) -> None:
+        """语言切换时刷新插件下拉框文本；授权记录与选中项保持不变。"""
+        self._display_names.update(display_names)
+        for combo in getattr(self, "_combos", []):
+            for index in range(1, combo.count()):
+                key = combo.itemData(index)
+                if key is None:
+                    continue
+                combo.setItemText(index, self._combo_label(str(key)))
+
+    def changeEvent(self, event) -> None:
+        """语言切换时刷新表头与“未授权”项。"""
+        if event.type() == QEvent.Type.LanguageChange:
+            self._table.setHorizontalHeaderLabels([
+                self.tr("控制命令"), self.tr("授权插件"), self.tr("状态")])
+            for combo in getattr(self, "_combos", []):
+                if combo.count():
+                    combo.setItemText(0, self.tr("未授权"))
+        super().changeEvent(event)
+
     def _load_authorizations(self) -> None:
         """加载授权状态到表格"""
         control_types = self._auth_manager.get_all_control_types()
@@ -1696,7 +1847,7 @@ class ControlAuthorizationDialog(QDialog):
             name_item.setToolTip(
                 f"{cmd_label}\n"
                 f"{command_hint(cmd_type)}\n"
-                f"类名: {cmd_type.__name__}")
+                f"{self.tr('类名:')} {cmd_type.__name__}")
             name_item.setData(Qt.ItemDataRole.UserRole, cmd_type)  # 存储类型
             self._table.setItem(row, 0, name_item)
 
@@ -1716,7 +1867,7 @@ class ControlAuthorizationDialog(QDialog):
 
             if eligible_plugins:
                 for plugin_name in sorted(eligible_plugins):
-                    combo.addItem(plugin_name, plugin_name)
+                    combo.addItem(self._combo_label(plugin_name), plugin_name)
             else:
                 # 没有插件声明需要该权限，禁用下拉框
                 combo.setEnabled(False)
@@ -1811,273 +1962,39 @@ class ControlAuthorizationDialog(QDialog):
         self.accept()
 
 
-class _PluginReadmeDialog(ConfirmDialog):
-    """插件 README 查看对话框（Markdown 渲染，随系统深浅色自适应）。
-
-    链接点击策略：
-    - 内部锚点（目录跳转）→ 滚动到对应标题
-    - 本地 .md/.txt 文件 → 用本对话框展示
-    - 其他本地文件/目录 → 用系统默认应用打开
-    - 外部链接 → 用系统默认浏览器打开
-    """
-
-    # 浅色/深色两套配色（与 GitHub 风格接近，保证对比度）
-    _LIGHT_TEXT = "#24292f"
-    _LIGHT_LINK = "#0969da"
-    _LIGHT_LINK_VISITED = "#8250df"
-    _DARK_TEXT = "#e6edf3"
-    _DARK_LINK = "#58a6ff"
-    _DARK_LINK_VISITED = "#bc8cff"
-
-    def __init__(self, plugin_name: str, content: str, parent=None,
-                 base_dir: Path | None = None, title: str | None = None):
-        self._content = content
-        self._base_dir = base_dir or Path.cwd()
-        self._browser: QTextBrowser | None = None
-        # 全局 styleHints 单例引用（用于断开 colorSchemeChanged 连接）
-        self._style_hints = None
-        # 标题 slug → 文档位置，用于目录锚点跳转
-        self._heading_positions: dict[str, int] = {}
-        # 模块内导入，避免顶层引入 QTextBrowser/QFont/QPalette 影响冷启动
-        from PySide6.QtWidgets import QTextBrowser  # noqa: F401
-        if title is None:
-            title = (parent.tr("{name} - README").format(name=plugin_name)
-                     if parent else f"{plugin_name} - README")
-        super().__init__(
-            parent=parent,
-            title=title,
-            buttons=QDialogButtonBox.StandardButton.Close,
-        )
-        self.setWindowIcon(action_icon("app"))
-        set_button_box_icons(self.button_box)
-        self.resize(720, 520)
-        self._apply_theme()
-        self._connect_theme_change()
-
-    def _is_dark(self) -> bool:
-        """当前是否处于深色模式（跟随系统 colorScheme，System 时按浅色兜底）。"""
-        try:
-            return QApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
-        except Exception:
-            return False
-
-    def _connect_theme_change(self) -> None:
-        """监听系统深浅色切换，实时刷新 Markdown 配色。
-
-        ``QApplication.styleHints()`` 是进程级单例，连接必须显式断开，
-        否则对话框析构后主题切换会调用已删除的 C++ 对象。
-        """
-        try:
-            hints = QApplication.styleHints()
-            hints.colorSchemeChanged.connect(self._apply_theme)
-            self._style_hints = hints
-            # C++ 对象被销毁时兜底断开（正常路径由 done/closeEvent 处理）
-            self.destroyed.connect(self._disconnect_theme_change)
-        except Exception:
-            self._style_hints = None
-            return
-
-    def _disconnect_theme_change(self, *_args) -> None:
-        """断开全局 styleHints 信号（幂等，可重复调用）。"""
-        hints = getattr(self, "_style_hints", None)
-        if hints is None:
-            return
-        self._style_hints = None
-        try:
-            hints.colorSchemeChanged.disconnect(self._apply_theme)
-        except Exception:
-            # 已断开、信号桩缺少 disconnect，或 C++ 对象已销毁
-            pass
-
-    def done(self, result: int) -> None:
-        """对话框结束（确定/取消/关闭）时断开全局信号。"""
-        self._disconnect_theme_change()
-        super().done(result)
-
-    def closeEvent(self, event) -> None:
-        """关闭时断开全局信号，避免残留连接。"""
-        self._disconnect_theme_change()
-        super().closeEvent(event)
-
-    def _apply_theme(self, *_args) -> None:
-        """按当前深浅色更新文本/链接配色。"""
-        if self._browser is None:
-            return
-        from PySide6.QtGui import QColor, QPalette
-
-        palette = self._browser.palette()
-        if self._is_dark():
-            palette.setColor(QPalette.ColorRole.Text, QColor(self._DARK_TEXT))
-            palette.setColor(QPalette.ColorRole.Link, QColor(self._DARK_LINK))
-            palette.setColor(QPalette.ColorRole.LinkVisited,
-                             QColor(self._DARK_LINK_VISITED))
-        else:
-            palette.setColor(QPalette.ColorRole.Text, QColor(self._LIGHT_TEXT))
-            palette.setColor(QPalette.ColorRole.Link, QColor(self._LIGHT_LINK))
-            palette.setColor(QPalette.ColorRole.LinkVisited,
-                             QColor(self._LIGHT_LINK_VISITED))
-        self._browser.setPalette(palette)
-
-    @staticmethod
-    def _heading_slug(text: str) -> str:
-        """按 GitHub 规则把标题文本转成锚点 slug。
-
-        小写、空格转连字符、去掉标点（保留中日韩文字、字母、数字、``-``/``_``）。
-        Qt 的 Markdown 渲染器不会给标题生成锚点，因此目录里的
-        ``#一系统架构概览`` 这类链接需要靠 slug 匹配标题块位置来跳转。
-        """
-        import unicodedata
-
-        s = text.strip().lower().replace(" ", "-")
-        return "".join(
-            ch for ch in s
-            if ch in "-_" or unicodedata.category(ch)[0] in ("L", "N")
-        )
-
-    def _collect_heading_positions(self) -> None:
-        """渲染 Markdown 后，记录每个标题块的位置，供目录锚点跳转。"""
-        self._heading_positions.clear()
-        if self._browser is None:
-            return
-        block = self._browser.document().firstBlock()
-        while block.isValid():
-            if block.blockFormat().headingLevel() > 0:
-                slug = self._heading_slug(block.text())
-                if slug:
-                    self._heading_positions.setdefault(slug, block.position())
-            block = block.next()
-
-    def _scroll_to_heading(self, fragment: str) -> bool:
-        """滚动到 fragment 对应的标题，成功返回 True。"""
-        from urllib.parse import unquote
-        from PySide6.QtGui import QTextCursor
-
-        if self._browser is None:
-            return False
-        key = unquote(fragment)
-        pos = self._heading_positions.get(key)
-        if pos is None:
-            return False
-        cursor = QTextCursor(self._browser.document())
-        cursor.setPosition(pos)
-        self._browser.setTextCursor(cursor)
-        self._browser.ensureCursorVisible()
-        return True
-
-    def _resolve_local_path(self, url) -> Path | None:
-        """从点击的 URL 解析本地文件路径。
-
-        处理 file:// 绝对路径、相对路径（相对插件目录解析）、
-        Windows 盘符路径。非本地文件返回 None。
-        """
-        from urllib.parse import unquote
-
-        scheme = url.scheme().lower()
-
-        if scheme == "file":
-            raw = url.toLocalFile()
-            if raw:
-                p = Path(raw)
-                return p if p.is_absolute() else (self._base_dir / p)
-
-        if scheme in ("", "qt"):
-            raw = unquote(url.path())
-            if "#" in raw:
-                raw = raw.split("#", 1)[0]
-            if raw:
-                p = Path(raw)
-                return p if p.is_absolute() else (self._base_dir / p)
-
-        return None
-
-    def _on_anchor_click(self, url) -> None:
-        """处理 README 内链接点击，按文件类型分流。"""
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-
-        # 内部锚点（目录跳转）：Qt 不为标题生成锚点，靠标题位置定位滚动
-        if not url.path() and url.fragment():
-            if self._scroll_to_heading(url.fragment()):
-                return
-            # 兜底：文档里显式的 HTML <a name="..."> 锚点
-            if self._browser:
-                self._browser.scrollToAnchor(url.fragment())
-            return
-
-        local_path = self._resolve_local_path(url)
-
-        if local_path is not None:
-            if local_path.is_file():
-                suffix = local_path.suffix.lower()
-                if suffix in (".md", ".txt"):
-                    # 用对话框展示
-                    try:
-                        content = local_path.read_text(
-                            encoding="utf-8", errors="replace")
-                    except OSError as e:
-                        QMessageBox.warning(
-                            self, self.tr("README"),
-                            self.tr("读取文件失败: {err}").format(err=e))
-                        return
-                    dlg = _PluginReadmeDialog(
-                        local_path.stem, content,
-                        parent=self, base_dir=self._base_dir)
-                    # 若链接带 #锚点，进入模态循环、布局完成后滚到目标标题
-                    fragment = url.fragment()
-                    if fragment:
-                        QTimer.singleShot(
-                            0, lambda d=dlg, f=fragment:
-                            d._scroll_to_heading(f))
-                    dlg.exec()
-                else:
-                    # 其他类型文件用系统默认应用打开
-                    QDesktopServices.openUrl(
-                        QUrl.fromLocalFile(str(local_path)))
-            elif local_path.is_dir():
-                # 目录用系统默认文件管理器打开
-                QDesktopServices.openUrl(
-                    QUrl.fromLocalFile(str(local_path)))
-            else:
-                # 文件不存在，用原始 URL 尝试打开（可能是外部链接）
-                QDesktopServices.openUrl(url)
-            return
-
-        # 非本地文件 → 系统默认浏览器/应用
-        QDesktopServices.openUrl(url)
-
-    def _create_content(self) -> QLayout:
-        from PySide6.QtWidgets import QTextBrowser
-        from PySide6.QtGui import QFont
-
-        layout = QVBoxLayout()
-        if not self._content:
-            label = QLabel(self.tr("该插件目录下未找到 README.md"))
-            label.setWordWrap(True)
-            layout.addWidget(label)
-            return layout
-
-        browser = QTextBrowser()
-        browser.setOpenLinks(False)
-        browser.setOpenExternalLinks(False)
-        browser.setMarkdown(self._content)
-        browser.anchorClicked.connect(self._on_anchor_click)
-        self._browser = browser
-
-        font = QFont("Microsoft YaHei", 11)
-        font.setStyleHint(QFont.StyleHint.SansSerif)
-        browser.setFont(font)
-
-        # Qt 不给 Markdown 标题生成锚点，收集标题位置以支持目录跳转
-        self._collect_heading_positions()
-
-        self._apply_theme()
-
-        layout.addWidget(browser)
-        return layout
-
 # ═══════════════════════════════════════════════════════════════════
 # 主窗口
 # ═══════════════════════════════════════════════════════════════════
+
+
+def _section_border_color(widget: QWidget) -> QColor:
+    color = widget.palette().color(QPalette.ColorRole.WindowText)
+    color.setAlphaF(0.32)
+    return color
+
+
+class _SectionDivider(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setFixedHeight(1)
+
+    def paintEvent(self, event) -> None:
+        with QPainter(self) as painter:
+            painter.fillRect(event.rect(), _section_border_color(self))
+
+
+class _SectionFrame(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setContentsMargins(2, 2, 2, 2)
+
+    def paintEvent(self, event) -> None:
+        with QPainter(self) as painter:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setPen(_section_border_color(self))
+            painter.setBrush(self.palette().base())
+            outline = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+            painter.drawRoundedRect(outline, 6, 6)
 
 
 class PluginManagerWindow(QMainWindow):
@@ -2085,6 +2002,9 @@ class PluginManagerWindow(QMainWindow):
 
     connection_changed = Signal(bool)
     _show_requested = Signal()
+    _auto_update_task: PluginAutoUpdateTask | None = None
+    _after_auto_update: Callable[[], object] | None = None
+    _pending_restart_tab: str | None = None
 
     def __init__(self, plugin_manager: PluginManager, parent=None):
         super().__init__(parent)
@@ -2118,17 +2038,38 @@ class PluginManagerWindow(QMainWindow):
 
         # 连接所有插件的 ready 信号，就绪后自动刷新列表
         for p in self._manager.plugins.values():
-            p.ready.connect(self._on_plugin_ready,
-                            Qt.ConnectionType.QueuedConnection)
-            p.stopped.connect(self._on_plugin_stopped,
-                              Qt.ConnectionType.QueuedConnection)
+            self._watch_plugin_lifecycle(p)
 
         self._refresh_plugin_list()
+
+        saved_size = self._settings_mgr.settings.window_size
+        if saved_size is not None:
+            width, height = saved_size
+            screen = self.screen()
+            if screen is not None:
+                available = screen.availableSize()
+                width, height = min(width, available.width()), min(height, available.height())
+            self.resize(width, height)
+        self._window_size_timer = QTimer(self)
+        self._window_size_timer.setInterval(400)
+        self._window_size_timer.setSingleShot(True)
+        self._window_size_timer.timeout.connect(self._save_window_size)
 
         # 定时刷新连接状态
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._poll_connection_status)
+        self._poll_connection_status()
         self._timer.start(1000)
+
+        self._auto_update_timer = QTimer(self)
+        self._auto_update_timer.setSingleShot(True)
+        self._auto_update_timer.timeout.connect(self._start_auto_update)
+        app = QApplication.instance()
+        assert app is not None
+        app.aboutToQuit.connect(self._save_window_size)
+        app.aboutToQuit.connect(self._stop_auto_update)
+        if self._settings_mgr.settings.auto_update_plugins:
+            self._auto_update_timer.start(0)
 
     # ── UI ───────────────────────────────────────────────
 
@@ -2139,10 +2080,30 @@ class PluginManagerWindow(QMainWindow):
 
         # 插件菜单
         self._menu_plugins = menubar.addMenu(self.tr("插件"))
-        self._act_download_plugin = self._menu_plugins.addAction(
-            self.tr("下载插件..."))
-        set_action_icon(self._act_download_plugin, "download")
-        self._act_download_plugin.triggered.connect(self._open_download_plugin)
+        self._act_plugin_market = self._menu_plugins.addAction(
+            self.tr("插件市场..."))
+        set_action_icon(self._act_plugin_market, "market")
+        self._act_plugin_market.triggered.connect(self._open_plugin_market)
+        self._act_import_zip = self._menu_plugins.addAction(self.tr("从 ZIP 导入插件…"))
+        set_action_icon(self._act_import_zip, "import")
+        self._act_import_zip.triggered.connect(self._import_plugin_zip)
+        self._act_export_plugin_data = self._menu_plugins.addAction(
+            self.tr("导出插件数据…"))
+        set_action_icon(self._act_export_plugin_data, "upload")
+        self._act_export_plugin_data.triggered.connect(self._export_plugin_data)
+        self._act_import_plugin_data = self._menu_plugins.addAction(
+            self.tr("导入插件数据…"))
+        set_action_icon(self._act_import_plugin_data, "import")
+        self._act_import_plugin_data.triggered.connect(self._import_plugin_data)
+        self._menu_plugins.addSeparator()
+        self._act_auto_update = self._menu_plugins.addAction(self.tr("自动更新插件"))
+        set_action_icon(self._act_auto_update, "refresh")
+        self._act_auto_update.setCheckable(True)
+        self._act_auto_update.setChecked(self._settings_mgr.settings.auto_update_plugins)
+        self._act_auto_update.triggered.connect(self._set_auto_update)
+        self._act_restart = self._menu_plugins.addAction(self.tr("重启插件管理器"))
+        set_action_icon(self._act_restart, "refresh")
+        self._act_restart.triggered.connect(self.restart_plugin_manager)
 
         # 顶层菜单不设置图标：Qt 菜单栏可能只绘制图标而隐藏标题。
         self._menu_settings = menubar.addMenu(self.tr("设置"))
@@ -2167,6 +2128,12 @@ class PluginManagerWindow(QMainWindow):
         self._act_control_auth.triggered.connect(
             self._open_control_auth_dialog)
 
+        self._menu_settings.addSeparator()
+        self._act_plugin_list = self._menu_settings.addAction(self.tr("插件列表"))
+        set_action_icon(self._act_plugin_list, "window")
+        self._act_plugin_list.setCheckable(True)
+        self._act_plugin_list.setChecked(self._settings_mgr.settings.show_plugin_list)
+
         # 工具菜单
         self._menu_tools = menubar.addMenu(self.tr("工具"))
         self._act_log_viewer = self._menu_tools.addAction(self.tr("查看日志"))
@@ -2190,50 +2157,78 @@ class PluginManagerWindow(QMainWindow):
         self._act_dev_guide = self._menu_help.addAction(self.tr("插件开发指南"))
         set_action_icon(self._act_dev_guide, "guide")
         self._act_dev_guide.triggered.connect(self._open_dev_guide)
+        self._act_about = self._menu_help.addAction(self.tr("关于"))
+        set_action_icon(self._act_about, "info")
+        self._act_about.triggered.connect(self._open_about)
 
-        # ── 工具栏 ──
-        self._toolbar = QToolBar(self.tr("工具栏"))
-        self._toolbar.setMovable(False)
-        self.addToolBar(self._toolbar)
-
-        # 刷新按钮
-        self._refresh_btn = QPushButton(self.tr("刷新"))
-        set_action_icon(self._refresh_btn, "refresh")
-        self._refresh_btn.setToolTip(self.tr("刷新插件列表"))
-        self._toolbar.addWidget(self._refresh_btn)
-
-        self._toolbar.addSeparator()
-
-        # 控制授权按钮
-        self._control_auth_btn = QPushButton(self.tr("控制授权"))
-        set_action_icon(self._control_auth_btn, "authorize")
-        self._control_auth_btn.setToolTip(self.tr("配置插件控制命令权限"))
-        self._toolbar.addWidget(self._control_auth_btn)
+        self._plugin_list_btn = QToolButton(menubar)
+        self._plugin_list_btn.setDefaultAction(self._act_plugin_list)
+        self._plugin_list_btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._plugin_list_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._plugin_list_btn.setAutoRaise(True)
+        menubar.setCornerWidget(self._plugin_list_btn, Qt.Corner.TopLeftCorner)
 
         # ── 主布局：左侧插件列表 + 右侧标签页 ──
-        main_splitter = QWidget()
-        main_layout = QHBoxLayout(main_splitter)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(2)
+        central = QWidget()
+        central_layout = QVBoxLayout(central)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
+        central_layout.addWidget(_SectionDivider())
+        self._setup_notices(central_layout)
+
+        main_layout = QHBoxLayout()
+        main_layout.setContentsMargins(6, 4, 6, 6)
+        main_layout.setSpacing(6)
+        central_layout.addLayout(main_layout, stretch=1)
 
         # ── 左侧：插件列表面板 ──
-        left_panel = QWidget()
+        left_panel = _SectionFrame()
+        self._plugin_list_panel = left_panel
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(4, 4, 4, 4)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(0)
 
         # 标题
+        heading = QHBoxLayout()
+        heading.setContentsMargins(8, 4, 6, 4)
         self._title_label = QLabel(self.tr("插件列表"))
-        self._title_label.setStyleSheet("font-weight: bold; padding: 4px;")
-        left_layout.addWidget(self._title_label)
+        title_font = self._title_label.font()
+        title_font.setBold(True)
+        self._title_label.setFont(title_font)
+        heading.addWidget(self._title_label, 1)
+        self._market_btn = QPushButton(self.tr("插件市场"))
+        set_action_icon(self._market_btn, "market")
+        self._market_btn.clicked.connect(self._act_plugin_market.trigger)
+        heading.addWidget(self._market_btn)
+        self._refresh_btn = QToolButton()
+        self._refresh_btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._refresh_btn.setAccessibleName(self.tr("刷新插件列表"))
+        set_action_icon(self._refresh_btn, "refresh")
+        self._refresh_btn.setToolTip(self.tr("刷新插件列表"))
+        heading.addWidget(self._refresh_btn)
+        left_layout.addLayout(heading)
+        left_layout.addWidget(_SectionDivider())
 
         # 插件列表
-        lst = QListWidget()
+        lst = PluginListWidget()
         lst.setViewMode(QListView.ViewMode.ListMode)
         lst.setSelectionMode(QListView.SelectionMode.SingleSelection)
         lst.setEditTriggers(QListView.EditTrigger.NoEditTriggers)
         lst.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        lst.setMouseTracking(True)
+        lst.setSpacing(0)
+        lst.setIconSize(QSize(28, 28))
+        lst.setAccessibleName(self.tr("插件列表"))
+        lst.menu_requested.connect(self._on_list_context_menu)
+        lst.setFrameShape(QFrame.Shape.NoFrame)
+        lst.viewport().setBackgroundRole(QPalette.ColorRole.Base)
         self._list = lst
-        left_layout.addWidget(lst)
+        left_layout.addWidget(lst, 1)
+
+        self._plugin_details_btn = QPushButton(self.tr("查看详情"))
+        set_action_icon(self._plugin_details_btn, "info")
+        self._plugin_details_btn.hide()
+        left_layout.addWidget(self._plugin_details_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         left_panel.setMinimumWidth(220)
         left_panel.setMaximumWidth(350)
@@ -2248,19 +2243,78 @@ class PluginManagerWindow(QMainWindow):
         self._tab_widget.tab_attach_requested.connect(self._on_tab_attached)
         self._tab_widget.tab_close_requested.connect(self._on_tab_closed)
         self._tab_widget.window_close_requested.connect(self._on_detached_window_closed)
-        main_layout.addWidget(self._tab_widget, stretch=1)
+        self._workspace = QStackedWidget()
+        self._workspace.addWidget(self._tab_widget)
+        self._empty_workspace = QWidget()
+        empty_layout = QVBoxLayout(self._empty_workspace)
+        empty_layout.setContentsMargins(24, 24, 24, 24)
+        empty_layout.setSpacing(8)
+        empty_layout.addStretch()
+        self._empty_title = QLabel()
+        self._empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_title_font = self._empty_title.font()
+        empty_title_font.setBold(True)
+        empty_title_font.setPointSizeF(empty_title_font.pointSizeF() + 3)
+        self._empty_title.setFont(empty_title_font)
+        empty_layout.addWidget(self._empty_title)
+        self._empty_hint = QLabel()
+        self._empty_hint.setWordWrap(True)
+        self._empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self._empty_hint)
+        self._empty_market_btn = QPushButton(self.tr("打开插件市场"))
+        set_action_icon(self._empty_market_btn, "market")
+        self._empty_market_btn.clicked.connect(self._act_plugin_market.trigger)
+        empty_layout.addWidget(self._empty_market_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+        empty_layout.addStretch()
+        self._workspace.addWidget(self._empty_workspace)
+        right_panel = _SectionFrame()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.addWidget(self._workspace)
+        main_layout.addWidget(right_panel, stretch=1)
 
-        self.setCentralWidget(main_splitter)
+        self.setCentralWidget(central)
+        self._set_plugin_list_visible(self._act_plugin_list.isChecked())
+        self._act_plugin_list.triggered.connect(self._save_plugin_list_visibility)
 
-        # 状态栏
-        bar = QStatusBar()
-        self.setStatusBar(bar)
+    @Slot(bool)
+    def _save_plugin_list_visibility(self, visible: bool) -> None:
+        try:
+            self._settings_mgr.set_show_plugin_list(visible)
+        except OSError as exc:
+            self._act_plugin_list.setChecked(self._settings_mgr.settings.show_plugin_list)
+            QMessageBox.warning(self, self.tr("插件管理器"),
+                                self.tr("保存插件设置失败：\n{err}").format(err=exc))
+            return
+        self._set_plugin_list_visible(visible)
 
-        conn_w = ConnectionStatusWidget(self._manager.connection_endpoint)
-        bar.addPermanentWidget(conn_w)
-        self._conn_status = conn_w
-        self._status_bar_msg = self.tr("正在连接...")
-        bar.showMessage(self._status_bar_msg)
+    def _set_plugin_list_visible(self, visible: bool) -> None:
+        self._plugin_list_panel.setVisible(visible)
+        self._plugin_list_btn.setArrowType(
+            Qt.ArrowType.LeftArrow if visible else Qt.ArrowType.RightArrow)
+
+    def _setup_notices(self, layout: QVBoxLayout) -> None:
+        self._connection_notice = QLabel()
+        self._operation_notice = QLabel()
+        for label in (self._connection_notice, self._operation_notice):
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            label.setWordWrap(True)
+            label.setContentsMargins(10, 5, 10, 5)
+            label.setStyleSheet(
+                "background-color: palette(alternate-base); border-bottom: 1px solid palette(mid);")
+            label.hide()
+            layout.addWidget(label)
+        font = self._connection_notice.font()
+        font.setBold(True)
+        self._connection_notice.setFont(font)
+        self._notice_timer = QTimer(self)
+        self._notice_timer.setSingleShot(True)
+        self._notice_timer.timeout.connect(self._operation_notice.hide)
+
+    def _show_notice(self, message: str, timeout: int) -> None:
+        self._operation_notice.setText(message)
+        self._operation_notice.show()
+        self._notice_timer.start(timeout)
 
     def _setup_tray_icon(self) -> None:
         """创建系统托盘图标，关闭主窗口时最小化到托盘"""
@@ -2292,62 +2346,249 @@ class PluginManagerWindow(QMainWindow):
         """语言切换时重新应用所有翻译"""
         self.setWindowTitle(self.tr("插件管理器"))
         self._menu_plugins.setTitle(self.tr("插件"))
-        self._act_download_plugin.setText(self.tr("下载插件..."))
+        self._act_plugin_market.setText(self.tr("插件市场..."))
+        self._act_import_zip.setText(self.tr("从 ZIP 导入插件…"))
+        self._act_export_plugin_data.setText(self.tr("导出插件数据…"))
+        self._act_import_plugin_data.setText(self.tr("导入插件数据…"))
+        self._act_auto_update.setText(self.tr("自动更新插件"))
+        self._act_restart.setText(self.tr("重启插件管理器"))
         self._menu_settings.setTitle(self.tr("设置"))
         self._act_basic_settings.setText(self.tr("基础设置..."))
         self._act_plugin_environment.setText(self.tr("插件依赖环境..."))
         self._act_control_auth.setText(self.tr("控制授权..."))
+        self._act_plugin_list.setText(self.tr("插件列表"))
         self._debug_act.setText(
             self.tr("调试已启动") if self._debug_active else self.tr("启动调试"))
         self._menu_help.setTitle(self.tr("帮助"))
         self._act_dev_guide.setText(self.tr("插件开发指南"))
+        self._act_about.setText(self.tr("关于"))
         self._menu_tools.setTitle(self.tr("工具"))
         self._act_log_viewer.setText(self.tr("查看日志"))
         self._act_clear_logs.setText(self.tr("清理全部日志..."))
         self._act_clear_logs.setToolTip(
             self.tr("清空日志目录下的所有日志文件内容"))
-        self._toolbar.setWindowTitle(self.tr("工具栏"))
-        self._refresh_btn.setText(self.tr("刷新"))
+        self._market_btn.setText(self.tr("插件市场"))
+        self._empty_market_btn.setText(self.tr("打开插件市场"))
+        self._plugin_details_btn.setText(self.tr("查看详情"))
+        self._refresh_btn.setAccessibleName(self.tr("刷新插件列表"))
         self._refresh_btn.setToolTip(self.tr("刷新插件列表"))
-        self._control_auth_btn.setText(self.tr("控制授权"))
-        self._control_auth_btn.setToolTip(self.tr("配置插件控制命令权限"))
         self._title_label.setText(self.tr("插件列表"))
+        self._list.setAccessibleName(self._title_label.text())
         if self._tray_icon is not None:
             self._tray_icon.setToolTip(self.tr("插件管理器 - 右键打开菜单"))
             self._tray_act_show.setText(self.tr("显示主窗口"))
             self._tray_act_quit.setText(self.tr("退出"))
-        # 语言切换时按当前连接状态重建状态栏消息，避免无条件重置为
-        # 启动时的「正在连接...」。
-        connected = bool(getattr(self._manager, "is_connected", False))
-        rc = int(getattr(self._manager, "reconnect_count", 0) or 0)
-        if connected:
-            msg = self.tr("已连接到主进程")
-        elif rc:
-            msg = self.tr("未连接 (重连 {n} 次)").format(n=rc)
-        else:
-            msg = self.tr("未连接到主进程")
-        self._status_bar_msg = msg
-        bar = self.statusBar()
-        if bar is not None:
-            bar.showMessage(msg)
-        # 末尾刷新列表动态文本（初始化中/关闭中等）；刷新会写入插件计数，
-        # 因此之后再恢复连接状态消息。最小窗口壳缺少列表控件时忽略。
+        # 插件显示名随语言变化：先刷新标签页/独立窗口/已打开对话框里的
+        # 显示名，再重建列表（列表会用新显示名重新填充）。
+        self._refresh_plugin_display_names()
+        self._poll_connection_status()
         try:
             self._refresh_plugin_list()
         except (AttributeError, RuntimeError):
             pass
-        if bar is not None:
-            bar.showMessage(msg)
 
     def changeEvent(self, event):
-        if event.type() == QEvent.Type.LanguageChange:
+        if (event.type() == QEvent.Type.LanguageChange
+                and hasattr(self, "_menu_plugins")):
             self.retranslateUi()
         super().changeEvent(event)
 
-    def _open_download_plugin(self) -> None:
-        dialog = PluginDownloadDialog(self)
-        dialog.exec()
-        dialog.deleteLater()
+    def _open_plugin_market(self) -> None:
+        if self._defer_for_auto_update(self._open_plugin_market):
+            return
+        dialog = PluginMarketDialog("", self, settings=self._settings_mgr)
+        dialog.restart_requested.connect(self.restart_plugin_manager)
+        self._market_dialog = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._market_dialog = None
+            dialog.deleteLater()
+
+    def activate_installed_package(self, package: Path) -> str:
+        new_plugins = []
+
+        def prepare(plugin: BasePlugin) -> None:
+            self._watch_plugin_lifecycle(plugin)
+            new_plugins.append(plugin)
+            state = self._effective_state(plugin.name)
+            if not state.show_window or state.window_mode == WindowMode.CLOSED:
+                self._closed_plugins.add(plugin.name)
+
+        result = self._manager.load_installed_package(package, prepare)
+        for plugin in new_plugins:
+            if plugin.name in self._closed_plugins:
+                plugin.close_widget()
+        self._refresh_plugin_list()
+        return result
+
+    def _import_plugin_zip(self) -> None:
+        if self._installation_in_progress() or self._defer_for_auto_update(self._import_plugin_zip):
+            return
+        title = self.tr("从 ZIP 导入插件…")
+        filename, _ = QFileDialog.getOpenFileName(
+            self, title, "", self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+
+        archive = Path(filename)
+        installed_package: Path | None = None
+
+        def install(*, output_callback: Callable[[str], None]) -> None:
+            nonlocal installed_package
+            output_callback(f"{archive.name}\n")
+
+            def prepare(package: Path, module_name: str) -> None:
+                prepare_plugin_dependencies(package, module_name, output_callback)
+
+            with requests.Session() as session:
+                downloader = PluginDownloader(session, lambda: False, lambda *_: None)
+                installed_package = downloader.import_zip(
+                    archive, get_executable_dir() / "user_plugins", get_all_plugin_dirs(),
+                    before_publish=prepare,
+                )
+
+        progress = self._start_installation(title, install, ())
+        if progress is None:
+            return
+
+        def finish(error: str | None) -> None:
+            if error or installed_package is None:
+                return
+            result = self.activate_installed_package(installed_package)
+            if result == "loaded":
+                progress.set_result(self.tr("导入完成，插件已加入列表。"))
+            elif result == "restart":
+                progress.set_result(self.tr("导入完成，重启插件管理器后生效。"))
+            else:
+                progress.set_result(self.tr("插件已安装，但加载失败。请查看插件列表中的详情或日志。"))
+
+        progress.installation_finished.connect(finish)
+        progress.start()
+
+    def _start_data_transfer(self, title: str, status: str, archive: Path,
+                             operation, done_message: str) -> None:
+        progress = TaskProgressDialog(title, status, self)
+        app = QApplication.instance()
+        worker = _DataTransferWorker(operation, archive, app)
+        worker.output.connect(progress.append_output, Qt.ConnectionType.QueuedConnection)
+        app.aboutToQuit.connect(worker.wait)
+        progress.set_task_running(True)
+        progress.show()
+
+        def finished(result: DataTransferResult | None, error: str | None) -> None:
+            if error:
+                progress.set_completed(
+                    self.tr("数据传输失败：{error}").format(error=error), success=False)
+                QMessageBox.warning(self, title, error)
+            else:
+                assert result is not None
+                details = self.tr("成功：{ok}，失败：{failed}，跳过：{skipped}").format(
+                    ok=len(result.succeeded), failed=len(result.failed),
+                    skipped=len(result.skipped))
+                progress.set_completed(
+                    f"{done_message}\n{details}", success=not result.failed)
+                if result.failed:
+                    QMessageBox.warning(
+                        self, title,
+                        self.tr("部分插件处理失败：\n{details}").format(
+                            details="\n".join(
+                                f"{name}: {message}"
+                                for name, message in result.failed.items())))
+            try:
+                app.aboutToQuit.disconnect(worker.wait)
+            except (RuntimeError, TypeError):
+                # The application may already be shutting down; in that case
+                # the connection has been removed by Qt.
+                pass
+            worker.deleteLater()
+
+        worker.completed.connect(finished, Qt.ConnectionType.QueuedConnection)
+        worker.start()
+
+    def _export_plugin_data(self) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(self._export_plugin_data)):
+            return
+        default = get_data_dir() / f"plugin-data-{datetime.now():%Y%m%d-%H%M%S}.zip"
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self.tr("导出插件数据…"), str(default),
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        archive = Path(filename)
+        if archive.suffix.lower() != ".zip":
+            archive = archive.with_suffix(".zip")
+        self._start_data_transfer(
+            self.tr("导出插件数据"), self.tr("正在导出插件数据…"), archive,
+            self._manager.export_plugin_data, self.tr("插件数据导出完成"))
+
+    def _import_plugin_data(self) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(self._import_plugin_data)):
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self, self.tr("导入插件数据…"), "",
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        answer = QMessageBox.question(
+            self, self.tr("导入插件数据"),
+            self.tr("导入会覆盖归档中包含的插件数据文件，继续吗？"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._start_data_transfer(
+            self.tr("导入插件数据"), self.tr("正在导入插件数据…"), Path(filename),
+            self._manager.import_plugin_data, self.tr("插件数据导入完成"))
+
+    def _export_single_plugin_data(self, name: str) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(
+                    lambda: self._export_single_plugin_data(name))):
+            return
+        default = get_data_dir() / f"{name}-data-{datetime.now():%Y%m%d-%H%M%S}.zip"
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self.tr("导出插件数据…"), str(default),
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        archive = Path(filename)
+        if archive.suffix.lower() != ".zip":
+            archive = archive.with_suffix(".zip")
+        self._start_data_transfer(
+            self.tr("导出插件数据"), self.tr("正在导出插件数据…"), archive,
+            lambda output, progress=None: self._manager.export_single_plugin_data(
+                name, output, progress=progress),
+            self.tr("插件数据导出完成"))
+
+    def _import_single_plugin_data(self, name: str) -> None:
+        if (self._installation_in_progress()
+                or self._defer_for_auto_update(
+                    lambda: self._import_single_plugin_data(name))):
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self, self.tr("导入插件数据…"), "",
+            self.tr("ZIP 压缩包 (*.zip)"))
+        if not filename:
+            return
+        answer = QMessageBox.question(
+            self, self.tr("导入插件数据"),
+            self.tr("导入会覆盖归档中包含的插件数据文件，继续吗？"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._start_data_transfer(
+            self.tr("导入插件数据"), self.tr("正在导入插件数据…"), Path(filename),
+            lambda source, progress=None: self._manager.import_single_plugin_data(
+                name, source, progress=progress),
+            self.tr("插件数据导入完成"))
+
+    def _watch_plugin_lifecycle(self, plugin: BasePlugin) -> None:
+        plugin.ready.connect(self._on_plugin_ready, Qt.ConnectionType.QueuedConnection)
+        plugin.stopped.connect(self._on_plugin_stopped, Qt.ConnectionType.QueuedConnection)
 
     @Slot()
     def show_and_raise(self) -> None:
@@ -2364,15 +2605,126 @@ class PluginManagerWindow(QMainWindow):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.show_and_raise()
 
+    @Slot(bool)
+    def _set_auto_update(self, enabled: bool) -> None:
+        try:
+            self._settings_mgr.set_auto_update_plugins(enabled)
+        except OSError as exc:
+            self._act_auto_update.setChecked(self._settings_mgr.settings.auto_update_plugins)
+            QMessageBox.warning(self, self.tr("插件管理器"),
+                                self.tr("保存插件设置失败：\n{err}").format(err=exc))
+            return
+        if enabled:
+            self._auto_update_timer.start(0)
+        else:
+            self._auto_update_timer.stop()
+            if self._auto_update_task is not None:
+                self._auto_update_task.requestInterruption()
+
+    @Slot()
+    def _start_auto_update(self) -> None:
+        if not self._settings_mgr.settings.auto_update_plugins or self._auto_update_task is not None:
+            return
+        if (QApplication.activeModalWidget() is not None
+                or getattr(self, "_market_dialog", None) is not None
+                or self._installation_in_progress()):
+            self._auto_update_timer.start(30_000)
+            return
+        task = PluginAutoUpdateTask(self)
+        self._auto_update_task = task
+        task.finished.connect(self._auto_update_finished)
+        task.start()
+
+    @Slot()
+    def _auto_update_finished(self) -> None:
+        task = self._auto_update_task
+        if task is None:
+            return
+        self._auto_update_task = None
+        if task.updated:
+            message = self.tr("已自动更新 {count} 个插件。重启插件管理器后生效。").format(
+                count=len(task.updated))
+            self._show_notice(message, 15_000)
+            if self._tray_icon is not None and not self.isVisible():
+                self._tray_icon.showMessage(self.tr("插件管理器"), message)
+        task.deleteLater()
+        after_update, self._after_auto_update = self._after_auto_update, None
+        if self._settings_mgr.settings.auto_update_plugins:
+            self._auto_update_timer.start(30_000 if after_update else 24 * 60 * 60 * 1000)
+        if after_update is not None:
+            QTimer.singleShot(0, after_update)
+
+    def _defer_for_auto_update(self, action: Callable[[], object]) -> bool:
+        task = self._auto_update_task
+        if task is None:
+            return False
+        self._after_auto_update = action
+        task.requestInterruption()
+        self._show_notice(self.tr("正在等待自动更新结束…"), 15_000)
+        return True
+
+    @Slot()
+    def _stop_auto_update(self) -> None:
+        self._auto_update_timer.stop()
+        task, self._auto_update_task = self._auto_update_task, None
+        self._after_auto_update = None
+        if task is not None:
+            task.requestInterruption()
+            task.wait()
+            task.deleteLater()
+
+    @Slot(result=bool)
+    def restart_plugin_manager(self) -> bool:
+        """优雅停止当前管理器并在进程退出后启动接替进程。"""
+        from . import restart
+
+        if self._installation_in_progress():
+            return False
+        if self._defer_for_auto_update(self.restart_plugin_manager):
+            return False
+        handoff = None
+        try:
+            visible = self.isVisible() and not self.isMinimized()
+            active_tab = self._tab_widget.tab_key(self._tab_widget.currentIndex()) if visible else None
+            handoff = restart.prepare_restart(restart.RestartView(visible, active_tab))
+            self._save_window_size()
+            self._state_mgr.save()
+            self._manager.stop()
+            handoff.commit()
+            QApplication.instance().quit()  # type: ignore
+            return True
+        except Exception as exc:
+            if handoff is not None:
+                restart.cancel_restart(handoff)
+            QMessageBox.warning(
+                self, self.tr("插件管理器"),
+                self.tr("重启插件管理器失败：{error}").format(error=str(exc)))
+            return False
+
     def _really_quit(self) -> None:
         """真正退出程序（从托盘菜单触发）"""
         if self._installation_in_progress():
             return
+        if self._defer_for_auto_update(self._really_quit):
+            return
+        market = getattr(self, "_market_dialog", None)
+        if market is not None and market._task is not None:
+            if not getattr(self, "_market_quit_pending", False):
+                self._market_quit_pending = True
+                market.finished.connect(self._finish_market_quit)
+                market.reject()
+            return
         if self._tray_icon is not None:
             self._tray_icon.hide()
+        self._save_window_size()
         self._state_mgr.save()
         self._manager.stop()
         QApplication.instance().quit()  # type: ignore
+
+    def _finish_market_quit(self, _result: int) -> None:
+        self._market_quit_pending = False
+        # 先退出市场的嵌套事件循环，再退出应用的主事件循环。
+        QTimer.singleShot(0, self._really_quit)
 
     def _open_global_settings(self) -> None:
         """打开全局设置（目前显示控制授权对话框）"""
@@ -2416,15 +2768,29 @@ class PluginManagerWindow(QMainWindow):
         dlg.resize(900, 700)
         dlg.exec()
 
+    def _open_about(self) -> None:
+        version = self.tr("版本 {version}").format(version=APP_VERSION)
+        QMessageBox.about(self, self.tr("关于插件管理器"), f"元扫雷（Metasweeper）\n{version}")
+
     def _connect_signals(self) -> None:
         self._refresh_btn.clicked.connect(self._refresh_plugin_list)
+        self._list.itemClicked.connect(self._on_list_clicked)
         self._list.itemDoubleClicked.connect(self._on_list_double_clicked)
+        # QListWidget emits itemActivated for the platform's keyboard
+        # activation gesture (Enter/Return).  Relying only on QShortcut here
+        # is timing-sensitive with Qt 6.12 after the list regains focus.
+        self._list.itemActivated.connect(self._on_list_double_clicked)
+        self._list.currentItemChanged.connect(self._update_plugin_details_action)
+        self._plugin_details_btn.clicked.connect(self._show_current_plugin_diagnostics)
+        open_shortcut = QShortcut(self._list)
+        open_shortcut.setKeys([QKeySequence(Qt.Key.Key_Return), QKeySequence(Qt.Key.Key_Enter)])
+        open_shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+        open_shortcut.activated.connect(
+            lambda: self._on_list_double_clicked(self._list.currentItem()))
+        self._tab_widget.currentChanged.connect(self._sync_active_plugin_row)
         self._list.customContextMenuRequested.connect(
             self._on_list_context_menu)
         self.connection_changed.connect(self._on_conn_changed)
-
-        # 控制授权按钮
-        self._control_auth_btn.clicked.connect(self._open_control_auth_dialog)
 
     def _open_basic_settings_dialog(self) -> None:
         """打开基础设置对话框"""
@@ -2433,19 +2799,21 @@ class PluginManagerWindow(QMainWindow):
         dialog.exec()
 
     def _open_plugin_environment_dialog(self) -> None:
+        if self._defer_for_auto_update(self._open_plugin_environment_dialog):
+            return
         dialog = PluginEnvironmentDialog(self._settings_mgr, self)
         dialog.settings_changed.connect(self._on_plugin_environment_changed)
         dialog.exec()
 
     def _on_plugin_environment_changed(self) -> None:
-        self.statusBar().showMessage(
+        self._show_notice(
             self.tr("依赖环境设置已保存；下载源用于后续手动安装，目录变更重启后生效。"),
             5000)
 
     def _on_settings_changed(self) -> None:
         """设置变更后的回调"""
         self._apply_log_level()
-        self.statusBar().showMessage(self.tr("设置已保存"), 2000)
+        self._show_notice(self.tr("设置已保存"), 2000)
 
     def _apply_log_level(self) -> None:
         """应用日志等级到日志系统"""
@@ -2467,12 +2835,14 @@ class PluginManagerWindow(QMainWindow):
         # 创建或复用对话框
         if not hasattr(self, "_log_viewer_dlg") or self._log_viewer_dlg is None:
             self._log_viewer_dlg = LogViewerDialog(
-                plugin_names, initial_log, viewer_level, auto_scroll, show_source, self
+                plugin_names, initial_log, viewer_level, auto_scroll, show_source, self,
+                display_names=self._display_names(),
             )
         else:
             # 更新设置并切换到指定日志；show_log 在日志源未变化时也会
             # 确保 sink 存在（重开后 closeEvent 已移除 sink，等级/源都没变
             # 时 update_settings 不会重建）。
+            self._log_viewer_dlg.update_display_names(self._display_names())
             self._log_viewer_dlg.update_settings(
                 viewer_level, auto_scroll, show_source)
             self._log_viewer_dlg.show_log(initial_log)
@@ -2525,7 +2895,7 @@ class PluginManagerWindow(QMainWindow):
             return
 
         logger.info(f"已清理 {cleared} 个日志文件: {log_dir}")
-        self.statusBar().showMessage(
+        self._show_notice(
             self.tr("已清理 {n} 个日志文件").format(n=cleared), 3000)
 
     def _open_control_auth_dialog(self) -> None:
@@ -2539,8 +2909,14 @@ class PluginManagerWindow(QMainWindow):
                 if required:
                     plugin_controls[p.name] = required
 
-        dialog = ControlAuthorizationDialog(plugin_controls, self)
-        dialog.exec()
+        dialog = ControlAuthorizationDialog(
+            plugin_controls, self, display_names=self._display_names())
+        self._control_auth_dlg = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._control_auth_dlg = None
+            dialog.deleteLater()
 
     # ── 连接状态 ────────────────────────────────────────
 
@@ -2548,21 +2924,16 @@ class PluginManagerWindow(QMainWindow):
         self.connection_changed.emit(ok)
 
     def _on_conn_changed(self, ok: bool) -> None:
-        rc = self._manager.reconnect_count
-        self._conn_status.set_status(ok, rc)
-        msg = (
-            self.tr("已连接到主进程")
-            if ok
-            else self.tr("未连接 (重连 {n} 次)").format(n=rc) if rc
-            else self.tr("未连接到主进程")
-        )
-        self.statusBar().showMessage(msg)
+        if not ok:
+            retries = self._manager.reconnect_count
+            message = (self.tr("未连接 (重连 {n} 次)").format(n=retries)
+                       if retries else self.tr("未连接到主进程"))
+            self._connection_notice.setText(f"{message} · {self.tr('正在连接...')}")
+        self._connection_notice.setVisible(not ok)
 
     def _poll_connection_status(self) -> None:
         try:
-            ok = self._manager.is_connected
-            rc = self._manager.reconnect_count
-            self._conn_status.set_status(ok, rc)
+            self._on_conn_changed(self._manager.is_connected)
         except Exception:
             pass
 
@@ -2571,16 +2942,20 @@ class PluginManagerWindow(QMainWindow):
     _debug_active: bool = False
 
     def _installation_in_progress(self) -> bool:
-        progress = getattr(self, "_install_progress", None)
-        if progress is not None and progress._active:
-            progress.show()
-            progress.raise_()
-            progress.activateWindow()
-            return True
+        for attribute in ("_install_progress", "_uninstall_progress"):
+            progress = getattr(self, attribute, None)
+            if progress is not None and progress._active:
+                progress.show()
+                progress.raise_()
+                progress.activateWindow()
+                return True
         return False
 
     def _start_installation(self, title: str, installer, args: tuple):
         if self._installation_in_progress():
+            return None
+        if self._auto_update_task is not None:
+            self._show_notice(self.tr("正在自动更新插件…"), 5_000)
             return None
         progress = _InstallProgressDialog(title, installer, args, self)
         self._install_progress = progress
@@ -2638,7 +3013,9 @@ class PluginManagerWindow(QMainWindow):
 
             self._debug_act.setText(self.tr("调试已启动"))
             self._debug_act.setEnabled(False)
-            self.statusBar().showMessage(self.tr("调试服务已在端口 5678 启动，等待 VS Code 连接。重启插件管理器可关闭调试。"))
+            self._show_notice(
+                self.tr("调试服务已在端口 5678 启动，等待 VS Code 连接。重启插件管理器可关闭调试。"),
+                15_000)
             logger.info("Debug server started on port 5678")
         except Exception as e:
             QMessageBox.warning(
@@ -2647,32 +3024,136 @@ class PluginManagerWindow(QMainWindow):
 
     # ── 插件列表 ────────────────────────────────────────
 
-    # ── 插件列表 ────────────────────────────────────────
+    @staticmethod
+    def _plugin_display_name(plugin) -> str:
+        """插件面向用户的名称；无 display_name 时回退到稳定标识。"""
+        info = getattr(plugin, "info", None)
+        fallback = str(getattr(plugin, "name", "") or "")
+        value = getattr(info, "display_name", None)
+        return resolve_display_name(value, fallback)
+
+    def _display_names(self) -> dict[str, str]:
+        """``{稳定标识: 当前语言下的显示名}``，供标签页与标题刷新。"""
+        return {
+            name: self._plugin_display_name(plugin)
+            for name, plugin in self._manager.plugins.items()
+        }
+
+    def _refresh_plugin_display_names(self) -> None:
+        """语言切换后刷新已创建界面中的插件显示名（稳定标识与状态不变）。
+
+        - 标签页标题与独立窗口标题
+        - 已打开的日志查看器插件来源下拉
+        - 已打开的控制授权对话框插件下拉
+        """
+        try:
+            names = self._display_names()
+        except (AttributeError, RuntimeError):
+            return
+        tab_widget = getattr(self, "_tab_widget", None)
+        if tab_widget is not None:
+            tab_widget.apply_display_names(names)
+        viewer = getattr(self, "_log_viewer_dlg", None)
+        if viewer is not None:
+            try:
+                viewer.update_display_names(names)
+            except RuntimeError:  # 对话框已析构
+                self._log_viewer_dlg = None
+        auth_dialog = getattr(self, "_control_auth_dlg", None)
+        if auth_dialog is not None:
+            try:
+                auth_dialog.update_display_names(names)
+            except RuntimeError:
+                self._control_auth_dlg = None
+
+    def _module_display_name(self, module_name: str) -> str:
+        """按模块名解析插件显示名；无对应实例时回退到模块名。"""
+        loader = getattr(self._manager, "_loader", None)
+        plugin_modules = getattr(loader, "_plugin_modules", None)
+        if isinstance(plugin_modules, dict):
+            for plugin_key, mapped in plugin_modules.items():
+                if mapped == module_name:
+                    plugin = self._manager.plugins.get(plugin_key)
+                    if plugin is not None:
+                        return self._plugin_display_name(plugin)
+        return module_name
 
     @Slot(object)
     def _on_plugin_ready(self, plugin) -> None:
         """插件初始化完成，刷新列表显示"""
         self._refresh_plugin_list()
-        self.statusBar().showMessage(
-            self.tr("插件 {name} 就绪").format(name=plugin.name), 2000
-        )
+        self._restore_pending_restart_tab()
+
+    def restore_restart_tab(self, name: str) -> None:
+        self._pending_restart_tab = name
+        self._restore_pending_restart_tab()
+
+    def _restore_pending_restart_tab(self) -> None:
+        name = self._pending_restart_tab
+        if name is None:
+            return
+        plugin = self._manager.plugins.get(name)
+        if plugin is None:
+            self._pending_restart_tab = None
+        elif plugin.lifecycle == PluginLifecycle.READY:
+            self._pending_restart_tab = None
+            self._closed_plugins.discard(name)
+            self._open_tab_window(name)
+            index = self._tab_widget.index_of_key(name)
+            if index >= 0:
+                self._tab_widget.setCurrentIndex(index)
 
     @Slot(object)
     def _on_plugin_stopped(self, plugin) -> None:
         self._refresh_plugin_list()
 
+    @Slot()
+    def _sync_active_plugin_row(self) -> None:
+        if hasattr(self, "_workspace"):
+            self._update_workspace()
+        delegate = self._list.itemDelegate()
+        if not isinstance(delegate, PluginListDelegate):
+            return
+        key = self._tab_widget.tab_key(self._tab_widget.currentIndex())
+        delegate.active_plugin_key = key
+        self._list.viewport().update()
+        if key is not None:
+            for row in range(self._list.count()):
+                item = self._list.item(row)
+                if item.data(Qt.ItemDataRole.UserRole) == key:
+                    self._list.scrollToItem(item)
+                    break
+
+    def _update_workspace(self) -> None:
+        if self._tab_widget.count():
+            self._workspace.setCurrentWidget(self._tab_widget)
+            return
+        has_plugins = bool(self._list.count())
+        self._empty_title.setText(
+            self.tr("未打开插件窗口") if has_plugins else self.tr("暂无插件"))
+        self._empty_hint.setText(
+            self.tr("双击左侧的就绪插件，或选中后按 Enter。") if has_plugins
+            else self.tr("从插件市场查找并安装插件。"))
+        self._empty_market_btn.setVisible(not has_plugins)
+        self._workspace.setCurrentWidget(self._empty_workspace)
+
     def _refresh_plugin_list(self) -> None:
         """刷新插件列表和标签页"""
         t = self._tab_widget
         lst = self._list
+        active_key = t.tab_key(t.currentIndex())
+        docked_keys = {t.tab_key(index) for index in range(t.count())}
+        tab_signals = QSignalBlocker(t)
         t.setUpdatesEnabled(False)
         lst.setUpdatesEnabled(False)
 
         # 保存当前选中项
-        current_name = None
-        item = lst.currentItem()
-        if item:
-            current_name = item.data(Qt.ItemDataRole.UserRole)
+        current_item = lst.currentItem()
+        current_role = Qt.ItemDataRole.UserRole
+        current_key = current_item.data(current_role) if current_item else None
+        if current_item and current_key is None:
+            current_role += 1
+            current_key = current_item.data(current_role)
 
         lst.clear()
         while t.count() > 0:
@@ -2682,62 +3163,102 @@ class PluginManagerWindow(QMainWindow):
         _pending_detach: list[str] = []
 
         for name, p in self._manager.plugins.items():
-            li = QListWidgetItem(p.name)
+            if name in getattr(self, "_uninstalled_plugin_names", ()):
+                continue
+            display_name = self._plugin_display_name(p)
+            li = QListWidgetItem(display_name)
             li.setData(Qt.ItemDataRole.UserRole, name)
             li.setIcon(p.plugin_icon)
 
             lc = p.lifecycle
-
-            # 根据生命周期状态显示
+            info = getattr(p, "info", None)
+            version = getattr(info, "version", "")
+            description = (getattr(info, "description", "") or "").strip()
+            row_status = self.tr("未启动")
+            tone = "neutral"
             if lc == PluginLifecycle.INITIALIZING:
-                li.setForeground(QColor("#f57c00"))  # 橙色：初始化中
-                li.setText(self.tr("{name}（初始化中...）").format(name=p.name))
-            elif not p.is_enabled:
-                li.setForeground(Qt.GlobalColor.gray)  # 灰色：已禁用
+                row_status, tone = self.tr("初始化中"), "warning"
+                li.setForeground(QColor("#f57c00"))
+                li.setText(self.tr("{name}（初始化中...）").format(
+                    name=display_name))
             elif lc == PluginLifecycle.SHUTTING_DOWN:
-                li.setForeground(QColor("#c62828"))  # 红色：关闭中
-                li.setText(self.tr("{name}（关闭中...）").format(name=p.name))
+                row_status, tone = self.tr("停止中"), "warning"
+                li.setForeground(QColor("#c62828"))
+                li.setText(self.tr("{name}（关闭中...）").format(
+                    name=display_name))
+            elif not p.is_enabled:
+                row_status = self.tr("已禁用")
+                li.setForeground(Qt.GlobalColor.gray)
+            elif lc == PluginLifecycle.READY:
+                row_status, tone = self.tr("已就绪"), "ready"
+            elif lc == PluginLifecycle.STOPPED:
+                row_status = self.tr("已停止")
 
             get_status = getattr(self._manager, "get_plugin_dependency_status", None)
             dependency = get_status(name) if callable(get_status) else None
+            tooltip_hint = ""
             if dependency is not None:
                 li.setData(Qt.ItemDataRole.UserRole + 1, dependency.module_name)
-                suffixes = {
-                    "missing": self.tr("（缺少依赖）"),
-                    "conflict": self.tr("（依赖版本冲突）"),
-                    "unknown": self.tr("（依赖待检查）"),
+                issues = {
+                    "missing": (self.tr("缺少依赖"), self.tr("（缺少依赖）")),
+                    "conflict": (self.tr("依赖版本冲突"), self.tr("（依赖版本冲突）")),
+                    "unknown": (self.tr("依赖待检查"), self.tr("（依赖待检查）")),
                 }
-                suffix = suffixes.get(dependency.status)
-                if suffix:
+                if dependency.status in issues:
+                    detail, suffix = issues[dependency.status]
                     li.setText(li.text() + suffix)
                     li.setForeground(QColor("#c62828"))
+                    li.setData(_DIAGNOSTIC_ROLE, "dependency")
+                    tooltip_hint = self.tr("查看依赖详情")
+                    if lc not in (PluginLifecycle.INITIALIZING, PluginLifecycle.SHUTTING_DOWN):
+                        row_status, tone = detail, "warning"
+            init_error = getattr(p, "initialization_error", None)
+            if isinstance(init_error, str) and init_error:
+                row_status, tone = self.tr("初始化失败"), "error"
+                li.setText(self.tr("{name}（初始化失败）").format(name=display_name))
+                li.setData(_DIAGNOSTIC_ROLE, "initialization")
+                tooltip_hint = self.tr("查看详情")
+                li.setForeground(QColor("#c62828"))
 
+            li.setToolTip("\n".join(filter(None, (description, tooltip_hint))))
+            version_label = str(version) if version else ""
+            if version_label and version_label[0].isdigit():
+                version_label = f"v{version_label}"
+            set_plugin_row(li, display_name, row_status, tone, version_label)
             lst.addItem(li)
 
             # 只有就绪状态才创建窗口（INITIALIZING/STOPPED 不创建）
             if p.lifecycle == PluginLifecycle.READY and p.widget and name not in t._detached_windows and name not in self._closed_plugins:
                 st = self._effective_state(name)
-                if st.window_mode == WindowMode.DETACHED:
-                    t.add_detachable_tab(p.widget, name, icon=p.plugin_icon)
+                if (st.window_mode == WindowMode.DETACHED
+                        and name not in docked_keys and name != self._pending_restart_tab):
+                    t.add_detachable_tab(p.widget, display_name, icon=p.plugin_icon,
+                                         key=name)
                     _pending_detach.append(name)
                 else:
-                    t.add_detachable_tab(p.widget, name, icon=p.plugin_icon)
+                    t.add_detachable_tab(p.widget, display_name, icon=p.plugin_icon,
+                                         key=name)
 
         # 导入失败的插件没有实例，仍保留条目以展示依赖诊断。
         statuses = getattr(self._manager, "module_dependency_statuses", {})
         for module_name, dependency in statuses.items():
+            if module_name in getattr(self, "_uninstalled_plugin_modules", ()):
+                continue
             if dependency.import_status != "failed":
                 continue
             li = QListWidgetItem(self.tr("{name}（加载失败）").format(name=module_name))
             li.setData(Qt.ItemDataRole.UserRole + 1, module_name)
-            li.setToolTip(self._dependency_text(dependency))
+            li.setData(_DIAGNOSTIC_ROLE, "dependency")
+            li.setIcon(action_icon("dependency"))
+            set_plugin_row(li, module_name, self.tr("加载失败"), "error")
+            li.setToolTip(self.tr("查看依赖详情"))
             li.setForeground(QColor("#c62828"))
             lst.addItem(li)
 
         # 恢复选中项
-        if current_name:
+        if current_key is not None:
             for i in range(lst.count()):
-                if lst.item(i).data(Qt.ItemDataRole.UserRole) == current_name:  # type: ignore
+                if lst.item(i).data(current_role) == current_key:  # type: ignore
                     lst.setCurrentRow(i)
                     break
 
@@ -2746,45 +3267,16 @@ class PluginManagerWindow(QMainWindow):
 
         # 延迟弹出到独立窗口（已有视图，不触发重建）
         for name in _pending_detach:
-            for i in range(t.count()):
-                if t.tabText(i) == name:
-                    t._detach_tab(i, name)
-                    break
+            index = t.index_of_key(name)
+            if index >= 0:
+                t._detach_tab(index, name)
 
-        total = len(self._manager.plugins)
-        en = sum(1 for p in self._manager.plugins.values() if p.is_enabled)
-        self.statusBar().showMessage(
-            self.tr("已加载 {total} 个插件，{enabled} 个已启用").format(
-                total=total, enabled=en
-            )
-        )
+        active_index = t.index_of_key(active_key) if active_key is not None else -1
+        if active_index >= 0:
+            t.setCurrentIndex(active_index)
+        tab_signals.unblock()
+        self._sync_active_plugin_row()
 
-    def _dependency_text(self, dependency) -> str:
-        labels = {
-            "no_requirements": self.tr("未声明 requirements.txt"),
-            "satisfied": self.tr("已安装"),
-            "missing": self.tr("未安装"),
-            "conflict": self.tr("版本不符合要求"),
-            "unknown": self.tr("无法确认"),
-            "skipped": self.tr("当前环境不适用"),
-        }
-        lines: list[str] = []
-        if dependency.requirements_path is not None:
-            lines.append(str(dependency.requirements_path))
-        if dependency.status == "no_requirements":
-            lines.append(labels["no_requirements"])
-        elif not dependency.diagnostics:
-            lines.append(self.tr("没有声明第三方依赖"))
-        for entry in dependency.diagnostics:
-            status = labels.get(entry.status, entry.status)
-            if entry.installed_version:
-                status += f" ({self.tr('已安装版本')} {entry.installed_version})"
-            detail = f" — {entry.detail}" if entry.detail else ""
-            lines.append(f"{entry.requirement}: {status}{detail}")
-        if dependency.import_error:
-            lines.append(self.tr("插件加载失败：{error}").format(
-                error=dependency.import_error))
-        return "\n".join(lines)
 
     def _show_dependency_details(self, module_name: str) -> None:
         dependency = self._manager.get_module_dependency_status(module_name)
@@ -2792,7 +3284,8 @@ class PluginManagerWindow(QMainWindow):
             return
 
         dialog = QDialog(self)
-        dialog.setWindowTitle(self.tr("插件依赖") + f" — {module_name}")
+        dialog.setWindowTitle(
+            self.tr("插件依赖") + f" — {self._module_display_name(module_name)}")
         dialog.resize(620, 380)
         layout = QVBoxLayout(dialog)
 
@@ -2875,7 +3368,7 @@ class PluginManagerWindow(QMainWindow):
         progress.installation_finished.connect(
             lambda error: progress.set_result(
                 self.tr("{name} 的依赖已安装。重启插件管理器后重新加载插件。")
-                .format(name=module_name)) if not error else None)
+                .format(name=self._module_display_name(module_name))) if not error else None)
         dialog.accept()
         progress.start()
 
@@ -2892,43 +3385,32 @@ class PluginManagerWindow(QMainWindow):
             return
 
         menu = QMenu(self)
-        if not plugin:
+        get_status = getattr(self._manager, "get_module_dependency_status", None)
+        dependency = get_status(module_name) if module_name and callable(get_status) else None
+        package = dependency.module_path.parent if (
+            dependency is not None and dependency.module_path.name == "__init__.py") else None
+        if plugin:
+            self._add_plugin_context_actions(menu, name, plugin, module_name)
+        else:
             action = menu.addAction(self.tr("查看依赖详情"))
             set_action_icon(action, "dependency")
             action.triggered.connect(lambda: self._show_dependency_details(module_name))
-            menu.exec(self._list.viewport().mapToGlobal(pos))
-            return
-        t = self._tab_widget
-        if module_name:
-            action = menu.addAction(self.tr("查看依赖详情"))
-            set_action_icon(action, "dependency")
-            action.triggered.connect(lambda: self._show_dependency_details(module_name))
+        if package is not None and is_managed_plugin(package):
             menu.addSeparator()
+            uninstall = menu.addAction(self.tr("卸载插件…"))
+            set_action_icon(uninstall, "clear")
+            uninstall.triggered.connect(
+                lambda: self.uninstall_market_plugin(package, self._module_display_name(module_name)))
+        menu.exec(self._list.viewport().mapToGlobal(pos))
 
-        # 启用/禁用（非就绪状态不可切换，但 STOPPED 可以重新启用）
+    def _add_plugin_context_actions(
+        self, menu: QMenu, name: str, plugin: BasePlugin, module_name: str | None,
+    ) -> None:
+        t = self._tab_widget
         lc = plugin.lifecycle
-        can_control = lc in (PluginLifecycle.NEW, PluginLifecycle.READY, PluginLifecycle.STOPPED)
-        act_enable = menu.addAction(self.tr("启用"))
-        act_disable = menu.addAction(self.tr("禁用"))
-        set_action_icon(act_enable, "enable")
-        set_action_icon(act_disable, "disable")
-        act_enable.setEnabled(can_control and not plugin.is_enabled)
-        act_disable.setEnabled(
-            lc == PluginLifecycle.READY and plugin.is_enabled)
-        act_enable.triggered.connect(lambda: self._toggle_plugin(name, True))
-        act_disable.triggered.connect(lambda: self._toggle_plugin(name, False))
 
-        menu.addSeparator()
-
-        # 插件详情（点击打开详情对话框，只读展示订阅/权限信息）
-        act_detail = menu.addAction(self.tr("插件详情"))
-        set_action_icon(act_detail, "info")
-        act_detail.triggered.connect(lambda: self._open_plugin_info(name))
-
-        menu.addSeparator()
-
-        # 打开/关闭窗口
-        has_tab = any(t.tabText(i) == name for i in range(t.count()))
+        # 插件窗口
+        has_tab = t.index_of_key(name) >= 0
         has_detached = name in t._detached_windows
         has_closed = name in self._closed_plugins
 
@@ -2936,44 +3418,216 @@ class PluginManagerWindow(QMainWindow):
         act_close = menu.addAction(self.tr("关闭窗口"))
         set_action_icon(act_open, "window")
         set_action_icon(act_close, "window-close")
-
-        # 窗口操作只有就绪状态才可用
         can_open = lc == PluginLifecycle.READY and (
             has_closed or (not has_tab and plugin.widget is not None))
         act_open.setEnabled(can_open)
         act_close.setEnabled(
             lc == PluginLifecycle.READY and (has_tab or has_detached))
-
-        # 打开日志文件
-        act_log = menu.addAction(self.tr("打开日志"))
-        set_action_icon(act_log, "log")
-
-        # 查看 README
-        act_readme = menu.addAction(self.tr("查看 README"))
-        set_action_icon(act_readme, "guide")
-
         act_open.triggered.connect(lambda: self._open_plugin_window(name))
         act_close.triggered.connect(lambda: self._close_plugin_window(name))
-        act_log.triggered.connect(lambda: self._open_plugin_log(name))
-        act_readme.triggered.connect(lambda: self._open_plugin_readme(name))
+
+        act_settings = menu.addAction(self.tr("设置..."))
+        set_action_icon(act_settings, "settings")
+        act_settings.triggered.connect(lambda: self._open_plugin_settings(name))
 
         menu.addSeparator()
 
-        # 一键授权控制权限（仅 READY 且声明了控制权限的插件）
+        can_control = lc in (PluginLifecycle.NEW, PluginLifecycle.READY, PluginLifecycle.STOPPED)
+        act_enable = menu.addAction(self.tr("启用"))
+        act_disable = menu.addAction(self.tr("禁用"))
+        set_action_icon(act_enable, "enable")
+        set_action_icon(act_disable, "disable")
+        act_enable.setEnabled(can_control and not plugin.is_enabled)
+        act_disable.setEnabled(lc == PluginLifecycle.READY and plugin.is_enabled)
+        act_enable.triggered.connect(lambda: self._toggle_plugin(name, True))
+        act_disable.triggered.connect(lambda: self._toggle_plugin(name, False))
+
+        menu.addSeparator()
+
+        # 插件信息与诊断
+        act_detail = menu.addAction(self.tr("插件详情"))
+        act_readme = menu.addAction(self.tr("查看 README"))
+        set_action_icon(act_detail, "info")
+        set_action_icon(act_readme, "guide")
+        act_detail.triggered.connect(lambda: self._open_plugin_info(name))
+        act_readme.triggered.connect(lambda: self._open_plugin_readme(name))
+
+        if module_name:
+            act_dependency = menu.addAction(self.tr("查看依赖详情"))
+            set_action_icon(act_dependency, "dependency")
+            act_dependency.triggered.connect(
+                lambda: self._show_dependency_details(module_name))
+
+        act_log = menu.addAction(self.tr("打开日志"))
+        set_action_icon(act_log, "log")
+        act_log.triggered.connect(lambda: self._open_plugin_log(name))
+
         required_controls = plugin.info.required_controls or []
         if lc == PluginLifecycle.READY and required_controls:
+            menu.addSeparator()
             act_control_auth = menu.addAction(self.tr("一键授权控制权限"))
             set_action_icon(act_control_auth, "authorize")
             act_control_auth.triggered.connect(
                 lambda: self._authorize_plugin_controls(name))
 
-        # 设置
-        act_settings = menu.addAction(self.tr("设置..."))
-        set_action_icon(act_settings, "settings")
-        act_settings.triggered.connect(
-            lambda: self._open_plugin_settings(name))
+        menu.addSeparator()
+        act_export_data = menu.addAction(self.tr("导出插件数据…"))
+        act_import_data = menu.addAction(self.tr("导入插件数据…"))
+        set_action_icon(act_export_data, "upload")
+        set_action_icon(act_import_data, "import")
+        act_export_data.triggered.connect(
+            lambda: self._export_single_plugin_data(name))
+        act_import_data.triggered.connect(
+            lambda: self._import_single_plugin_data(name))
 
-        menu.exec(self._list.viewport().mapToGlobal(pos))
+    def uninstall_market_plugin(self, package: Path, display_name: str,
+                                dialog: QDialog | None = None) -> bool:
+        parent = dialog if dialog is not None else self
+        if self._installation_in_progress():
+            return False
+        if self._defer_for_auto_update(
+                lambda: self.uninstall_market_plugin(package, display_name, dialog)):
+            return False
+        data_dir = get_data_dir()
+        try:
+            plan = plan_removal(package, data_dir)
+            extended = (plan_removal(package, data_dir, include_unrecorded=True)
+                        if plan.kept else plan)
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.warning(parent, self.tr("无法卸载插件"), str(exc))
+            return False
+
+        names = []
+        for name, plugin in self._manager.plugins.items():
+            status = self._manager.get_plugin_dependency_status(name)
+            if (status is not None and status.module_path.name == "__init__.py"
+                    and status.module_path.parent.resolve() == plan.package):
+                names.append((name, plugin))
+        message = [self.tr("卸载 {name}？").format(name=display_name), str(plan.package)]
+        if names:
+            message.append(self.tr("此安装目录包含：{names}").format(
+                names="、".join(self._plugin_display_name(plugin) for _, plugin in names)))
+        if plan.packages:
+            message.append(self.tr("同时清理独享依赖：{packages}").format(
+                packages="、".join(f"{name} {version}" for name, version in plan.packages)))
+        extra = sorted(set(extended.packages) - set(plan.packages))
+        if extra:
+            message.append(self.tr("勾选后也会清理这组独享依赖，其中有包缺少安装归属记录：{packages}")
+                           .format(packages="、".join(f"{name} {version}" for name, version in extra)))
+        kept = extended.kept if extra else plan.kept
+        if kept:
+            message.append(self.tr("共享或无法确认归属的依赖将保留：{packages}").format(
+                packages="、".join(kept)))
+        if plan.note:
+            message.append(self.tr(plan.note))
+        message.append(self.tr("保留插件配置、历史记录和存档。"))
+        confirm = QMessageBox(parent)
+        confirm.setWindowTitle(self.tr("卸载插件"))
+        confirm.setIcon(QMessageBox.Icon.Question)
+        confirm.setTextFormat(Qt.TextFormat.PlainText)
+        confirm.setText("\n\n".join(message))
+        cleanup_legacy = None
+        if extra:
+            cleanup_legacy = QCheckBox(self.tr("同时清理这组独享依赖"), confirm)
+            confirm.setCheckBox(cleanup_legacy)
+        proceed = confirm.addButton(self.tr("卸载"), QMessageBox.ButtonRole.DestructiveRole)
+        cancel = confirm.addButton(QMessageBox.StandardButton.Cancel)
+        confirm.setDefaultButton(cancel)
+        confirm.exec()
+        if confirm.clickedButton() is not proceed:
+            return False
+        if cleanup_legacy is not None and cleanup_legacy.isChecked():
+            plan = extended
+
+        stopped = []
+        try:
+            for name, plugin in names:
+                was_enabled = plugin.is_enabled
+                stopped.append((name, plugin, was_enabled))
+                self._remove_plugin_window(name)
+                self._manager.disable_plugin(name)
+                if plugin.lifecycle != PluginLifecycle.STOPPED:
+                    raise RuntimeError(self.tr("插件仍在停止，请稍后重试。"))
+            progress = TaskProgressDialog(
+                self.tr("卸载插件"), self.tr("正在卸载…"), parent)
+            progress.setMinimumSize(460, 280)
+            progress.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            progress.append_output(str(plan.package) + "\n")
+            if plan.packages:
+                progress.append_output(self.tr("同时清理独享依赖：{packages}").format(
+                    packages="、".join(f"{name} {version}" for name, version in plan.packages)) + "\n")
+            progress.set_task_running(True)
+            self._uninstall_progress = progress
+            progress.task_finished.connect(self._on_uninstall_progress_finished)
+            progress.show()
+            progress.raise_()
+            progress_callback = lambda completed, total: progress.task_progress.emit(completed, total)
+            thread, _future, _report = run_removal_in_thread(
+                plan, data_dir,
+                progress_callback=progress_callback,
+                finished_callback=lambda error: progress.task_finished.emit(
+                    ("error", error) if error else ("success", None)),
+            )
+            self._removed_plugin_names = names
+            self._removed_plugins_for_rollback = stopped
+            self._removed_plugin_package_name = plan.package.name
+            thread.start()
+            return False
+        except (OSError, ValueError, RuntimeError) as exc:
+            for name, plugin, was_enabled in stopped:
+                if was_enabled and plugin.lifecycle == PluginLifecycle.STOPPED:
+                    self._manager.enable_plugin(name)
+            self._refresh_plugin_list()
+            if isinstance(exc, PermissionError):
+                answer = QMessageBox.question(
+                    parent, self.tr("重启后卸载"),
+                    self.tr("文件可能正在使用，已恢复原有文件。"
+                            "要现在重启插件管理器并在加载插件前执行同一卸载计划吗？"),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
+                if answer == QMessageBox.StandardButton.Yes:
+                    try:
+                        queue_removal(plan, data_dir)
+                    except (OSError, ValueError, RuntimeError) as queue_error:
+                        QMessageBox.warning(parent, self.tr("无法安排卸载"), str(queue_error))
+                    else:
+                        self.restart_plugin_manager()
+                    return False
+            QMessageBox.warning(parent, self.tr("卸载失败"), str(exc))
+            return False
+
+    @Slot(object)
+    def _on_uninstall_progress_finished(self, result: tuple[str, BaseException | None]) -> None:
+        progress = self._uninstall_progress
+        error = result[1] if isinstance(result, tuple) else None
+        self._uninstall_progress = None
+        if error is None:
+            self._uninstalled_plugin_names = getattr(self, "_uninstalled_plugin_names", set())
+            self._uninstalled_plugin_names.update(name for name, _ in self._removed_plugin_names)
+            self._uninstalled_plugin_modules = getattr(self, "_uninstalled_plugin_modules", set())
+            self._uninstalled_plugin_modules.add(self._removed_plugin_package_name)
+            self._refresh_plugin_list()
+            if progress is not None:
+                message = self.tr("插件已卸载。请重启插件管理器以刷新运行环境。")
+                progress.append_output(message + "\n")
+                progress.set_completed(message)
+                if isinstance(progress.parent(), PluginMarketDialog):
+                    progress.parent().show_uninstall_complete()
+            else:
+                QMessageBox.information(
+                    self, self.tr("卸载完成"),
+                    self.tr("插件已卸载。请重启插件管理器以刷新运行环境。"))
+            return
+        for name, plugin, was_enabled in getattr(self, "_removed_plugins_for_rollback", ()):
+            if was_enabled and plugin.lifecycle == PluginLifecycle.STOPPED:
+                self._manager.enable_plugin(name)
+        self._refresh_plugin_list()
+        if progress is not None:
+            progress.append_output(str(error) + "\n")
+            progress.set_completed(
+                self.tr("卸载失败：{error}").format(error=error), success=False)
+        else:
+            QMessageBox.warning(self, self.tr("卸载失败"), str(error))
 
     def _authorize_plugin_controls(self, name: str) -> None:
         """一键授权：将插件声明的所有控制权限授权给它"""
@@ -2990,9 +3644,9 @@ class PluginManagerWindow(QMainWindow):
             auth_manager.authorize(cmd_type, name)
         auth_manager.save()
 
-        self.statusBar().showMessage(
+        self._show_notice(
             self.tr("已授权 {n} 个控制命令给插件 {name}").format(
-                n=len(required), name=name
+                n=len(required), name=self._plugin_display_name(plugin)
             ),
             3000,
         )
@@ -3006,6 +3660,7 @@ class PluginManagerWindow(QMainWindow):
             self._remove_plugin_window(name)
             self._manager.disable_plugin(name)
         self._sync_state(name, enabled=enable)
+        self._state_mgr.save()
         self._refresh_plugin_list()
 
     def _open_plugin_window(self, name: str) -> None:
@@ -3027,10 +3682,10 @@ class PluginManagerWindow(QMainWindow):
             return
 
         # 如果已有标签页，切换过去
-        for i in range(t.count()):
-            if t.tabText(i) == name:
-                t.setCurrentIndex(i)
-                return
+        index = t.index_of_key(name)
+        if index >= 0:
+            t.setCurrentIndex(index)
+            return
 
         # 从关闭列表中移除并重新打开；show_window 只影响启动，不在此回写。
         # 手动打开窗口属于当前会话的视图状态，绝不更改启动开关或启动配置。
@@ -3039,7 +3694,10 @@ class PluginManagerWindow(QMainWindow):
         if st.window_mode == WindowMode.DETACHED:
             self._open_detached_window(name)
         else:
-            t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+            index = t.add_detachable_tab(
+                widget, self._plugin_display_name(plugin),
+                icon=plugin.plugin_icon, key=name)
+            t.setCurrentIndex(index)
 
     def _remove_plugin_window(self, name: str) -> None:
         """从 Tab / 独立窗口容器移除视图，并真正析构 widget 实例。
@@ -3052,15 +3710,9 @@ class PluginManagerWindow(QMainWindow):
         """
         t = self._tab_widget
         plugin = self._manager.plugins.get(name)
-        if name in t._detached_windows:
-            # blockSignals 让 closeEvent 走默认关闭，不再 emit close_requested，
-            # 避免程序化清理触发析构重入或重复信号。
-            window = t._detached_windows.pop(name)
-            window.blockSignals(True)
-            window.close()
-            window.deleteLater()
+        t._cleanup_detached(name)
         for i in range(t.count()):
-            if t.tabText(i) == name:
+            if t.tab_key(i) == name:
                 t.removeTab(i)
                 break
         if plugin is not None and plugin.widget is not None:
@@ -3101,8 +3753,9 @@ class PluginManagerWindow(QMainWindow):
 
         # 以插件目录为相对路径基准，供 README 内相对链接解析
         base_dir = plugin.plugin_dir
-        dlg = _PluginReadmeDialog(name, text, parent=self,
-                                  base_dir=base_dir)
+        dlg = _PluginReadmeDialog(
+            self._plugin_display_name(plugin), text, parent=self,
+            base_dir=base_dir)
         dlg.exec()
 
     def _open_plugin_info(self, name: str) -> None:
@@ -3115,14 +3768,15 @@ class PluginManagerWindow(QMainWindow):
         dlg.exec()
 
     def _open_plugin_settings(self, name: str) -> None:
-        """打开插件设置对话框"""
+        """打开插件设置对话框（``name`` 为稳定标识，标题展示显示名）"""
         current = self._effective_state(name)
         # 获取插件的 other_info
         plugin = self._manager.plugins.get(name)
         other_info = plugin.other_info if plugin else None
 
         dlg = PluginSettingsDialog(
-            name, current, other_info, parent=self, plugin=plugin)
+            name, current, other_info, parent=self, plugin=plugin,
+            display_name=self._plugin_display_name(plugin) if plugin else name)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_state = dlg.result_state
             try:
@@ -3231,11 +3885,13 @@ class PluginManagerWindow(QMainWindow):
         if name in t._detached_windows:
             t._attach_tab(name)
             return
-        for i in range(t.count()):
-            if t.tabText(i) == name:
-                t.setCurrentIndex(i)
-                return
-        t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+        index = t.index_of_key(name)
+        if index >= 0:
+            t.setCurrentIndex(index)
+            return
+        t.add_detachable_tab(
+            widget, self._plugin_display_name(plugin),
+            icon=plugin.plugin_icon, key=name)
 
     def _open_detached_window(self, name: str) -> None:
         """确保插件视图存在，并以独立窗口显示。"""
@@ -3249,12 +3905,37 @@ class PluginManagerWindow(QMainWindow):
         if name in t._detached_windows:
             t._detached_windows[name].show()
             return
-        for i in range(t.count()):
-            if t.tabText(i) == name:
-                t._detach_tab(i, name)
-                return
-        idx = t.add_detachable_tab(widget, name, icon=plugin.plugin_icon)
+        index = t.index_of_key(name)
+        if index >= 0:
+            t._detach_tab(index, name)
+            return
+        idx = t.add_detachable_tab(
+            widget, self._plugin_display_name(plugin),
+            icon=plugin.plugin_icon, key=name)
         t._detach_tab(idx, name)
+
+    def _on_list_clicked(self, item: QListWidgetItem) -> None:
+        name = item.data(Qt.ItemDataRole.UserRole)
+        if name is not None:
+            index = self._tab_widget.index_of_key(name)
+            if index >= 0:
+                self._tab_widget.setCurrentIndex(index)
+
+    def _update_plugin_details_action(self, item: QListWidgetItem | None) -> None:
+        self._plugin_details_btn.setVisible(bool(item and item.data(_DIAGNOSTIC_ROLE)))
+
+    def _show_current_plugin_diagnostics(self) -> None:
+        item = self._list.currentItem()
+        if item is None:
+            return
+        diagnostic = item.data(_DIAGNOSTIC_ROLE)
+        if diagnostic == "initialization":
+            plugin = self._manager.plugins.get(item.data(Qt.ItemDataRole.UserRole))
+            error = getattr(plugin, "initialization_error", None)
+            if error:
+                QMessageBox.warning(self, self.tr("初始化失败"), error)
+        elif diagnostic == "dependency":
+            self._show_dependency_details(item.data(Qt.ItemDataRole.UserRole + 1))
 
     def _on_list_double_clicked(self, item) -> None:
         """双击列表项：打开对应插件窗口"""
@@ -3284,12 +3965,34 @@ class PluginManagerWindow(QMainWindow):
 
     # ── 窗口事件 ────────────────────────────────────────
 
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if (hasattr(self, "_window_size_timer") and self.isVisible()
+                and not (self.isMaximized() or self.isMinimized() or self.isFullScreen())):
+            self._window_size_timer.start()
+
+    @Slot()
+    def _save_window_size(self) -> None:
+        if not self.isVisible() or not hasattr(self, "_settings_mgr"):
+            return
+        if self.isMaximized() or self.isMinimized() or self.isFullScreen():
+            size = self.normalGeometry().size()
+        else:
+            size = self.size()
+        if size.isEmpty():
+            return
+        try:
+            self._settings_mgr.set_window_size(size.width(), size.height())
+        except OSError as exc:
+            logger.warning(f"保存插件管理器窗口大小失败: {exc}")
+
     def closeEvent(self, event) -> None:
         """关闭主窗口 → 最小化到系统托盘，不退出"""
         if self._installation_in_progress():
             event.ignore()
             return
         if hasattr(self, "_tray_icon") and self._tray_icon is not None and self._tray_icon.isVisible():
+            self._save_window_size()
             event.ignore()
             self.hide()
             if self._tray_icon.supportsMessages():
@@ -3310,6 +4013,7 @@ class PluginManagerWindow(QMainWindow):
             QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
+            self._save_window_size()
             self._state_mgr.save()
             self._manager.stop()
             event.accept()

@@ -31,7 +31,7 @@ if [ ! -x "$PY" ]; then
     "$PY" -m pip install --upgrade pip
     "$PY" -m pip install \
         "PySide6>=6.8.0" "ms-toollib>=1.5.17" "msgspec>=0.20.0" "pyzmq" \
-        "loguru>=0.7.3" "requests>=2.33.1" "textdistance" \
+        "loguru>=0.7.3" "requests>=2.33.1" \
         "cryptography>=50.0.2" "PyMCUlib>=1.0.3" \
         "setuptools" "pyinstaller>=6.10" \
         "pyobjc-core>=10.0" "pyobjc-framework-Cocoa>=10.0"
@@ -43,6 +43,12 @@ if not (sys.version_info[:2] <= (3, 12) and sys.version_info >= (3, 11)):
     print(f"[mac] Python 版本不支持: {sys.version}（项目要求 >=3.11, <=3.12）")
     sys.exit(1)
 EOF
+
+# 编译主程序和内置插件翻译；插件目录随管理器一起打包。
+for locale in en_US de_DE pl_PL ja_JP; do
+    "$ROOT/.venv/bin/pyside6-lrelease" "$SRC/ui/$locale.ts" -qm "$SRC/$locale.qm"
+done
+"$PY" "$ROOT/develop_tools/compile_plugin_translations.py"
 
 # ── 2. 图标资源（cat.svg → iconset / cat.ico） ──────────
 QT_QPA_PLATFORM=offscreen "$PY" "$MACOS_DIR/make_assets.py"
@@ -94,17 +100,15 @@ trash_dir "$DIST/Metasweeper"
 trash_dir "$DIST/plugin_manager"
 
 # ── 5. 打包 DMG（文件名带版本号） ───────────────────────
-VERSION=$("$PY" - "$SRC/superGUI.py" <<'PYEOF'
-import re
+VERSION=$("$PY" - "$SRC/config/constants.py" <<'PYEOF'
+import runpy
 import sys
 
-text = open(sys.argv[1], encoding="utf-8").read()
-match = re.search(r'^version\s*=\s*"元([\d.]+)"', text, re.M)
-print(match.group(1) if match else "")
+print(runpy.run_path(sys.argv[1]).get("APP_VERSION", ""))
 PYEOF
 )
 if [ -z "$VERSION" ]; then
-    echo "[mac] 未能从 superGUI.py 解析版本号"
+    echo "[mac] 未能从 config/constants.py 读取版本号"
     exit 1
 fi
 

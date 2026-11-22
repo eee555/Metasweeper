@@ -1,1 +1,0 @@
-# No extra third-party dependencies. PySide6, msgspec and ms-toollib are provided by the application.

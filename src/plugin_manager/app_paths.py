@@ -102,8 +102,8 @@ _data_dir_override: str | None = None
 def set_data_dir_override(path: str) -> None:
     """由主进程在启动时调用，传入已测过权限的 data 目录"""
     global _data_dir_override
-    _data_dir_override = path
-    _write_pointer_file(path)
+    _data_dir_override = str(Path(path).resolve())
+    _write_pointer_file(_data_dir_override)
 
 
 def get_data_dir() -> Path:

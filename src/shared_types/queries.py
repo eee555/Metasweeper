@@ -111,6 +111,8 @@ class GameContextResult(BaseQueryResult, tag="query.game_context.result"):
         bbbv, bbbv_solved: 3BV 总量与已完成量
         progress: 完成度（0..1），无法计算时为 None
         is_official, is_fair: 当前对局是否仍为官方 / 公平成绩
+        board_constraint: 当前局面是否启用了预设局面约束
+        race_identifier: 当前设置的比赛标识
         software: 生成当前成绩的软件标识
         permissions: 当前 allowed_controls 及常用作弊开关状态
     """
@@ -131,6 +133,8 @@ class GameContextResult(BaseQueryResult, tag="query.game_context.result"):
     progress: float | None = None
     is_official: bool | None = None
     is_fair: bool | None = None
+    board_constraint: bool = False
+    race_identifier: str = ""
     software: str = ""
     permissions: ControlPermissions = msgspec.field(
         default_factory=ControlPermissions)

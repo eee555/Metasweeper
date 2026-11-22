@@ -179,6 +179,7 @@ src/ms_toollib.pyi
 prompt.md
 /uiFiles/media
 .codebuddy/
+**/user_plugins/**
 
 # macOS
 .DS_Store

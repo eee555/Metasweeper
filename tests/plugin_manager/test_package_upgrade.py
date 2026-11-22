@@ -32,7 +32,7 @@ def test_check_updates_uses_selected_environment_and_indexes(tmp_path, monkeypat
     else:
         directory = site = tmp_path / "library"
         site.mkdir()
-        executable = Path("external-python")
+        executable = Path(sys.executable)
         monkeypatch.setattr(env, "find_matching_python", lambda: str(executable))
     commands = []
     monkeypatch.setattr(env.subprocess, "run", lambda cmd, **kwargs: (
@@ -42,7 +42,12 @@ def test_check_updates_uses_selected_environment_and_indexes(tmp_path, monkeypat
     assert env.check_package_updates(directory, ["https://one/simple", "https://two/simple"]) == {
         "example-package": "2.0"}
     cmd = commands[0]
-    assert cmd[:5] == [str(executable), "-m", "pip", "list", "--outdated"]
+    if venv:
+        assert cmd[:5] == [str(executable), "-m", "pip", "list", "--outdated"]
+    else:
+        assert cmd[0] == sys.executable and Path(cmd[1]).name == "_pip_worker.py"
+        assert cmd[2:4] == ["list", "--outdated"]
+        assert "--only-binary=:all:" in cmd
     assert cmd[cmd.index("--path") + 1] == str(site)
     assert cmd[cmd.index("--index-url") + 1] == "https://one/simple"
     assert cmd[cmd.index("--extra-index-url") + 1] == "https://two/simple"
@@ -115,19 +120,19 @@ def test_upgrade_uses_correct_environment_and_only_named_distribution(tmp_path, 
     assert callback == output.append
 
 
-def test_upgrade_rejects_target_and_preserves_shared_namespace(tmp_path, monkeypatch):
+def test_frozen_upgrade_uses_bundled_pip_and_wheels(tmp_path, monkeypatch):
     write_distribution(tmp_path)
-    shared = tmp_path / "shared_namespace"
-    shared.mkdir()
-    other_package = shared / "other.py"
-    other_package.write_text("VALUE = 1\n", encoding="utf-8")
-    monkeypatch.setattr(env, "find_matching_python", lambda: "external-python")
-    monkeypatch.setattr(env, "_run_install", lambda *args: pytest.fail("pip must not run"))
+    monkeypatch.setattr(env, "is_frozen", lambda: True)
+    commands = []
+    monkeypatch.setattr(env, "_run_install", lambda command, *_: commands.append(command))
 
-    error = env.upgrade_installed_package(tmp_path, [], "example-package")
+    assert env.upgrade_installed_package(tmp_path, [], "example-package") is None
 
-    assert "disabled" in error and "virtual environment" in error
-    assert other_package.read_text(encoding="utf-8") == "VALUE = 1\n"
+    command, = commands
+    assert command[:3] == [sys.executable, env.FLAG, "install"]
+    assert command[command.index("--target") + 1] == str(tmp_path)
+    assert "--only-binary=:all:" in command
+    assert command[-2:] == ["--", "example-package"]
 
 
 @pytest.mark.parametrize("name", ["--help", "example; python_version", "../example", "example\n--index-url evil"])
@@ -223,8 +228,9 @@ def test_real_pip_check_and_upgrade_against_local_index(tmp_path, monkeypatch):
     try:
         assert env.check_package_updates_async(site, indexes).result(timeout=30) == {
             "upgrade-demo": "2.0"}
-        assert "disabled" in env.upgrade_installed_package(site, indexes, "upgrade-demo")
-        assert env.list_installed_packages(site) == [("upgrade-demo", "1.0")]
+        assert env.upgrade_installed_package(site, indexes, "upgrade-demo") is None
+        assert env.list_installed_packages(site) == [("upgrade-demo", "2.0")]
+        assert (site / "upgrade_demo.py").read_text(encoding="utf-8") == "VERSION = '2.0'\n"
     finally:
         server.shutdown()
         server.server_close()

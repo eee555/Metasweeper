@@ -7,11 +7,11 @@ from config.constants import BOARD_BEGINNER, BOARD_INTERMEDIATE, BOARD_EXPERT
 from shared_types.commands import (
     NewGameCommand, NewPresetGameCommand, MouseClickCommand,
     InitOpenCommand, SetSkinCommand, SetSoundCommand,
+    SetRaceIdentifierCommand,
 )
 from shared_types.enums import GameLevel
 from utils.app_logger import logger
 from app.skin_applier import handle_set_skin
-from app.sound_applier import handle_set_sound
 
 
 def _is_non_cheat_authorized(tag: str) -> bool:
@@ -47,7 +47,7 @@ def register_plugin_commands(bridge, ui):
         from lib_zmq_plugins.shared.base import CommandResponse as Response
 
         # 重开新局等价于玩家按 F2，不属于作弊开关；仍要求独立授权，
-        # 与换肤/音效相同，防止任何直连 ZMQ 的进程随意重开对局。
+        # 与换肤相同，防止任何直连 ZMQ 的进程随意重开对局。
         if not _is_non_cheat_authorized("new_random_game"):
             return Response(request_id=cmd.request_id, success=False,
                             error="未授权 NewGameCommand")
@@ -61,8 +61,13 @@ def register_plugin_commands(bridge, ui):
             rows, cols, mines = cmd.rows, cmd.cols, cmd.mines
         logger.info(
             f"[NewGameCommand] level={cmd.level}, rows={rows}, cols={cols}, mines={mines}, mode={cmd.mode}")
-        ui.gameMode = cmd.mode
+        # set_board_params() selects the saved mode for a preset when the
+        # requested difficulty changes. Preserve the command's explicit mode
+        # and apply it again after the board has been rebuilt.
+        requested_mode = cmd.mode
+        ui.gameMode = requested_mode
         ui.setBoard_and_start(rows, cols, mines)
+        ui.gameMode = requested_mode
         return Response(request_id=cmd.request_id, success=True)
 
     def handle_new_preset_game(cmd: NewPresetGameCommand):
@@ -99,9 +104,34 @@ def register_plugin_commands(bridge, ui):
 
         if 'mouse_click' not in ui._allowed_controls:
             return CommandResponse(request_id=cmd.request_id, success=False)
-        logger.info(
-            f"[MouseClickCommand] row={cmd.row}, col={cmd.col}, button={cmd.button}")
-        success = ui.execute_cell_click(cmd.row, cmd.col, cmd.button)
+        cells = cmd.cells
+        if cells is not None:
+            # Validate all coordinates before touching the game. msgspec
+            # validates wire data; this also protects in-process callers.
+            if not cells or any(
+                    not isinstance(cell, (list, tuple)) or len(cell) != 2
+                    or any(isinstance(value, bool) or not isinstance(value, int)
+                           for value in cell)
+                    for cell in cells):
+                return CommandResponse(
+                    request_id=cmd.request_id, success=False,
+                    error="MouseClickCommand.cells 必须是非空坐标列表")
+            rows, cols = getattr(ui, "row", 0), getattr(ui, "column", 0)
+            if (cmd.button not in (0, 1, 2) or len(cells) > rows * cols
+                    or any(not (0 <= row < rows and 0 <= col < cols)
+                           for row, col in cells)):
+                return CommandResponse(
+                    request_id=cmd.request_id, success=False,
+                    error="MouseClickCommand.cells 超出棋盘范围或批量数量无效")
+            logger.info(
+                f"[MouseClickCommand] cells={len(cells)}, button={cmd.button}")
+            success = all(
+                ui.execute_cell_click(row, col, cmd.button)
+                for row, col in cells)
+        else:
+            logger.info(
+                f"[MouseClickCommand] row={cmd.row}, col={cmd.col}, button={cmd.button}")
+            success = ui.execute_cell_click(cmd.row, cmd.col, cmd.button)
         return CommandResponse(request_id=cmd.request_id, success=success)
 
     def handle_init_open(cmd: InitOpenCommand):
@@ -122,18 +152,46 @@ def register_plugin_commands(bridge, ui):
                                    error="未授权 SetSkinCommand")
         return handle_set_skin(ui, cmd)
 
-    def handle_set_sound_cmd(cmd: SetSoundCommand):
-        # 音效与皮肤同为外观操作，不受 allowed_controls 约束；
-        # 使用独立的 SetSoundCommand 授权，与 SetSkinCommand 互不影响。
+    def handle_legacy_sound_cmd(cmd: SetSoundCommand):
         from lib_zmq_plugins.shared.base import CommandResponse
-        if not _is_non_cheat_authorized("set_sound"):
-            return CommandResponse(request_id=cmd.request_id, success=False,
-                                   error="未授权 SetSoundCommand")
-        return handle_set_sound(ui, cmd)
+
+        return CommandResponse(request_id=cmd.request_id, success=True)
+
+    def handle_set_race_identifier(cmd: SetRaceIdentifierCommand):
+        from lib_zmq_plugins.shared.base import CommandResponse
+
+        # 独立授权由插件管理器检查；主进程不复查授权文件，也不检查作弊开关。
+        if not isinstance(cmd.race_identifier, str):
+            return CommandResponse(
+                request_id=cmd.request_id, success=False,
+                error="SetRaceIdentifierCommand.race_identifier 必须是字符串")
+        # 录像在生成时才读取 ui.race_identifier，不允许给已开始的对局换标识。
+        if ui.game_state != "ready":
+            return CommandResponse(
+                request_id=cmd.request_id, success=False,
+                error="请在待开局（ready）状态下设置比赛标识")
+        identifier = cmd.race_identifier.strip()
+        key = "DEFAULT/race_identifier"
+        previous = ui.game_setting.value(key, "", str)
+        try:
+            ui.game_setting.set_value(key, identifier)
+            ui.game_setting.sync()
+        except (OSError, ValueError) as exc:
+            ui.game_setting.set_value(key, previous)
+            logger.warning(f"[SetRaceIdentifierCommand] 保存比赛标识失败: {exc}")
+            return CommandResponse(
+                request_id=cmd.request_id, success=False,
+                error=f"保存比赛标识失败: {exc}")
+        ui.race_identifier = identifier
+        ui.score_board_manager.with_namespace({"race_identifier": identifier})
+        ui.score_board_manager.show(ui.label.ms_board, index_type=1)
+        return CommandResponse(request_id=cmd.request_id, success=True)
 
     bridge.register_handler(NewGameCommand, handle_new_game)
     bridge.register_handler(NewPresetGameCommand, handle_new_preset_game)
     bridge.register_handler(MouseClickCommand, handle_mouse_click)
     bridge.register_handler(InitOpenCommand, handle_init_open)
     bridge.register_handler(SetSkinCommand, handle_set_skin_cmd)
-    bridge.register_handler(SetSoundCommand, handle_set_sound_cmd)
+    # Keep the legacy command decodable so older plugins can still apply skins.
+    bridge.register_handler(SetSoundCommand, handle_legacy_sound_cmd)
+    bridge.register_handler(SetRaceIdentifierCommand, handle_set_race_identifier)

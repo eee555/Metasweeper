@@ -78,8 +78,12 @@ class FakePlugin:
 @pytest.fixture
 def manager(monkeypatch):
     monkeypatch.setattr(module, "ZMQClient", FakeClient)
-    monkeypatch.setattr(module, "_TranslatorInstaller", lambda: SimpleNamespace(
-        install=lambda language: None,
+    monkeypatch.setattr(module, "_GuiExecutor", lambda: SimpleNamespace(submit=lambda action: action()))
+    monkeypatch.setattr(module.PluginManager, "_start_language_sync", lambda self: None)
+    monkeypatch.setattr(module, "TranslationManager", lambda: SimpleNamespace(
+        install=lambda language, done: done(),
+        set_catalogs=lambda catalogs: None,
+        close=lambda: None,
     ))
     monkeypatch.setattr(module.PluginManager, "_register_shutdown_handlers", lambda self: None)
     monkeypatch.setattr(module.PluginManager, "_validate_control_authorizations", lambda self: None)
@@ -213,7 +217,11 @@ def test_language_event_uses_same_startup_order(manager, monkeypatch):
     instance, plugin = manager
     first, language, last = GameFinishedEvent(), LanguageChangeEvent(), GameFinishedEvent()
     received = []
-    monkeypatch.setattr(instance, "_install_translator", lambda value: received.append(value))
+    monkeypatch.setattr(module, "TranslationManager", lambda: SimpleNamespace(
+        install=lambda value, done: (received.append(value), done()),
+        set_catalogs=lambda catalogs: None,
+        close=lambda: None,
+    ))
     monkeypatch.setattr(instance.dispatcher, "dispatch", lambda tag, event: received.append(event))
 
     def initialize():

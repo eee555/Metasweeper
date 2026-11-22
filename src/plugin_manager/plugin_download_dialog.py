@@ -4,13 +4,14 @@ import requests
 from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
-    QLabel, QLineEdit, QProgressBar, QPushButton, QVBoxLayout,
+    QLabel, QLineEdit, QPushButton, QVBoxLayout,
 )
 
 from .app_paths import get_all_plugin_dirs, get_executable_dir
 from .icons import action_icon, set_action_icon, set_button_box_icons
 from .plugin_download import DownloadCancelled, PluginDownloader
 from .plugin_repositories import PluginRepository, RepositoryTag
+from shared_types.widgets import TaskProgressDialog
 
 
 class _DownloadTask(QThread):
@@ -49,6 +50,7 @@ class PluginDownloadDialog(QDialog):
         self.setWindowIcon(action_icon("app"))
         self.setMinimumWidth(520)
         self._task = None
+        self._task_dialog: TaskProgressDialog | None = None
         self._repository = None
         self._closing = False
         self._installed = False
@@ -78,8 +80,6 @@ class PluginDownloadDialog(QDialog):
         form.addRow(self.tr("仓库链接"), url_layout)
         form.addRow("Tag", self.tags)
 
-        self.progress = QProgressBar()
-        self.progress.hide()
         self.status = QLabel()
         self.status.setWordWrap(True)
         self.status.setTextFormat(Qt.TextFormat.PlainText)
@@ -96,7 +96,6 @@ class PluginDownloadDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addLayout(form)
-        layout.addWidget(self.progress)
         layout.addWidget(self.status)
         layout.addWidget(self.buttons)
         self.url.textChanged.connect(self._url_changed)
@@ -142,22 +141,32 @@ class PluginDownloadDialog(QDialog):
         self.tags.setEnabled(False)
         self.install.setEnabled(False)
         self.close_button.setText(self.tr("取消"))
-        self.progress.setRange(0, 0)
-        self.progress.show()
         self._task = _DownloadTask(self._repository, tag, self)
+        progress = TaskProgressDialog(
+            self.windowTitle(), self.status.text(), self,
+            on_cancel=self._task.requestInterruption)
+        progress.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        progress.append_output(self.status.text() + "\n")
+        progress.set_task_running(True)
+        self._task_dialog = progress
         self._task.progress.connect(self._show_progress)
         self._task.finished.connect(self._task_finished)
+        progress.show()
         self._task.start()
 
+    @property
+    def progress(self):
+        return self._task_dialog.progress
+
     def _show_progress(self, received: int, total: int) -> None:
-        if total:
-            self.progress.setRange(0, total)
-            self.progress.setValue(received)
+        if self._task_dialog is not None:
+            self._task_dialog.set_progress(received, total)
 
     def _task_finished(self) -> None:
         task = self._task
         self._task = None
-        self.progress.hide()
+        progress = self._task_dialog
+        self._task_dialog = None
         self.platform.setEnabled(True)
         self.url.setEnabled(True)
         self.fetch.setEnabled(True)
@@ -179,6 +188,13 @@ class PluginDownloadDialog(QDialog):
         self.tags.setEnabled(bool(self.tags.count()) and not self._installed)
         self.install.setEnabled(bool(self.tags.count())
                                 and not self._installed)
+        if progress is not None:
+            if self._closing or task.cancelled or (task.tag is None and not task.error):
+                progress.set_task_running(False)
+                progress.close()
+            else:
+                progress.append_output(self.status.text() + "\n")
+                progress.set_completed(self.status.text(), success=not task.error)
         task.deleteLater()
         if self._closing:
             super().reject()

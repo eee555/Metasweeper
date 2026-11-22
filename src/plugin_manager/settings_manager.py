@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
+from PySide6.QtCore import QCoreApplication
+
 from .atomic_json import atomic_write_json
 
 LogLevel = Literal["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -29,7 +31,9 @@ def normalize_pip_indexes(urls: list[str]) -> list[str]:
             continue
         parsed = urlsplit(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError(f"无效的 Python 包源 URL：{raw}")
+            raise ValueError(QCoreApplication.translate(
+                "PluginEnvironmentDialog", "无效的 Python 包源 URL：{url}"
+            ).format(url=raw))
         if url not in normalized:
             normalized.append(url)
     return normalized
@@ -44,12 +48,17 @@ class BasicSettings:
     viewer_log_level: LogLevel = "INFO"
     viewer_auto_scroll: bool = True
     viewer_show_source: bool = False
-    # 插件依赖库目录（库目录或虚拟环境目录），空表示未配置
+    # 插件依赖库目录（库目录或虚拟环境目录），空表示使用默认路径
     plugin_lib_dir: str = ""
     # 手动安装插件依赖时使用的 PyPI 主源及备用源
     plugin_pip_indexes: list[str] = field(
         default_factory=lambda: DEFAULT_PLUGIN_PIP_INDEXES.copy())
     
+    plugin_market_source: Literal["github", "gitee"] = "github"
+    auto_update_plugins: bool = True
+    show_plugin_list: bool = True
+    window_size: list[int] | None = None
+
     def to_dict(self) -> dict:
         return asdict(self)
     
@@ -61,6 +70,10 @@ class BasicSettings:
             indexes = normalize_pip_indexes(raw_indexes) if isinstance(raw_indexes, list) else DEFAULT_PLUGIN_PIP_INDEXES.copy()
         except (AttributeError, TypeError, ValueError):
             indexes = DEFAULT_PLUGIN_PIP_INDEXES.copy()
+        size = data.get("window_size")
+        if not (isinstance(size, list) and len(size) == 2
+                and all(type(value) is int and value > 0 for value in size)):
+            size = None
         return cls(
             file_log_level=data.get("file_log_level", "DEBUG"),
             viewer_log_level=data.get("viewer_log_level", "INFO"),
@@ -68,6 +81,10 @@ class BasicSettings:
             viewer_show_source=data.get("viewer_show_source", False),
             plugin_lib_dir=lib_dir if isinstance(lib_dir, str) else "",
             plugin_pip_indexes=indexes,
+            plugin_market_source="gitee" if data.get("plugin_market_source") == "gitee" else "github",
+            auto_update_plugins=data.get("auto_update_plugins") is not False,
+            show_plugin_list=data.get("show_plugin_list") is not False,
+            window_size=size,
         )
 
 
@@ -84,7 +101,7 @@ class SettingsManager:
     LOG_LEVELS: list[LogLevel] = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
     
     def __init__(self, data_dir: Path) -> None:
-        self._data_dir = Path(data_dir)
+        self._data_dir = Path(data_dir).resolve()
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._settings = BasicSettings()
         self._load()
@@ -132,12 +149,19 @@ class SettingsManager:
 
     @property
     def plugin_lib_dir(self) -> str:
-        return self._settings.plugin_lib_dir
+        configured = self._settings.plugin_lib_dir.strip()
+        if not configured:
+            return str(self.default_plugin_lib_dir)
+        return str(Path(configured).expanduser().resolve())
+
+    @property
+    def default_plugin_lib_dir(self) -> Path:
+        return self._data_dir / "plugin_libs"
 
     @property
     def plugin_pip_indexes(self) -> list[str]:
         return self._settings.plugin_pip_indexes.copy()
-    
+
     def set_file_log_level(self, level: LogLevel) -> None:
         """设置主进程文件日志等级"""
         if level in self.LOG_LEVELS:
@@ -161,11 +185,51 @@ class SettingsManager:
         self.save()
 
     def set_plugin_lib_dir(self, path: str) -> None:
-        """设置插件依赖库目录（空字符串表示未配置）"""
-        self._settings.plugin_lib_dir = (path or "").strip()
+        """设置插件依赖库目录，留空恢复默认路径。"""
+        raw = path.strip()
+        self._settings.plugin_lib_dir = str(Path(raw).expanduser().resolve()) if raw else ""
         self.save()
 
     def set_plugin_pip_indexes(self, urls: list[str]) -> None:
         """设置手动安装插件依赖时使用的 Python 包源列表。"""
         self._settings.plugin_pip_indexes = normalize_pip_indexes(urls)
         self.save()
+
+    def set_plugin_market_source(self, source: Literal["github", "gitee"]) -> None:
+        old = self._settings.plugin_market_source
+        self._settings.plugin_market_source = source
+        try:
+            self.save()
+        except OSError:
+            self._settings.plugin_market_source = old
+            raise
+
+    def set_auto_update_plugins(self, enabled: bool) -> None:
+        old = self._settings.auto_update_plugins
+        self._settings.auto_update_plugins = enabled
+        try:
+            self.save()
+        except OSError:
+            self._settings.auto_update_plugins = old
+            raise
+
+    def set_show_plugin_list(self, visible: bool) -> None:
+        old = self._settings.show_plugin_list
+        self._settings.show_plugin_list = visible
+        try:
+            self.save()
+        except OSError:
+            self._settings.show_plugin_list = old
+            raise
+
+    def set_window_size(self, width: int, height: int) -> None:
+        old = self._settings.window_size
+        size = [width, height]
+        if size == old:
+            return
+        self._settings.window_size = size
+        try:
+            self.save()
+        except OSError:
+            self._settings.window_size = old
+            raise

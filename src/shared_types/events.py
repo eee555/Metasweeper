@@ -146,8 +146,14 @@ class ShowPluginManagerEvent(BaseEvent, tag="show_plugin_manager"):
 
 
 class LanguageChangeEvent(BaseEvent, tag="language_change"):
-    """语言变化事件。"""
+    """语言变化及快照；同一来源的 revision 递增，快照沿用原版本。
+
+    新字段均有默认值：旧发送端仍可解码，新发送端也兼容忽略未知字段的旧接收端。
+    source_id 为空或 revision 为 0 表示旧协议，不提供跨通道顺序保证。
+    """
     language: str = "en_US"
+    source_id: str = ""
+    revision: int = 0
 
 
 EVENT_TYPES = [

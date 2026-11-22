@@ -17,8 +17,9 @@ from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QWidget
+from utils.plugin_i18n import PluginTranslate
 
-_translate = QCoreApplication.translate
+_translate = PluginTranslate("ChallengeMode")
 
 
 _LEVELS_KEY = b"Ch4ll3ng3M0deK3y!2026SecureKey!!"
@@ -58,10 +59,12 @@ class ChallengeModePlugin(BasePlugin):
     @classmethod
     def plugin_info(cls) -> PluginInfo:
         return PluginInfo(
+            # name 是配置目录、日志、状态键与授权记录的稳定标识，不随语言变化
             name="无猜闯关",
+            display_name=_translate("ChallengeMode", "无猜闯关"),
             version="1.0.0-beta",
             author="eee555",
-            description=_translate("Form", "顺序闯关模式 - 共1000个精心设计的关卡"),
+            description=_translate("ChallengeMode", "顺序闯关模式 - 共1000个精心设计的关卡"),
             icon=make_plugin_icon("#E65100", "闯", 64),
             window_mode=WindowMode.TAB,
             required_controls=[NewPresetGameCommand, InitOpenCommand],

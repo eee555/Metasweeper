@@ -4,11 +4,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QMainWindow, QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QMainWindow, QSystemTrayIcon, QVBoxLayout, QWidget
 
 import plugin_manager.main_window as mw
+from plugin_manager import plugin_updates
 from plugin_manager.main_window import DetachableTabWidget, PluginManagerWindow
 from plugin_manager.plugin_state import PluginStateManager
 from plugin_sdk.plugin_base import PluginLifecycle
@@ -28,6 +29,10 @@ def shell(qtbot) -> PluginManagerWindow:
     """A QMainWindow-initialized shell with only light-weight state attached."""
     w = PluginManagerWindow.__new__(PluginManagerWindow)
     QMainWindow.__init__(w)
+    central = QWidget()
+    w.setCentralWidget(central)
+    w._setup_notices(QVBoxLayout(central))
+    w.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
     # qtbot closes registered widgets at teardown; avoid a real confirmation
     # dialog from closeEvent (which would block forever offscreen).
     w.closeEvent = lambda event: event.accept()
@@ -121,16 +126,13 @@ def make_manager(tmp_path, plugins=None, **overrides):
 def real_window(qtbot, monkeypatch, tmp_path, plugins=None, tray=True):
     """Full real PluginManagerWindow.__init__, with all I/O sandboxed."""
     monkeypatch.setattr(mw, "get_data_dir", lambda: tmp_path)
-    monkeypatch.setattr(mw, "SettingsManager", lambda data_dir: SimpleNamespace(
-        file_log_level="DEBUG", viewer_log_level="INFO",
-        viewer_auto_scroll=True, viewer_show_source=False,
-        plugin_lib_dir="",
-    ))
+    monkeypatch.setattr(plugin_updates, "get_executable_dir", lambda: tmp_path)
     if tray:
         monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                             staticmethod(lambda: True))
     w = PluginManagerWindow(make_manager(tmp_path, plugins))
     qtbot.addWidget(w, before_close_func=lambda widget: (
+        widget._stop_auto_update(),
         widget._timer.stop(),
         widget._tray_icon.hide() if widget._tray_icon is not None else None,
         setattr(widget, "closeEvent", lambda event: event.accept()),

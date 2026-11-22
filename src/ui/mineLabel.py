@@ -50,10 +50,10 @@ class mineLabel(QtWidgets.QLabel):
         self.opening_count = 0
         self.hover_highlight_cells = ()
         self._left_double_click = False
-        # 开格打击感：抖动偏移（绘制时整体平移）与单个动画对象（打断重启）
+        # 开格震动特效：偏移（绘制时整体平移）与单个动画对象（打断重启）
         self._shake_offset = QPointF(0.0, 0.0)
         self._shake_anim = None
-        self.shake_enabled = True
+        self.shake_enabled = False
         # 皮肤内存源：{key: 原始 QPixmap}。None 表示使用磁盘默认资源。
         # 由 app.skin_applier 在运行时写入；不落盘、重启即还原。
         # 同时保存原始字节，供 _copy_board_svg 用 QSvgRenderer 渲染。

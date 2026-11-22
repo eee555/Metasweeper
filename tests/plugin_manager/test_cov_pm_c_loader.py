@@ -121,6 +121,21 @@ def test_discover_plugins_skips_hidden_services_and_underscore_files(tmp_path):
     ]
 
 
+@pytest.mark.parametrize("name", ["history", "clipboard_replay", "llm_minesweeper_controller"])
+def test_discover_skips_retired_builtins_but_loads_external_packages(tmp_path, monkeypatch, name):
+    builtin = tmp_path / "internal" / "plugins"
+    external = tmp_path / "user_plugins"
+    make_package(builtin, name)
+    retained = make_package(builtin, "still_builtin")
+    installed = make_package(external, name)
+    monkeypatch.setattr("plugin_manager.plugin_loader.get_builtin_plugin_dirs", lambda: [builtin])
+
+    assert PluginLoader([builtin, external]).discover_plugins() == [
+        (retained / "__init__.py", "still_builtin"),
+        (installed / "__init__.py", name),
+    ]
+
+
 def test_discover_plugins_multiple_dirs_and_missing_dir(tmp_path):
     one, two, deleted = tmp_path / "one", tmp_path / "two", tmp_path / "gone"
     one.mkdir()
@@ -147,6 +162,22 @@ def test_load_module_success_and_sys_modules_cache(tmp_path, monkeypatch):
     assert hasattr(module, "Sample")
     assert loader.load_module(pkg / "__init__.py", name) is module
     monkeypatch.delitem(sys.modules, name, raising=False)
+
+
+def test_load_package_entry_supports_relative_imports(tmp_path, monkeypatch):
+    pkg = tmp_path / "relative_package"
+    pkg.mkdir()
+    (pkg / "helper.py").write_text("VALUE = 42\n", encoding="utf-8")
+    (pkg / "__init__.py").write_text(
+            "from .helper import VALUE\n", encoding="utf-8")
+    name = unique_module("relative", monkeypatch)
+
+    module = PluginLoader().load_module(pkg / "__init__.py", name)
+
+    assert module is not None and module.VALUE == 42
+    assert name + ".helper" in sys.modules
+    monkeypatch.delitem(sys.modules, name, raising=False)
+    monkeypatch.delitem(sys.modules, name + ".helper", raising=False)
 
 
 def test_load_module_returns_none_for_missing_file(tmp_path, monkeypatch):

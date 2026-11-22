@@ -44,11 +44,7 @@ class ui_Form(Ui_Form):
         self.double_click_restart = self.game_setting.value(
             'DEFAULT/double_click_restart', False, bool)
         self.board_shake = self.game_setting.value(
-            'DEFAULT/board_shake', None, bool)
-        self.sound_enabled = self.game_setting.value(
-            'DEFAULT/sound_enabled', False, bool)
-        self.sound_volume = self.game_setting.value(
-            'DEFAULT/sound_volume', 70, int)
+            'DEFAULT/board_shake', False, bool)
         self.board_constraint = mainWindow.board_constraint
         self.attempt_times_limit = mainWindow.attempt_times_limit
 
@@ -93,8 +89,6 @@ class ui_Form(Ui_Form):
         self.comboBox_country.lineEdit().setText(self.country)
         self.comboBox_country.addItems(self.country_name)
 
-        # 音效包的选择完全由「皮肤与音效」插件负责：主程序只提供默认音效
-        # （media/sounds/*.wav）与开关/音量，不再扫描或列出任何音效包。
         self.setParameter()
 
     def set_country_flag(self, flag_name):
@@ -147,8 +141,6 @@ class ui_Form(Ui_Form):
         self.checkBox_cursor_limit.setChecked(self.cursor_limit)
         self.checkBox_double_click_restart.setChecked(self.double_click_restart)
         self.checkBox_board_shake.setChecked(self.board_shake)
-        self.checkBox_sound_enabled.setChecked(self.sound_enabled)
-        self.horizontalSlider_sound_volume.setValue(self.sound_volume)
 
         if not self.checkBox_auto_replay.isChecked():
             self.spinBox_auto_replay.setEnabled(False)
@@ -179,8 +171,6 @@ class ui_Form(Ui_Form):
         self.cursor_limit = self.checkBox_cursor_limit.isChecked()
         self.double_click_restart = self.checkBox_double_click_restart.isChecked()
         self.board_shake = self.checkBox_board_shake.isChecked()
-        self.sound_enabled = self.checkBox_sound_enabled.isChecked()
-        self.sound_volume = self.horizontalSlider_sound_volume.value()
         self.gameMode = [0, 4, 6, 7, 5, 8, 9,
                          10, 11, 12, 13, 14, 15, 16][self.comboBox_gamemode.currentIndex()]
         # gameMode = 0，4, 5, 6, 7, 8, 9, 10, 11–16代表：
@@ -192,10 +182,6 @@ class ui_Form(Ui_Form):
             "DEFAULT/end_then_flag", self.end_then_flag)
         self.game_setting.set_value("DEFAULT/cursor_limit", self.cursor_limit)
         self.game_setting.set_value("DEFAULT/board_shake", self.board_shake)
-        self.game_setting.set_value(
-            "DEFAULT/sound_enabled", self.sound_enabled)
-        self.game_setting.set_value(
-            "DEFAULT/sound_volume", self.sound_volume)
         self.game_setting.set_value(
             'DEFAULT/double_click_restart', self.double_click_restart)
         self.game_setting.set_value(

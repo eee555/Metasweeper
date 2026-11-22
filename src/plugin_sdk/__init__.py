@@ -19,6 +19,7 @@ from .plugin_base import (
     WindowMode,
     LogLevel,
     make_plugin_icon,
+    resolve_display_name,
 )
 from .service_registry import (
     ServiceRegistry,
@@ -84,6 +85,7 @@ __all__ = [
     "WindowMode",
     "LogLevel",
     "make_plugin_icon",
+    "resolve_display_name",
     # 服务注册
     "ServiceRegistry",
     "ServiceNotFoundError",

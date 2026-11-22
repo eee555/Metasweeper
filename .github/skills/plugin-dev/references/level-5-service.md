@@ -6,7 +6,9 @@
 
 ## 定义服务接口
 
-在 `plugins/services/` 目录下创建接口定义文件：
+内置插件可在 `plugins/services/` 下共享接口。第三方插件应把接口随提供者的插件包发布，例如历史记录插件把定义放在自己的 `service.py`，在包加载后继续提供 `plugins.services.history` 导入路径供现有消费者延迟导入。
+
+以下示例使用内置插件接口：
 
 ```python
 # plugins/services/my_service.py

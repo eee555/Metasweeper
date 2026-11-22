@@ -13,12 +13,15 @@ from typing import TYPE_CHECKING
 
 import loguru
 
+from .app_paths import get_builtin_plugin_dirs
 from .dependency_scan import PluginDependencyStatus, scan_plugin_dependencies
 
 if TYPE_CHECKING:
     from plugin_sdk.plugin_base import BasePlugin, PluginInfo
 
 logger = loguru.logger.bind(name="PluginLoader")
+
+_RETIRED_BUILTINS = frozenset({"history", "clipboard_replay", "llm_minesweeper_controller"})
 
 
 class PluginLoader:
@@ -64,8 +67,8 @@ class PluginLoader:
         plugins: list[tuple[Path, str]] = []
         seen: set[str] = set()
 
-        # 排除的目录名（不是插件，但放在 plugins 目录下）
-        excluded_dirs = {"services"}
+        # 便携版覆盖解压后，旧插件源码可能仍留在内置目录。
+        builtin_dirs = {path.resolve() for path in get_builtin_plugin_dirs()}
 
         def add(path: Path, name: str) -> None:
             # 局限：仍使用裸模块名；改成命名空间名会破坏现有 from plugins.xxx 导入。
@@ -88,9 +91,11 @@ class PluginLoader:
                 add(py_file, py_file.stem)
 
             # 包形式插件
+            excluded_dirs = {"services"}
+            if plugin_dir.resolve() in builtin_dirs:
+                excluded_dirs.update(_RETIRED_BUILTINS)
             for pkg_dir in plugin_dir.iterdir():
                 if pkg_dir.is_dir() and (pkg_dir / "__init__.py").exists():
-                    # 排除 services 等非插件目录
                     if pkg_dir.name.startswith("_") or pkg_dir.name in excluded_dirs:
                         continue
                     add(pkg_dir / "__init__.py", pkg_dir.name)
@@ -109,6 +114,16 @@ class PluginLoader:
         module_name = self._plugin_modules.get(plugin_name)
         return self._dependency_statuses.get(module_name) if module_name is not None else None
 
+    def get_plugin_translation_dir(self, plugin_name: str) -> Path | None:
+        """包使用根目录 translations；单文件使用独立的 <模块名>.translations。"""
+        status = self.get_plugin_dependency_status(plugin_name)
+        if status is None:
+            return None
+        path = status.module_path
+        if path.name == "__init__.py":
+            return path.parent / "translations"
+        return path.with_name(f"{path.stem}.translations")
+
     def load_module(self, module_path: Path, module_name: str) -> object | None:
         """动态加载模块；即使直接调用也先完成依赖扫描。"""
         status = self._dependency_statuses.get(module_name)
@@ -120,8 +135,15 @@ class PluginLoader:
                 self._dependency_statuses[module_name] = replace(status, import_status="loaded", import_error=None)
                 return sys.modules[module_name]
 
-            spec = importlib.util.spec_from_file_location(
-                module_name, module_path)
+            if module_path.name == "__init__.py":
+                # 加载包入口时设置 package search path，插件才能使用相对导入。
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path,
+                    submodule_search_locations=[str(module_path.parent)],
+                )
+            else:
+                spec = importlib.util.spec_from_file_location(
+                    module_name, module_path)
             if spec is None or spec.loader is None:
                 logger.error(f"Failed to create spec for: {module_path}")
                 self._dependency_statuses[module_name] = replace(status, import_status="failed", import_error="Failed to create module spec")
@@ -200,6 +222,8 @@ class PluginLoader:
         self,
         module_path: Path,
         module_name: str,
+        *,
+        reserved_names: set[str] | None = None,
     ) -> list[BasePlugin]:
         """从模块加载所有插件实例"""
         plugins: list[BasePlugin] = []
@@ -209,6 +233,31 @@ class PluginLoader:
             return plugins
 
         plugin_classes = self.get_plugin_classes(module)
+
+        if reserved_names is not None:
+            try:
+                names = set(reserved_names)
+                declarations = []
+                for plugin_class in dict.fromkeys(plugin_classes):
+                    info = self._get_plugin_info(plugin_class)
+                    if info.name in names:
+                        raise ValueError(f"Duplicate plugin name: {info.name}")
+                    names.add(info.name)
+                    declarations.append((plugin_class, info))
+                if not declarations:
+                    raise ValueError("No plugin classes exported by the package")
+                plugins = [cls(info) for cls, info in declarations]
+                loaded_names = {plugin.name for plugin in plugins}
+                if len(loaded_names) != len(plugins) or loaded_names & reserved_names:
+                    raise ValueError("Plugin instance names conflict with registered plugins")
+            except Exception as exc:
+                status = self._dependency_statuses[module_name]
+                self._dependency_statuses[module_name] = replace(
+                    status, import_status="failed", import_error=f"{type(exc).__name__}: {exc}")
+                logger.exception("Could not instantiate newly installed package {}", module_name)
+                return []
+            self._plugin_modules.update((plugin.name, module_name) for plugin in plugins)
+            return plugins
 
         for plugin_class in plugin_classes:
             try:
@@ -224,6 +273,23 @@ class PluginLoader:
                 )
 
         return plugins
+
+    def was_imported(self, module_name: str) -> bool:
+        """Previously executed code and its submodules may still be referenced."""
+        name = module_name.casefold()
+        aliases = (name, f"user_plugins.{name}")
+        return (module_name in self._dependency_statuses
+                or any(loaded == alias or loaded.startswith(f"{alias}.")
+                       for loaded in map(str.casefold, tuple(sys.modules)) for alias in aliases))
+
+    def load_new_package(self, package: Path, reserved_names: set[str]) -> list[BasePlugin]:
+        entry = package / "__init__.py"
+        if not any(p.resolve() == package.parent for p in self._plugin_dirs):
+            self.add_plugin_dir(package.parent)
+        if not any(name == package.name and path.resolve() == entry
+                   for path, name in self.discover_plugins()):
+            raise ValueError(f"Plugin package is not discoverable: {package}")
+        return self.load_plugins_from_module(entry, package.name, reserved_names=reserved_names)
 
     def _get_plugin_info(self, plugin_class: type[BasePlugin]) -> PluginInfo:
         """获取插件的元信息"""

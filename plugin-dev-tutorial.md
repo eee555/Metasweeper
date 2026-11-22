@@ -66,8 +66,7 @@ Meta-Minesweeper 采用 **ZMQ 多进程插件架构**：
 │   ├── my_complex/             # 或包形式插件
 │   │   ├── __init__.py
 │   │   └── utils.py
-│   └── services/               # 👈 服务接口定义
-│       └── history.py          # HistoryService 接口
+│   └── services/               # 内置插件的共享服务接口
 ├── plugin_sdk/                 # 插件开发 SDK
 │   ├── plugin_base.py          # 👈 BasePlugin 基类
 │   ├── service_registry.py     # 服务注册表
@@ -188,6 +187,10 @@ Codeberg 使用 `codeberg_` 前缀，自建实例的名称还包含域名和自�
 
 已有同名目录或模块时安装会停止，不覆盖现有插件。失败或取消会清理本次下载的临时目录。
 压缩包上限为 100 MiB，解压后上限为 500 MiB；拒绝越界路径和符号链接。
+
+已有本地压缩包时，可在插件管理器选择「插件 → 从 ZIP 导入插件…」。ZIP 中应包含一个带有
+`__init__.py` 的插件包，可以直接压缩包内文件，也可以保留外层目录。导入时会检查并安装声明的
+依赖，再尝试加载插件。需要重启时，使用同一菜单底部的「重启插件管理器」。
 
 接口依据：[GitHub 标签列表](https://docs.github.com/en/rest/repos/repos#list-repository-tags)、
 [GitHub 源码 ZIP](https://docs.github.com/en/rest/repos/contents#download-a-repository-archive-zip)、
@@ -430,7 +433,23 @@ result = self.request(some_query_command, timeout=5.0)
 | 指令类 | 说明 | 参数 |
 |--------|------|------|
 | `NewGameCommand` | 开始新游戏 | `rows`, `cols`, `mines` |
-| `MouseClickCommand` | 模拟鼠标点击 | `row`, `col`, `button`, `modifiers` |
+| `MouseClickCommand` | 模拟鼠标点击；传入 `cells` 时按顺序批量点击 | `row`, `col`, `button`, `modifiers`, 可选 `cells=[(row, col), ...]` |
+| `SetRaceIdentifierCommand` | 待开局时设置并保存比赛标识 | `race_identifier`（字符串，首尾空白自动去除，空字符串清除） |
+
+比赛标识命令仅在主程序处于 `ready` 状态时执行，不会重开游戏或修改已生成录像。
+它不需要主程序高级设置中的控制开关，主进程也不复查授权文件；
+插件仍须声明 `required_controls=[SetRaceIdentifierCommand]`，并在插件管理器中获得独立控制授权。
+设置会保存到 `gameSetting.ini` 的 `DEFAULT/race_identifier`，重启后仍保留。
+
+```python
+from shared_types import SetRaceIdentifierCommand
+
+result = self.request(SetRaceIdentifierCommand(race_identifier="G1234"))
+if result is None:
+    self.logger.warning("比赛标识设置未收到响应，请检查插件授权或连接")
+elif not result.success:
+    self.logger.warning(f"比赛标识设置失败: {result.error}")
+```
 
 ### 5.4 控制授权系统（重要！）
 
@@ -1233,18 +1252,15 @@ code <安装目录>
 2. **命名规则**：文件名不能以 `_` 开头（如 `_test.py` 会被跳过）
 3. **语法错误**：查看 `data/logs/plugin_manager.log` 中有无 `Failed to load module` 错误
 4. **基类继承**：确认类继承了 `BasePlugin` 并实现了 `plugin_info()` 和 `_setup_subscriptions()`
-5. **导入错误**：如果使用了第三方库（如 requests），需联系作者添加该库；或临时将同版本的第三方库放到 `_internal/` 目录中
+5. **导入错误**：如果插件缺少第三方库，请在插件列表中查看依赖详情并安装。
 
 ### Q2: 如何让插件使用额外的第三方库？
 
-打包后的环境只有 `requirements.txt` 中的依赖。如果你的插件需要额外的库：
+1. 在插件自己的 `requirements.txt` 中按行声明依赖，例如 `requests>=2`。支持包名、版本约束、extras 和环境标记。
+2. 插件管理器启动时会自动创建并使用数据目录下的 `plugin_libs`。如需改用其他目录，可在「设置 → 插件依赖环境」选择，保存后重启插件管理器。
+3. 在插件列表右键点击「查看依赖详情」，然后点击「手动安装此插件依赖」。
 
-**方案 A：重新打包**（推荐）
-1. 在 `requirements.txt` 中添加依赖
-2. 重新执行仓库根目录的 `build.bat`（构建参数由脚本生成，`.spec` 是产物，不要手改）
-
-**方案 B：放在插件旁边**
-某些纯 Python 库可以直接将源码放入插件的目录中（包形式插件），然后正常 import。但这不是长久之计。
+默认的普通库目录通过当前运行环境的 pip 从配置的索引安装兼容的 wheel。发行版使用内置 pip，源码版使用启动插件管理器的解释器。直接 URL、本地路径、pip 选项和源码包不受支持。如果某个依赖或它的间接依赖没有兼容 wheel，安装会失败。所有插件共享该目录，可在「查看已安装的包」中升级所选包。
 
 ### Q3: 如何存储插件的持久化数据？
 
@@ -1292,7 +1308,9 @@ def on_initialized(self):
 
 #### 1. 定义服务接口
 
-在 `plugins/services/` 目录下创建接口定义文件：
+第三方插件应把服务定义随提供者的包一起安装和更新。历史记录插件把定义放在自己的 `service.py`，包加载后会保留 `plugins.services.history` 导入路径，现有消费者可在 `on_initialized()` 中延迟导入。
+
+以下示例使用内置插件的共享接口目录 `plugins/services/`：
 
 ```python
 # plugins/services/my_service.py

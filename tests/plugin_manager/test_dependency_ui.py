@@ -26,7 +26,7 @@ def test_failed_plugin_shows_dependency_detail(qtbot, monkeypatch, tmp_path):
     w._refresh_plugin_list()
     item = w._list.item(0)
     assert "加载失败" in item.text()
-    assert "missing-package>=2" in item.toolTip()
+    assert item.toolTip() == "查看依赖详情"
     menus = _capture_menu(monkeypatch)
     monkeypatch.setattr(w._list, "itemAt", lambda pos: item)
     shown = []
@@ -36,6 +36,8 @@ def test_failed_plugin_shows_dependency_detail(qtbot, monkeypatch, tmp_path):
     menus[0].items[0].trigger()
     assert shown
     assert shown[0].windowTitle().endswith("broken")
+    assert any(label.text() == str(status.requirements_path)
+               for label in shown[0].findChildren(mw.QLabel))
     assert any("ModuleNotFoundError" in label.text()
                for label in shown[0].findChildren(mw.QLabel))
 
@@ -61,17 +63,20 @@ def test_dependency_context_menu_icon_and_action(qtbot, qapp, monkeypatch, loade
     try:
         def inspect_menu(menu, pos):
             actions = menu.actions()
-            action = actions[0]
+            menu_actions = [action for action in actions if not action.isSeparator()]
+            action = next(
+                action for action in menu_actions
+                if action.text() == w.tr("查看依赖详情")) if loaded else menu_actions[0]
             assert action.text() == w.tr("查看依赖详情")
             assert action.isEnabled() and action.isIconVisibleInMenu()
             assert not action.icon().isNull()
             assert action.icon().pixmap(16, 16).toImage() == (
                 action_icon("dependency").pixmap(16, 16).toImage())
             if loaded:
-                assert actions[1].isSeparator()
-                assert actions[2].text() == w.tr("启用")
+                assert menu_actions[0].text() == w.tr("打开窗口")
+                assert menu_actions[3].text() == w.tr("启用")
             else:
-                assert len(actions) == 1
+                assert len(menu_actions) == 1
             action.trigger()
 
         class TestMenu(mw.QMenu):
@@ -85,18 +90,34 @@ def test_dependency_context_menu_icon_and_action(qtbot, qapp, monkeypatch, loade
         qapp.setPalette(original_palette)
 
 
-def test_dependency_details_show_each_installed_and_missing_package(qtbot, tmp_path):
-    w = shell(qtbot)
-    status = PluginDependencyStatus(
-        "demo", tmp_path / "__init__.py", tmp_path / "requirements.txt", "missing",
-        (
-            DependencyDiagnostic(1, "present>=1", "satisfied", "1.2"),
-            DependencyDiagnostic(2, "absent>=2", "missing"),
-        ),
-        "loaded")
-    text = w._dependency_text(status)
-    assert "present>=1: 已安装 (已安装版本 1.2)" in text
-    assert "absent>=2: 未安装" in text
+@pytest.mark.parametrize("loaded", [False, True], ids=["failed", "loaded"])
+def test_managed_plugin_context_menu_puts_uninstall_last(qtbot, monkeypatch, tmp_path, loaded):
+    window = shell(qtbot)
+    plugins = {"demo": make_plugin(qtbot, "demo")} if loaded else {}
+    manager, _ = _install(window, qtbot, plugins)
+    package = tmp_path / "demo_module"
+    status = PluginDependencyStatus("demo_module", package / "__init__.py", None,
+                                    "no_requirements", (), "loaded" if loaded else "failed")
+    manager.get_module_dependency_status = lambda name: status
+    item = QListWidgetItem("demo")
+    item.setData(Qt.ItemDataRole.UserRole, "demo")
+    item.setData(Qt.ItemDataRole.UserRole + 1, "demo_module")
+    window._list.addItem(item)
+    monkeypatch.setattr(window._list, "itemAt", lambda pos: item)
+    monkeypatch.setattr(mw, "is_managed_plugin", lambda path: path == package)
+    monkeypatch.setattr(window, "_module_display_name", lambda name: "Demo")
+    removed = []
+    monkeypatch.setattr(window, "uninstall_market_plugin", lambda *args: removed.append(args))
+    menus = _capture_menu(monkeypatch)
+
+    window._on_list_context_menu(QPoint(1, 1))
+    items = menus[0].items
+    assert items[0].text() == ("打开窗口" if loaded else "查看依赖详情")
+    assert items[-2] == "sep"
+    assert items[-1].text() == "卸载插件…"
+    assert not items[-1].icon().isNull() and items[-1].isIconVisibleInMenu()
+    items[-1].trigger()
+    assert removed == [(package, "Demo")]
 
 
 def test_dependency_dialog_uses_table_for_installed_and_missing(qtbot, monkeypatch, tmp_path):
@@ -152,9 +173,11 @@ def test_dependency_install_requires_explicit_button_click(
     w._install_progress.close()
 
 
-def test_loaded_plugin_does_not_annotate_satisfied_dependencies(qtbot):
+@pytest.mark.parametrize("description", ["", "用于记录扫雷统计"])
+def test_loaded_plugin_tooltip_shows_only_description(qtbot, description):
     w = shell(qtbot)
     plugin = make_plugin(qtbot, "demo", widget=None)
+    plugin.info.description = description
     manager, _ = _install(w, qtbot, {"demo": plugin})
     status = PluginDependencyStatus(
         "demo_module", Path("demo/__init__.py"), Path("demo/requirements.txt"),
@@ -164,7 +187,7 @@ def test_loaded_plugin_does_not_annotate_satisfied_dependencies(qtbot):
     manager.module_dependency_statuses = {"demo_module": status}
     w._refresh_plugin_list()
     assert w._list.item(0).text() == "demo"
-    assert w._list.item(0).toolTip() == ""
+    assert w._list.item(0).toolTip() == description
 
 
 def test_loaded_plugin_displays_conflicting_dependency(qtbot, tmp_path):
@@ -178,7 +201,7 @@ def test_loaded_plugin_displays_conflicting_dependency(qtbot, tmp_path):
     manager.module_dependency_statuses = {"demo_module": status}
     w._refresh_plugin_list()
     assert "依赖版本冲突" in w._list.item(0).text()
-    assert w._list.item(0).toolTip() == ""
+    assert w._list.item(0).toolTip() == "查看依赖详情"
 
 
 @pytest.mark.parametrize("raises", [False, True])

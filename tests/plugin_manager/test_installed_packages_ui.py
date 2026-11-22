@@ -136,7 +136,6 @@ def test_environment_passes_current_indexes(qtbot, monkeypatch, tmp_path):
         plugin_pip_indexes = ["https://old/simple"]
         plugin_lib_dir = str(tmp_path)
 
-    monkeypatch.setattr(mw, "find_matching_python", lambda: None)
     captured = []
     monkeypatch.setattr(mw, "list_installed_packages", lambda _: [])
     monkeypatch.setattr(mw._InstalledPackagesDialog, "exec", lambda dialog: captured.append(dialog))
