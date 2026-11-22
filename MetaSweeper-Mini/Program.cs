@@ -7,6 +7,8 @@ using System.Windows.Forms;
 [assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 [assembly: System.Reflection.AssemblyTitle(Program.Name)]
 [assembly: System.Reflection.AssemblyProduct(Program.Name)]
+[assembly: System.Reflection.AssemblyFileVersion("3.4.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("3.4.0")]
 
 internal static class Program
 {
