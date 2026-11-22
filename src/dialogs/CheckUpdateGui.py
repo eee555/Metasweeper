@@ -242,8 +242,8 @@ class CheckUpdateGui(QDialog):
         super().__init__(parent.mainWindow)
         self.setWindowTitle(self.tr("检查更新"))
         # 去掉问号
-        self.setWindowFlags(self.windowFlags() & ~
-                            Qt.WindowType.WindowContextHelpButtonHint)
+        self.setWindowFlag(
+            Qt.WindowType.WindowContextHelpButtonHint, False)
         self.github: GitHub = github
         self.github.setParent(self)
         self.checkUpdateButton = QPushButton(
