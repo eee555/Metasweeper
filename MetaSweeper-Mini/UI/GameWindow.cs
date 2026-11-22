@@ -1,20 +1,22 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 internal sealed class GameWindow : Form
 {
-    private static readonly string[] LevelNames = { "初级", "中级", "高级" };
+    private static readonly TextId[] LevelNames = { TextId.Beginner, TextId.Intermediate, TextId.Expert };
 
     private readonly NativeCore core;
     private readonly GameSettings settings;
     private readonly GameShortcuts shortcuts;
     private readonly MenuStrip menu = new MenuStrip();
-    private readonly ToolStripMenuItem save = new ToolStripMenuItem("保存录像…");
-    private readonly ToolStripMenuItem counterItem = new ToolStripMenuItem("计数器");
+    private readonly ToolStripMenuItem save, counterItem, identityItem;
+    private readonly Dictionary<ToolStripMenuItem, TextId> menuText = new Dictionary<ToolStripMenuItem, TextId>();
     private readonly ToolStripMenuItem[] levelItems = new ToolStripMenuItem[LevelNames.Length];
     private readonly ClassicFrame frame = new ClassicFrame();
     private readonly DisplayPanel display = new DisplayPanel();
@@ -27,22 +29,21 @@ internal sealed class GameWindow : Form
     private bool finished;
     private string refreshDevice;
     private int lastRefreshCheck;
+    private bool readingRefreshRate;
+    private Task lastReplaySave = Task.FromResult(0);
+    private bool closingAfterReplay, savingManually;
     private readonly CursorLock cursorLock = new CursorLock();
     private bool cursorReleased, resizing;
-    private float windowScale = 1f;
-
-    internal GameWindow(NativeCore core) : this(core, GameSettings.Load()) { }
+    private int bevelReferenceTile;
 
     internal GameWindow(NativeCore core, GameSettings settings)
     {
         this.core = core;
         this.settings = settings;
         shortcuts = new GameShortcuts();
-        timer = new UiPulse(this, UpdateStatus);
-        Text = "元扫雷迷你版";
+        timer = new UiPulse(this, PollStatus);
         AccessibleName = Program.Name;
-        AutoScaleMode = AutoScaleMode.Dpi;
-        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.None;
         Font = SystemFonts.MenuFont;
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         StartPosition = settings.MainPosition.HasValue ? FormStartPosition.Manual : FormStartPosition.CenterScreen;
@@ -51,8 +52,8 @@ internal sealed class GameWindow : Form
         BackColor = ClassicFrame.Canvas;
         FormBorderStyle = FormBorderStyle.Sizable;
 
-        var gameMenu = new ToolStripMenuItem("游戏");
-        var restart = new ToolStripMenuItem("新一局", null, (s, e) => StartGame(level));
+        var gameMenu = MenuItem(TextId.GameMenu);
+        var restart = MenuItem(TextId.Restart, (s, e) => StartGame(level));
         gameMenu.DropDownItems.Add(restart);
         shortcuts.Bind(restart, "restart", "menu_new_game");
         gameMenu.DropDownItems.Add(new ToolStripSeparator());
@@ -60,51 +61,56 @@ internal sealed class GameWindow : Form
         for (int index = 0; index < LevelNames.Length; index++)
         {
             int selected = index;
-            var item = new ToolStripMenuItem(LevelNames[index], null, (s, e) => StartGame(selected));
+            var item = MenuItem(LevelNames[index], (s, e) => StartGame(selected));
             levelItems[index] = item;
             gameMenu.DropDownItems.Add(item);
             shortcuts.Bind(item, "preset_" + levelIds[index], "menu_" + levelIds[index]);
         }
         gameMenu.DropDownItems.Add(new ToolStripSeparator());
-        save.Click += (s, e) => SaveReplay();
+        save = MenuItem(TextId.SaveReplayMenu, (s, e) => SaveReplay());
         gameMenu.DropDownItems.Add(save);
         shortcuts.Bind(save, "menu_save");
-        var replays = new ToolStripMenuItem("打开录像目录", null, (s, e) => OpenReplayDirectory());
+        var replays = MenuItem(TextId.OpenReplayFolder, (s, e) => OpenReplayDirectory());
         gameMenu.DropDownItems.Add(replays);
         shortcuts.Bind(replays, "menu_open_replay");
-        var quit = new ToolStripMenuItem("退出", null, (s, e) => Close());
+        var quit = MenuItem(TextId.Quit, (s, e) => Close());
         gameMenu.DropDownItems.Add(quit);
         shortcuts.Bind(quit, "menu_quit");
 
-        var setup = new ToolStripMenuItem("设置");
-        var gameSettings = new ToolStripMenuItem("游戏设置…", null, (s, e) => EditSettings());
-        var helpKeys = new ToolStripMenuItem("快捷键…", null, (s, e) => shortcuts.Show(this));
+        var setup = MenuItem(TextId.SettingsMenu);
+        var gameSettings = MenuItem(TextId.GameSettings, (s, e) => EditSettings());
+        var helpKeys = MenuItem(TextId.Shortcuts, (s, e) => shortcuts.Show(this));
         setup.DropDownItems.AddRange(new ToolStripItem[] { gameSettings, helpKeys });
         shortcuts.Bind(gameSettings, "menu_settings");
         shortcuts.Bind(helpKeys, "menu_keybindings");
-        var view = new ToolStripMenuItem("查看");
-        counterItem.Click += (s, e) => ToggleCounter();
-        view.DropDownItems.Add(counterItem);
+        var view = MenuItem(TextId.ViewMenu);
+        counterItem = MenuItem(TextId.Counter, (s, e) => ToggleCounter());
+        identityItem = MenuItem(TextId.IdentityBar, (s, e) => ToggleIdentity());
+        view.DropDownItems.AddRange(new ToolStripItem[] { counterItem, identityItem });
         shortcuts.Bind(counterItem, "toggle_counter");
-        var help = new ToolStripMenuItem("帮助");
-        help.DropDownItems.Add(new ToolStripMenuItem("操作说明", null, (s, e) =>
+        shortcuts.Bind(identityItem, "toggle_identity");
+        var help = MenuItem(TextId.HelpMenu);
+        help.DropDownItems.Add(MenuItem(TextId.Instructions, (s, e) =>
             MessageBox.Show(this,
-                "左键开格，右键标雷。旗数与数字相符时，点数字格或同时按左右键可快速开格。\n\n"
-                + "点击顶部任意位置或按 F2 开新一局。拖动窗口边缘或角落可按比例缩放棋盘。对局结束后可用 Ctrl+S 保存录像。"
-                + "玩家标识、比赛标识、国家和自动保存选项在「设置」中。",
-                "操作说明", MessageBoxButtons.OK)));
-        help.DropDownItems.Add(new ToolStripMenuItem("开源许可", null, (s, e) =>
+                UiText.Get(TextId.ClickHelp) + "\n\n" + UiText.Get(TextId.WindowHelp),
+                UiText.Get(TextId.Instructions), MessageBoxButtons.OK)));
+        help.DropDownItems.Add(MenuItem(TextId.License, (s, e) =>
         {
             using (var resource = typeof(GameWindow).Assembly.GetManifestResourceStream("ms_toollib-LICENSE"))
             using (var reader = new StreamReader(resource))
                 MessageBox.Show(this, reader.ReadToEnd(), "ms_toollib", MessageBoxButtons.OK);
         }));
-        menu.Font = new Font(SystemFonts.MenuFont.FontFamily, 15, GraphicsUnit.Pixel);
+        menu.AutoSize = false;
+        menu.CanOverflow = true;
+        menu.Height = BoardLayout.MenuHeight;
+        menu.Font = new Font(SystemFonts.MenuFont.FontFamily, 16, GraphicsUnit.Pixel);
         menu.BackColor = ClassicFrame.Surface;
         menu.ForeColor = ClassicFrame.Ink;
         menu.Padding = new Padding(2, 2, 0, 2);
         identity.Font = menu.Font;
         menu.Items.AddRange(new ToolStripItem[] { gameMenu, setup, view, help });
+        foreach (ToolStripItem item in menu.Items)
+            item.Overflow = ToolStripItemOverflow.AsNeeded;
         MainMenuStrip = menu;
         frame.Dock = DockStyle.Fill;
         display.Dock = DockStyle.Top;
@@ -114,6 +120,8 @@ internal sealed class GameWindow : Form
         Controls.Add(frame);
         Controls.Add(identity);
         Controls.Add(menu);
+        identityItem.Checked = identity.Visible = settings.ShowIdentity;
+        ApplyLanguage();
 
         display.Restart += (s, e) => StartGame(level);
         board.Changed += (s, e) => UpdateStatus();
@@ -154,6 +162,26 @@ internal sealed class GameWindow : Form
         StartGame(settings.InitialLevel);
     }
 
+    private ToolStripMenuItem MenuItem(TextId label, EventHandler click = null)
+    {
+        var item = new ToolStripMenuItem("", null, click);
+        menuText.Add(item, label);
+        return item;
+    }
+
+    private void ApplyLanguage()
+    {
+        UiText.SetLanguage(settings.Language);
+        Text = UiText.Get(TextId.Title);
+        menu.SuspendLayout();
+        foreach (var entry in menuText)
+            entry.Key.Text = UiText.Get(entry.Value);
+        menu.ResumeLayout(true);
+        board.AccessibleName = UiText.Get(TextId.Board);
+        display.ApplyLanguage();
+        counter.ApplyLanguage();
+    }
+
     protected override bool ProcessCmdKey(ref Message message, Keys key)
     {
         if (key == Keys.Escape && game != null && game.State == Game.Phase.Playing && settings.CursorLimit)
@@ -163,6 +191,19 @@ internal sealed class GameWindow : Form
             return true;
         }
         return shortcuts.Invoke(key) || base.ProcessCmdKey(ref message, key);
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        // Client geometry is measured in screen pixels, while Windows sizes its own title bar.
+        e.Cancel = true;
+        base.OnDpiChanged(e);
+        if (game != null && WindowState == FormWindowState.Normal)
+        {
+            int tile = board.TilePixels;
+            MinimumSize = SizeFromClientSize(ClientSizeForTile(BoardPixels.Minimum));
+            ClientSize = ClientSizeForTile(tile);
+        }
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
@@ -176,6 +217,25 @@ internal sealed class GameWindow : Form
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
         base.OnFormClosed(e);
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (e.Cancel || e.CloseReason != CloseReason.UserClosing || lastReplaySave.IsCompleted)
+            return;
+        e.Cancel = true;
+        if (!closingAfterReplay)
+            CloseAfterReplay();
+    }
+
+    private async void CloseAfterReplay()
+    {
+        closingAfterReplay = true;
+        Enabled = false;
+        await lastReplaySave;
+        if (!IsDisposed)
+            Close();
     }
 
     protected override void Dispose(bool disposing)
@@ -197,6 +257,7 @@ internal sealed class GameWindow : Form
         cursorLock.Release();
         cursorReleased = false;
         bool sameLevel = game != null && selected == level;
+        int preservedPixels = game == null ? settings.Preset(selected).Pixels : board.TilePixels;
         if (game != null)
             game.Dispose();
         level = selected;
@@ -208,29 +269,26 @@ internal sealed class GameWindow : Form
         for (int i = 0; i < levelItems.Length; i++)
             levelItems[i].Checked = i == level;
 
-        using (var graphics = CreateGraphics())
-            windowScale = graphics.DpiX / 96;
-        MinimumSize = SizeFromClientSize(ClientSizeForTile(MinimumTile));
-
         Rectangle work = Screen.FromControl(this).WorkingArea;
+        Size chrome = Size - ClientSize;
+        int preferred = Math.Min(preservedPixels, FittingTile(work.Width - chrome.Width, work.Height - chrome.Height));
+        if (bevelReferenceTile == 0)
+            bevelReferenceTile = preferred;
+        MinimumSize = SizeFromClientSize(ClientSizeForTile(BoardPixels.Minimum));
         if (!sameLevel && WindowState == FormWindowState.Normal)
         {
-            Size chrome = Size - ClientSize;
-            int width = work.Width - chrome.Width;
-            int height = work.Height - chrome.Height;
-            int preferred = (int)Math.Round(preset.Pixels * windowScale);
-            ClientSize = ClientSizeForTile(Math.Max(MinimumTile, Math.Min(preferred, FittingTile(width, height))));
+            ClientSize = ClientSizeForTile(preferred);
             if (Visible)
                 Location = FitOnScreen(Location, Size);
         }
         UpdateScaledLayout();
-        counter.Adapt(windowScale * settings.CounterPixels / 27f, work.Height);
+        settings.RememberPresetSize(level, board.TilePixels);
+        AdaptCounter();
         PositionCounter();
         UpdateIdentity();
         UpdateStatus();
     }
 
-    private const int ReferenceTile = 27;
     private const int SizingMessage = 0x0214;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -239,25 +297,20 @@ internal sealed class GameWindow : Form
         internal int Left, Top, Right, Bottom;
     }
 
-    private int MinimumTile { get { return Math.Max(9, (int)Math.Round(12 * windowScale)); } }
-
-    private static int ScalePart(int pixels, int tile)
-    {
-        return Math.Max(1, (pixels * tile + ReferenceTile / 2) / ReferenceTile);
-    }
-
     private Size ClientSizeForTile(int tile)
     {
-        int sides = 2 * (ScalePart(16, tile) + ScalePart(4, tile));
-        int height = game.Rows * tile + tile * 3 / 2 + ScalePart(18, tile)
-            + ScalePart(38, tile) + ScalePart(7, tile) + menu.PreferredSize.Height + sides;
-        return new Size(game.Columns * tile + sides, height);
+        return new BoardLayout(tile, bevelReferenceTile).ClientSize(game.Rows, game.Columns, settings.ShowIdentity);
+    }
+
+    private int FooterHeight
+    {
+        get { return settings.ShowIdentity ? BoardLayout.IdentityHeight : 0; }
     }
 
     private int FittingTile(int width, int height)
     {
-        int low = 1;
-        int high = Math.Max(low, Math.Min(width / game.Columns, height / game.Rows));
+        int low = BoardPixels.Minimum;
+        int high = BoardPixels.Clamp(Math.Min(width / game.Columns, height / game.Rows));
         while (low < high)
         {
             int candidate = low + (high - low + 1) / 2;
@@ -288,27 +341,30 @@ internal sealed class GameWindow : Form
     private void ConstrainDrag(ref SizingRectangle rectangle, int edge)
     {
         const int left = 1, right = 2, top = 3, topLeft = 4, topRight = 5, bottom = 6, bottomLeft = 7;
-        int menuHeight = menu.PreferredSize.Height;
         Size chrome = Size - ClientSize;
-        Size reference = ClientSizeForTile(ReferenceTile);
-        int height = reference.Height - menuHeight;
         int wantedWidth = rectangle.Right - rectangle.Left - chrome.Width;
-        int wantedHeight = rectangle.Bottom - rectangle.Top - chrome.Height - menuHeight;
-
-        double ratio;
-        if (edge == left || edge == right)
-            ratio = (double)wantedWidth / reference.Width;
-        else if (edge == top || edge == bottom)
-            ratio = (double)wantedHeight / height;
-        else
-            ratio = ((double)wantedWidth * reference.Width + (double)wantedHeight * height)
-                / ((double)reference.Width * reference.Width + (double)height * height);
+        int wantedHeight = rectangle.Bottom - rectangle.Top - chrome.Height;
 
         Rectangle proposed = Rectangle.FromLTRB(rectangle.Left, rectangle.Top, rectangle.Right, rectangle.Bottom);
         Rectangle work = Screen.FromRectangle(proposed).WorkingArea;
-        int largest = FittingTile(work.Width - chrome.Width, work.Height - chrome.Height);
-        int tile = Math.Max(MinimumTile, Math.Min(largest, (int)Math.Round(ratio * ReferenceTile)));
-        Size fitted = ClientSizeForTile(tile) + chrome;
+        int low = BoardPixels.Minimum;
+        int high = FittingTile(work.Width - chrome.Width, work.Height - chrome.Height);
+        // Side drags follow that axis. Corner drags project onto the board's resize direction.
+        int weightX = edge == top || edge == bottom ? 0 : game.Columns;
+        int weightY = edge == left || edge == right ? 0 : game.Rows + 2;
+        int wanted = wantedWidth * weightX + wantedHeight * weightY;
+        while (low < high)
+        {
+            int tile = (low + high) / 2;
+            Size current = ClientSizeForTile(tile);
+            Size next = ClientSizeForTile(tile + 1);
+            int doubledMidpoint = (current.Width + next.Width) * weightX + (current.Height + next.Height) * weightY;
+            if (wanted * 2 >= doubledMidpoint)
+                low = tile + 1;
+            else
+                high = tile;
+        }
+        Size fitted = ClientSizeForTile(low) + chrome;
 
         if (edge == left || edge == topLeft || edge == bottomLeft)
             rectangle.Left = rectangle.Right - fitted.Width;
@@ -324,22 +380,35 @@ internal sealed class GameWindow : Form
     {
         if (game == null || WindowState == FormWindowState.Minimized)
             return;
-        int tile = FittingTile(ClientSize.Width, ClientSize.Height);
+        var layout = new BoardLayout(FittingTile(ClientSize.Width, ClientSize.Height), bevelReferenceTile);
         frame.SuspendLayout();
-        frame.Padding = new Padding(ScalePart(16, tile));
-        board.Inset = ScalePart(4, tile);
-        board.Gap = ScalePart(7, tile);
-        identity.Height = ScalePart(38, tile);
-        display.SpriteSize = Math.Max(1, tile * 3 / 2);
-        display.Height = display.SpriteSize + ScalePart(18, tile);
+        frame.Edge = layout.OuterEdge;
+        frame.Padding = new Padding(layout.OuterInset);
+        board.TilePixels = layout.Tile;
+        board.Inset = layout.InnerEdge;
+        identity.Height = FooterHeight;
+        display.ApplyLayout(layout);
         frame.ResumeLayout();
         board.Invalidate();
+    }
+
+    private void ApplyCurrentPresetSize()
+    {
+        if (WindowState == FormWindowState.Minimized)
+            return;
+        Rectangle work = Screen.FromControl(this).WorkingArea;
+        Size chrome = Size - ClientSize;
+        int target = settings.Preset(level).Pixels;
+        int fitted = FittingTile(work.Width - chrome.Width, work.Height - chrome.Height);
+        ClientSize = ClientSizeForTile(Math.Min(target, fitted));
+        Location = FitOnScreen(Location, Size);
+        UpdateScaledLayout();
     }
 
     private void RememberBoardSize()
     {
         if (game != null && WindowState == FormWindowState.Normal)
-            settings.RememberPresetSize(level, (int)Math.Round(board.TilePixels / windowScale));
+            settings.RememberPresetSize(level, board.TilePixels);
     }
 
     private void UpdateIdentity()
@@ -360,29 +429,47 @@ internal sealed class GameWindow : Form
             game.UsedCursorLimit = true;
     }
 
-    private void SyncRefreshRate(bool recheck = false)
+    private string RefreshDevice()
     {
-        if (timer == null || !Visible || IsDisposed || Disposing)
+        return Screen.FromControl(counter.Visible ? (Control)counter : this).DeviceName;
+    }
+
+    private async void SyncRefreshRate(bool recheck = false)
+    {
+        if (timer == null || !Visible || IsDisposed || Disposing || readingRefreshRate)
             return;
 
-        string device = Screen.FromControl(counter.Visible ? (Control)counter : this).DeviceName;
+        string device = RefreshDevice();
         if (!recheck && device == refreshDevice)
             return;
+        readingRefreshRate = true;
         refreshDevice = device;
         lastRefreshCheck = Environment.TickCount;
-        timer.UpdateRefreshRate(DisplayRefresh.Read(device));
+        int refresh = await Task.Run(() => DisplayRefresh.Read(device));
+        readingRefreshRate = false;
+        if (!Visible || IsDisposed || Disposing)
+            return;
+        if (RefreshDevice() == device)
+            timer.UpdateRefreshRate(refresh);
+        else
+            SyncRefreshRate();
+    }
+
+    private void PollStatus()
+    {
+        if (game == null)
+            return;
+        game.RefreshStatus();
+        // Some drivers change frequency without broadcasting WM_DISPLAYCHANGE.
+        if (unchecked(Environment.TickCount - lastRefreshCheck) >= 2000)
+            SyncRefreshRate(true);
+        UpdateStatus();
     }
 
     private void UpdateStatus()
     {
         if (game == null)
             return;
-        if (game.State == Game.Phase.Playing || (!game.CanPlay && !game.Metrics.HasValue))
-            game.RefreshStatus();
-
-        // Some drivers change frequency without broadcasting WM_DISPLAYCHANGE.
-        if (unchecked(Environment.TickCount - lastRefreshCheck) >= 2000)
-            SyncRefreshRate(true);
         SyncCursorLock();
         save.Enabled = game.CanSaveReplay;
         display.Update(game.Remaining, game.Seconds, game.State, board.Pressing);
@@ -395,12 +482,16 @@ internal sealed class GameWindow : Form
             if (game.TimingValid)
                 FinishGame(game);
             else
-                MessageBox.Show(this, "本局计时异常，录像未保存。", Program.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, UiText.Get(TextId.TimingWarning), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
     private void FinishGame(Game ended)
     {
+        if (settings.AutoSave != AutoSaveMode.All &&
+            (settings.AutoSave != AutoSaveMode.Wins || ended.State != Game.Phase.Won))
+            return;
+
         byte[] replay;
         try
         {
@@ -408,51 +499,81 @@ internal sealed class GameWindow : Form
         }
         catch (InvalidDataException error)
         {
-            ReportError("未能生成录像。", error);
+            ReportError(TextId.ReplayGenerationError, error);
             return;
         }
-        if (settings.AutoSave == AutoSaveMode.All || (settings.AutoSave == AutoSaveMode.Wins && ended.State == Game.Phase.Won))
-        {
-            try
-            {
-                Directory.CreateDirectory(settings.ReplayDirectory);
-                string filename = Program.Name + "-" + LevelNames[level] + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff")
-                    + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".evf";
-                LocalFiles.Write(Path.Combine(settings.ReplayDirectory, filename), replay);
-            }
-            catch (Exception error)
-            {
-                ReportError("自动保存录像失败。仍可尝试使用 Ctrl+S 手动保存。", error);
-            }
-        }
-
+        lastReplaySave = WriteAutomaticReplay(lastReplaySave, ReplayBaseName(ended), replay);
     }
 
-    private void SaveReplay()
+    private async Task WriteAutomaticReplay(Task previous, string name, byte[] replay)
     {
-        if (!game.CanSaveReplay)
+        await previous;
+        string directory = settings.ReplayDirectory;
+        try
+        {
+            await Task.Run(() =>
+            {
+                Directory.CreateDirectory(directory);
+                string path;
+                do { path = ReplayFilename.UniquePath(directory, name); }
+                while (!LocalFiles.TryWriteNew(path, replay));
+            });
+        }
+        catch (Exception error)
+        {
+            if (!IsDisposed && !Disposing)
+                ReportError(TextId.ReplayAutoSaveError, error);
+        }
+    }
+
+    private async void SaveReplay()
+    {
+        if (!game.CanSaveReplay || savingManually)
             return;
+        Game ended = game;
+        savingManually = true;
+        try
+        {
+            await lastReplaySave;
+            if (!IsDisposed && !Disposing && !closingAfterReplay && ended == game)
+                SaveReplayToFile(ended);
+        }
+        finally
+        {
+            savingManually = false;
+        }
+    }
+
+    private void SaveReplayToFile(Game ended)
+    {
         using (var dialog = new SaveFileDialog
         {
-            Filter = "EVF 扫雷录像 (*.evf)|*.evf",
+            Filter = UiText.Get(TextId.ReplayFiles) + " (*.evf)|*.evf",
             DefaultExt = "evf",
             AddExtension = true,
             OverwritePrompt = true,
-            FileName = Program.Name + "-" + LevelNames[level] + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".evf",
-            Title = "保存本局录像"
+            FileName = ReplayBaseName(ended) + ".evf",
+            Title = UiText.Get(TextId.SaveReplayTitle)
         })
         {
             if (dialog.ShowDialog(this) != DialogResult.OK)
                 return;
             try
             {
-                LocalFiles.Write(dialog.FileName, game.GetReplay());
+                LocalFiles.Write(dialog.FileName, ended.GetReplay());
             }
             catch (Exception error)
             {
-                ReportError("录像保存失败。", error);
+                ReportError(TextId.ReplaySaveError, error);
             }
         }
+    }
+
+    private string ReplayBaseName(Game source)
+    {
+        ReplayMetrics metrics = source.Metrics ?? new ReplayMetrics();
+        return ReplayFilename.Create(level, source.ElapsedSeconds, (int)metrics.Total,
+            metrics.Speed, source.PlayerIdentifier, source.State == Game.Phase.Lost);
     }
 
     private void OpenReplayDirectory()
@@ -464,26 +585,30 @@ internal sealed class GameWindow : Form
         }
         catch (Exception error)
         {
-            ReportError("未能打开录像目录。", error);
+            ReportError(TextId.ReplayFolderError, error);
         }
     }
 
     private void EditSettings()
     {
-        using (var dialog = new SettingsDialog(settings))
+        using (var dialog = new SettingsDialog(settings, level))
         {
             if (dialog.ShowDialog(this) != DialogResult.OK)
                 return;
             try
             {
+                int oldPixels = settings.Preset(level).Pixels;
+                string oldLanguage = settings.Language;
                 dialog.Store(settings);
+                if (oldLanguage != settings.Language)
+                    ApplyLanguage();
+                ApplyIdentityVisibility();
+                if (oldPixels != settings.Preset(level).Pixels)
+                    ApplyCurrentPresetSize();
                 game.SetIdentity(settings.Player, settings.Race, Countries.Code(settings.Country));
                 game.SetFlagOnWin(settings.FlagOnWin);
                 UpdateIdentity();
-                using (var graphics = CreateGraphics())
-                    windowScale = graphics.DpiX / 96;
-                counter.Adapt(windowScale * settings.CounterPixels / 27f,
-                    Screen.FromControl(this).WorkingArea.Height);
+                AdaptCounter();
                 ShowCounter();
                 counter.Refresh();
                 UpdateStatus();
@@ -491,9 +616,51 @@ internal sealed class GameWindow : Form
             }
             catch (Exception error)
             {
-                ReportError("未能保存游戏设置。", error);
+                ReportError(TextId.SettingsSaveError, error);
             }
         }
+    }
+
+    private void ToggleIdentity()
+    {
+        try
+        {
+            settings.StoreIdentityVisibility(!settings.ShowIdentity);
+            ApplyIdentityVisibility();
+        }
+        catch (Exception error)
+        {
+            ReportError(TextId.IdentitySaveError, error);
+        }
+    }
+
+    private void AdaptCounter()
+    {
+        using (var graphics = CreateGraphics())
+            counter.Adapt(graphics.DpiX / 96 * settings.CounterPixels / 27f,
+                Screen.FromControl(this).WorkingArea.Height);
+    }
+
+    private void ApplyIdentityVisibility()
+    {
+        if (identityItem.Checked == settings.ShowIdentity)
+            return;
+
+        int heightChange = FooterHeight - identity.Height;
+        Size client = ClientSize;
+        SuspendLayout();
+        identityItem.Checked = settings.ShowIdentity;
+        identity.Height = FooterHeight;
+        identity.Visible = settings.ShowIdentity;
+        MinimumSize = SizeFromClientSize(ClientSizeForTile(BoardPixels.Minimum));
+        if (WindowState == FormWindowState.Normal)
+        {
+            ClientSize = new Size(client.Width, client.Height + heightChange);
+            Location = FitOnScreen(Location, Size);
+        }
+        ResumeLayout(true);
+        UpdateScaledLayout();
+        SyncCursorLock();
     }
 
     private void ToggleCounter()
@@ -505,7 +672,7 @@ internal sealed class GameWindow : Form
         }
         catch (Exception error)
         {
-            ReportError("未能保存计数器设置。", error);
+            ReportError(TextId.CounterSaveError, error);
         }
     }
 
@@ -549,7 +716,7 @@ internal sealed class GameWindow : Form
         }
         catch (Exception error)
         {
-            ReportError("未能保存计数器位置。", error);
+            ReportError(TextId.CounterPositionError, error);
         }
     }
 
@@ -560,9 +727,9 @@ internal sealed class GameWindow : Form
             Math.Max(work.Top, Math.Min(location.Y, work.Bottom - size.Height)));
     }
 
-    private void ReportError(string description, Exception error)
+    private void ReportError(TextId description, Exception error)
     {
-        MessageBox.Show(this, description + "\n" + error.Message, Program.Name,
+        MessageBox.Show(this, UiText.Get(description) + "\n" + error.Message, Text,
             MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 }

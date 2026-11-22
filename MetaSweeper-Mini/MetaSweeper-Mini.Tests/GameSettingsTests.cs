@@ -23,18 +23,30 @@ public sealed class GameSettingsTests : IDisposable
     [Fact]
     public void NewConfigurationContainsOnlyOwnedKeys()
     {
-        new GameSettings(root);
+        var settings = new GameSettings(root);
+        Assert.True(settings.ShowIdentity);
+        Assert.Equal("zh_CN", settings.Language);
 
         Dictionary<string, List<string>> sections = ReadSections(File.ReadAllText(Path.Combine(root, "gameSetting.ini")));
         Assert.Equal(new[] { "DEFAULT", "WINFORMS", "BEGINNER", "INTERMEDIATE", "EXPERT" }, sections.Keys.ToArray());
         Assert.Equal(new[] {
             "player_identifier", "race_identifier", "country", "autosave_video", "row", "column",
-            "minenum", "end_then_flag", "cursor_limit", "scoreboard_pixsize"
+            "minenum", "end_then_flag", "cursor_limit", "scoreboard_pixsize", "language"
         }, sections["DEFAULT"].ToArray());
-        Assert.Equal(new[] { "autosave_losses", "show_counter" }, sections["WINFORMS"].ToArray());
+        Assert.Equal(new[] { "autosave_losses", "show_counter", "show_identity" }, sections["WINFORMS"].ToArray());
         Assert.Equal(new[] { "pixsize" }, sections["BEGINNER"].ToArray());
         Assert.Equal(new[] { "pixsize" }, sections["INTERMEDIATE"].ToArray());
         Assert.Equal(new[] { "pixsize" }, sections["EXPERT"].ToArray());
+    }
+
+    [Fact]
+    public void AutomaticWriteDoesNotReplaceAnExistingReplay()
+    {
+        string path = Path.Combine(root, "game.evf");
+        Assert.True(LocalFiles.TryWriteNew(path, new byte[] { 1, 2 }));
+        Assert.False(LocalFiles.TryWriteNew(path, new byte[] { 3, 4 }));
+        Assert.Equal(new byte[] { 1, 2 }, File.ReadAllBytes(path));
+        Assert.Single(Directory.GetFiles(root));
     }
 
     [Fact]
@@ -49,6 +61,7 @@ public sealed class GameSettingsTests : IDisposable
             Assert.Equal(ShortcutCatalog.DefaultKey(i), ShortcutCatalog.Key(ShortcutCatalog.Id(i)));
         }
         Assert.Equal("", ShortcutCatalog.Key("unknown"));
+        Assert.Equal("Ctrl+I", ShortcutCatalog.Key("toggle_identity"));
     }
 
     [Fact]
@@ -132,13 +145,15 @@ public sealed class GameSettingsTests : IDisposable
         var settings = new GameSettings(root);
 
         settings.Store("New Player", "New Race", "China", AutoSaveMode.All,
-            false, true, false, 40);
+            false, true, false, 40, false, "DE_de");
 
         Assert.Equal("New Player", settings.Player);
         Assert.Equal("New Race", settings.Race);
         Assert.Equal("China", settings.Country);
         Assert.Equal(AutoSaveMode.All, settings.AutoSave);
         Assert.False(settings.ShowCounter);
+        Assert.False(settings.ShowIdentity);
+        Assert.Equal("de_DE", settings.Language);
         Assert.True(settings.CursorLimit);
         Assert.False(settings.FlagOnWin);
         Assert.Equal(40, settings.CounterPixels);
@@ -151,9 +166,68 @@ public sealed class GameSettingsTests : IDisposable
         var reloaded = new GameSettings(root);
         Assert.Equal(AutoSaveMode.All, reloaded.AutoSave);
         Assert.False(reloaded.ShowCounter);
+        Assert.False(reloaded.ShowIdentity);
+        Assert.Equal("de_DE", reloaded.Language);
         Assert.True(reloaded.CursorLimit);
         Assert.False(reloaded.FlagOnWin);
         Assert.Equal(40, reloaded.CounterPixels);
+    }
+
+    [Theory]
+    [InlineData("zh_CN", "zh_CN")]
+    [InlineData("en_US", "en_US")]
+    [InlineData("de_DE", "de_DE")]
+    [InlineData("pl_PL", "pl_PL")]
+    [InlineData("ja_JP", "ja_JP")]
+    [InlineData("es_ES", "zh_CN")]
+    [InlineData("", "zh_CN")]
+    public void ReadsOriginalLanguageCodesWithChineseFallback(string configured, string expected)
+    {
+        WriteConfiguration("[DEFAULT]", "language = " + configured);
+        Assert.Equal(expected, new GameSettings(root).Language);
+    }
+
+    [Fact]
+    public void IdentityVisibilityPersistsWithoutChangingLanguageOrPlayer()
+    {
+        WriteConfiguration("[DEFAULT]", "language = ja_JP", "player_identifier = Test Player");
+        var settings = new GameSettings(root);
+        Assert.True(settings.ShowIdentity);
+
+        settings.StoreIdentityVisibility(false);
+        Assert.False(settings.ShowIdentity);
+        var reloaded = new GameSettings(root);
+        Assert.False(reloaded.ShowIdentity);
+        Assert.Equal("ja_JP", reloaded.Language);
+        Assert.Equal("Test Player", reloaded.Player);
+
+        reloaded.StoreIdentityVisibility(true);
+        Assert.True(new GameSettings(root).ShowIdentity);
+    }
+
+    [Fact]
+    public void EverySupportedLanguageHasAllUiStrings()
+    {
+        try
+        {
+            var gameMenuNames = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < UiText.LanguageNames.Length; index++)
+            {
+                string code = UiText.LanguageCode(index);
+                Assert.Equal(index, UiText.LanguageIndex(code));
+                UiText.SetLanguage(code);
+                foreach (TextId id in Enum.GetValues(typeof(TextId)))
+                    Assert.False(string.IsNullOrWhiteSpace(UiText.Get(id)));
+                Assert.True(gameMenuNames.Add(UiText.Get(TextId.GameMenu)));
+                string status = string.Format(UiText.Get(TextId.DisplayStatus), 123, 456);
+                Assert.Contains("123", status);
+                Assert.Contains("456", status);
+            }
+        }
+        finally
+        {
+            UiText.SetLanguage(UiText.DefaultLanguage);
+        }
     }
 
     [Fact]
@@ -176,7 +250,7 @@ public sealed class GameSettingsTests : IDisposable
         var settings = new GameSettings(root);
         Assert.Equal(GameSettings.Anonymous, settings.Player);
 
-        settings.Store("", "", "", AutoSaveMode.Off, true, false, true, 27);
+        settings.Store("", "", "", AutoSaveMode.Off, true, false, true, 27, true, "zh_CN");
         Assert.Equal(GameSettings.Anonymous, settings.Player);
         Assert.Equal(GameSettings.Anonymous, new GameSettings(root).Player);
     }
@@ -194,6 +268,19 @@ public sealed class GameSettingsTests : IDisposable
         Assert.Equal(new Point(12, 34), reloaded.CounterPosition);
         Assert.Equal(new Point(56, 78), reloaded.MainPosition);
         Assert.Equal(64, reloaded.Preset(2).Pixels);
+    }
+
+    [Fact]
+    public void SettingsPageGridSizeIsPersistedImmediatelyForCurrentLevel()
+    {
+        var settings = new GameSettings(root);
+
+        settings.StorePresetSize(1, 123);
+
+        Assert.Equal(123, settings.Preset(1).Pixels);
+        Assert.Equal(123, new GameSettings(root).Preset(1).Pixels);
+        Assert.Equal(20, new GameSettings(root).Preset(0).Pixels);
+        Assert.Equal(20, new GameSettings(root).Preset(2).Pixels);
     }
 
     [Fact]
@@ -227,6 +314,35 @@ public sealed class GameSettingsTests : IDisposable
         Assert.DoesNotContain("\n", settings.Player);
         Assert.DoesNotContain("\0", settings.Player);
         Assert.Equal(48, settings.CounterPixels);
+    }
+
+    [Fact]
+    public void PresetPixelSizesUseMetaSweeperBounds()
+    {
+        WriteConfiguration(
+            "[BEGINNER]",
+            "pixsize = 1",
+            "[INTERMEDIATE]",
+            "pixsize = 256",
+            "[EXPERT]",
+            "pixsize = 999");
+
+        var settings = new GameSettings(root);
+
+        Assert.Equal(5, settings.Preset(0).Pixels);
+        Assert.Equal(255, settings.Preset(1).Pixels);
+        Assert.Equal(255, settings.Preset(2).Pixels);
+    }
+
+    [Theory]
+    [InlineData(-20, 5)]
+    [InlineData(5, 5)]
+    [InlineData(27, 27)]
+    [InlineData(255, 255)]
+    [InlineData(500, 255)]
+    public void BoardPixelClampMatchesMetaSweeper(int input, int expected)
+    {
+        Assert.Equal(expected, BoardPixels.Clamp(input));
     }
 
     [Theory]

@@ -12,11 +12,13 @@ internal sealed class CounterWindow : Form
     internal Func<Keys, bool> HandleShortcut;
 
     private static readonly string[] Names = {
-        "游戏模式", "rtime", "Est Rtime", "3bv", "3bv/s", "zini", "ops", "isls",
+        null, "rtime", "Est Rtime", "3bv", "3bv/s", "zini", "ops", "isls",
         "left", "right", "double", "stnb", "ioe", "thrp", "corr", "path", "pluck"
     };
 
     private readonly string[] values = new string[Names.Length];
+    private string gameModeName;
+    private int nameWidth;
     private bool finalShown;
     private Font body = new Font(SystemFonts.MessageBoxFont.FontFamily, 15, GraphicsUnit.Pixel);
     private readonly TextFormatFlags cellText = TextFormatFlags.Left | TextFormatFlags.VerticalCenter
@@ -26,8 +28,6 @@ internal sealed class CounterWindow : Form
 
     internal CounterWindow()
     {
-        Text = "计数器";
-        AccessibleName = Text;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
@@ -35,6 +35,14 @@ internal sealed class CounterWindow : Form
         BackColor = Color.FromArgb(245, 245, 245);
         for (int i = 0; i < values.Length; i++)
             values[i] = "--";
+    }
+
+    internal void ApplyLanguage()
+    {
+        Text = UiText.Get(TextId.Counter);
+        AccessibleName = Text;
+        gameModeName = UiText.Get(TextId.GameMode);
+        values[0] = UiText.Get(TextId.Standard);
     }
 
     protected override void WndProc(ref Message message)
@@ -63,7 +71,11 @@ internal sealed class CounterWindow : Form
         body.Dispose();
         body = new Font(SystemFonts.MessageBoxFont.FontFamily, Math.Max(12, 15 * scale), GraphicsUnit.Pixel);
         int row = Math.Max(19, (int)Math.Round(33 * scale));
-        ClientSize = new Size((int)Math.Round(256 * scale), Math.Min(maxHeight, row * values.Length + (int)Math.Round(48 * scale)));
+        int baseWidth = (int)Math.Round(256 * scale);
+        int defaultNameWidth = (baseWidth - 17) * 35 / 100;
+        nameWidth = Math.Max(defaultNameWidth, TextRenderer.MeasureText(gameModeName, body).Width + 6);
+        ClientSize = new Size(baseWidth + nameWidth - defaultNameWidth,
+            Math.Min(maxHeight, row * values.Length + (int)Math.Round(48 * scale)));
         using (var outline = new GraphicsPath())
         {
             int right = ClientSize.Width, bottom = ClientSize.Height;
@@ -95,7 +107,6 @@ internal sealed class CounterWindow : Form
 
         Rectangle table = TableArea;
         int x = Divider(table) + 1;
-        UpdateRow(0, "标准", table, x);
         UpdateRow(1, Format(time, "0.000"), table, x);
         UpdateRow(8, Rate(game.Left, time), table, x);
         UpdateRow(9, Rate(game.Right, time), table, x);
@@ -172,7 +183,7 @@ internal sealed class CounterWindow : Form
         }
     }
 
-    private static int Divider(Rectangle table) { return table.Left + table.Width * 35 / 100; }
+    private int Divider(Rectangle table) { return table.Left + nameWidth; }
 
     private Rectangle RowArea(Rectangle table, int index)
     {
@@ -203,7 +214,7 @@ internal sealed class CounterWindow : Form
                 var name = new Rectangle(table.Left + 3, row.Top, divider - table.Left - 5, row.Height);
                 var value = new Rectangle(divider + 4, row.Top, table.Right - divider - 5, row.Height);
                 if (e.Graphics.IsVisible(name))
-                    TextRenderer.DrawText(e.Graphics, Names[index], body, name, ClassicFrame.Muted, cellText);
+                    TextRenderer.DrawText(e.Graphics, Names[index] ?? gameModeName, body, name, ClassicFrame.Muted, cellText);
                 if (e.Graphics.IsVisible(value))
                     TextRenderer.DrawText(e.Graphics, values[index], body, value, ClassicFrame.Ink, cellText);
             }

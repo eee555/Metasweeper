@@ -10,6 +10,7 @@ internal static class ShortcutCatalog
         { "preset_expert", "3" },
         { "menu_expert", "E" },
         { "toggle_counter", "/" },
+        { "toggle_identity", "Ctrl+I" },
         { "menu_save", "Ctrl+S" },
         { "menu_open_replay", "W" },
         { "menu_settings", "S" },

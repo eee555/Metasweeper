@@ -5,7 +5,7 @@ using System.Windows.Forms;
 internal sealed class BoardView : Control
 {
     internal int Inset { get; set; }
-    internal int Gap { get; set; }
+    internal int TilePixels { get; set; }
 
     private Game game;
     private byte[] visibleTiles;
@@ -21,9 +21,8 @@ internal sealed class BoardView : Control
     internal BoardView()
     {
         BackColor = ClassicFrame.Canvas;
-        AccessibleName = "扫雷棋盘";
         Inset = 4;
-        Gap = 7;
+        TilePixels = BoardPixels.Minimum;
         DoubleBuffered = true;
         ResizeRedraw = true;
         SetStyle(ControlStyles.StandardClick | ControlStyles.StandardDoubleClick, false);
@@ -42,22 +41,15 @@ internal sealed class BoardView : Control
         Invalidate();
     }
 
-    private int CellSize
-    {
-        get { return Math.Max(1, Math.Min((Width - Inset * 2) / game.Columns,
-            (Height - Gap - Inset * 2) / game.Rows)); }
-    }
-
-    internal int TilePixels { get { return CellSize; } }
-
     internal Rectangle ScreenBoardBounds { get { return RectangleToScreen(BoardBounds); } }
 
     private Rectangle BoardBounds
     {
         get
         {
-            var size = new Size(game.Columns * CellSize, game.Rows * CellSize);
-            return new Rectangle((Width - size.Width) / 2, Gap + (Height - Gap - size.Height) / 2,
+            var size = new Size(game.Columns * TilePixels, game.Rows * TilePixels);
+            const int gap = BoardLayout.BoardGap;
+            return new Rectangle((Width - size.Width) / 2, gap + (Height - gap - size.Height) / 2,
                 size.Width, size.Height);
         }
     }
@@ -69,7 +61,7 @@ internal sealed class BoardView : Control
         Rectangle bounds = BoardBounds;
         if (!bounds.Contains(point))
             return -1;
-        return (point.Y - bounds.Top) / CellSize * game.Columns + (point.X - bounds.Left) / CellSize;
+        return (point.Y - bounds.Top) / TilePixels * game.Columns + (point.X - bounds.Left) / TilePixels;
     }
 
     private Point ReplayPoint(Point point)
@@ -78,7 +70,7 @@ internal sealed class BoardView : Control
         int scale = NativeCore.CellPixels;
         if (!bounds.Contains(point))
             return new Point(game.Columns * scale, game.Rows * scale);
-        return new Point((point.X - bounds.X) * scale / CellSize, (point.Y - bounds.Y) * scale / CellSize);
+        return new Point((point.X - bounds.X) * scale / TilePixels, (point.Y - bounds.Y) * scale / TilePixels);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -233,7 +225,7 @@ internal sealed class BoardView : Control
     private Rectangle CellArea(int top, int left, int bottom, int right)
     {
         Rectangle board = BoardBounds;
-        int size = CellSize;
+        int size = TilePixels;
         return new Rectangle(board.X + left * size, board.Y + top * size,
             (right - left + 1) * size, (bottom - top + 1) * size);
     }
@@ -250,7 +242,7 @@ internal sealed class BoardView : Control
         if (clip.Width <= 0 || clip.Height <= 0)
             return;
 
-        int size = CellSize;
+        int size = TilePixels;
         int endRow = (clip.Bottom - area.Top + size - 1) / size;
         int endColumn = (clip.Right - area.Left + size - 1) / size;
         Rectangle active = PressedArea();

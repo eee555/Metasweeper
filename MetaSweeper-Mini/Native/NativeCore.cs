@@ -118,7 +118,7 @@ internal sealed class NativeCore : IDisposable
                 if (!Decompress(handle, compressed, Size(compressed.Length), bytes, Size(bytes.Length), out written))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (written.ToUInt64() != (ulong)bytes.Length)
-                    throw new InvalidDataException("内嵌扫雷库的大小不正确。");
+            throw new InvalidDataException(UiText.Get(TextId.InvalidCoreSize));
                 destination.Write(bytes, 0, bytes.Length);
             }
             finally
@@ -172,7 +172,7 @@ internal sealed class NativeCore : IDisposable
         UIntPtr length;
         IntPtr nativeBytes = encodeReplay(game, identifiers, Size(identifiers.Length), usedCursorLimit ? 1u : 0u, out length);
         if (nativeBytes == IntPtr.Zero)
-            throw new InvalidDataException("这一局的录像数据不可用。");
+            throw new InvalidDataException(UiText.Get(TextId.ReplayUnavailable));
 
         try
         {

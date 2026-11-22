@@ -19,6 +19,8 @@ internal sealed class GameSettings
     internal string Country { get; private set; }
     internal AutoSaveMode AutoSave { get; private set; }
     internal bool ShowCounter { get; private set; }
+    internal bool ShowIdentity { get; private set; }
+    internal string Language { get; private set; }
     internal Point? CounterPosition { get; private set; }
     internal readonly Point? MainPosition;
     internal readonly int InitialLevel;
@@ -40,6 +42,8 @@ internal sealed class GameSettings
         AutoSave = !configuration.ReadBool(Common, "autosave_video", true) ? AutoSaveMode.Off
             : configuration.ReadBool(Local, "autosave_losses", !exists) ? AutoSaveMode.All : AutoSaveMode.Wins;
         ShowCounter = configuration.ReadBool(Local, "show_counter", true);
+        ShowIdentity = configuration.ReadBool(Local, "show_identity", true);
+        Language = UiText.NormalizeLanguage(configuration.Read(Common, "language"));
         CounterPosition = ReadPosition("scoreboardleft", "scoreboardtop");
         MainPosition = ReadPosition("mainwinleft", "mainwintop");
         FlagOnWin = configuration.ReadBool(Common, "end_then_flag", true);
@@ -106,13 +110,8 @@ internal sealed class GameSettings
 
     private BoardPreset ReadPreset(int index)
     {
-        int pixels = ClampPixels(configuration.ReadInt(PresetSections[index], "pixsize", 27));
+        int pixels = BoardPixels.Clamp(configuration.ReadInt(PresetSections[index], "pixsize", 20));
         return new BoardPreset(Defaults[index, 0], Defaults[index, 1], Defaults[index, 2], pixels);
-    }
-
-    private static int ClampPixels(int pixels)
-    {
-        return Math.Max(10, Math.Min(256, pixels));
     }
 
     private static int ClampCounterPixels(int pixels)
@@ -121,7 +120,8 @@ internal sealed class GameSettings
     }
 
     internal void Store(string player, string race, string country, AutoSaveMode autoSave,
-        bool showCounter, bool cursorLimit, bool flagOnWin, int counterPixels)
+        bool showCounter, bool cursorLimit, bool flagOnWin, int counterPixels,
+        bool showIdentity, string language)
     {
         player = CleanIdentifier(player);
         race = CleanIdentifier(race);
@@ -129,12 +129,15 @@ internal sealed class GameSettings
             player = Anonymous;
         country = CleanIdentifier(country);
         counterPixels = ClampCounterPixels(counterPixels);
+        language = UiText.NormalizeLanguage(language);
 
         var ini = new IniFile(FilePath);
         SetGeneral(ini, player, race, country, autoSave, showCounter);
         ini.Set(Common, "end_then_flag", flagOnWin);
         ini.Set(Common, "cursor_limit", cursorLimit);
         ini.Set(Common, "scoreboard_pixsize", counterPixels);
+        ini.Set(Common, "language", language);
+        ini.Set(Local, "show_identity", showIdentity);
         ini.Save();
 
         Player = player;
@@ -142,6 +145,8 @@ internal sealed class GameSettings
         Country = country;
         AutoSave = autoSave;
         ShowCounter = showCounter;
+        ShowIdentity = showIdentity;
+        Language = language;
         CursorLimit = cursorLimit;
         FlagOnWin = flagOnWin;
         CounterPixels = counterPixels;
@@ -155,14 +160,32 @@ internal sealed class GameSettings
         ShowCounter = visible;
     }
 
+    internal void StoreIdentityVisibility(bool visible)
+    {
+        var ini = new IniFile(FilePath);
+        ini.Set(Local, "show_identity", visible);
+        ini.Save();
+        ShowIdentity = visible;
+    }
+
     internal void RememberPresetSize(int level, int pixels)
     {
-        pixels = ClampPixels(pixels);
+        pixels = BoardPixels.Clamp(pixels);
         if (presets[level].Pixels != pixels)
         {
             presets[level].Pixels = pixels;
             resized[level] = true;
         }
+    }
+
+    internal void StorePresetSize(int level, int pixels)
+    {
+        pixels = BoardPixels.Clamp(pixels);
+        presets[level].Pixels = pixels;
+        resized[level] = false;
+        var ini = new IniFile(FilePath);
+        ini.Set(PresetSections[level], "pixsize", pixels);
+        ini.Save();
     }
 
     internal void StoreCounterPosition(Point position)
@@ -193,6 +216,8 @@ internal sealed class GameSettings
         ini.Set(Common, "end_then_flag", FlagOnWin);
         ini.Set(Common, "cursor_limit", CursorLimit);
         ini.Set(Common, "scoreboard_pixsize", CounterPixels);
+        ini.Set(Common, "language", Language);
+        ini.Set(Local, "show_identity", ShowIdentity);
     }
 
     private static void SetGeneral(IniFile ini, string player, string race, string country, AutoSaveMode autoSave, bool showCounter)

@@ -28,6 +28,7 @@ coverage\coverage.cobertura.xml
 
 ```text
 [MetaSweeper-Mini.Tests]ReplayChecksum
+[MetaSweeper-Mini.Tests]ReplayFilename
 [MetaSweeper-Mini.Tests]GameSettings
 [MetaSweeper-Mini.Tests]IniFile
 [MetaSweeper-Mini.Tests]LocalFiles
@@ -36,7 +37,7 @@ coverage\coverage.cobertura.xml
 
 Compiler-generated members are excluded through `GeneratedCodeAttribute` and `CompilerGeneratedAttribute`, and auto-property accessors are skipped.
 
-The tests cover checksum verification, malformed replay input, generated configuration keys, compatibility with an existing MetaSweeper `gameSetting.ini`, portable replay paths, fixed shortcut definitions and persisted window state. `ReplayChecksum` remains at 100 percent line and branch coverage.
+The tests cover checksum verification, malformed replay input, MetaSweeper-compatible replay naming and duplicate suffixes, generated configuration keys, compatibility with an existing MetaSweeper `gameSetting.ini`, portable replay paths, fixed shortcut definitions and persisted window state. `ReplayChecksum` remains at 100 percent line and branch coverage.
 
 Because `EnableDefaultCompileItems` is false, every test source file must have an explicit `Compile` entry in `MetaSweeper-Mini.Tests.csproj`.
 

@@ -149,7 +149,7 @@ pub unsafe extern "C" fn encode_replay(
     video.player_identifier = player.to_owned();
     video.race_identifier = race.to_owned();
     video.country = country.to_owned();
-    video.software = "元3.3.4-迷你版".to_owned();
+    video.software = "迷你元3.3.4".to_owned();
     video.translated = false;
     video.use_cursor_pos_lim = used_cursor_limit != 0;
     video.generate_evf_v4_raw_data();

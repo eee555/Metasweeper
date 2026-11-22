@@ -11,6 +11,7 @@ internal sealed class ClassicFrame : Panel
     internal static readonly Color Muted = Color.FromArgb(36, 36, 36);
 
     private static readonly Brush Shade = new SolidBrush(Color.FromArgb(160, 160, 160));
+    internal int Edge { get; set; }
 
     internal ClassicFrame()
     {
@@ -22,7 +23,7 @@ internal sealed class ClassicFrame : Panel
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        DrawBevel(e.Graphics, ClientRectangle, Math.Max(2, Padding.Left * 6 / 16), true);
+        DrawBevel(e.Graphics, ClientRectangle, Edge, true);
     }
 
     internal static void DrawBevel(Graphics g, Rectangle r, int edge, bool raised)

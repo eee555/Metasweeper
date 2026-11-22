@@ -38,7 +38,7 @@ internal sealed class GameShortcuts
         var lines = new List<string>(menuItems.Count);
         foreach (ToolStripMenuItem item in menuItems)
             lines.Add(item.Text.TrimEnd('…') + "　" + item.ShortcutKeyDisplayString);
-        MessageBox.Show(owner, string.Join(Environment.NewLine, lines), "快捷键", MessageBoxButtons.OK);
+        MessageBox.Show(owner, string.Join(Environment.NewLine, lines), UiText.Get(TextId.Shortcuts), MessageBoxButtons.OK);
     }
 
     internal static Keys Parse(string sequence)

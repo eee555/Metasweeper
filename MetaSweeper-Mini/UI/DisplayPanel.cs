@@ -9,19 +9,7 @@ internal sealed class DisplayPanel : Panel
     private long seconds;
     private bool restartPressed;
 
-    private int spriteSize;
-    internal int SpriteSize
-    {
-        get { return spriteSize; }
-        set
-        {
-            if (spriteSize == value)
-                return;
-            spriteSize = value;
-            PositionFace();
-            Invalidate();
-        }
-    }
+    private BoardLayout layout;
     internal event EventHandler Restart;
 
     internal DisplayPanel()
@@ -77,8 +65,18 @@ internal sealed class DisplayPanel : Panel
 
     private void PositionFace()
     {
-        int size = Math.Max(1, SpriteSize);
+        int size = layout.SpriteHeight;
         face.Bounds = new Rectangle((Width - size) / 2, (Height - size) / 2, size, size);
+    }
+
+    internal void ApplyLayout(BoardLayout layout)
+    {
+        if (this.layout.Tile == layout.Tile && this.layout.InnerEdge == layout.InnerEdge)
+            return;
+        this.layout = layout;
+        Height = layout.StatusHeight;
+        PositionFace();
+        Invalidate();
     }
 
     internal void UpdatePress(Game.Phase state, bool pressing)
@@ -94,19 +92,31 @@ internal sealed class DisplayPanel : Panel
 
         remaining = mines;
         seconds = elapsed;
-        AccessibleName = string.Format("剩雷 {0}，用时 {1} 秒", remaining, seconds);
+        UpdateAccessibleStatus();
         Invalidate();
+    }
+
+    internal void ApplyLanguage()
+    {
+        face.AccessibleName = UiText.Get(TextId.Restart);
+        UpdateAccessibleStatus();
+    }
+
+    private void UpdateAccessibleStatus()
+    {
+        AccessibleName = string.Format(UiText.Get(TextId.DisplayStatus), remaining, seconds);
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        int edge = Math.Max(2, SpriteSize / 10);
-        ClassicFrame.DrawBevel(e.Graphics, ClientRectangle, edge, false);
-        int height = Math.Max(1, SpriteSize);
-        int width = Math.Max(1, height * 13 / 23);
+        if (layout.Tile == 0)
+            return;
+        ClassicFrame.DrawBevel(e.Graphics, ClientRectangle, layout.InnerEdge, false);
+        int height = layout.SpriteHeight;
+        int width = layout.DigitWidth;
         int y = (Height - height) / 2;
-        int margin = edge + Math.Max(3, SpriteSize / 8);
+        int margin = layout.StatusInset;
         DrawCounter(e.Graphics, margin, y, width, height, Math.Max(0, Math.Min(999, remaining)));
         DrawCounter(e.Graphics, Width - margin - 3 * width, y, width, height, (int)Math.Min(seconds, 999));
     }

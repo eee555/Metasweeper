@@ -7,14 +7,19 @@
           <Format>cobertura</Format>
           <IncludeTestAssembly>true</IncludeTestAssembly>
           <Include>[MetaSweeper-Mini.Tests]ReplayChecksum</Include>
+          <Include>[MetaSweeper-Mini.Tests]ReplayFilename</Include>
           <Include>[MetaSweeper-Mini.Tests]GameSettings</Include>
+          <Include>[MetaSweeper-Mini.Tests]BoardPixels</Include>
           <Include>[MetaSweeper-Mini.Tests]IniFile</Include>
           <Include>[MetaSweeper-Mini.Tests]LocalFiles</Include>
           <Include>[MetaSweeper-Mini.Tests]ShortcutCatalog</Include>
+          <Include>[MetaSweeper-Mini.Tests]UiText</Include>
+          <Include>[MetaSweeper-Mini.Tests]BoardLayout</Include>
           <Exclude>[MetaSweeper-Mini.Tests]ReplayChecksumTests</Exclude>
           <Exclude>[MetaSweeper-Mini.Tests]ReplayChecksumEdgeTests</Exclude>
+          <Exclude>[MetaSweeper-Mini.Tests]ReplayFilenameTests</Exclude>
           <Exclude>[MetaSweeper-Mini.Tests]GameSettingsTests</Exclude>
-          <ExcludeByFile>**/ReplayChecksumTests.cs,**/ReplayChecksumEdgeTests.cs,**/GameSettingsTests.cs</ExcludeByFile>
+          <ExcludeByFile>**/ReplayChecksumTests.cs,**/ReplayChecksumEdgeTests.cs,**/ReplayFilenameTests.cs,**/GameSettingsTests.cs</ExcludeByFile>
           <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
           <SkipAutoProps>true</SkipAutoProps>
         </Configuration>

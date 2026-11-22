@@ -122,7 +122,7 @@ internal sealed class Game : IDisposable
     internal byte[] GetReplay()
     {
         if (!CanSaveReplay)
-            throw new InvalidOperationException("请结束这一局后再保存录像。");
+            throw new InvalidOperationException(UiText.Get(TextId.ReplayTooEarly));
         if (replay == null)
             replay = ReplayChecksum.Sign(
                 core.EncodeReplay(handle, player, race, country, UsedCursorLimit));

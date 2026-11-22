@@ -10,14 +10,20 @@
   <ItemGroup>
     <Compile Include="ReplayChecksumTests.cs" />
     <Compile Include="ReplayChecksumEdgeTests.cs" />
+    <Compile Include="ReplayFilenameTests.cs" />
     <Compile Include="GameSettingsTests.cs" />
+    <Compile Include="BoardLayoutTests.cs" />
     <Compile Include="..\Game\ReplayChecksum.cs" Link="ReplayChecksum.cs" />
+    <Compile Include="..\Game\ReplayFilename.cs" Link="ReplayFilename.cs" />
     <Compile Include="..\Configuration\AutoSaveMode.cs" Link="AutoSaveMode.cs" />
     <Compile Include="..\Configuration\BoardPreset.cs" Link="BoardPreset.cs" />
+    <Compile Include="..\Configuration\BoardPixels.cs" Link="BoardPixels.cs" />
     <Compile Include="..\Configuration\GameSettings.cs" Link="GameSettings.cs" />
     <Compile Include="..\Configuration\IniFile.cs" Link="IniFile.cs" />
     <Compile Include="..\Configuration\LocalFiles.cs" Link="LocalFiles.cs" />
     <Compile Include="..\Configuration\ShortcutCatalog.cs" Link="ShortcutCatalog.cs" />
+    <Compile Include="..\Configuration\UiText.cs" Link="UiText.cs" />
+    <Compile Include="..\UI\BoardLayout.cs" Link="BoardLayout.cs" />
   </ItemGroup>
 
   <ItemGroup>

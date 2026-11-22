@@ -9,6 +9,10 @@ internal sealed class UiPulse : IDisposable
     private int interval = IntervalForRefreshRate(60);
     private const uint HighResolution = 0x00000002;
     private const uint ModifyStateAndSynchronize = 0x00100002;
+    private const uint KeyboardMouseOrPaint = 0x0027;
+
+    [DllImport("user32.dll")]
+    private static extern uint GetQueueStatus(uint flags);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern SafeWaitHandle CreateWaitableTimerExW(IntPtr attributes, string name, uint flags, uint access);
@@ -120,9 +124,16 @@ internal sealed class UiPulse : IDisposable
 
     private void Deliver()
     {
-        Interlocked.Exchange(ref queued, 0);
-        if (enabled && !disposed)
-            tick();
+        try
+        {
+            // Posted timer callbacks otherwise run ahead of mouse and paint messages.
+            if (enabled && !disposed && (GetQueueStatus(KeyboardMouseOrPaint) >> 16) == 0)
+                tick();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref queued, 0);
+        }
     }
 
     public void Dispose()

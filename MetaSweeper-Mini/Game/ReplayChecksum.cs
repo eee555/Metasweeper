@@ -9,7 +9,7 @@ internal static class ReplayChecksum
     // whole event stream.
     private const int Size = 32;
 
-    // This key identifies MetaSweeper-Mini (元3.3.4-迷你版). Anyone can extract
+    // This key identifies MetaSweeper-Mini. Anyone can extract
     // it from the executable, so this signature detects casual tampering and
     // source confusion. Replace it if it is ever published or leaked.
     private static readonly byte[] Key =
@@ -49,12 +49,12 @@ internal static class ReplayChecksum
         if (evf == null)
             throw new ArgumentNullException("evf");
         if (LooksSigned(evf))
-            throw new InvalidDataException("录像已包含校验码，不能重复签名。");
+            throw new InvalidDataException(UiText.Get(TextId.ReplaySigned));
         // generate_evf_v4_raw_data ends with the event terminator and an empty
         // checksum length, so the last three bytes are all zero.
         if (evf.Length < 3 || evf[evf.Length - 1] != 0
             || evf[evf.Length - 2] != 0 || evf[evf.Length - 3] != 0)
-            throw new InvalidDataException("EVF 校验码字段格式不正确。");
+            throw new InvalidDataException(UiText.Get(TextId.InvalidChecksum));
 
         int payloadLength = evf.Length - 2;
         byte[] payload = Copy(evf, 0, payloadLength);

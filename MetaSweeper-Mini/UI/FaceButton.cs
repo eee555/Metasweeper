@@ -8,7 +8,6 @@ internal sealed class FaceButton : Button
 
     internal FaceButton()
     {
-        AccessibleName = "新一局";
         Cursor = Cursors.Hand;
         BackColor = ClassicFrame.Canvas;
         TabStop = false;
