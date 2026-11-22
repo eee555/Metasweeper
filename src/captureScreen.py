@@ -100,8 +100,7 @@ class CaptureScreen(QDialog):
         # pp = image.colorTable()
 
         bits = image.bits()
-        bits.setsize(image.byteCount())
-        byteCount = image.byteCount()
+        byteCount = image.sizeInBytes()
         s = Struct(str(byteCount) + 'B')
         self.data = s.unpack(bits[0:])
         self.success_flag = True
