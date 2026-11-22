@@ -9,6 +9,7 @@ class ui_Form(Ui_Form):
     def __init__(self, del_items: list, pb_bbbv, nf_items, parent):
         self.Dialog = RoundQDialog(parent)
         self.setupUi(self.Dialog)
+        self.Dialog.setModal(True)
         self.Dialog.setWindowIcon(QtGui.QIcon(
             str(resource_path('media') / 'cat.ico')))
 
