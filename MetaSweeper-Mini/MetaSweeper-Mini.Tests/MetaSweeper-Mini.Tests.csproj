@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ReplayChecksumTests.cs" />
+    <Compile Include="ReplayChecksumEdgeTests.cs" />
+    <Compile Include="GameSettingsTests.cs" />
+    <Compile Include="..\Game\ReplayChecksum.cs" Link="ReplayChecksum.cs" />
+    <Compile Include="..\Configuration\AutoSaveMode.cs" Link="AutoSaveMode.cs" />
+    <Compile Include="..\Configuration\BoardPreset.cs" Link="BoardPreset.cs" />
+    <Compile Include="..\Configuration\GameSettings.cs" Link="GameSettings.cs" />
+    <Compile Include="..\Configuration\IniFile.cs" Link="IniFile.cs" />
+    <Compile Include="..\Configuration\LocalFiles.cs" Link="LocalFiles.cs" />
+    <Compile Include="..\Configuration\ShortcutCatalog.cs" Link="ShortcutCatalog.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
