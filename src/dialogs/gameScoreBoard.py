@@ -294,7 +294,6 @@ class gameScoreBoardManager():
                    "pluck", "zini", "hzini"]
 
     # is_visible = False
-    # 5、错误的表达式，一旦算出报错，永远不再算，显示error
     def __init__(self, score_board_setting, game_setting, pix_size, parent):
         # 从文件中读取指标并设置
         # self.ms_board = None
@@ -393,13 +392,10 @@ class gameScoreBoardManager():
                 try:
                     expression_result = safe_eval(expression, self.namespace)
                 except Exception:
-                    self.score_board_items_type[idx] = 5
                     index_value.append('error')
                 else:
                     index_value.append(str(expression_result))
                 ...
-            elif _type == 5:
-                index_value.append('error')
             else:
                 index_value.append('--')
         return index_value
