@@ -23,6 +23,7 @@ def test_basic_settings_defaults_and_to_dict():
         "plugin_market_source": "github",
         "auto_update_plugins": True,
         "show_plugin_list": True,
+        "window_size": None,
     }
 
 
@@ -50,6 +51,7 @@ def test_basic_settings_from_dict_full():
         "plugin_market_source": "gitee",
         "auto_update_plugins": False,
         "show_plugin_list": False,
+        "window_size": [1280, 800],
     }
     assert BasicSettings.from_dict(data).to_dict() == data
 

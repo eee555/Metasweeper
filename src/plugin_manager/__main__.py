@@ -11,12 +11,18 @@
   --no-gui - 完全无界面（后台模式）
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import sys
+from typing import TYPE_CHECKING
 
 from . import _pip_worker
 from .plugin_lib_env import prepare_plugin_dependency_environment
+
+if TYPE_CHECKING:
+    from .restart import RestartView
 
 # 高分屏支持：必须在导入 PyQt 之前设置
 os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
@@ -107,6 +113,9 @@ def main() -> int:
                 raise RuntimeError("The previous plugin manager did not release its lock")
             print("[plugin_manager] 已有实例在运行，退出")
             return 0
+        view = restart.take_restart_view()
+        if is_restart and view is not None:
+            return _run_manager(view)
         return _run_manager()
     except restart.RestartCancelled:
         return 1
@@ -117,7 +126,7 @@ def main() -> int:
         return 1
 
 
-def _run_manager() -> int:
+def _run_manager(restart_view: RestartView | None = None) -> int:
     parser = argparse.ArgumentParser(description="Solvable-Minesweeper 插件管理器")
     parser.add_argument(
         "--endpoint",
@@ -202,7 +211,8 @@ def _run_manager() -> int:
 
     from . import run_plugin_manager_process
 
-    show_main_window = not args.no_gui and args.mode == "window"
+    show_main_window = not args.no_gui and (
+        restart_view.visible if restart_view is not None else args.mode == "window")
 
     return run_plugin_manager_process(
         endpoint=args.endpoint,
@@ -211,6 +221,7 @@ def _run_manager() -> int:
         pub_endpoint=args.pub_endpoint,
         ctrl_endpoint=args.ctrl_endpoint,
         **({"host_pid": args.host_pid} if args.host_pid else {}),
+        **({"restart_view": restart_view} if restart_view is not None and not args.no_gui else {}),
     )
 
 

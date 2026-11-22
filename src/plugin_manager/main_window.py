@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from PySide6.QtCore import Qt, QCoreApplication, Signal, Slot, QPoint, QRect, QRectF, QSize, QTimer, QEvent, QThread, QSignalBlocker
-from PySide6.QtGui import QColor, QCursor, QMouseEvent, QIcon, QKeySequence, QPainter, QPalette, QShortcut
+from PySide6.QtGui import QColor, QCursor, QMouseEvent, QIcon, QKeySequence, QPainter, QPalette, QResizeEvent, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
@@ -2004,6 +2004,7 @@ class PluginManagerWindow(QMainWindow):
     _show_requested = Signal()
     _auto_update_task: PluginAutoUpdateTask | None = None
     _after_auto_update: Callable[[], object] | None = None
+    _pending_restart_tab: str | None = None
 
     def __init__(self, plugin_manager: PluginManager, parent=None):
         super().__init__(parent)
@@ -2041,6 +2042,19 @@ class PluginManagerWindow(QMainWindow):
 
         self._refresh_plugin_list()
 
+        saved_size = self._settings_mgr.settings.window_size
+        if saved_size is not None:
+            width, height = saved_size
+            screen = self.screen()
+            if screen is not None:
+                available = screen.availableSize()
+                width, height = min(width, available.width()), min(height, available.height())
+            self.resize(width, height)
+        self._window_size_timer = QTimer(self)
+        self._window_size_timer.setInterval(400)
+        self._window_size_timer.setSingleShot(True)
+        self._window_size_timer.timeout.connect(self._save_window_size)
+
         # 定时刷新连接状态
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._poll_connection_status)
@@ -2052,6 +2066,7 @@ class PluginManagerWindow(QMainWindow):
         self._auto_update_timer.timeout.connect(self._start_auto_update)
         app = QApplication.instance()
         assert app is not None
+        app.aboutToQuit.connect(self._save_window_size)
         app.aboutToQuit.connect(self._stop_auto_update)
         if self._settings_mgr.settings.auto_update_plugins:
             self._auto_update_timer.start(0)
@@ -2669,7 +2684,10 @@ class PluginManagerWindow(QMainWindow):
             return False
         handoff = None
         try:
-            handoff = restart.prepare_restart()
+            visible = self.isVisible() and not self.isMinimized()
+            active_tab = self._tab_widget.tab_key(self._tab_widget.currentIndex()) if visible else None
+            handoff = restart.prepare_restart(restart.RestartView(visible, active_tab))
+            self._save_window_size()
             self._state_mgr.save()
             self._manager.stop()
             handoff.commit()
@@ -2698,6 +2716,7 @@ class PluginManagerWindow(QMainWindow):
             return
         if self._tray_icon is not None:
             self._tray_icon.hide()
+        self._save_window_size()
         self._state_mgr.save()
         self._manager.stop()
         QApplication.instance().quit()  # type: ignore
@@ -3063,6 +3082,26 @@ class PluginManagerWindow(QMainWindow):
     def _on_plugin_ready(self, plugin) -> None:
         """插件初始化完成，刷新列表显示"""
         self._refresh_plugin_list()
+        self._restore_pending_restart_tab()
+
+    def restore_restart_tab(self, name: str) -> None:
+        self._pending_restart_tab = name
+        self._restore_pending_restart_tab()
+
+    def _restore_pending_restart_tab(self) -> None:
+        name = self._pending_restart_tab
+        if name is None:
+            return
+        plugin = self._manager.plugins.get(name)
+        if plugin is None:
+            self._pending_restart_tab = None
+        elif plugin.lifecycle == PluginLifecycle.READY:
+            self._pending_restart_tab = None
+            self._closed_plugins.discard(name)
+            self._open_tab_window(name)
+            index = self._tab_widget.index_of_key(name)
+            if index >= 0:
+                self._tab_widget.setCurrentIndex(index)
 
     @Slot(object)
     def _on_plugin_stopped(self, plugin) -> None:
@@ -3103,6 +3142,7 @@ class PluginManagerWindow(QMainWindow):
         t = self._tab_widget
         lst = self._list
         active_key = t.tab_key(t.currentIndex())
+        docked_keys = {t.tab_key(index) for index in range(t.count())}
         tab_signals = QSignalBlocker(t)
         t.setUpdatesEnabled(False)
         lst.setUpdatesEnabled(False)
@@ -3190,7 +3230,8 @@ class PluginManagerWindow(QMainWindow):
             # 只有就绪状态才创建窗口（INITIALIZING/STOPPED 不创建）
             if p.lifecycle == PluginLifecycle.READY and p.widget and name not in t._detached_windows and name not in self._closed_plugins:
                 st = self._effective_state(name)
-                if st.window_mode == WindowMode.DETACHED:
+                if (st.window_mode == WindowMode.DETACHED
+                        and name not in docked_keys and name != self._pending_restart_tab):
                     t.add_detachable_tab(p.widget, display_name, icon=p.plugin_icon,
                                          key=name)
                     _pending_detach.append(name)
@@ -3924,12 +3965,34 @@ class PluginManagerWindow(QMainWindow):
 
     # ── 窗口事件 ────────────────────────────────────────
 
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if (hasattr(self, "_window_size_timer") and self.isVisible()
+                and not (self.isMaximized() or self.isMinimized() or self.isFullScreen())):
+            self._window_size_timer.start()
+
+    @Slot()
+    def _save_window_size(self) -> None:
+        if not self.isVisible() or not hasattr(self, "_settings_mgr"):
+            return
+        if self.isMaximized() or self.isMinimized() or self.isFullScreen():
+            size = self.normalGeometry().size()
+        else:
+            size = self.size()
+        if size.isEmpty():
+            return
+        try:
+            self._settings_mgr.set_window_size(size.width(), size.height())
+        except OSError as exc:
+            logger.warning(f"保存插件管理器窗口大小失败: {exc}")
+
     def closeEvent(self, event) -> None:
         """关闭主窗口 → 最小化到系统托盘，不退出"""
         if self._installation_in_progress():
             event.ignore()
             return
         if hasattr(self, "_tray_icon") and self._tray_icon is not None and self._tray_icon.isVisible():
+            self._save_window_size()
             event.ignore()
             self.hide()
             if self._tray_icon.supportsMessages():
@@ -3950,6 +4013,7 @@ class PluginManagerWindow(QMainWindow):
             QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
+            self._save_window_size()
             self._state_mgr.save()
             self._manager.stop()
             event.accept()

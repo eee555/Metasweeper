@@ -1,6 +1,7 @@
 """Hand off a restart to a new manager without relying on the game process."""
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import socket
@@ -13,11 +14,32 @@ from .app_paths import is_frozen
 
 _RESTART_PORT = "METASWEEPER_RESTART_PORT"
 _RESTART_TOKEN = "METASWEEPER_RESTART_TOKEN"
+_RESTART_VIEW = "METASWEEPER_RESTART_VIEW"
 _START_TIMEOUT = 10.0
 
 
 class RestartCancelled(Exception):
     """The predecessor declined to complete the handoff."""
+
+
+@dataclass(frozen=True)
+class RestartView:
+    visible: bool
+    active_tab: str | None = None
+
+
+def take_restart_view() -> RestartView | None:
+    raw = os.environ.pop(_RESTART_VIEW, None)
+    if raw is None:
+        return None
+    try:
+        view = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(view, dict) or type(view.get("visible")) is not bool:
+        return None
+    tab = view.get("active_tab")
+    return RestartView(view["visible"], tab if isinstance(tab, str) and tab else None)
 
 
 @dataclass
@@ -60,7 +82,7 @@ def configure_invocation(data_dir: str) -> None:
     _invocation = (command, os.getcwd())
 
 
-def prepare_restart() -> RestartHandoff:
+def prepare_restart(view: RestartView | None = None) -> RestartHandoff:
     """Start the replacement and wait for its readiness; raise on failure."""
     global _handoff
     if _handoff is not None:
@@ -70,6 +92,9 @@ def prepare_restart() -> RestartHandoff:
     command, cwd = _invocation
     token = secrets.token_hex(32)
     env = os.environ.copy()
+    env.pop(_RESTART_VIEW, None)
+    if view is not None:
+        env[_RESTART_VIEW] = json.dumps({"visible": view.visible, "active_tab": view.active_tab})
     # A PyInstaller one-file child must unpack independently: the original
     # process removes its temporary bundle when it exits.
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):

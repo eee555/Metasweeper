@@ -234,12 +234,16 @@ def test_window_stops_and_commits_before_quitting(qtbot, monkeypatch):
     calls = []
     handoff = SimpleNamespace(commit=lambda: calls.append("commit"))
     window = shell(qtbot)
+    window._tab_widget = SimpleNamespace(currentIndex=lambda: 0, tab_key=lambda _: "active_plugin")
+    window.show()
     window._state_mgr = SimpleNamespace(save=lambda: calls.append("save"))
     window._manager = SimpleNamespace(stop=lambda: calls.append("stop"))
     app = SimpleNamespace(quit=lambda: calls.append("quit"))
-    monkeypatch.setattr(restart, "prepare_restart", lambda: handoff)
+    prepare = Mock(return_value=handoff)
+    monkeypatch.setattr(restart, "prepare_restart", prepare)
     monkeypatch.setattr(main_window, "QApplication", SimpleNamespace(instance=lambda: app))
     assert window.restart_plugin_manager()
+    prepare.assert_called_once_with(restart.RestartView(True, "active_plugin"))
     assert calls == ["save", "stop", "commit", "quit"]
 
 
@@ -262,7 +266,7 @@ def test_restart_menu_waits_for_auto_update_worker(qtbot, monkeypatch, tmp_path,
     monkeypatch.setattr(main_window, "PluginAutoUpdateTask", UpdateTask)
     monkeypatch.setattr(qapp, "quit", lambda: calls.append("quit"))
     handoff = SimpleNamespace(commit=lambda: calls.append("commit"))
-    monkeypatch.setattr(restart, "prepare_restart", lambda: handoff)
+    monkeypatch.setattr(restart, "prepare_restart", Mock(return_value=handoff))
 
     window = real_window(qtbot, monkeypatch, tmp_path, tray=False)
     window._manager.stop = lambda: calls.append("stop")
@@ -286,7 +290,7 @@ def test_window_cancels_handoff_if_shutdown_fails(qtbot, monkeypatch):
     window._state_mgr = SimpleNamespace(save=Mock())
     window._manager = SimpleNamespace(stop=Mock(side_effect=RuntimeError("shutdown failed")))
     cancel = Mock()
-    monkeypatch.setattr(restart, "prepare_restart", lambda: handoff)
+    monkeypatch.setattr(restart, "prepare_restart", Mock(return_value=handoff))
     monkeypatch.setattr(restart, "cancel_restart", cancel)
     monkeypatch.setattr(QMessageBox, "warning", Mock())
     assert not window.restart_plugin_manager()

@@ -45,6 +45,7 @@ from .plugin_data_transfer import (
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication, QWidget
+    from .restart import RestartView
 
 logger = loguru.logger.bind(name="PluginManager")
 
@@ -379,13 +380,15 @@ class PluginManager:
         """停止插件管理器（调用优雅关闭）"""
         self._graceful_shutdown()
 
-    def start_with_gui(self, app: QApplication = None, *, show_main_window: bool = True) -> None:  # type: ignore
+    def start_with_gui(self, app: QApplication = None, *, show_main_window: bool = True,
+                       restart_view: RestartView | None = None) -> None:  # type: ignore
         """
         启动插件管理器并显示主界面
 
         Args:
             app: QApplication 实例，如果不提供则创建新的
             show_main_window: 是否显示主窗口（False 时仅在托盘运行）
+            restart_view: 接替进程需要恢复的界面状态
         """
         from PySide6.QtGui import QIcon
         from PySide6.QtWidgets import QApplication
@@ -410,34 +413,38 @@ class PluginManager:
 
         # 创建主窗口（始终创建以支持托盘图标）
         window = PluginManagerWindow(self)
+        if restart_view is not None and restart_view.active_tab is not None:
+            window.restore_restart_tab(restart_view.active_tab)
         # 与 _drain_zmq_events 的判空/置位在同一把锁内完成，
         # 避免「drainer 看到窗口为空置位 pending」与「此处清空 pending」交错丢失请求。
         with self._events_lock:
             self._main_window = window
             pending_show = self._show_requested_pending
             self._show_requested_pending = False
-        if show_main_window:
+        if show_main_window and restart_view is None:
             window.show()
 
         # start() 期间（窗口尚不存在）收到的显示请求在此重放。
-        if pending_show:
+        if pending_show or (show_main_window and restart_view is not None):
             window._show_requested.emit()
 
         logger.info(
             f"Plugin manager started with GUI (window={show_main_window})")
 
-    def exec_gui(self, *, show_main_window: bool = True) -> int:
+    def exec_gui(self, *, show_main_window: bool = True, restart_view: RestartView | None = None) -> int:
         """
         启动 GUI 事件循环
 
         Args:
             show_main_window: 是否显示主窗口（False 时仅在托盘运行）
+            restart_view: 接替进程需要恢复的界面状态
 
         Returns:
             退出代码
         """
         if self._app is None:
-            self.start_with_gui(show_main_window=show_main_window)
+            restoration = {"restart_view": restart_view} if restart_view is not None else {}
+            self.start_with_gui(show_main_window=show_main_window, **restoration)
 
         result = self._app.exec()
         self.stop()
@@ -825,6 +832,7 @@ def run_plugin_manager_process(
     pub_endpoint: str | None = None,
     ctrl_endpoint: str | None = None,
     host_pid: int | None = None,
+    restart_view: RestartView | None = None,
 ) -> int:
     """
     在独立进程中运行插件管理器
@@ -836,6 +844,7 @@ def run_plugin_manager_process(
         show_main_window: 是否显示主窗口（False 时 GUI 仅显示托盘图标）
         pub_endpoint: 主进程实际绑定的 PUB 端点（随机端口模式由命令行传入）
         ctrl_endpoint: 主进程实际绑定的 CTRL 端点（随机端口模式由命令行传入）
+        restart_view: 接替进程需要恢复的界面状态
 
     Returns:
         退出代码
@@ -852,13 +861,14 @@ def run_plugin_manager_process(
         if host is not None and not host.is_alive():
             return 0
         if with_gui:
+            restoration = {"restart_view": restart_view} if restart_view is not None else {}
             if host is not None:
-                manager.start_with_gui(show_main_window=show_main_window)
+                manager.start_with_gui(show_main_window=show_main_window, **restoration)
                 from PySide6.QtCore import QTimer
                 timer = QTimer(manager._app)
                 timer.timeout.connect(lambda: manager._app.quit() if not host.is_alive() else None)
                 timer.start(500)
-            return manager.exec_gui(show_main_window=show_main_window)
+            return manager.exec_gui(show_main_window=show_main_window, **restoration)
         else:
             manager.start()
             while host is None or host.is_alive():

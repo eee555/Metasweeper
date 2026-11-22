@@ -57,6 +57,7 @@ class BasicSettings:
     plugin_market_source: Literal["github", "gitee"] = "github"
     auto_update_plugins: bool = True
     show_plugin_list: bool = True
+    window_size: list[int] | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -69,6 +70,10 @@ class BasicSettings:
             indexes = normalize_pip_indexes(raw_indexes) if isinstance(raw_indexes, list) else DEFAULT_PLUGIN_PIP_INDEXES.copy()
         except (AttributeError, TypeError, ValueError):
             indexes = DEFAULT_PLUGIN_PIP_INDEXES.copy()
+        size = data.get("window_size")
+        if not (isinstance(size, list) and len(size) == 2
+                and all(type(value) is int and value > 0 for value in size)):
+            size = None
         return cls(
             file_log_level=data.get("file_log_level", "DEBUG"),
             viewer_log_level=data.get("viewer_log_level", "INFO"),
@@ -79,6 +84,7 @@ class BasicSettings:
             plugin_market_source="gitee" if data.get("plugin_market_source") == "gitee" else "github",
             auto_update_plugins=data.get("auto_update_plugins") is not False,
             show_plugin_list=data.get("show_plugin_list") is not False,
+            window_size=size,
         )
 
 
@@ -214,4 +220,16 @@ class SettingsManager:
             self.save()
         except OSError:
             self._settings.show_plugin_list = old
+            raise
+
+    def set_window_size(self, width: int, height: int) -> None:
+        old = self._settings.window_size
+        size = [width, height]
+        if size == old:
+            return
+        self._settings.window_size = size
+        try:
+            self.save()
+        except OSError:
+            self._settings.window_size = old
             raise
