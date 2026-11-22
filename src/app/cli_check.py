@@ -1,4 +1,20 @@
-"""命令行录像校验。"""
+"""命令行录像合法性校验。
+
+用法：
+    metasweeper.exe -c replay.evf
+    metasweeper.exe -c replay.evfs
+    metasweeper.exe -c replay目录
+
+本工具用于为主进程提供无头命令行用法，以确认录像文件结构完整、内容有效且校验码正确。校验通过即表示录像经过安全模块的有效性检验，可上传至排行网站。
+
+校验结果写入 out.json：status=0 表示文件结构与校验码均通过检查；
+status=1 表示校验码不匹配，文件可能被修改或与当前版本不兼容；
+status=2 表示录像结构解析失败。进程退出码为 0 仅表示检查流程已经执行，
+单文件结论一律以 out.json 为准。
+
+可对单个文件执行检查，也可传入目录批量检查其中的全部 evf/evfs 录像；
+每个文件的检查结果都会独立列出，互不影响。
+"""
 
 import json
 import os
@@ -47,11 +63,11 @@ def cli_check_file(file_path: str) -> int:
                             "Failed to parse evf file", exc_info=True)
                         evf_evfs_files[ide] = (e, 2)
                     else:
-                        checksum = ui.checksum_guard.get_checksum(
-                            video.raw_data[: -(len(video.checksum) + 2)]
+                        checksum_ok = ui.checksum_guard.valid_checksum(
+                            video.raw_data[: -(len(video.checksum) + 2)],
+                            video.checksum,
                         )
-                        evf_evfs_files[ide] = (e, 0 if list(
-                            video.checksum) == list(checksum) else 1)
+                        evf_evfs_files[ide] = (e, 0 if checksum_ok else 1)
                 elif e.endswith(".evfs"):
                     videos = ms.Evfs(e)
                     try:
@@ -64,17 +80,18 @@ def cli_check_file(file_path: str) -> int:
                         if videos.len() <= 0:
                             evf_evfs_files[ide] = (e, 2)
                             continue
-                        checksum = ui.checksum_guard.get_checksum(
-                            videos[0].evf_video.raw_data)
-                        if list(videos[0].checksum) != list(checksum):
+                        checksum_ok = ui.checksum_guard.valid_checksum(
+                            videos[0].evf_video.raw_data, videos[0].checksum)
+                        if not checksum_ok:
                             evf_evfs_files[ide] = (e, 1)
                             continue
                         for idcell, cell in enumerate(videos[1:]):
-                            checksum = ui.checksum_guard.get_checksum(
+                            checksum_ok = ui.checksum_guard.valid_checksum(
                                 cell.evf_video.raw_data +
-                                videos[idcell - 1].checksum
+                                videos[idcell - 1].checksum,
+                                cell.evf_video.checksum,
                             )
-                            if list(cell.evf_video.checksum) != list(checksum):
+                            if not checksum_ok:
                                 evf_evfs_files[ide] = (e, 1)
                                 break
                         else:
