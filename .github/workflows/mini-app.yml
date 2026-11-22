@@ -1,0 +1,50 @@
+name: Build MetaSweeper-Mini
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-2025
+    env:
+      RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          architecture: x64
+
+      - name: Set up Rust for Windows x64
+        shell: powershell
+        run: rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal
+
+      - name: Restore Mini test project dependencies
+        shell: powershell
+        run: dotnet restore MetaSweeper-Mini/MetaSweeper-Mini.Tests/MetaSweeper-Mini.Tests.csproj
+
+      - name: Prepare Mini icon
+        shell: powershell
+        run: Copy-Item -LiteralPath package_tool/cat.ico -Destination src/media/cat.ico
+
+      - name: Build Mini Release
+        shell: powershell
+        run: |
+          $python = (Get-Command python.exe).Source
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File MetaSweeper-Mini/build.ps1 `
+            -OutputPath dist/mini/MetaSweeper-Mini.exe -PythonPath $python
+
+      - name: Upload Mini executable
+        uses: actions/upload-artifact@v6
+        with:
+          name: MetaSweeper-Mini-windows-x64
+          path: dist/mini/MetaSweeper-Mini.exe
+          if-no-files-found: error
