@@ -679,9 +679,9 @@ class Ui_MainWindow(Ui_MainWindow):
             "DEFAULT/cursor_limit", False, bool)
         self.double_click_restart = self.game_setting.get_or_set_value(
             'DEFAULT/double_click_restart', False, bool)
-        # 开格打击感：棋盘抖动特效，默认开启
+        # 开格震动特效，默认关闭
         self.board_shake = self.game_setting.get_or_set_value(
-            "DEFAULT/board_shake", True, bool)
+            "DEFAULT/board_shake", False, bool)
         self.label.shake_enabled = self.board_shake
         if (self.row, self.column, self.minenum) == BOARD_BEGINNER:
             level = LEVEL_NAME_BEGINNER

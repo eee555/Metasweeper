@@ -436,12 +436,12 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="821"/>
-        <source>开出格子与踩雷时，棋盘短促抖动</source>
+        <source>开出格子与踩雷时，棋盘短促震动</source>
         <translation>Kurzes Brettzittern beim Öffnen von Feldern oder Treffen einer Mine&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
-        <source>开格抖动特效</source>
+        <source>开格震动特效</source>
         <translation>Zitter-Effekt beim Öffnen&gt;</translation>
     </message>
     <message>

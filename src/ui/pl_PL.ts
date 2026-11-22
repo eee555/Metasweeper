@@ -436,12 +436,12 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="821"/>
-        <source>开出格子与踩雷时，棋盘短促抖动</source>
+        <source>开出格子与踩雷时，棋盘短促震动</source>
         <translation>Krótkie drżenie planszy przy odkrywaniu pól lub trafieniu miny&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
-        <source>开格抖动特效</source>
+        <source>开格震动特效</source>
         <translation>Efekt drżenia przy odkrywaniu&gt;</translation>
     </message>
     <message>

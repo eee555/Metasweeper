@@ -818,13 +818,13 @@ background-color:rgb(255, 255, 255)
             </size>
            </property>
            <property name="toolTip">
-            <string>开出格子与踩雷时，棋盘短促抖动</string>
+            <string>开出格子与踩雷时，棋盘短促震动</string>
            </property>
            <property name="styleSheet">
             <string notr="true"/>
            </property>
            <property name="text">
-            <string>开格抖动特效</string>
+            <string>开格震动特效</string>
            </property>
           </widget>
          </item>

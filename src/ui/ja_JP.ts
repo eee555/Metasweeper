@@ -452,12 +452,12 @@
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="821"/>
-        <source>开出格子与踩雷时，棋盘短促抖动</source>
+        <source>开出格子与踩雷时，棋盘短促震动</source>
         <translation>マスを開ける／地雷を踏むときに盤面を短く揺らす&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
-        <source>开格抖动特效</source>
+        <source>开格震动特效</source>
         <translation>開格シェイク演出&gt;</translation>
     </message>
     <message>

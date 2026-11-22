@@ -45,7 +45,7 @@ class ui_Form(Ui_Form):
         self.double_click_restart = self.game_setting.value(
             'DEFAULT/double_click_restart', False, bool)
         self.board_shake = self.game_setting.value(
-            'DEFAULT/board_shake', None, bool)
+            'DEFAULT/board_shake', False, bool)
         self.board_constraint = mainWindow.board_constraint
         self.attempt_times_limit = mainWindow.attempt_times_limit
 
