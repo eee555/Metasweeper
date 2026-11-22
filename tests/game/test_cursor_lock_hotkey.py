@@ -38,7 +38,7 @@ class _FakeBoardGUI:
         self.game_state = 'ready'
         self.cursor_locked = False
         self.cursor_limit = False
-        self._cursor_limit_whole_game = False
+        self._cursor_limit_used_this_game = False
         self._cursor_lock_suspended = False
         self._application_active = True
         self._saved_cursor_lock_pending = False
@@ -159,18 +159,17 @@ def test_geometry_event_refreshes_clip_rectangle():
         refresh.assert_called_once_with()
 
 
-def test_recorded_cursor_limit_requires_whole_game_lock():
+def test_recorded_cursor_limit_records_any_enable_during_game():
     gui = _FakeBoardGUI()
     gui.game_state = PLAYING
-    gui._cursor_limit_whole_game = True
 
     with patch.object(_FakeBoardGUI, "_focus_outside_board_window", return_value=False):
-        gui.set_cursor_lock(False)
-        assert gui._recorded_cursor_limit() is False
-
         gui.set_cursor_lock(True)
-        assert gui.cursor_locked is True
-        assert gui._recorded_cursor_limit() is False
+        assert gui._recorded_cursor_limit() is True
+
+        gui.set_cursor_lock(False)
+        assert gui.cursor_locked is False
+        assert gui._recorded_cursor_limit() is True
 
 
 def test_recorded_cursor_limit_uses_lock_state_at_game_start():

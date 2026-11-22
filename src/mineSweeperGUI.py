@@ -128,7 +128,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # 鼠标锁定由快捷键切换，不再随开局/结束自动生效。
         # cursor_limit 来自父类读取的已保存设置，待主窗口激活后再应用。
         self.cursor_locked = False
-        self._cursor_limit_whole_game = False
+        self._cursor_limit_used_this_game = False
         self._cursor_lock_suspended = False
         self._saved_cursor_lock_pending = self.cursor_limit
         self._application_active = True
@@ -1672,18 +1672,18 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.game_setting.sync()
 
     def _mark_cursor_limit_for_new_game(self) -> None:
-        """录像只在整局都锁定鼠标时才记录该标志。"""
-        self._cursor_limit_whole_game = self.cursor_locked
+        """录像只记录本局是否开启过鼠标锁定。"""
+        self._cursor_limit_used_this_game = self.cursor_locked
 
     def _recorded_cursor_limit(self) -> bool:
-        return getattr(self, "_cursor_limit_whole_game", self.cursor_locked)
+        return getattr(self, "_cursor_limit_used_this_game", self.cursor_locked)
 
     def set_cursor_lock(self, locked: bool, persist: bool = True) -> None:
         locked = bool(locked)
         self._saved_cursor_lock_pending = False
         self.cursor_limit = locked
-        if not locked and self.game_state in (PLAYING, JOKING, SHOW):
-            self._cursor_limit_whole_game = False
+        if locked and self.game_state in (PLAYING, JOKING, SHOW):
+            self._cursor_limit_used_this_game = True
         if locked == self.cursor_locked:
             if persist:
                 self._save_cursor_limit()
