@@ -63,20 +63,21 @@ class MineSweeperVideoPlayer(MineSweeperGUIEvent):
                 self._video_load_progress_dialog.raise_()
             return
 
-        self.unlimit_cursor()
-        if not openfile_name:
-            _translate = QCoreApplication.translate
-            openfile_name = QFileDialog.\
-                getOpenFileName(self.mainWindow, _translate("Form", "打开文件"), str(self.setting_path / 'replay'),
-                                _translate("Form", "All(*.avf *.evf *.rmv *.mvf *.evfs);;Arbiter video(*.avf);;Metasweeper video(*.evf);;Vienna MineSweeper video(*.rmv);;Minesweeper Clone 0.97(*.mvf);;Metasweeper video set(*.evfs)"))
-            openfile_name = openfile_name[0]
-        # 实例化
-        if not openfile_name:
-            if self.cursor_limit:
-                self.limit_cursor()
-            return
-        self.set_face(FACE_SMILE)
-        self._start_video_load(openfile_name)
+        self._suspend_cursor_lock()
+        try:
+            if not openfile_name:
+                _translate = QCoreApplication.translate
+                openfile_name = QFileDialog.\
+                    getOpenFileName(self.mainWindow, _translate("Form", "打开文件"), str(self.setting_path / 'replay'),
+                                    _translate("Form", "All(*.avf *.evf *.rmv *.mvf *.evfs);;Arbiter video(*.avf);;Metasweeper video(*.evf);;Vienna MineSweeper video(*.rmv);;Minesweeper Clone 0.97(*.mvf);;Metasweeper video set(*.evfs)"))
+                openfile_name = openfile_name[0]
+            # 实例化
+            if not openfile_name:
+                return
+            self.set_face(FACE_SMILE)
+            self._start_video_load(openfile_name)
+        finally:
+            self._sync_cursor_lock_with_focus()
 
     def _start_video_load(self, openfile_name):
         self._video_loading = True

@@ -40,8 +40,7 @@ class ui_Form(Ui_Form):
             'DEFAULT/autosave_video_set', None, bool)
         self.end_then_flag = self.game_setting.value(
             'DEFAULT/end_then_flag', None, bool)
-        self.cursor_limit = self.game_setting.value(
-            'DEFAULT/cursor_limit', None, bool)
+        self.cursor_limit = mainWindow.cursor_limit
         self.double_click_restart = self.game_setting.value(
             'DEFAULT/double_click_restart', False, bool)
         self.board_shake = self.game_setting.value(

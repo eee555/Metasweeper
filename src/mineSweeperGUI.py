@@ -87,6 +87,25 @@ class _FinishedScoreBoard:
         return getattr(self._board, name)
 
 
+class _CursorGeometryFilter(QtCore.QObject):
+    """棋盘几何变化与主窗口激活状态变化时同步鼠标锁定。"""
+
+    def __init__(self, gui):
+        super().__init__()
+        self._gui = gui
+
+    def eventFilter(self, obj, event):
+        event_type = event.type()
+        if obj is self._gui.mainWindow:
+            if event_type == QtCore.QEvent.Type.WindowDeactivate:
+                self._gui._on_main_window_deactivated()
+            elif event_type == QtCore.QEvent.Type.WindowActivate:
+                self._gui._on_main_window_activated()
+        if event_type in (QtCore.QEvent.Type.Move, QtCore.QEvent.Type.Resize):
+            self._gui.refresh_cursor_clip()
+        return False
+
+
 def _enable_live_pluck(board):
     if hasattr(board, 'live_pluck_enabled'):
         board.live_pluck_enabled = True
@@ -104,6 +123,24 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.engine = GameEngine(
             ms_board=getattr(self.label, 'ms_board', None))
         self.renderer = BoardRenderer()
+
+        # 鼠标锁定由快捷键切换，不再随开局/结束自动生效。
+        # cursor_limit 来自父类读取的已保存设置，待主窗口激活后再应用。
+        self.cursor_locked = False
+        self._cursor_limit_used_this_game = False
+        self._cursor_lock_suspended = False
+        self._saved_cursor_lock_pending = self.cursor_limit
+        self._application_active = True
+        app = cast(QApplication | None, QApplication.instance())
+        if app is not None:
+            self._application_active = app.applicationState() == Qt.ApplicationState.ApplicationActive
+            app.focusChanged.connect(self._on_focus_changed)
+            app.applicationStateChanged.connect(self._on_application_state_changed)
+        self._cursor_geometry_filter = _CursorGeometryFilter(self)
+        self.label.installEventFilter(self._cursor_geometry_filter)
+        self.mainWindow.installEventFilter(self._cursor_geometry_filter)
+        if self._saved_cursor_lock_pending:
+            QTimer.singleShot(0, self._restore_saved_cursor_lock)
 
         # 防截屏开关：main.py 在 Windows 上注入真实实现；
         # 默认空实现，保证任何构造路径（CLI/插件）都不会缺属性
@@ -182,6 +219,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         if hasattr(self, "frameShortcut9_mac"):
             self.frameShortcut9_mac.activated.connect(self.screenShot)
         self.frameShortcutF3.activated.connect(self.replay_current_board)
+        self.frameShortcutCursorLimit.activated.connect(self.toggle_cursor_limit)
         self.shortcut_hidden_score_board.activated.connect(
             self.hidden_score_board)
 
@@ -319,7 +357,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                 self.onGameFinished(game_state)
                 if game_state not in ("playing", "show", "joking"):
                     self.timer_10ms.stop()
-                    self.unlimit_cursor()
                 # if game_state in ("study", "joking", "jowin", "jofail", "show"):
             case "joking" | "show":
                 # joking/show 是「看过概率/启用辅助」形态的对局，等价于 playing。
@@ -328,7 +365,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
                 if game_state not in ("playing", "show", "joking"):
                     self.onGameFinished(game_state)
                     self.timer_10ms.stop()
-                    self.unlimit_cursor()
             case "display" | "showdisplay":
                 if game_state not in ("display", "showdisplay"):
                     self.timer_video.stop()
@@ -751,7 +787,6 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         board = finished if finished is not None and finished._board is self.label.ms_board else self.label.ms_board
         self.score_board_manager.show(board, index_type=2)
         self.enable_screenshot()
-        self.unlimit_cursor()
 
     def gameWin(self):  # 成功后改脸和状态变量，停时间
         self.timer_10ms.stop()
@@ -783,7 +818,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         if isinstance(self.label.ms_board, ms.BaseVideo):
             if not self.label.ms_board.raw_data:
                 self.label.ms_board.use_question = False  # 禁用问号是共识
-                self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
+                self.label.ms_board.use_cursor_pos_lim = self._recorded_cursor_limit()
                 self.label.ms_board.use_auto_replay = self.auto_replay > 0
 
                 self.label.ms_board.is_fair = self.is_fair()
@@ -1101,7 +1136,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # 生成当前局面的数据
         if not self.label.ms_board.raw_data:
             self.label.ms_board.use_question = False  # 禁用问号是共识
-            self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
+            self.label.ms_board.use_cursor_pos_lim = self._recorded_cursor_limit()
             self.label.ms_board.use_auto_replay = self.auto_replay > 0
 
             self.label.ms_board.is_fair = self.is_fair()
@@ -1270,7 +1305,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.gameMode = ui.gameMode
             self.auto_replay = ui.auto_replay
             self.end_then_flag = ui.end_then_flag
-            self.cursor_limit = ui.cursor_limit
+            self.set_cursor_lock(ui.cursor_limit, persist=False)
             self.double_click_restart = ui.double_click_restart
             self.board_shake = ui.board_shake
             self.label.shake_enabled = self.board_shake
@@ -1371,12 +1406,15 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.video_playing = False
             self.timer_video.stop()
 
-        self.unlimit_cursor()
+        self._suspend_cursor_lock()
         self.enable_screenshot()
 
         ui = captureScreen.CaptureScreen()
-        ui.show()
-        ui.exec()
+        try:
+            ui.show()
+            ui.exec()
+        finally:
+            self._sync_cursor_lock_with_focus()
 
         if not ui.success_flag or len(ui.board) < 6 or len(ui.board[0]) < 6:
             return
@@ -1563,8 +1601,114 @@ class MineSweeperGUI(MainWindowGUIImportExport):
     def unlimit_cursor(self):
         self.renderer.unlimit_cursor(self.mainWindow)
 
+    def _focus_outside_board_window(self) -> bool:
+        """截图、设置等弹窗或其他应用获得焦点时，不能继续裁剪鼠标。"""
+        if not self._application_active:
+            return True
+        app = cast(QApplication | None, QApplication.instance())
+        if app is None:
+            return False
+        if app.activeModalWidget() is not None:
+            return True
+        active_window = app.activeWindow()
+        return active_window is not None and active_window is not self.mainWindow
+
+    def _suspend_cursor_lock(self) -> None:
+        if self.cursor_locked and not self._cursor_lock_suspended:
+            self.unlimit_cursor()
+            self._cursor_lock_suspended = True
+
+    def _sync_cursor_lock_with_focus(self) -> None:
+        if not self.cursor_locked:
+            return
+        if self._focus_outside_board_window():
+            self._suspend_cursor_lock()
+        elif self._cursor_lock_suspended:
+            self.limit_cursor()
+            self._cursor_lock_suspended = False
+
+    def refresh_cursor_clip(self) -> None:
+        """棋盘缩放或窗口移动后重新计算裁剪矩形。"""
+        if not self.cursor_locked or self._cursor_lock_suspended:
+            return
+        if self._focus_outside_board_window():
+            self._suspend_cursor_lock()
+            return
+        self.limit_cursor()
+
+    def _on_focus_changed(self, _old, _new):
+        self._restore_saved_cursor_lock()
+        self._sync_cursor_lock_with_focus()
+
+    def _on_application_state_changed(self, state):
+        self._application_active = state == Qt.ApplicationState.ApplicationActive
+        if self._application_active:
+            self._restore_saved_cursor_lock()
+
+    def _on_main_window_deactivated(self):
+        """主动切出棋盘时释放裁剪；锁定时窗口保持置顶，避免被动失焦。"""
+        self._application_active = False
+        self._suspend_cursor_lock()
+
+    def _on_main_window_activated(self):
+        """切回主窗口（含关闭弹窗）后恢复仍启用的锁定。"""
+        self._application_active = True
+        self._restore_saved_cursor_lock()
+        if self.cursor_locked and self._cursor_lock_suspended:
+            self.limit_cursor()
+            self._cursor_lock_suspended = False
+
+    def _restore_saved_cursor_lock(self) -> None:
+        if not self._saved_cursor_lock_pending:
+            return
+        if not self._application_active or self._focus_outside_board_window():
+            return
+        self._saved_cursor_lock_pending = False
+        self.set_cursor_lock(True, persist=False)
+
+    def _save_cursor_limit(self) -> None:
+        self.game_setting.set_value("DEFAULT/cursor_limit", self.cursor_limit)
+        self.game_setting.sync()
+
+    def _mark_cursor_limit_for_new_game(self) -> None:
+        """录像只记录本局是否开启过鼠标锁定。"""
+        self._cursor_limit_used_this_game = self.cursor_locked
+
+    def _recorded_cursor_limit(self) -> bool:
+        return getattr(self, "_cursor_limit_used_this_game", self.cursor_locked)
+
+    def set_cursor_lock(self, locked: bool, persist: bool = True) -> None:
+        locked = bool(locked)
+        self._saved_cursor_lock_pending = False
+        self.cursor_limit = locked
+        if locked and self.game_state in (PLAYING, JOKING, SHOW):
+            self._cursor_limit_used_this_game = True
+        if locked == self.cursor_locked:
+            if persist:
+                self._save_cursor_limit()
+            self._sync_cursor_lock_with_focus()
+            return
+
+        if locked:
+            self.cursor_locked = True
+            if self._focus_outside_board_window():
+                self._suspend_cursor_lock()
+            else:
+                self.limit_cursor()
+                self._cursor_lock_suspended = False
+        else:
+            self.unlimit_cursor()
+            self.cursor_locked = False
+            self._cursor_lock_suspended = False
+        if persist:
+            self._save_cursor_limit()
+
+    def toggle_cursor_limit(self) -> None:
+        self.set_cursor_lock(not self.cursor_locked)
+
     def closeEvent_(self):
         self.unlimit_cursor()
+        self._save_cursor_limit()
         self.game_setting.set_value(
             "DEFAULT/mainwintop", str(self.mainWindow.y()))
         self.game_setting.set_value(

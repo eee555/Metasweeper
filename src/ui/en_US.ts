@@ -3599,6 +3599,10 @@ The files may be in use by another program.</translation>
         <translation>Paste board</translation>
     </message>
     <message>
+        <source>锁定/解锁鼠标到棋盘</source>
+        <translation>Lock/unlock mouse to board</translation>
+    </message>
+    <message>
         <source>菜单：新游戏</source>
         <translation>Menu: New game</translation>
     </message>

@@ -77,6 +77,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                         self.label.ms_board.game_board[i // self.pixSize][j // self.pixSize] == CELL_UNOPENED:
                     # 正式埋雷开始
                     self.layMine(i // self.pixSize, j // self.pixSize)
+                    self._mark_cursor_limit_for_new_game()
 
                     if any((self.board_constraint, self._allowed_controls)):
                         self.game_state = JOKING
@@ -88,9 +89,6 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                         self.disable_screenshot()
                     else:
                         self.enable_screenshot()
-
-                    if self.cursor_limit:
-                        self.limit_cursor()
 
                     # 核实用的时间，防变速齿轮
                     self.start_time_unix_2 = QtCore.QDateTime.currentDateTime().\
