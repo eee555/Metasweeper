@@ -49,8 +49,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="222"/>
-        <source>更改音效</source>
-        <translation>Change Sound</translation>
+        <source>旧版音效命令</source>
+        <translation>Legacy sound command</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="253"/>
@@ -89,8 +89,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="233"/>
-        <source>热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）</source>
-        <translation>Hot-update game sound switch / volume / sound pack (separate from the skin permission)</translation>
+        <source>兼容旧版插件，主程序会忽略此命令</source>
+        <translation>Compatibility with older plugins. The host ignores this command.</translation>
     </message>
 </context>
 <context>
@@ -443,21 +443,6 @@ The dropdown only shows plugins that declare the permission.</translation>
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
         <source>开格抖动特效</source>
         <translation>Cell-open shake effect&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="840"/>
-        <source>开格、双击、插旗、开局、胜负等游戏性音效</source>
-        <translation>Gameplay sounds for opening, chording, flagging, start, win/lose&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="843"/>
-        <source>游戏音效</source>
-        <translation>Game sounds&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="874"/>
-        <source>音量：</source>
-        <translation>Volume:&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="933"/>

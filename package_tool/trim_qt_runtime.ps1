@@ -22,21 +22,27 @@ if (-not $dumpbin) {
 $unusedDirectories = @(@(
     (Join-Path $pysideRoot 'qml')
     (Join-Path $qtPlugins 'qmltooling')
+    (Join-Path $qtPlugins 'multimedia')
 ) | Where-Object { Test-Path -LiteralPath $_ -PathType Container })
 # 本地源码可能保留已删除统计插件的 __pycache__，目录复制会将其带入包中。
 $unusedDirectories += @('plugins\stats', '_internal\plugins\stats', 'internal\plugins\stats' | ForEach-Object {
     $directory = Join-Path $package $_
     if (Test-Path -LiteralPath $directory -PathType Container) { $directory }
 })
-# Qt 自动收集的屏幕虚拟键盘使用 QML；保留其他输入法插件。
-$unusedPluginPaths = @((Join-Path $qtPlugins 'platforminputcontexts\qtvirtualkeyboardplugin.dll'))
-# Qt 可能收集 PDF 图像插件，却未分发它依赖的 Qt6Pdf.dll。
-if (-not (Test-Path -LiteralPath (Join-Path $qtRuntime 'Qt6Pdf.dll'))) {
-    $unusedPluginPaths += Join-Path $qtPlugins 'imageformats\qpdf.dll'
-}
-$unusedFiles = @($unusedPluginPaths | ForEach-Object {
+# Plugins for features omitted from the Windows build.
+$unusedPaths = @(
+    (Join-Path $qtPlugins 'platforminputcontexts\qtvirtualkeyboardplugin.dll')
+    (Join-Path $qtPlugins 'imageformats\qpdf.dll')
+)
+$qtTranslations = Join-Path $pysideRoot 'translations'
+$unusedFiles = @($unusedPaths | ForEach-Object {
     if (Test-Path -LiteralPath $_ -PathType Leaf) { Get-Item -LiteralPath $_ }
 })
+if (Test-Path -LiteralPath $qtTranslations -PathType Container) {
+    $unusedFiles += @(Get-ChildItem -LiteralPath $qtTranslations -File -Filter '*.qm' | Where-Object {
+        $_.Name -match '^qtmultimedia_' -or $_.BaseName -notmatch '_(zh(_(CN|TW))?|en(_(US|GB))?|de(_DE)?|pl(_PL)?|ja(_JP)?)$'
+    })
+}
 $excludedFiles = @{}
 foreach ($file in $unusedFiles) { $excludedFiles[$file.FullName] = $true }
 foreach ($directory in $unusedDirectories) {
@@ -47,7 +53,12 @@ $files = @(Get-ChildItem $package -Recurse -File | Where-Object {
 })
 $candidates = @{}
 foreach ($file in $files) {
-    if ($file.DirectoryName -eq $qtRuntime -and $file.Name -match '^qt6(3d|quick|qml|charts|virtualkeyboard|graphs|datavisualization|pdf|multimedia|location|positioning|remoteobjects|scxml|sensors|texttospeech|spatialaudio|test|webengine|webchannel|websockets|webview).*\.dll$') {
+    # Qt can load this software OpenGL fallback dynamically. Omit it from Windows releases.
+    if ($file.DirectoryName -eq $qtRuntime -and $file.Name -eq 'opengl32sw.dll') {
+        $candidates[$file.Name.ToLowerInvariant()] = $file
+        continue
+    }
+    if ($file.DirectoryName -eq $qtRuntime -and ($file.Name -match '^qt6(3d|quick|qml|charts|virtualkeyboard|graphs|datavisualization|pdf|multimedia|opengl|location|positioning|remoteobjects|scxml|sensors|texttospeech|spatialaudio|test|webengine|webchannel|websockets|webview).*\.dll$' -or $file.Name -match '^(avcodec|avformat|avutil|swscale|swresample)-\d+\.dll$')) {
         $candidates[$file.Name.ToLowerInvariant()] = $file
     }
 }
@@ -73,6 +84,20 @@ do {
         }
     }
 } while ($changed)
+# Validate recursive targets and reject junctions before deleting any directory.
+$packagePrefix = $package.TrimEnd('\') + '\'
+foreach ($directory in $unusedDirectories) {
+    $target = Get-Item -LiteralPath $directory
+    if (-not $target.FullName.StartsWith($packagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Qt trim directory is outside the package: $directory"
+    }
+    while ($target.FullName.StartsWith($packagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        if ($target.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Qt trim directory crosses a junction or link: $($target.FullName)"
+        }
+        $target = $target.Parent
+    }
+}
 $removedBytes = 0L
 foreach ($directory in $unusedDirectories) {
     $removedBytes += (Get-ChildItem -LiteralPath $directory -Recurse -File | Measure-Object Length -Sum).Sum
@@ -81,7 +106,7 @@ foreach ($directory in $unusedDirectories) {
 }
 foreach ($file in $unusedFiles) {
     $removedBytes += $file.Length
-    Write-Output ('Unused Qt plugin: {0}' -f $file.FullName)
+    Write-Output ('Unused Qt file: {0}' -f $file.FullName)
     if ($Apply) { Remove-Item -LiteralPath $file.FullName -Force }
 }
 foreach ($name in @($removable.Keys | Sort-Object)) {

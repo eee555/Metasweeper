@@ -12,7 +12,6 @@ from shared_types.commands import (
 from shared_types.enums import GameLevel
 from utils.app_logger import logger
 from app.skin_applier import handle_set_skin
-from app.sound_applier import handle_set_sound
 
 
 def _is_non_cheat_authorized(tag: str) -> bool:
@@ -48,7 +47,7 @@ def register_plugin_commands(bridge, ui):
         from lib_zmq_plugins.shared.base import CommandResponse as Response
 
         # 重开新局等价于玩家按 F2，不属于作弊开关；仍要求独立授权，
-        # 与换肤/音效相同，防止任何直连 ZMQ 的进程随意重开对局。
+        # 与换肤相同，防止任何直连 ZMQ 的进程随意重开对局。
         if not _is_non_cheat_authorized("new_random_game"):
             return Response(request_id=cmd.request_id, success=False,
                             error="未授权 NewGameCommand")
@@ -153,14 +152,10 @@ def register_plugin_commands(bridge, ui):
                                    error="未授权 SetSkinCommand")
         return handle_set_skin(ui, cmd)
 
-    def handle_set_sound_cmd(cmd: SetSoundCommand):
-        # 音效与皮肤同为外观操作，不受 allowed_controls 约束；
-        # 使用独立的 SetSoundCommand 授权，与 SetSkinCommand 互不影响。
+    def handle_legacy_sound_cmd(cmd: SetSoundCommand):
         from lib_zmq_plugins.shared.base import CommandResponse
-        if not _is_non_cheat_authorized("set_sound"):
-            return CommandResponse(request_id=cmd.request_id, success=False,
-                                   error="未授权 SetSoundCommand")
-        return handle_set_sound(ui, cmd)
+
+        return CommandResponse(request_id=cmd.request_id, success=True)
 
     def handle_set_race_identifier(cmd: SetRaceIdentifierCommand):
         from lib_zmq_plugins.shared.base import CommandResponse
@@ -197,5 +192,6 @@ def register_plugin_commands(bridge, ui):
     bridge.register_handler(MouseClickCommand, handle_mouse_click)
     bridge.register_handler(InitOpenCommand, handle_init_open)
     bridge.register_handler(SetSkinCommand, handle_set_skin_cmd)
-    bridge.register_handler(SetSoundCommand, handle_set_sound_cmd)
+    # Keep the legacy command decodable so older plugins can still apply skins.
+    bridge.register_handler(SetSoundCommand, handle_legacy_sound_cmd)
     bridge.register_handler(SetRaceIdentifierCommand, handle_set_race_identifier)

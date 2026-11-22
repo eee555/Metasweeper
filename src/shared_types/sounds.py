@@ -109,10 +109,7 @@ def read_meta_name(meta: Path, fallback: str) -> str:
 def list_packs(root: Path | str | None, meta_file: str = SOUND_META_FILE):
     """扫描资源包目录，返回 [(目录名, 显示名), ...]，按目录名排序。
 
-    跳过 `_` 开头的目录（临时目录、模板目录）。此前该函数在主进程
-    ``utils/sound_manager.py`` 与第三方皮肤/音效插件的音效模块
-    各有一份近乎逐行相同、根目录顺序却不同的实现，导致「下拉框能选、
-    主进程 resolve 不到」。现在统一到这一处。
+    跳过以下划线开头的临时目录和模板目录。
     """
     if root is None:
         return []

@@ -6,7 +6,7 @@ import sys
 def main() -> None:
     options = []
     for name in sorted(sys.stdlib_module_names):
-        if name in {"test", "tests", "unittest"} or name.startswith(("test_", "_test")):
+        if name in {"test", "tests", "unittest", "_tkinter", "tkinter", "idlelib", "lib2to3"} or name.startswith(("test_", "_test")):
             continue
         try:
             spec = find_spec(name)

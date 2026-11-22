@@ -49,8 +49,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="222"/>
-        <source>更改音效</source>
-        <translation>Sound ändern</translation>
+        <source>旧版音效命令</source>
+        <translation>Alter Soundbefehl</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="253"/>
@@ -89,8 +89,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="233"/>
-        <source>热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）</source>
-        <translation>Sound-Schalter / Lautstärke / Sound-Paket zur Laufzeit aktualisieren (unabhängig von der Skin-Berechtigung)</translation>
+        <source>兼容旧版插件，主程序会忽略此命令</source>
+        <translation>Kompatibilität mit älteren Plugins. Die Anwendung ignoriert diesen Befehl.</translation>
     </message>
 </context>
 <context>
@@ -443,21 +443,6 @@ Die Liste zeigt nur Plugins mit Berechtigung.</translation>
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
         <source>开格抖动特效</source>
         <translation>Zitter-Effekt beim Öffnen&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="840"/>
-        <source>开格、双击、插旗、开局、胜负等游戏性音效</source>
-        <translation>Spiel-Sounds für Öffnen, Chording, Markieren, Start, Sieg/Niederlage&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="843"/>
-        <source>游戏音效</source>
-        <translation>Spiel-Sounds&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="874"/>
-        <source>音量：</source>
-        <translation>Lautstärke:&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="1156"/>

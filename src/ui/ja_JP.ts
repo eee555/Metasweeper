@@ -49,8 +49,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="222"/>
-        <source>更改音效</source>
-        <translation>効果音変更</translation>
+        <source>旧版音效命令</source>
+        <translation>旧バージョンの効果音コマンド</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="253"/>
@@ -89,8 +89,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="233"/>
-        <source>热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）</source>
-        <translation>ゲーム効果音のオンオフ／音量／効果音パックをランタイムで更新します（スキン権限とは独立）</translation>
+        <source>兼容旧版插件，主程序会忽略此命令</source>
+        <translation>旧バージョンのプラグインとの互換性用です。このコマンドは無視されます。</translation>
     </message>
 </context>
 <context>
@@ -459,21 +459,6 @@
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
         <source>开格抖动特效</source>
         <translation>開格シェイク演出&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="840"/>
-        <source>开格、双击、插旗、开局、胜负等游戏性音效</source>
-        <translation>開格・ダブルクリック・旗・開始・勝敗などのゲーム効果音&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="843"/>
-        <source>游戏音效</source>
-        <translation>ゲーム効果音&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="874"/>
-        <source>音量：</source>
-        <translation>音量：&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="933"/>

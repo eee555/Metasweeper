@@ -17,7 +17,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
     QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QSizePolicy, QSlider, QSpacerItem,
+    QPushButton, QSizePolicy, QSpacerItem,
     QSpinBox, QVBoxLayout, QWidget)
 
 from ui.uiComponents import CountryComboBox
@@ -340,37 +340,6 @@ class Ui_Form(object):
 
         self.verticalLayout_5.addWidget(self.checkBox_board_shake)
 
-        self.checkBox_sound_enabled = QCheckBox(self.frame_4)
-        self.checkBox_sound_enabled.setObjectName(u"checkBox_sound_enabled")
-        self.checkBox_sound_enabled.setMinimumSize(QSize(0, 32))
-
-        self.verticalLayout_5.addWidget(self.checkBox_sound_enabled)
-
-        self.widget_sound_volume = QWidget(self.frame_4)
-        self.widget_sound_volume.setObjectName(u"widget_sound_volume")
-        self.widget_sound_volume.setMinimumSize(QSize(0, 32))
-        self.horizontalLayout_sound_volume = QHBoxLayout(self.widget_sound_volume)
-        self.horizontalLayout_sound_volume.setSpacing(6)
-        self.horizontalLayout_sound_volume.setObjectName(u"horizontalLayout_sound_volume")
-        self.horizontalLayout_sound_volume.setContentsMargins(0, 0, 0, 0)
-        self.label_sound_volume = QLabel(self.widget_sound_volume)
-        self.label_sound_volume.setObjectName(u"label_sound_volume")
-
-        self.horizontalLayout_sound_volume.addWidget(self.label_sound_volume)
-
-        self.horizontalSlider_sound_volume = QSlider(self.widget_sound_volume)
-        self.horizontalSlider_sound_volume.setObjectName(u"horizontalSlider_sound_volume")
-        self.horizontalSlider_sound_volume.setFocusPolicy(Qt.ClickFocus)
-        self.horizontalSlider_sound_volume.setMinimum(0)
-        self.horizontalSlider_sound_volume.setMaximum(100)
-        self.horizontalSlider_sound_volume.setValue(70)
-        self.horizontalSlider_sound_volume.setOrientation(Qt.Horizontal)
-
-        self.horizontalLayout_sound_volume.addWidget(self.horizontalSlider_sound_volume)
-
-
-        self.verticalLayout_5.addWidget(self.widget_sound_volume)
-
         self.widget_4 = QWidget(self.frame_4)
         self.widget_4.setObjectName(u"widget_4")
         self.widget_4.setMinimumSize(QSize(0, 32))
@@ -621,11 +590,6 @@ class Ui_Form(object):
         self.checkBox_board_shake.setToolTip(QCoreApplication.translate("Form", u"\u5f00\u51fa\u683c\u5b50\u4e0e\u8e29\u96f7\u65f6\uff0c\u68cb\u76d8\u77ed\u4fc3\u6296\u52a8", None))
 #endif // QT_CONFIG(tooltip)
         self.checkBox_board_shake.setText(QCoreApplication.translate("Form", u"\u5f00\u683c\u6296\u52a8\u7279\u6548", None))
-#if QT_CONFIG(tooltip)
-        self.checkBox_sound_enabled.setToolTip(QCoreApplication.translate("Form", u"\u5f00\u683c\u3001\u53cc\u51fb\u3001\u63d2\u65d7\u3001\u5f00\u5c40\u3001\u80dc\u8d1f\u7b49\u6e38\u620f\u6027\u97f3\u6548", None))
-#endif // QT_CONFIG(tooltip)
-        self.checkBox_sound_enabled.setText(QCoreApplication.translate("Form", u"\u6e38\u620f\u97f3\u6548", None))
-        self.label_sound_volume.setText(QCoreApplication.translate("Form", u"\u97f3\u91cf\uff1a", None))
 #if QT_CONFIG(tooltip)
         self.checkBox_auto_replay.setToolTip("")
 #endif // QT_CONFIG(tooltip)

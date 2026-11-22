@@ -4,7 +4,6 @@
 import glob
 import os
 
-from PyInstaller.utils.hooks import collect_data_files
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))  # 仓库根目录
 SRC = os.path.join(ROOT, "src")
@@ -17,15 +16,13 @@ datas = [
 ]
 # 语言文件为发布版资源，源码仓库可能没有，有则一并打包
 datas += [(qm, ".") for qm in glob.glob(os.path.join(SRC, "*.qm"))]
-# textdistance 依赖包内数据文件
-datas += collect_data_files("textdistance")
 
 a = Analysis(
     [os.path.join(SRC, "main.py")],
     pathex=[SRC],
     binaries=[],
     datas=datas,
-    hiddenimports=["ms_toollib", "textdistance"],
+    hiddenimports=["ms_toollib"],
     hookspath=[],
     runtime_hooks=[],
     excludes=[

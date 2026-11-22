@@ -1,5 +1,3 @@
-from typing import NamedTuple
-
 from PySide6 import QtCore
 from PySide6.QtCore import Qt
 
@@ -15,21 +13,6 @@ from shared_types.events import ButtonClickEvent
 from shared_types.enums import ButtonEventType, MouseState
 from plugin_sdk.server_bridge import GameServerBridge
 from utils.app_logger import logger
-from utils.sound_manager import SoundManager
-from shared_types.sounds import SoundEvent, SOUND_PRIORITY
-
-# 局面中的鼠标和滚轮事件
-
-# 问号格子编码（与皮肤资源协议中的 cellquestion 资源编码 17 一致）；
-# config.constants 未登记，因为本项目默认禁用问号。
-_CELL_QUESTION = 17
-
-
-class BoardSnapshot(NamedTuple):
-    """一次 step 前后的棋盘计数快照，用于统一判定开格/插旗/拔旗/问号。"""
-    opened: int
-    flags: int
-    questions: int
 
 
 class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
@@ -48,99 +31,27 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             logger.warning(
                 "Failed to send button event to plugins", exc_info=True)
 
-    def _step_and_send(self, mouse_event: str, i: int, j: int) -> MouseState:
+    def _step_and_send(self, mouse_event: str, i: int, j: int) -> None:
         old = MouseState(self.label.ms_board.mouse_state)
         logger.debug(f"step {mouse_event} @({i},{j}) mouse_state={old.name}")
         self.label.ms_board.step(mouse_event, (i, j))
         self._send_button_event(ButtonEventType.from_display_name(mouse_event), i, j, old,
                                 MouseState(self.label.ms_board.mouse_state))
-        # 返回 step 前的鼠标状态，供反馈层识别双击（chording）
-        return old
 
-    def _snapshot(self) -> BoardSnapshot:
-        # 一次遍历同时统计开格(0~8)、旗(11)、问号(17)数量，
-        # 供 step 前后做差，避免多次全盘扫描。
-        opened = flags = questions = 0
-        for row in self.label.ms_board.game_board:
-            for v in row:
-                if 0 <= v <= 8:
-                    opened += 1
-                elif v == CELL_FLAGGED:
-                    flags += 1
-                elif v == _CELL_QUESTION:
-                    questions += 1
-        return BoardSnapshot(opened, flags, questions)
+    def _opened_count(self) -> int:
+        return sum(0 <= cell <= 8 for row in self.label.ms_board.game_board for cell in row)
+
+    def _step_with_shake(self, mouse_event: str, i: int, j: int) -> None:
+        before = self._opened_count()
+        self._step_and_send(mouse_event, i, j)
+        if self._opened_count() > before:
+            self.label.start_shake()
 
     def _finish(self, win: bool) -> None:
-        """真实鼠标操作导致结局时统一走这里：先播结局音，再改状态。
-
-        刻意不把播放放进 gameWin()/gameFailed()，因为后者可能被录像回放、
-        自动重开等路径复用；这 6 个调用点都位于真实鼠标操作分支。
-        WIN/LOSE 属于独占事件，会自动 stop_all() 清掉同帧的 START/OPEN，
-        因此第一击直接踩雷也不会叠音。
-        """
-        SoundManager.instance().play(
-            SoundEvent.WIN if win else SoundEvent.LOSE)
         if win:
             self.gameWin()
         else:
             self.gameFailed()
-
-    def _emit_feedback(self, before: BoardSnapshot, *,
-                       old_state: MouseState | None = None,
-                       is_start: bool = False,
-                       action: str = "lr") -> None:
-        """一次 step 后的统一反馈出口：棋盘抖动 + 游戏音效。
-
-        由一次全盘 diff 同时判定开格/双击/插旗/拔旗，并按优先级合并成
-        单个 cue（intensity 取最大值），避免一次操作响多声。
-        点已开格、无效点击、看概率(SHOW)、录像回放均不会走到这里。
-
-        `action` 为本次鼠标事件名：CHORD 只在真正的左键抬起（lr）且 step 前
-        鼠标状态为 chording 类时成立。标雷递归模式下 rc/rr 也会级联开格，
-        此时一律按 OPEN 处理，避免误响 CHORD。
-        """
-        after = self._snapshot()
-        d_open = after.opened - before.opened
-        d_flag = after.flags - before.flags
-
-        # 开格打击感：开格数增加才触发弱档抖动（含第一击），保持原有手感
-        if d_open > 0:
-            self.label.start_shake()
-
-        sm = SoundManager.instance()
-        if is_start:
-            # 第一击只响开局音，压掉该次 OPEN/CHORD，避免两段音叠一起发糊
-            sm.play(SoundEvent.START)
-            return
-
-        cues: list[tuple[int, SoundEvent, int]] = []
-        if d_open > 0:
-            chord = action == "lr" and old_state in (
-                MouseState.Chording, MouseState.ChordingNotFlag,
-                MouseState.DownUpAfterChording,
-            )
-            event = SoundEvent.CHORD if chord else SoundEvent.OPEN
-            cues.append((SOUND_PRIORITY[event], event, d_open))
-
-        # 三个变化各自独立收集，再由优先级排序取最高；此前用 if/elif
-        # 让「旗 + 问号同时变化」在 d_flag>0 与 d_flag<0 时得到两种相反
-        # 处理（一边吞问号、一边吞拔旗），属于逻辑不一致。
-        if d_flag > 0:
-            # 标雷递归模式下一次 rc 可能级联标多面旗，intensity 体现数量
-            cues.append(
-                (SOUND_PRIORITY[SoundEvent.FLAG_ON], SoundEvent.FLAG_ON, d_flag))
-        elif d_flag < 0:
-            cues.append(
-                (SOUND_PRIORITY[SoundEvent.FLAG_OFF], SoundEvent.FLAG_OFF, -d_flag))
-
-        if not cues:
-            return
-        # 同一操作只播优先级最高的一个；强度取所有 cue 的最大值，
-        # 合并只丢数量，不丢「这一下有多大」。
-        cues.sort(key=lambda c: c[0], reverse=True)
-        intensity = max(c[2] for c in cues)
-        sm.play(cues[0][1], intensity=intensity)
 
     def mineAreaLeftPressed(self, i, j):
         # print("lc", i, j)
@@ -159,7 +70,6 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
     def mineAreaLeftRelease(self, i, j):
         # print("lr", i, j)
         if self.game_state == READY:
-            started_now = False
             if not self.pos_is_in_board(i, j):
                 self._step_and_send('lr', i, j)
             else:
@@ -167,7 +77,6 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                         self.label.ms_board.game_board[i // self.pixSize][j // self.pixSize] == CELL_UNOPENED:
                     # 正式埋雷开始
                     self.layMine(i // self.pixSize, j // self.pixSize)
-                    started_now = True
 
                     if any((self.board_constraint, self._allowed_controls)):
                         self.game_state = JOKING
@@ -194,9 +103,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                 if self.engine.use_pending_boards_flag:
                     self.ai(i // self.pixSize, j // self.pixSize)
 
-                before = self._snapshot()
-                old = self._step_and_send('lr', i, j)
-                self._emit_feedback(before, old_state=old, is_start=started_now)
+                self._step_with_shake('lr', i, j)
 
                 if self.label.ms_board.game_board_state == BOARD_WIN:
                     # 点一下可能获胜
@@ -214,9 +121,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
             self.set_face(FACE_SMILE)
         elif self.game_state == PLAYING or self.game_state == JOKING:
             # 游戏进行中的左键/双击：无猜、可猜等模式的重排与判负由局面状态机自行处理
-            before = self._snapshot()
-            old = self._step_and_send('lr', i, j)
-            self._emit_feedback(before, old_state=old)
+            self._step_with_shake('lr', i, j)
 
             if self.label.ms_board.game_board_state == BOARD_WIN:
                 self._finish(win=True)
@@ -259,11 +164,8 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                         self.label.ms_board.mouse_state == MouseState.UpUp.value:
                     self.mineUnFlagedNum -= 1
                     self.showMineNum(self.mineUnFlagedNum)
-            # 标旗实际发生在 rc（右键按下），故此处必须做 diff；
-            # 递归模式下一次 rc 可能级联标多面旗，用全盘快照才能覆盖。
-            before = self._snapshot()
-            old = self._step_and_send('rc', i, j)
-            self._emit_feedback(before, old_state=old, action="rc")
+            # 递归标雷可同时打开格子，保留这条路径的抖动反馈。
+            self._step_with_shake('rc', i, j)
             # 标雷递归模式（12/13/15/16）下，一次标雷可能经级联直接获胜或踩雷，
             # 必须像 lr 一样检查结局，否则计时器继续走，会被防变速齿轮守卫误判重开
             if self.label.ms_board.game_board_state == BOARD_WIN:
@@ -280,9 +182,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
     def mineAreaRightRelease(self, i, j):
         # print("rr", i, j)
         if self.game_state == READY or self.game_state == PLAYING or self.game_state == JOKING:
-            before = self._snapshot()
-            old = self._step_and_send('rr', i, j)
-            self._emit_feedback(before, old_state=old, action="rr")
+            self._step_with_shake('rr', i, j)
             self.label.update()
             self._send_board_update_event()
             self.set_face(FACE_SMILE)

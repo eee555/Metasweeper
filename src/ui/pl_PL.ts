@@ -49,8 +49,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="222"/>
-        <source>更改音效</source>
-        <translation>Zmień dźwięk</translation>
+        <source>旧版音效命令</source>
+        <translation>Starsze polecenie dźwięku</translation>
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="253"/>
@@ -89,8 +89,8 @@
     </message>
     <message>
         <location filename="../shared_types/commands.py" line="233"/>
-        <source>热更新游戏音效开关 / 音量 / 音效包（独立于皮肤授权）</source>
-        <translation>Zaktualizuj w trakcie działania dźwięk / głośność / pakiet dźwięków (niezależnie od uprawnienia skórki)</translation>
+        <source>兼容旧版插件，主程序会忽略此命令</source>
+        <translation>Zgodność ze starszymi wtyczkami. Aplikacja ignoruje to polecenie.</translation>
     </message>
 </context>
 <context>
@@ -443,21 +443,6 @@ Lista pokazuje tylko wtyczki deklarujące uprawnienia.</translation>
         <location filename="../../uiFiles/ui_gs.ui" line="827"/>
         <source>开格抖动特效</source>
         <translation>Efekt drżenia przy odkrywaniu&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="840"/>
-        <source>开格、双击、插旗、开局、胜负等游戏性音效</source>
-        <translation>Dźwięki gry: odkrywanie, chordowanie, flagowanie, start, wygrana/przegrana&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="843"/>
-        <source>游戏音效</source>
-        <translation>Dźwięki gry&gt;</translation>
-    </message>
-    <message>
-        <location filename="../../uiFiles/ui_gs.ui" line="874"/>
-        <source>音量：</source>
-        <translation>Głośność:&gt;</translation>
     </message>
     <message>
         <location filename="../../uiFiles/ui_gs.ui" line="1156"/>

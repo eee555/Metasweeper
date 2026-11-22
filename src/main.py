@@ -6,11 +6,6 @@ from policy_guard import enforce_policy_integrity
 if __name__ == "__main__":
     enforce_policy_integrity()
 
-    if sys.platform == "win32" and sys.argv[1:] == ["--probe-audio-output"]:
-        from utils.sound_manager import probe_audio_output
-
-        probe_audio_output()
-
 import time
 from PySide6 import QtWidgets
 from PySide6.QtNetwork import QLocalSocket, QLocalServer
@@ -108,30 +103,9 @@ if __name__ == "__main__":
                 "插件通信端口被占用（可能存在残留的元扫雷进程），"
                 "本次启动插件功能将被禁用。\n"
                 "关闭所有元扫雷相关进程后重新打开即可恢复。")
-        if sys.platform == "win32":
-            from utils.path_utils import get_runtime_mode
-            from utils.sound_manager import SoundManager
-
-            command = [sys.executable]
-            if get_runtime_mode() == "source":
-                command.append(str(Path(__file__).resolve()))
-            SoundManager.instance().set_output_probe([*command, "--probe-audio-output"])
-
         mainWindow = mainWindowGUI.MainWindow()
         ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
         ui.mainWindow.show()
-
-        # 程序就绪音：主窗口已显示、音效设置也已由 superGUI 初始化完成。
-        # 内部延迟一小段等待音频后端，默认关闭音效时此方法直接返回。
-        # 同时记录启动设置，供 SetSoundCommand(reset=True) 精确还原。
-        try:
-            from utils.sound_manager import SoundManager
-            from app.sound_applier import capture_startup_settings
-            capture_startup_settings(ui)
-            SoundManager.instance().play_ready()
-        except Exception as exc:
-            from utils.app_logger import logger
-            logger.warning(f"启动音效初始化失败，已静默: {exc}")
 
         # ── 启动 ZMQ Server + 插件管理器 ──
 
@@ -149,13 +123,6 @@ if __name__ == "__main__":
         configure_capture_guard(ui)
 
         def _on_about_to_quit():
-            # 退出前停掉所有在响的音效并取消未播出的补播，避免 Qt 音频后端
-            # 在播放中被销毁导致告警/崩溃。
-            try:
-                from utils.sound_manager import SoundManager
-                SoundManager.instance().stop_all()
-            except Exception:
-                pass
             cleanup_plugin_process(plugin_process)
 
         app.aboutToQuit.connect(_on_about_to_quit)

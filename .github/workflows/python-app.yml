@@ -75,7 +75,7 @@ jobs:
             --exclude psutil --exclude numpy `
             --exclude pytest --exclude _pytest --exclude-module debugpy `
             --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
-            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
+            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtMultimediaWidgets --exclude-module PySide6.QtPdf --exclude-module PySide6.QtPdfWidgets --exclude-module PySide6.QtOpenGL --exclude-module PySide6.QtOpenGLWidgets `
             src/main.py
 
       - name: Package plugin_manager with PyInstaller
@@ -88,7 +88,7 @@ jobs:
             --collect-all pip `
             --additional-hooks-dir package_tool/pyinstaller_hooks `
             --exclude-module test --exclude-module unittest `
-            --exclude-module idlelib.idle_test `
+            --exclude-module _tkinter --exclude-module tkinter --exclude-module idlelib --exclude-module lib2to3 `
             --exclude-module pip._vendor.certifi.tests `
             --exclude-module pip._vendor.platformdirs.pytest_plugin `
             --hidden-import plugin_manager.__main__ `
@@ -119,8 +119,6 @@ jobs:
             --hidden-import winerror `
             --hidden-import PySide6.QtSvg `
             --hidden-import PySide6.QtNetwork `
-            --hidden-import PySide6.QtOpenGL `
-            --hidden-import PySide6.QtOpenGLWidgets `
             --hidden-import ms_toollib `
             --hidden-import shared_types.aes_gcm `
             --hidden-import config.constants `
@@ -130,7 +128,7 @@ jobs:
             --exclude psutil --exclude numpy `
             --exclude pytest --exclude _pytest --exclude-module debugpy `
             --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick `
-            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts `
+            --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtMultimediaWidgets --exclude-module PySide6.QtPdf --exclude-module PySide6.QtPdfWidgets --exclude-module PySide6.QtOpenGL --exclude-module PySide6.QtOpenGLWidgets `
             --distpath dist\plugin_manager_out `
             src\plugin_manager\_run.py
 

@@ -32,7 +32,7 @@ a = Analysis(
         "sqlite3", "code", "xmlrpc.server", "xmlrpc.client",
         "http.server", "socketserver",
         "shared_types.aes_gcm", "config.constants", "utils.app_logger",
-        "zmq", "msgspec", "loguru", "requests", "textdistance",
+        "zmq", "msgspec", "loguru", "requests",
         "cryptography", "PyMCUlib", "ms_toollib", "PySide6.QtSvg", "PySide6.QtNetwork",
         "PySide6.QtOpenGL", "PySide6.QtOpenGLWidgets", "packaging",
     ] + pip_imports + collect_submodules("plugin_manager"),

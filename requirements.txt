@@ -7,7 +7,6 @@ pywin32>=311
 loguru>=0.7.3
 packaging>=23.2
 requests>=2.33.1
-textdistance
 cryptography>=50.0.2
 PyMCUlib>=1.0.3
 pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"

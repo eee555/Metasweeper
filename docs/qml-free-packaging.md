@@ -14,7 +14,7 @@
 - `package_tool/build_nuitka_main.bat` 同样停止显式包含 QML 模块和插件。
 
 `PySide6` 仍是必需依赖。Widgets、Network、Svg、Multimedia 分别用于
-界面、网络、皮肤和音效；不能整体删除 `PySide6_Addons`。
+界面、网络和皮肤；不能整体删除 `PySide6_Addons`。
 `.qm` 是翻译文件，必须保留，与 `.qml` 无关。
 
 ## Windows Nuitka 构建
@@ -64,5 +64,5 @@ QML/Quick/Charts/VirtualKeyboard 运行时，构建会报错，需检查剩余�
 3. 检查所有保留二进制的普通与延迟导入，确认 Qt DLL 无缺失。
 4. 确认 Widgets、Network、Svg、Multimedia 的 Python 扩展及原生库保留。
 5. 验证冻结程序启动、内置插件加载和 `HistoryService` 注册；检查日志中的导入错误。
-6. 运行现有音效与历史查询测试。真实设备的声音输出、可见界面交互及 macOS
+6. 运行历史查询测试。可见界面交互及 macOS
    发布包仍需在对应环境验收，不能仅凭构建成功判定。

@@ -6,7 +6,7 @@ from shared_types.commands import (
     COMMAND_TYPES, NON_CHEAT_TAGS, command_label, command_tag,
 )
 
-# NON_CHEAT_TAGS 是不计入作弊开关的命令（换肤 / 音效 / 重开新局）：它们
+# NON_CHEAT_TAGS 是不计入作弊开关的命令（换肤 / 旧版音效协议 / 重开新局）：它们
 # 不改变或泄露局面，不影响官方录像，授权由插件管理器的
 # ControlAuthorizationManager 独立管理。把它们列进 allowed_controls 会让
 # any((board_constraint, _allowed_controls)) 把第一击判成 JOKING，官方录像

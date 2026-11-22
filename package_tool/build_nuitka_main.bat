@@ -9,7 +9,7 @@ if not defined NUITKA_JOBS set "NUITKA_JOBS=4"
 if not defined NUITKA_CONSOLE_MODE set "NUITKA_CONSOLE_MODE=disable"
 if not defined NUITKA_OUTPUT_DIR set "NUITKA_OUTPUT_DIR=dist\metasweeper-nuitka"
 if not defined NUITKA_ZIP_NAME set "NUITKA_ZIP_NAME=metasweeper-nuitka.zip"
-set "EXCLUDE_OPTIONS=--nofollow-import-to=debugpy,numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests,PySide6.QtQuickWidgets,PySide6.QtQuick,PySide6.QtQml,PySide6.QtCharts"
+set "EXCLUDE_OPTIONS=--nofollow-import-to=debugpy,numpy,PIL,setuptools,pkg_resources,pytest,_pytest,zmq.tests,PySide6.QtQuickWidgets,PySide6.QtQuick,PySide6.QtQml,PySide6.QtCharts,_tkinter,tkinter,idlelib,lib2to3,PySide6.QtMultimedia,PySide6.QtMultimediaWidgets,PySide6.QtPdf,PySide6.QtPdfWidgets,PySide6.QtOpenGL,PySide6.QtOpenGLWidgets"
 if defined PYTHONPATH (
     set "PYTHONPATH=%CD%\src;%PYTHONPATH%"
 ) else (
@@ -134,8 +134,6 @@ if exist "%MANAGER_STAGE%" (
     --include-data-files=src\de_DE.qm=de_DE.qm ^
     --include-data-files=src\pl_PL.qm=pl_PL.qm ^
     --include-data-files=src\ja_JP.qm=ja_JP.qm ^
-    --include-package=textdistance ^
-    --include-package-data=textdistance ^
     --include-module=ms_toollib ^
     --include-module=win32api ^
     --include-module=win32event ^
@@ -160,11 +158,10 @@ if not defined STDLIB_OPTIONS (
 "%PYTHON%" -m nuitka ^
     --mode=standalone ^
     --enable-plugin=pyside6 ^
-    --enable-plugin=tk-inter ^
     --assume-yes-for-downloads ^
     %EXCLUDE_OPTIONS% ^
     %STDLIB_OPTIONS% ^
-    --nofollow-import-to=test,unittest,*.test,*.tests,*.test_*,*._test*,idlelib.idle_test,pip._vendor.platformdirs.pytest_plugin ^
+    --nofollow-import-to=test,unittest,*.test,*.tests,*.test_*,*._test*,pip._vendor.platformdirs.pytest_plugin ^
     --windows-console-mode=%NUITKA_CONSOLE_MODE% ^
     --output-dir="%MANAGER_STAGE%" ^
     --output-filename=plugin_manager.exe ^
@@ -185,7 +182,6 @@ if not defined STDLIB_OPTIONS (
     --include-package=zmq ^
     --include-package=loguru ^
     --include-package=requests ^
-    --include-package=textdistance ^
     --include-package=cryptography ^
     --include-package=PyMCUlib ^
     --include-package=ms_toollib ^
@@ -194,12 +190,9 @@ if not defined STDLIB_OPTIONS (
     --include-package=shared_types ^
     --include-module=config.constants ^
     --include-module=utils.app_logger ^
-    --include-package-data=textdistance ^
     --include-module=sqlite3 ^
     --include-module=PySide6.QtSvg ^
     --include-module=PySide6.QtNetwork ^
-    --include-module=PySide6.QtOpenGL ^
-    --include-module=PySide6.QtOpenGLWidgets ^
     --include-module=code ^
     --include-module=xmlrpc.server ^
     --include-module=xmlrpc.client ^

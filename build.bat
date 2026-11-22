@@ -1,11 +1,24 @@
 @echo off
 setlocal
-set "PYTHONPATH=%CD%\src;%PYTHONPATH%"
+set "PYTHONPATH=%CD%\src"
 chcp 65001 >nul 2>&1
+
+rem Keep unrelated DLLs on the caller's PATH out of PyInstaller's dependency scan.
+set "DUMPBIN_DIR="
+for %%I in (dumpbin.exe) do set "DUMPBIN_DIR=%%~dp$PATH:I"
+if not defined DUMPBIN_DIR (
+    echo ERROR: dumpbin.exe is required. Run from the Visual Studio developer environment.
+    exit /b 1
+)
+if not exist "%CD%\.venv\Scripts\pyinstaller.exe" (
+    echo ERROR: Install PyInstaller in .venv before building.
+    exit /b 1
+)
+set "PATH=%CD%\.venv\Scripts;%SystemRoot%\System32;%SystemRoot%\System32\WindowsPowerShell\v1.0;%SystemRoot%;%DUMPBIN_DIR%"
 
 set OUT=dist\app
 set DEST=%OUT%\metaminsweeper
-set EXCLUDES=--exclude-module debugpy --exclude-module numpy --exclude-module PIL --exclude-module Pillow --exclude-module Cython --exclude-module setuptools --exclude-module pkg_resources --exclude-module psutil --exclude-module pytest --exclude-module _pytest --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts
+set EXCLUDES=--exclude-module debugpy --exclude-module numpy --exclude-module PIL --exclude-module Pillow --exclude-module Cython --exclude-module setuptools --exclude-module pkg_resources --exclude-module psutil --exclude-module pytest --exclude-module _pytest --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.QtQuick --exclude-module PySide6.QtQml --exclude-module PySide6.QtCharts --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtMultimediaWidgets --exclude-module PySide6.QtPdf --exclude-module PySide6.QtPdfWidgets --exclude-module PySide6.QtOpenGL --exclude-module PySide6.QtOpenGLWidgets
 
 if not exist "src\media\cat.ico" (
     pushd package_tool
@@ -55,7 +68,7 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --additional-hooks-dir package_tool\pyinstaller_hooks ^
     --collect-all pip ^
     --exclude-module test --exclude-module unittest ^
-    --exclude-module idlelib.idle_test ^
+    --exclude-module _tkinter --exclude-module tkinter --exclude-module idlelib --exclude-module lib2to3 ^
     --exclude-module pip._vendor.certifi.tests ^
     --exclude-module pip._vendor.platformdirs.pytest_plugin ^
     --hidden-import plugin_manager.__main__ ^
@@ -75,8 +88,6 @@ pyinstaller --noconfirm --clean --name plugin_manager --windowed --icon src/medi
     --hidden-import win32api --hidden-import win32event --hidden-import winerror ^
     --hidden-import PySide6.QtSvg ^
     --hidden-import PySide6.QtNetwork ^
-    --hidden-import PySide6.QtOpenGL ^
-    --hidden-import PySide6.QtOpenGLWidgets ^
     --hidden-import ms_toollib ^
     --hidden-import shared_types.aes_gcm --hidden-import config.constants --hidden-import utils.app_logger ^
     --distpath "%OUT%" src\plugin_manager\_run.py
