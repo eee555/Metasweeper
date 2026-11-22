@@ -1,0 +1,253 @@
+include!("../../win/Native/native.rs");
+
+use crate::{config, layout::PRESETS};
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+use std::{fs::{self, OpenOptions}, io::{self, Write}, path::{Path, PathBuf},
+          ptr::NonNull, sync::atomic::{AtomicU32, Ordering}, time::Instant};
+
+pub struct Round {
+    session: NonNull<GameSession>,
+    pub cells: Vec<u8>,
+    pub status: GameStatus,
+    pub metrics: Option<ReplayMetrics>,
+    pub player: String,
+    race: String,
+    pub country: String,
+    last_position: Option<(usize, usize)>,
+    pub cursor_limited: bool,
+    pub timing_valid: bool,
+    started_at: Option<Instant>,
+    started_boot_ms: Option<u64>,
+    last_clock_check: u64,
+}
+
+impl Round {
+    pub fn new(settings: &config::Settings) -> Self {
+        let (rows, cols, mines) = PRESETS[settings.level];
+        Self {
+            session: NonNull::new(new_game(rows as usize, cols as usize, mines)).expect("native game allocation"),
+            cells: vec![10; (rows * cols) as usize],
+            status: GameStatus { seconds: 0.0, path: 0.0, phase: 0, left: 0, right: 0, chords: 0, flags: 0, mouse_visual: 0 },
+            metrics: None, player: settings.player.clone(), race: settings.race.clone(),
+            country: config::country_code(&settings.country).unwrap_or_default(),
+            last_position: None, cursor_limited: false, timing_valid: true,
+            started_at: None, started_boot_ms: None, last_clock_check: 0,
+        }
+    }
+
+    pub fn set_identity(&mut self, settings: &config::Settings) {
+        if self.status.phase == 0 {
+            self.player = settings.player.clone();
+            self.race = settings.race.clone();
+            self.country = config::country_code(&settings.country).unwrap_or_default();
+        }
+    }
+
+    pub fn play(&mut self, button: u32, x: usize, y: usize, flag_win: bool) {
+        if self.ended() { return; }
+        let now = Instant::now();
+        let boot = boot_ms();
+        let ready = self.status.phase == 0;
+        let accepted = unsafe { game_button(self.session.as_mut(), button, x, y, flag_win as u32, self.cells.as_mut_ptr()) };
+        if accepted == 0 { return; }
+        self.last_position = Some((x, y));
+        self.refresh();
+        if ready && self.status.phase != 0 {
+            self.started_at = Some(now);
+            self.started_boot_ms = boot;
+        }
+        if self.ended() { self.check_clock(boot, now, true); }
+    }
+
+    pub fn track(&mut self, x: usize, y: usize) {
+        if !self.ended() && self.last_position != Some((x, y)) {
+            unsafe { game_move(self.session.as_mut(), x, y) };
+            self.last_position = Some((x, y));
+        }
+    }
+
+    pub fn refresh(&mut self) {
+        let game = unsafe { self.session.as_ref() };
+        game_status(game, &mut self.status);
+        if self.status.phase == 1 { self.check_clock(boot_ms(), Instant::now(), false); }
+        if self.ended() && self.metrics.is_none() {
+            // A zeroed ReplayMetrics is valid: it contains only integer and float fields.
+            let mut metrics: ReplayMetrics = unsafe { std::mem::zeroed() };
+            if game_metrics(unsafe { self.session.as_ref() }, &mut metrics) == 1 {
+                self.metrics = Some(metrics);
+            }
+        }
+    }
+
+    pub fn ended(&self) -> bool { self.status.phase >= 2 }
+
+    pub fn seconds(&self) -> f64 { self.status.seconds }
+    pub fn remaining(&self, mines: usize, flag_win: bool) -> u32 {
+        if self.status.phase == 2 && flag_win { 0 }
+        else { (mines as u32).saturating_sub(self.status.flags) }
+    }
+    pub fn phase(&self) -> u32 { self.status.phase }
+    pub fn mouse_visual(&self) -> u32 { self.status.mouse_visual }
+
+    fn check_clock(&mut self, boot: Option<u64>, now: Instant, terminal: bool) {
+        let (Some(boot), Some(start_boot), Some(start)) = (boot, self.started_boot_ms, self.started_at) else { return };
+        if !self.timing_valid || (!terminal && boot.saturating_sub(self.last_clock_check) < 1000) { return; }
+        self.last_clock_check = boot;
+        let wall = boot.saturating_sub(start_boot) as f64;
+        let monitored = now.saturating_duration_since(start).as_secs_f64() * 1000.0;
+        self.timing_valid = (monitored - wall).abs() <= 100.0
+            && (self.seconds() * 1000.0 - wall).abs() <= 100.0;
+    }
+
+    pub fn replay(&mut self, level: usize) -> io::Result<Replay> {
+        if !self.ended() || !self.timing_valid {
+            return Err(io::Error::other("The game did not finish with a valid clock"));
+        }
+        let game = unsafe { self.session.as_mut() };
+        let time = game.video.get_time();
+        let total = game.video.static_params.bbbv;
+        let speed = game.video.get_bbbv_s().unwrap_or(f64::NAN);
+        let name = format!("{}_0_{}_{total}_{}_{}{}", ["b", "i", "e"][level],
+            decimal(time), decimal(speed), safe_identifier(&self.player),
+            if self.status.phase == 3 { "_fail" } else { "" });
+        let mut len = 0;
+        let identity = format!("{}\0{}\0{}", self.player, self.race, self.country);
+        let raw = unsafe { encode_replay(game, identity.as_ptr(), identity.len(), self.cursor_limited as u32, &mut len) };
+        if raw.is_null() { return Err(io::Error::other("EVF data unavailable")); }
+        let mut data = unsafe { std::slice::from_raw_parts(raw, len).to_vec() };
+        unsafe { free_replay(raw, len) };
+        sign(&mut data)?;
+        Ok(Replay { name, data })
+    }
+}
+
+impl Drop for Round {
+    fn drop(&mut self) { unsafe { free_game(self.session.as_ptr()) } }
+}
+
+fn boot_ms() -> Option<u64> {
+    use std::sync::OnceLock;
+    static BASE: OnceLock<Instant> = OnceLock::new();
+    Some(BASE.get_or_init(Instant::now).elapsed().as_millis() as u64)
+}
+
+pub fn decimal(v: f64) -> String {
+    if v.is_nan() { "nan".into() }
+    else if v == f64::INFINITY { "inf".into() }
+    else if v == f64::NEG_INFINITY { "-inf".into() }
+    else { format!("{v:.3}") }
+}
+
+fn safe_identifier(name: &str) -> String {
+    let mut bytes = 0;
+    name.chars().map(|c| {
+        if c.is_control() || "<>:\"/\\|?*".contains(c) { '_' } else { c }
+    }).take_while(|c| {
+        bytes += c.len_utf8();
+        bytes <= 170
+    }).collect::<String>().trim().trim_end_matches('.').into()
+}
+
+fn sign(data: &mut Vec<u8>) -> io::Result<()> {
+    if !data.ends_with(&[0, 0, 0]) { return Err(io::Error::other("Invalid unsigned EVF header")); }
+    data.truncate(data.len() - 2);
+    let mut hmac = Hmac::<Sha256>::new_from_slice(include_bytes!(concat!(env!("OUT_DIR"), "/replay-key.bin")))
+        .expect("valid embedded HMAC key");
+    hmac.update(data);
+    data.extend_from_slice(&[0, 32]);
+    data.extend_from_slice(&hmac.finalize().into_bytes());
+    Ok(())
+}
+
+pub struct Replay { pub name: String, pub data: Vec<u8> }
+
+impl Replay {
+    pub fn save(&self, dir: &Path, chosen: Option<&Path>) -> io::Result<PathBuf> {
+        let actual_dir = chosen.and_then(Path::parent).unwrap_or(dir);
+        fs::create_dir_all(actual_dir)?;
+        static NEXT: AtomicU32 = AtomicU32::new(0);
+        let temp = actual_dir.join(format!(".mini-{}-{}.tmp", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+        let mut file = OpenOptions::new().create_new(true).write(true).open(&temp)?;
+        let result = file.write_all(&self.data);
+        drop(file);
+        let result = result.and_then(|_| {
+            if let Some(path) = chosen {
+                fs::rename(&temp, path).map(|()| path.to_owned())
+            } else {
+                for suffix in 1.. {
+                    let filename = if suffix == 1 { format!("{}.evf", self.name) } else { format!("{}({suffix}).evf", self.name) };
+                    let path = dir.join(filename);
+                    match fs::hard_link(&temp, &path) {
+                        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+                        Err(e) if matches!(e.raw_os_error(), Some(1 | 38 | 95)) => {
+                            // Some portable volumes do not support hard links.
+                            let mut output = match OpenOptions::new().create_new(true).write(true).open(&path) {
+                                Ok(file) => file,
+                                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+                                Err(e) => return Err(e),
+                            };
+                            let result = output.write_all(&self.data);
+                            drop(output);
+                            if result.is_err() { let _ = fs::remove_file(&path); }
+                            return result.map(|()| path);
+                        }
+                        Err(e) => return Err(e),
+                        Ok(()) => return Ok(path),
+                    }
+                }
+                unreachable!()
+            }
+        });
+        let _ = fs::remove_file(temp);
+        result
+    }
+}
+
+#[cfg(test)]
+mod linux_tests {
+    use super::*;
+
+    #[test]
+    fn evf_signature_matches_windows_fixture() {
+        let mut data = vec![4, 0, 0, 3, 3, 10, 16, 1, 2, 3, 4, 5, 0, 0, 0];
+        sign(&mut data).unwrap();
+        assert_eq!(&data[13..15], &[0, 32]);
+        assert_eq!(data[15..].iter().map(|byte| format!("{byte:02x}")).collect::<String>(),
+            "8dc128859f3e18c0fec1c2e2b07b6e077f27dbb167a7a8a575be36fe45d4756f");
+    }
+
+    #[test]
+    fn filenames_keep_room_for_suffixes_on_linux() {
+        assert_eq!(safe_identifier(" A:*? /B. "), "A___ _B");
+        let long = safe_identifier(&"扫".repeat(128));
+        assert_eq!(long.len(), 168);
+    }
+}
+
+impl Round {
+    pub fn counter_rows(&self, mode: &str) -> Vec<String> {
+        let time = self.seconds();
+        let rate = |n| format!("{n}@{}", decimal(if time > 0.0 { n as f64 / time } else { 0.0 }));
+        let mut rows = vec!["--".to_owned(); 17];
+        rows[0] = mode.into();
+        rows[1] = decimal(time);
+        rows[8] = rate(self.status.left);
+        rows[9] = rate(self.status.right);
+        rows[10] = rate(self.status.chords);
+        rows[15] = format!("{:.1}", self.status.path);
+        if let Some(m) = &self.metrics {
+            let metric = |v: f64| if v.is_nan() { "--".into() } else if v == f64::INFINITY { "∞".into() } else { decimal(v) };
+            rows[2] = metric(m.estimated_time);
+            rows[3] = format!("{}/{}", m.solved, m.total);
+            rows[4] = metric(m.three_bv_per_second);
+            rows[5] = format!("{}@{}", m.zini, metric(m.zini as f64 / m.estimated_time));
+            rows[6] = m.openings.to_string();
+            rows[7] = m.islands.to_string();
+            for (i, value) in [(11,m.stnb), (12,m.ioe), (13,m.thrp), (14,m.corr), (16,m.pluck)] {
+                rows[i] = metric(value);
+            }
+        }
+        rows
+    }
+}

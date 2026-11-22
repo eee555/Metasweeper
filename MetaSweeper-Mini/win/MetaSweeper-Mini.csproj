@@ -17,7 +17,7 @@
     <LangVersion>5</LangVersion>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
-    <ApplicationIcon>..\src\media\cat.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\src\media\cat.ico</ApplicationIcon>
     <OutputPath>bin\x64\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\x64\$(Configuration)\</IntermediateOutputPath>
     <StartAction>Project</StartAction>
@@ -81,7 +81,7 @@
   <Target Name="CollectNativeInputs">
     <ItemGroup>
       <NativeInput Include="$(MSBuildProjectFullPath);Native\native.rs;Build\prepare-resources.ps1;Build\build_resources.py;Build\ms-toollib.rev" />
-      <NativeInput Include="..\src\country_name.py;..\src\media\*.svg" />
+      <NativeInput Include="..\..\src\country_name.py;..\..\src\media\*.svg" />
     </ItemGroup>
   </Target>
 

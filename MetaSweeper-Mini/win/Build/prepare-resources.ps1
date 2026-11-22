@@ -6,9 +6,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
+$repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../../..')).Path
 $revision = (Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'ms-toollib.rev')).Trim()
-$library = Join-Path (Split-Path -Parent $WorkDir) 'ms-toollib'
+$obj = Join-Path $PSScriptRoot '../../obj'
+New-Item -ItemType Directory -Path $obj -Force | Out-Null
+$library = Join-Path $obj 'ms-toollib'
 $git = (Get-Command git.exe -ErrorAction SilentlyContinue).Source
 if (-not $git) { throw 'Git for Windows must be available on PATH to prepare ms_toollib.' }
 

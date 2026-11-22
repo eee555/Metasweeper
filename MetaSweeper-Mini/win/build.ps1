@@ -27,7 +27,7 @@ if ($LASTEXITCODE) {
 }
 
 if (-not $OutputPath) {
-    $OutputPath = Join-Path $PSScriptRoot '../dist/winforms-prototype/MetaSweeper-Mini.exe'
+    $OutputPath = Join-Path $PSScriptRoot '../../dist/winforms-prototype/MetaSweeper-Mini.exe'
 }
 $OutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 New-Item -ItemType Directory -Path (Split-Path -Parent $OutputPath) -Force | Out-Null
