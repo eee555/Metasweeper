@@ -88,6 +88,19 @@ class _FinishedScoreBoard:
         return getattr(self._board, name)
 
 
+class _CursorGeometryFilter(QtCore.QObject):
+    """棋盘或窗口尺寸/位置变化时同步鼠标裁剪范围。"""
+
+    def __init__(self, gui):
+        super().__init__()
+        self._gui = gui
+
+    def eventFilter(self, obj, event):
+        if event.type() in (QtCore.QEvent.Type.Move, QtCore.QEvent.Type.Resize):
+            self._gui.refresh_cursor_clip()
+        return False
+
+
 def _enable_live_pluck(board):
     if hasattr(board, 'live_pluck_enabled'):
         board.live_pluck_enabled = True
@@ -107,12 +120,21 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.renderer = BoardRenderer()
 
         # 鼠标锁定由快捷键切换，不再随开局/结束自动生效。
+        # cursor_limit 来自父类读取的已保存设置，待主窗口激活后再应用。
         self.cursor_locked = False
-        self.cursor_limit = False
         self._cursor_lock_suspended = False
+        self._saved_cursor_lock_pending = self.cursor_limit
+        self._application_active = True
         app = cast(QApplication | None, QApplication.instance())
         if app is not None:
+            self._application_active = app.applicationState() == Qt.ApplicationState.ApplicationActive
             app.focusChanged.connect(self._on_focus_changed)
+            app.applicationStateChanged.connect(self._on_application_state_changed)
+        self._cursor_geometry_filter = _CursorGeometryFilter(self)
+        self.label.installEventFilter(self._cursor_geometry_filter)
+        self.mainWindow.installEventFilter(self._cursor_geometry_filter)
+        if self._saved_cursor_lock_pending:
+            QTimer.singleShot(0, self._restore_saved_cursor_lock)
 
         # 防截屏开关：main.py 在 Windows 上注入真实实现；
         # 默认空实现，保证任何构造路径（CLI/插件）都不会缺属性
@@ -1574,7 +1596,9 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.renderer.unlimit_cursor(self.mainWindow)
 
     def _focus_outside_board_window(self) -> bool:
-        """截图、设置等弹窗获得焦点时，不能继续裁剪鼠标。"""
+        """截图、设置等弹窗或其他应用获得焦点时，不能继续裁剪鼠标。"""
+        if not self._application_active:
+            return True
         app = cast(QApplication | None, QApplication.instance())
         if app is None:
             return False
@@ -1597,8 +1621,34 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             self.limit_cursor()
             self._cursor_lock_suspended = False
 
+    def refresh_cursor_clip(self) -> None:
+        """棋盘缩放或窗口移动后重新计算裁剪矩形。"""
+        if not self.cursor_locked or self._cursor_lock_suspended:
+            return
+        if self._focus_outside_board_window():
+            self._suspend_cursor_lock()
+            return
+        self.limit_cursor()
+
     def _on_focus_changed(self, _old, _new):
+        self._restore_saved_cursor_lock()
         self._sync_cursor_lock_with_focus()
+
+    def _on_application_state_changed(self, state):
+        self._application_active = state == Qt.ApplicationState.ApplicationActive
+        if self._application_active:
+            self._restore_saved_cursor_lock()
+            self._sync_cursor_lock_with_focus()
+        else:
+            self._suspend_cursor_lock()
+
+    def _restore_saved_cursor_lock(self) -> None:
+        if not self._saved_cursor_lock_pending:
+            return
+        if not self._application_active or self._focus_outside_board_window():
+            return
+        self._saved_cursor_lock_pending = False
+        self.set_cursor_lock(True, persist=False)
 
     def _save_cursor_limit(self) -> None:
         self.game_setting.set_value("DEFAULT/cursor_limit", self.cursor_limit)
@@ -1606,6 +1656,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
 
     def set_cursor_lock(self, locked: bool, persist: bool = True) -> None:
         locked = bool(locked)
+        self._saved_cursor_lock_pending = False
         self.cursor_limit = locked
         if locked == self.cursor_locked:
             if persist:

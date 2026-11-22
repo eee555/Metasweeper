@@ -3,10 +3,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from PySide6 import QtCore
+from PySide6.QtCore import Qt
+
 from config.key_bindings import (
     KEY_BINDINGS, TOGGLE_CURSOR_LIMIT_ID, apply_bindings,
 )
-from mineSweeperGUI import MineSweeperGUI
+from mineSweeperGUI import MineSweeperGUI, _CursorGeometryFilter
 
 
 class _FakeBoardGUI:
@@ -15,6 +18,9 @@ class _FakeBoardGUI:
     _focus_outside_board_window = MineSweeperGUI._focus_outside_board_window
     _suspend_cursor_lock = MineSweeperGUI._suspend_cursor_lock
     _sync_cursor_lock_with_focus = MineSweeperGUI._sync_cursor_lock_with_focus
+    refresh_cursor_clip = MineSweeperGUI.refresh_cursor_clip
+    _on_application_state_changed = MineSweeperGUI._on_application_state_changed
+    _restore_saved_cursor_lock = MineSweeperGUI._restore_saved_cursor_lock
     _save_cursor_limit = MineSweeperGUI._save_cursor_limit
     set_cursor_lock = MineSweeperGUI.set_cursor_lock
     toggle_cursor_limit = MineSweeperGUI.toggle_cursor_limit
@@ -27,6 +33,8 @@ class _FakeBoardGUI:
         self.cursor_locked = False
         self.cursor_limit = False
         self._cursor_lock_suspended = False
+        self._application_active = True
+        self._saved_cursor_lock_pending = False
 
 
 def test_toggle_holds_lock_until_released():
@@ -76,3 +84,57 @@ def test_toggle_binding_is_registered_and_non_repeating():
 
     shortcut.setKey.assert_called_once()
     shortcut.setAutoRepeat.assert_called_once_with(False)
+
+
+def test_application_deactivation_releases_and_reactivation_restores():
+    gui = _FakeBoardGUI()
+
+    with patch.object(_FakeBoardGUI, "_focus_outside_board_window", return_value=False):
+        gui.set_cursor_lock(True)
+        gui.renderer.limit_cursor.assert_called_once()
+
+        gui._on_application_state_changed(
+            Qt.ApplicationState.ApplicationInactive)
+        assert gui._application_active is False
+        assert gui._cursor_lock_suspended is True
+        gui.renderer.unlimit_cursor.assert_called_once_with(gui.mainWindow)
+
+        gui._on_application_state_changed(Qt.ApplicationState.ApplicationActive)
+        assert gui._application_active is True
+        assert gui._cursor_lock_suspended is False
+        assert gui.renderer.limit_cursor.call_count == 2
+
+
+def test_saved_lock_setting_is_applied_when_focus_returns():
+    gui = _FakeBoardGUI()
+    gui.cursor_limit = True
+    gui._saved_cursor_lock_pending = True
+    gui._application_active = False
+
+    gui._restore_saved_cursor_lock()
+    assert gui._saved_cursor_lock_pending is True
+    assert gui.cursor_locked is False
+
+    with patch.object(_FakeBoardGUI, "_focus_outside_board_window", return_value=False):
+        gui._application_active = True
+        gui._restore_saved_cursor_lock()
+        assert gui.cursor_locked is True
+        assert gui._saved_cursor_lock_pending is False
+        gui.renderer.limit_cursor.assert_called_once_with(
+            gui.label, gui.mainWindow)
+        gui.game_setting.set_value.assert_not_called()
+
+
+def test_geometry_event_refreshes_clip_rectangle():
+    gui = _FakeBoardGUI()
+
+    with patch.object(_FakeBoardGUI, "_focus_outside_board_window", return_value=False):
+        gui.set_cursor_lock(True)
+        gui.refresh_cursor_clip()
+        assert gui.renderer.limit_cursor.call_count == 2
+
+    event_filter = _CursorGeometryFilter(gui)
+    with patch.object(gui, "refresh_cursor_clip") as refresh:
+        event_filter.eventFilter(
+            gui.label, QtCore.QEvent(QtCore.QEvent.Type.Resize))
+        refresh.assert_called_once_with()
