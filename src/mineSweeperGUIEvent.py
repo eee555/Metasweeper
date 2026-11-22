@@ -168,6 +168,7 @@ class MineSweeperGUIEvent(superGUI.Ui_MainWindow):
                     # 正式埋雷开始
                     self.layMine(i // self.pixSize, j // self.pixSize)
                     started_now = True
+                    self._mark_cursor_limit_for_new_game()
 
                     if any((self.board_constraint, self._allowed_controls)):
                         self.game_state = JOKING

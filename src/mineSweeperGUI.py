@@ -89,14 +89,20 @@ class _FinishedScoreBoard:
 
 
 class _CursorGeometryFilter(QtCore.QObject):
-    """棋盘或窗口尺寸/位置变化时同步鼠标裁剪范围。"""
+    """棋盘几何变化与主窗口激活状态变化时同步鼠标锁定。"""
 
     def __init__(self, gui):
         super().__init__()
         self._gui = gui
 
     def eventFilter(self, obj, event):
-        if event.type() in (QtCore.QEvent.Type.Move, QtCore.QEvent.Type.Resize):
+        event_type = event.type()
+        if obj is self._gui.mainWindow:
+            if event_type == QtCore.QEvent.Type.WindowDeactivate:
+                self._gui._on_main_window_deactivated()
+            elif event_type == QtCore.QEvent.Type.WindowActivate:
+                self._gui._on_main_window_activated()
+        if event_type in (QtCore.QEvent.Type.Move, QtCore.QEvent.Type.Resize):
             self._gui.refresh_cursor_clip()
         return False
 
@@ -122,6 +128,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # 鼠标锁定由快捷键切换，不再随开局/结束自动生效。
         # cursor_limit 来自父类读取的已保存设置，待主窗口激活后再应用。
         self.cursor_locked = False
+        self._cursor_limit_whole_game = False
         self._cursor_lock_suspended = False
         self._saved_cursor_lock_pending = self.cursor_limit
         self._application_active = True
@@ -812,7 +819,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         if isinstance(self.label.ms_board, ms.BaseVideo):
             if not self.label.ms_board.raw_data:
                 self.label.ms_board.use_question = False  # 禁用问号是共识
-                self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
+                self.label.ms_board.use_cursor_pos_lim = self._recorded_cursor_limit()
                 self.label.ms_board.use_auto_replay = self.auto_replay > 0
 
                 self.label.ms_board.is_fair = self.is_fair()
@@ -1130,7 +1137,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         # 生成当前局面的数据
         if not self.label.ms_board.raw_data:
             self.label.ms_board.use_question = False  # 禁用问号是共识
-            self.label.ms_board.use_cursor_pos_lim = self.cursor_limit
+            self.label.ms_board.use_cursor_pos_lim = self._recorded_cursor_limit()
             self.label.ms_board.use_auto_replay = self.auto_replay > 0
 
             self.label.ms_board.is_fair = self.is_fair()
@@ -1638,9 +1645,19 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self._application_active = state == Qt.ApplicationState.ApplicationActive
         if self._application_active:
             self._restore_saved_cursor_lock()
-            self._sync_cursor_lock_with_focus()
-        else:
-            self._suspend_cursor_lock()
+
+    def _on_main_window_deactivated(self):
+        """主动切出棋盘时释放裁剪；锁定时窗口保持置顶，避免被动失焦。"""
+        self._application_active = False
+        self._suspend_cursor_lock()
+
+    def _on_main_window_activated(self):
+        """切回主窗口（含关闭弹窗）后恢复仍启用的锁定。"""
+        self._application_active = True
+        self._restore_saved_cursor_lock()
+        if self.cursor_locked and self._cursor_lock_suspended:
+            self.limit_cursor()
+            self._cursor_lock_suspended = False
 
     def _restore_saved_cursor_lock(self) -> None:
         if not self._saved_cursor_lock_pending:
@@ -1654,10 +1671,19 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.game_setting.set_value("DEFAULT/cursor_limit", self.cursor_limit)
         self.game_setting.sync()
 
+    def _mark_cursor_limit_for_new_game(self) -> None:
+        """录像只在整局都锁定鼠标时才记录该标志。"""
+        self._cursor_limit_whole_game = self.cursor_locked
+
+    def _recorded_cursor_limit(self) -> bool:
+        return getattr(self, "_cursor_limit_whole_game", self.cursor_locked)
+
     def set_cursor_lock(self, locked: bool, persist: bool = True) -> None:
         locked = bool(locked)
         self._saved_cursor_lock_pending = False
         self.cursor_limit = locked
+        if not locked and self.game_state in (PLAYING, JOKING, SHOW):
+            self._cursor_limit_whole_game = False
         if locked == self.cursor_locked:
             if persist:
                 self._save_cursor_limit()
