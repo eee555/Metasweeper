@@ -17,7 +17,7 @@ impl Box2 {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Layout {
     pub tile: i32,
     pub outer_edge: i32,
@@ -78,6 +78,7 @@ impl Layout {
         }
         Self::new(low, reference)
     }
+
 }
 
 #[cfg(test)]
@@ -95,4 +96,5 @@ mod tests {
             assert_eq!(layout.size(0, false).1, expected.1 - 41);
         }
     }
+
 }

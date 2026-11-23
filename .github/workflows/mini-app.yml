@@ -27,14 +27,6 @@ jobs:
         shell: powershell
         run: rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal
 
-      - name: Restore Mini test project dependencies
-        shell: powershell
-        run: dotnet restore MetaSweeper-Mini/MetaSweeper-Mini.Tests/MetaSweeper-Mini.Tests.csproj
-
-      - name: Prepare Mini icon
-        shell: powershell
-        run: Copy-Item -LiteralPath package_tool/cat.ico -Destination src/media/cat.ico
-
       - name: Build Mini Release
         shell: powershell
         run: |
@@ -47,4 +39,47 @@ jobs:
         with:
           name: MetaSweeper-Mini-windows-x64
           path: dist/mini/MetaSweeper-Mini.exe
+          if-no-files-found: error
+
+  build-linux-centos7:
+    runs-on: ubuntu-24.04
+    env:
+      BUILD_IMAGE: quay.io/pypa/manylinux2014_x86_64@sha256:8a79ff36ce155d8f242dc8013d73c5e8bbe937defb15de7d7afb342c1ab537f4
+      RUST_VERSION: "1.94.0"
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build and test CentOS 7 x64 Release
+        shell: bash
+        run: |
+          docker run --rm -i --entrypoint /bin/bash \
+            --env RUST_VERSION --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace/MetaSweeper-Mini "$BUILD_IMAGE" -s <<'BUILD'
+          set -euo pipefail
+          yum -q -y install libXcursor-devel libXi-devel libXrandr-devel libXScrnSaver-devel libXtst-devel
+          curl -fsSL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init -o /tmp/rustup-init
+          chmod +x /tmp/rustup-init
+          /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain "$RUST_VERSION"
+          export PATH="$HOME/.cargo/bin:/opt/python/cp312-cp312/bin:$PATH"
+          export GIT_SSL_CAINFO="$SSL_CERT_FILE"
+          export CARGO_TARGET_DIR="$PWD/obj/linux-sdl3"
+          bash build.sh
+          cargo test --release --locked --offline
+
+          binary=../dist/linux-sdl3/MetaSweeper-Mini
+          glibc_max=$(readelf --version-info "$binary" | grep -oE 'GLIBC_[0-9.]+' | sort -Vu | tail -n 1)
+          echo "Highest required glibc version: $glibc_max"
+          test "$(printf '%s\n' "$glibc_max" GLIBC_2.17 | sort -V | tail -n 1)" = GLIBC_2.17
+          ldd -r "$binary"
+          tar -C "$(dirname "$binary")" -czf ../dist/MetaSweeper-Mini-linux-centos7-x64.tar.gz "$(basename "$binary")"
+          BUILD
+
+      - name: Upload CentOS 7 package
+        uses: actions/upload-artifact@v6
+        with:
+          name: MetaSweeper-Mini-linux-centos7-x64
+          path: dist/MetaSweeper-Mini-linux-centos7-x64.tar.gz
           if-no-files-found: error

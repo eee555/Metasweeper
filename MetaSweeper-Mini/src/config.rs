@@ -4,7 +4,8 @@ use std::{fs, io::{self, Read}, path::{Path, PathBuf}, sync::OnceLock};
 
 pub const CODES: [&str; 5] = ["zh_CN", "en_US", "de_DE", "pl_PL", "ja_JP"];
 pub const LANGUAGES: [&str; 5] = ["简体中文", "English", "Deutsch", "Polski", "日本語"];
-include!(concat!(env!("OUT_DIR"), "/text.rs"));
+pub use crate::text::Text;
+use crate::text::STRINGS;
 
 #[derive(Clone)]
 pub struct Settings {
@@ -92,7 +93,8 @@ impl Settings {
 }
 
 pub fn clean(value: &str) -> String {
-    value.chars().filter(|ch| !matches!(ch, '\0' | '\r' | '\n')).collect::<String>().trim().chars().take(128).collect()
+    let value: String = value.chars().filter(|ch| !matches!(ch, '\0' | '\r' | '\n')).collect();
+    crate::platform::limit_identifier(&value)
 }
 
 pub fn clean_player(value: &str) -> String {
@@ -108,16 +110,19 @@ pub fn country_code(value: &str) -> Option<String> {
     if value.len() == 2 && value.bytes().all(|b| b.is_ascii_alphabetic()) {
         return Some(if value.eq_ignore_ascii_case("xx") { String::new() } else { value.to_ascii_uppercase() });
     }
+    countries()
+        .find(|(_, name)| name.eq_ignore_ascii_case(value))
+        .map(|(code, _)| if code == "XX" { String::new() } else { code.into() })
+}
+
+pub fn countries() -> impl Iterator<Item = (&'static str, &'static str)> {
     static COUNTRIES: OnceLock<String> = OnceLock::new();
-    let countries = COUNTRIES.get_or_init(|| {
+    COUNTRIES.get_or_init(|| {
         let mut text = String::new();
         DeflateDecoder::new(&include_bytes!(concat!(env!("OUT_DIR"), "/countries.deflate"))[..])
             .read_to_string(&mut text).expect("embedded country table");
         text
-    });
-    countries.lines().filter_map(|line| line.split_once('\t'))
-        .find(|(_, name)| name.eq_ignore_ascii_case(value))
-        .map(|(code, _)| if code == "XX" { String::new() } else { code.into() })
+    }).lines().filter_map(|line| line.split_once('\t'))
 }
 
 struct Ini {

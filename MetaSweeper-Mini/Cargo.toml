@@ -1,0 +1,43 @@
+[package]
+name = "metasweeper-mini"
+version = "1.0.0"
+edition = "2021"
+publish = false
+rust-version = "1.94"
+
+[[bin]]
+name = "MetaSweeper-Mini"
+path = "src/main.rs"
+
+[dependencies]
+ms_toollib = { path = "obj/ms-toollib/base", default-features = false, features = ["rs"] }
+sdl3 = { version = "=0.20.0", features = ["build-from-source-static"] }
+sdl3-sys = { version = "0.7.3", features = ["no-sdl-audio", "no-sdl-camera", "no-sdl-gpu", "no-sdl-haptic", "no-sdl-hidapi", "no-sdl-joystick", "no-sdl-sensor", "no-sdl-tray"] }
+hmac = "0.12"
+sha2 = "0.10"
+flate2 = "1"
+fontdue = "0.9"
+unicode-segmentation = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

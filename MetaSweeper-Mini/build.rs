@@ -23,17 +23,24 @@ fn python() -> Command {
 
 fn main() {
     for path in [
-        "../win/Build/build_resources.py",
-        "../win/Configuration/UiText.cs",
-        "../win/Game/ReplayChecksum.cs",
-        "../win/UI/ClassicSprites.cs",
-        "../obj/ms-toollib/LICENSE",
-        "../../src/country_name.py",
-        "../../src/media",
+        "obj/ms-toollib/LICENSE",
+        "../src/country_name.py",
+        "../src/media",
         "resources.py",
     ] {
         println!("cargo:rerun-if-changed={path}");
     }
+
+    #[cfg(windows)]
+    {
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let icon = manifest.join("../package_tool/cat.ico");
+        println!("cargo:rerun-if-changed={}", icon.display());
+        let mut resource = winresource::WindowsResource::new();
+        resource.set_icon(icon.to_str().expect("icon path is not valid UTF-8"));
+        resource.compile().expect("could not embed Windows resources");
+    }
+
     let out = env::var_os("OUT_DIR").unwrap();
     let status = python()
         .arg("resources.py")

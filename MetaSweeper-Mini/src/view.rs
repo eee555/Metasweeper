@@ -1,8 +1,8 @@
-use crate::{config::{Settings, Text, LANGUAGES}, core::Round, layout::{Box2, Layout, FOOTER, MENU, PRESETS},
-            paint::{Align, Art, Painter, CANVAS, INK, WHITE}};
+use crate::{config::{Settings, Text}, core::Round, layout::{Box2, Layout, FOOTER, MENU, PRESETS},
+            paint::{Align, Art, Painter, INK, WHITE}};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Action { Restart, Level(usize), Save, Open, Quit, Settings, Shortcuts, Counter, Identity, Instructions, License }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Action { Restart, Level(usize), Save, Open, Quit, Settings, Shortcuts, CursorLock, Counter, Identity, Instructions, License }
 
 pub const MENUS: [Text; 4] = [Text::GameMenu, Text::SettingsMenu, Text::ViewMenu, Text::HelpMenu];
 pub const ENTRIES: [&[(Action, Text, &str)]; 4] = [
@@ -10,7 +10,8 @@ pub const ENTRIES: [&[(Action, Text, &str)]; 4] = [
       (Action::Level(1), Text::Intermediate, "2 / I"), (Action::Level(2), Text::Expert, "3 / E"),
       (Action::Save, Text::SaveReplayMenu, "Ctrl+S"), (Action::Open, Text::OpenReplayFolder, "W"),
       (Action::Quit, Text::Quit, "Ctrl+X")],
-    &[(Action::Settings, Text::GameSettings, "S"), (Action::Shortcuts, Text::Shortcuts, "Z")],
+    &[(Action::Settings, Text::GameSettings, "S"), (Action::Shortcuts, Text::Shortcuts, "Z"),
+      (Action::CursorLock, Text::LockCursor, "F4")],
     &[(Action::Counter, Text::Counter, "/"), (Action::Identity, Text::IdentityBar, "Ctrl+I")],
     &[(Action::Instructions, Text::Instructions, ""), (Action::License, Text::License, "")],
 ];
@@ -31,11 +32,7 @@ pub fn game(p: &Painter, art: &mut Art, settings: &Settings, round: &Round, layo
     let (rows, cols, mines) = PRESETS[settings.level];
     let grid = layout.grid(settings.level, size, settings.identity);
     let status = layout.status(width);
-    p.fill(Box2(0, 0, width, height), CANVAS);
-    p.bevel(Box2(0, MENU, width, height - MENU - if settings.identity { FOOTER } else { 0 }),
-            layout.outer_edge, true);
-    p.bevel(status, layout.inner_edge, false);
-    p.bevel(grid.inset(-layout.inner_edge), layout.inner_edge, false);
+    art.board_background(p, size, layout, settings.level, settings.identity);
     let visual = round.mouse_visual();
     let active = (visual != 0 && grid.contains(pointer.0, pointer.1))
         .then(|| ((pointer.0 - grid.0) / layout.tile, (pointer.1 - grid.1) / layout.tile));
@@ -90,7 +87,9 @@ fn draw_menu(p: &Painter, settings: &Settings, round: &Round, menu: &mut Menu, s
     if overflow.is_some() {
         let area = Box2(width - 23, 0, 23, MENU);
         if menu.open == Some(4) { p.fill(area, 0xdce9f4); }
-        p.text(area, "»", 16, Align::Center, INK);
+        let y = area.1 + (area.3 - 8) / 2;
+        p.chevron(area.0 + 6, y);
+        p.chevron(area.0 + 12, y);
         menu.top.push((area, 4));
     }
     let Some(section) = menu.open else { return };
@@ -98,9 +97,12 @@ fn draw_menu(p: &Painter, settings: &Settings, round: &Round, menu: &mut Menu, s
     let choices: Vec<_> = if section < MENUS.len() {
         ENTRIES[section].iter().map(|(action, text, key)| (Choice::Command(*action), settings.text(*text), *key)).collect()
     } else {
-        (overflow.unwrap_or(0)..MENUS.len()).map(|i| (Choice::Menu(i), settings.text(MENUS[i]), "›")).collect()
+        (overflow.unwrap_or(0)..MENUS.len()).map(|i| (Choice::Menu(i), settings.text(MENUS[i]), "")).collect()
     };
-    let panel_width = choices.iter().map(|(_, text, key)| p.measure(text, 15) + p.measure(key, 14) + 58)
+    let key_width = |choice, keys: &str| {
+        if matches!(choice, Choice::Menu(_)) { 5 } else { p.measure(keys, 14) }
+    };
+    let panel_width = choices.iter().map(|(choice, text, key)| p.measure(text, 15) + key_width(*choice, key) + 58)
         .max().unwrap_or(75).min(width);
     let x = origin.min(width - panel_width).max(0);
     let step = 26.min((height - MENU - 4) / choices.len().max(1) as i32).max(1);
@@ -113,101 +115,98 @@ fn draw_menu(p: &Painter, settings: &Settings, round: &Round, menu: &mut Menu, s
         let (checked, available) = match choice {
             Choice::Command(Action::Level(level)) => (level == settings.level, true),
             Choice::Command(Action::Counter) => (settings.counter, true),
+            Choice::Command(Action::CursorLock) => (settings.cursor_lock, true),
             Choice::Command(Action::Identity) => (settings.identity, true),
             Choice::Command(Action::Save) => (false, round.ended() && round.timing_valid),
             _ => (false, true),
         };
-        if checked { p.text(Box2(r.0 + 2, r.1, 18, step), "✓", 14, Align::Center, INK); }
-        let key_width = p.measure(keys, 14);
+        if checked { p.checkmark(Box2(r.0 + 2, r.1, 18, step)); }
+        let key_width = key_width(choice, keys);
         let color = if available { INK } else { 0x777777 };
         p.text(Box2(r.0 + 22, r.1, (r.2 - key_width - 32).max(5), step), title, 15, Align::Left, color);
-        p.text(Box2(r.0 + r.2 - key_width - 5, r.1, key_width, step), keys, 14, Align::Right, color);
+        let key_x = r.0 + r.2 - key_width - 5;
+        if matches!(choice, Choice::Menu(_)) {
+            if step >= 8 { p.chevron(key_x, r.1 + (step - 8) / 2); }
+        } else {
+            p.text(Box2(key_x, r.1, key_width, step), keys, 14, Align::Right, color);
+        }
     }
 }
 
-pub fn counter(p: &Painter, settings: &Settings, round: &Round, width: i32, height: i32) {
-    let size = (15 * settings.counter_pixels / 27).max(12);
+#[derive(Default)]
+pub struct Counter {
+    painted: Option<CounterContents>,
+}
+
+struct CounterContents {
+    size: (i32, i32),
+    divider: i32,
+    values: Vec<String>,
+}
+
+impl Counter {
+    pub fn invalidate(&mut self) {
+        self.painted = None;
+    }
+
+    pub fn draw(&mut self, p: &Painter, settings: &Settings, values: Vec<String>, width: i32,
+                height: i32, close: bool) -> Option<Vec<Box2>> {
+        let size = (15.0 * settings.counter_pixels as f64 / 27.0).max(12.0) as i32;
+        let table = Box2(8, 37, width - 17, height - 45);
+        if let Some(painted) = self.painted.as_mut().filter(|painted| painted.size == (width, height)) {
+            let mut regions = Vec::new();
+            for (index, (previous, value)) in painted.values.iter().zip(&values).enumerate() {
+                if previous == value { continue; }
+                let area = counter_value_area(table, painted.divider, index);
+                p.fill(area, WHITE);
+                if index > 0 { p.fill(Box2(area.0, area.1, area.2, 1), 0xe0e0e0); }
+                if index + 1 == values.len() {
+                    p.fill(Box2(area.0, area.1 + area.3 - 1, area.2, 1), 0x808080);
+                }
+                p.text(area, value, size, Align::Left, INK);
+                regions.push(area);
+            }
+            painted.values = values;
+            return Some(regions);
+        }
+
+        let divider = draw_counter_table(p, settings, width, height, close, table, size, &values);
+        self.painted = Some(CounterContents { size: (width, height), divider, values });
+        None
+    }
+}
+
+fn counter_value_area(table: Box2, divider: i32, index: usize) -> Box2 {
+    let y = table.1 + index as i32 * table.3 / 17;
+    let row = table.1 + (index as i32 + 1) * table.3 / 17 - y;
+    Box2(table.0 + divider + 6, y, table.2 - divider - 8, row)
+}
+
+fn draw_counter_table(p: &Painter, settings: &Settings, width: i32, height: i32, close: bool,
+                      table: Box2, size: i32, values: &[String]) -> i32 {
     let labels = [settings.text(Text::GameMode), "rtime", "Est Rtime", "3bv", "3bv/s", "zini", "ops", "isls",
                   "left", "right", "double", "stnb", "ioe", "thrp", "corr", "path", "pluck"];
-    let values = round.counter_rows(settings.text(Text::Standard));
     p.fill(Box2(0, 0, width, height), 0xf5f5f5);
-    p.text(Box2(0, 0, width - 22, 37), settings.text(Text::Counter), size, Align::Center, INK);
-    p.text(Box2(width - 24, 0, 24, 37), "×", 16, Align::Center, INK);
-    let table = Box2(8, 37, width - 17, height - 45);
+    p.text(Box2(0, 0, width - if close { 22 } else { 0 }, 37),
+        settings.text(Text::Counter), size, Align::Center, INK);
+    if close {
+        for offset in 0..8 {
+            p.fill(Box2(width - 16 + offset, 14 + offset, 2, 2), INK);
+            p.fill(Box2(width - 9 - offset, 14 + offset, 2, 2), INK);
+        }
+    }
     let divider = (table.2 * 35 / 100).max(p.measure(labels[0], size) + 9).min(table.2 / 2);
     p.fill(table, WHITE);
     p.border(table, 0x808080);
     p.fill(Box2(table.0 + divider, table.1, 1, table.3), 0xd3d3d3);
     for (i, (label, value)) in labels.into_iter().zip(values).enumerate() {
-        let y = table.1 + i as i32 * table.3 / 17;
-        let row = table.1 + (i as i32 + 1) * table.3 / 17 - y;
+        let area = counter_value_area(table, divider, i);
+        let Box2(_, y, _, row) = area;
         if i > 0 { p.fill(Box2(table.0 + 1, y, table.2 - 2, 1), 0xe0e0e0); }
         p.text(Box2(table.0 + 4, y, divider - 5, row), label, size, Align::Left, 0x242424);
-        p.text(Box2(table.0 + divider + 6, y, table.2 - divider - 8, row), &value, size, Align::Left, INK);
+        p.text(area, value, size, Align::Left, INK);
     }
-}
-
-pub const ROW: i32 = 32;
-const FIELD_LEFT: i32 = 250;
-
-pub fn settings(p: &Painter, cfg: &Settings, focus: usize, select_all: bool, drop: Option<usize>, inputs: &[String; 3], width: i32, height: i32) {
-    p.fill(Box2(0, 0, width, height), 0xf5f5f5);
-    let labels = [Text::Language, Text::Player, Text::Race, Text::Country, Text::IdentityBar, Text::TileSize,
-                  Text::AutoSave, Text::Mouse, Text::GameEnd, Text::Counter, Text::CounterScale];
-    for (i, label) in labels.into_iter().enumerate() {
-        p.text(Box2(12, 12 + i as i32 * ROW, FIELD_LEFT - 20, ROW), cfg.text(label), 15, Align::Left, INK);
-    }
-    let options = [cfg.text(Text::AllResults), cfg.text(Text::WinsOnly), cfg.text(Text::Off)];
-    for (row, value) in [(0, LANGUAGES[cfg.lang]), (1, &inputs[0]), (2, &inputs[1]), (3, &inputs[2]), (6, options[cfg.autosave])] {
-        let area = field(row, width);
-        p.fill(area, if focus == row && select_all { 0xd5e9ff } else { WHITE });
-        p.border(area, if row == focus { 0x467eac } else { 0xb0b0b0 });
-        p.text(area.inset(5), value, 15, Align::Left, INK);
-        if row == 0 || row == 6 {
-            p.text(Box2(area.0 + area.2 - 24, area.1, 22, area.3), "▾", 15, Align::Center, INK);
-        }
-        if row == focus && (1..=3).contains(&row) && !select_all {
-            let caret_x = (area.0 + 5 + p.measure(value, 15)).min(area.0 + area.2 - 4);
-            p.fill(Box2(caret_x, area.1 + 5, 1, area.3 - 10), INK);
-        }
-    }
-    for (row, checked, title) in [
-        (4, cfg.identity, Text::ShowIdentity), (7, cfg.cursor_lock, Text::LockCursor),
-        (8, cfg.flag_win, Text::FlagOnWin), (9, cfg.counter, Text::ShowCounter),
-    ] {
-        let y = 12 + row * ROW;
-        let rect = Box2(FIELD_LEFT, y + 8, 15, 15);
-        p.fill(rect, WHITE);
-        p.border(rect, if focus == row as usize { 0x467eac } else { 0x888888 });
-        if checked { p.text(rect, "✓", 13, Align::Center, INK); }
-        p.text(Box2(FIELD_LEFT + 21, y, width - FIELD_LEFT - 33, ROW), cfg.text(title), 15, Align::Left, INK);
-    }
-    for (row, value) in [(5, cfg.pixels[cfg.level]), (10, cfg.counter_pixels)] {
-        let rect = field(row, width);
-        let r = Box2(rect.0, rect.1, 120, rect.3);
-        p.fill(r, WHITE);
-        p.border(r, if row == focus { 0x467eac } else { 0xb0b0b0 });
-        p.text(Box2(r.0, r.1, 26, r.3), "−", 17, Align::Center, INK);
-        p.text(Box2(r.0 + 25, r.1, 70, r.3), &value.to_string(), 15, Align::Center, INK);
-        p.text(Box2(r.0 + 94, r.1, 26, r.3), "+", 17, Align::Center, INK);
-    }
-    for (ok, key) in [(true, Text::Ok), (false, Text::Cancel)] {
-        button(p, dialog_button(width, height, ok), cfg.text(key));
-    }
-    if let Some(row) = drop {
-        let titles = if row == 0 { &LANGUAGES[..] } else { &options[..] };
-        let rect = field(row, width);
-        for (i, title) in titles.iter().enumerate() {
-            let r = Box2(rect.0, rect.1 + rect.3 + i as i32 * 25, rect.2, 25);
-            p.fill(r, if (row == 0 && i == cfg.lang) || (row == 6 && i == cfg.autosave) { 0xdce9f4 } else { WHITE });
-            p.border(r, 0xcccccc);
-            p.text(r.inset(4), title, 15, Align::Left, INK);
-        }
-    }
-}
-
-pub fn field(row: usize, width: i32) -> Box2 {
-    Box2(FIELD_LEFT, 15 + row as i32 * ROW, width - FIELD_LEFT - 12, 26)
+    divider
 }
 
 pub fn dialog_button(width: i32, height: i32, ok: bool) -> Box2 {
