@@ -263,7 +263,6 @@ impl App {
         if self.main.window.size() != (logical.0 as u32, logical.1 as u32) {
             let _ = self.main.window.set_size(logical.0.max(1) as u32, logical.1.max(1) as u32);
         }
-        self.position_counter();
         self.main.dirty = true;
     }
 
@@ -276,7 +275,6 @@ impl App {
             self.layout = Layout::fit(self.reference, self.settings.level, self.settings.identity, self.main.pixels());
             self.settings.pixels[self.settings.level] = self.layout.tile;
             if self.main.hook.is_some() {
-                self.position_counter();
                 self.main.dirty = true;
                 return;
             }
@@ -346,12 +344,6 @@ impl App {
         self.counter_view.invalidate();
         counter.dirty = true;
         self.persist();
-    }
-
-    fn position_counter(&self) {
-        if let Some(counter) = &self.counter {
-            platform::position_counter(&self.main.window, &counter.window, self.settings.counter_position);
-        }
     }
 
     fn remember_main_position(&mut self) {
@@ -873,9 +865,6 @@ impl App {
                 WindowEvent::Moved(..) if !self.wayland => {
                     self.release_cursor();
                     self.remember_main_position();
-                    if self.main.hook.is_some() {
-                        self.position_counter();
-                    }
                 }
                 WindowEvent::FocusLost => { self.menu.open = None; self.cancel_input(); }
                 WindowEvent::Minimized | WindowEvent::Hidden => self.release_cursor(),
@@ -909,7 +898,7 @@ impl App {
             match event {
                 WindowEvent::CloseRequested => self.action(Action::Counter)?,
                 WindowEvent::Moved(..) if !self.wayland => {
-                    if let Some(position) = self.counter.as_ref().filter(|counter| counter.hook.is_none())
+                    if let Some(position) = self.counter.as_ref()
                         .and_then(|counter| platform::window_position(&counter.window)) {
                         self.settings.counter_position = Some(position);
                     }

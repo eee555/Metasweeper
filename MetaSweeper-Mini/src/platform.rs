@@ -33,8 +33,8 @@ pub fn set_counter_hit_test(window: &mut sdl3::video::Window, close: bool) {
             (_, true, _, _) => ResizeRight,
             (_, _, true, _) => ResizeTop,
             (_, _, _, true) => ResizeBottom,
-            _ if y < 37 && x < width - if close { 24 } else { 0 } => Draggable,
-            _ => Normal,
+            _ if close && y < 37 && x >= width - 24 => Normal,
+            _ => Draggable,
         }
     });
 }
