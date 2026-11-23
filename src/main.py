@@ -90,19 +90,6 @@ if __name__ == "__main__":
         localServer.newConnection.connect(
             lambda: on_new_connection(localServer)
         )
-        # 插件通信端口被占用时（如崩溃残留的进程），降级为禁用插件而不是崩溃
-        plugins_disabled = False
-        try:
-            GameServerBridge.instance().start()
-        except Exception as e:
-            GameServerBridge.instance().stop()  # 清理半初始化状态
-            plugins_disabled = True
-            logger.error(f"GameServerBridge 启动失败: {e}")
-            QtWidgets.QMessageBox.warning(
-                None, "元扫雷",
-                "插件通信端口被占用（可能存在残留的元扫雷进程），"
-                "本次启动插件功能将被禁用。\n"
-                "关闭所有元扫雷相关进程后重新打开即可恢复。")
         mainWindow = mainWindowGUI.MainWindow()
         ui = mineSweeperGUI.MineSweeperGUI(mainWindow, sys.argv)
         ui.mainWindow.show()
@@ -112,18 +99,75 @@ if __name__ == "__main__":
         # 子进程可能立即请求快照；先缓存实际语言并注册业务处理器，
         # 不依赖 PUB/SUB 的连接速度或启动延迟。
         from shared_types.events import LanguageChangeEvent
-        if not plugins_disabled:
-            GameServerBridge.instance().send_event(
-                LanguageChangeEvent(language=cast(str, ui.language)))
-        register_plugin_commands(GameServerBridge.instance(), ui)
-        register_plugin_queries(GameServerBridge.instance(), ui)
+        bridge = GameServerBridge.instance()
+        plugin_state = {
+            "process": None,
+            "running": False,
+            "handlers_registered": False,
+        }
 
-        plugin_process = start_plugin_process(ui, mainWindow, plugins_disabled)
+        def _set_bridge_enabled(enabled):
+            setter = getattr(bridge, "set_enabled", None)
+            if callable(setter):
+                setter(enabled)
+
+        def _warn_plugin_start_failure():
+            QtWidgets.QMessageBox.warning(
+                None, "元扫雷",
+                "插件通信端口被占用（可能存在残留的元扫雷进程），"
+                "本次启动插件功能将被禁用。\n"
+                "关闭所有元扫雷相关进程后重新打开即可恢复。")
+
+        def _register_plugin_handlers_once():
+            if plugin_state["handlers_registered"]:
+                return
+            register_plugin_commands(bridge, ui)
+            register_plugin_queries(bridge, ui)
+            plugin_state["handlers_registered"] = True
+
+        def _start_plugin_services():
+            if plugin_state["running"]:
+                return
+            _set_bridge_enabled(True)
+            try:
+                bridge.start()
+            except Exception as e:
+                bridge.stop()  # 清理半初始化状态
+                _set_bridge_enabled(False)
+                logger.error(f"GameServerBridge 启动失败: {e}")
+                _warn_plugin_start_failure()
+                return
+            bridge.send_event(
+                LanguageChangeEvent(language=cast(str, ui.language)))
+            _register_plugin_handlers_once()
+            plugin_state["process"] = start_plugin_process(
+                ui, mainWindow, False)
+            plugin_state["running"] = True
+
+        def _stop_plugin_services():
+            _set_bridge_enabled(False)
+            cleanup_plugin_process(plugin_state["process"])
+            plugin_state["process"] = None
+            plugin_state["running"] = False
+
+        def _apply_plugins_enabled(enabled):
+            if enabled:
+                _start_plugin_services()
+            else:
+                _stop_plugin_services()
+
+        if bool(getattr(ui, "plugins_enabled", True)):
+            _start_plugin_services()
+        else:
+            _set_bridge_enabled(False)
+            logger.info("插件系统已在设置中关闭，未启动插件管理器与通信服务")
+
+        ui._plugin_system_toggle_callback = _apply_plugins_enabled
 
         configure_capture_guard(ui)
 
         def _on_about_to_quit():
-            cleanup_plugin_process(plugin_process)
+            cleanup_plugin_process(plugin_state["process"])
 
         app.aboutToQuit.connect(_on_about_to_quit)
         sys.exit(app.exec())

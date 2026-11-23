@@ -188,6 +188,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         self.actionauto_update.triggered.connect(self.auto_Update)
         self.actionopen.triggered.connect(self.action_OpenFile)
         self.actionchajian.triggered.connect(self.action_OpenPluginDialog)
+        self._sync_plugin_action_state()
         self.english_action.triggered.connect(
             lambda: self.trans_language("en_US"))
         self.chinese_action.triggered.connect(
@@ -1341,6 +1342,21 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             })
             self.score_board_manager.show(self.label.ms_board, index_type=1)
 
+            if ui.plugins_enabled != self.plugins_enabled:
+                self._set_plugin_system_enabled(ui.plugins_enabled)
+
+    def _set_plugin_system_enabled(self, enabled):
+        self.plugins_enabled = bool(enabled)
+        self._sync_plugin_action_state()
+        callback = getattr(self, "_plugin_system_toggle_callback", None)
+        if callable(callback):
+            callback(self.plugins_enabled)
+
+    def _sync_plugin_action_state(self):
+        action = getattr(self, "actionchajian", None)
+        if action is not None:
+            action.setEnabled(bool(self.plugins_enabled))
+
     def action_AdvancedSettings(self):
         ui = gameAdvancedSettings.ui_Form(self)
         ui.Dialog.setModal(True)
@@ -1856,6 +1872,8 @@ class MineSweeperGUI(MainWindowGUIImportExport):
         return md5s
 
     def action_OpenPluginDialog(self):
+        if not getattr(self, "plugins_enabled", True):
+            return
         try:
             bridge = GameServerBridge.instance()
             bridge.send_event(ShowPluginManagerEvent())

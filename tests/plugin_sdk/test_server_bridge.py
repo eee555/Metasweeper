@@ -147,6 +147,24 @@ def test_language_snapshot_tracks_latest_event_even_before_publish(bridge):
     assert snapshot().language == "ja_JP"
 
 
+def test_disabled_bridge_skips_start_and_event_sends(bridge):
+    from shared_types.events import LanguageChangeEvent
+
+    bridge.set_enabled(False)
+    bridge.start()
+    assert bridge.server.started == 0
+
+    before = len(bridge.server.events)
+    bridge.send_event(BridgeEvent(value=3))
+    bridge.send_event(LanguageChangeEvent(language="de_DE"))
+    assert len(bridge.server.events) == before
+    assert bridge.enabled is False
+
+    bridge.set_enabled(True)
+    bridge.start()
+    assert bridge.server.started == 1
+
+
 def test_default_endpoint_uses_environment(monkeypatch):
     monkeypatch.setattr(GameServerBridge, "_instance", None)
     monkeypatch.setattr(bridge_module, "ZMQServer", FakeServer)

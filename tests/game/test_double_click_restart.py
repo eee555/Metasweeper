@@ -177,6 +177,24 @@ def test_cancel_does_not_save_setting(qtbot, settings_window):
     assert config.value('DEFAULT/double_click_restart', False, bool) is False
 
 
+def test_plugins_enabled_defaults_on_and_persists(qtbot, settings_window):
+    settings_window.game_setting = IniConfig(
+        settings_window.game_setting.file_path)
+    settings_window.game_setting.config.remove_option(
+        'DEFAULT', 'plugins_enabled')
+    settings_window.game_setting.sync()
+
+    dialog = ui_Form(settings_window)
+    qtbot.addWidget(dialog.Dialog)
+    assert dialog.checkBox_plugins_enabled.isChecked() is True
+
+    dialog.checkBox_plugins_enabled.setChecked(False)
+    dialog.pushButton_yes.click()
+
+    config = IniConfig(settings_window.game_setting.file_path)
+    assert config.value('DEFAULT/plugins_enabled', None, bool) is False
+
+
 @pytest.mark.parametrize('game_mode', [11, 12, 13, 14, 15, 16])
 def test_restart_setting_preserves_recursive_game_mode(qtbot, settings_window, game_mode):
     settings_window.gameMode = game_mode

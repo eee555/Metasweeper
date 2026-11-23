@@ -27,6 +27,8 @@ class ui_Form(Ui_Form):
             'DEFAULT/auto_replay', None, int)
         self.auto_notification = self.game_setting.value(
             'DEFAULT/auto_notification', None, bool)
+        self.plugins_enabled = self.game_setting.value(
+            'DEFAULT/plugins_enabled', True, bool)
         self.player_identifier = self.game_setting.value(
             'DEFAULT/player_identifier', None, str)
         self.race_identifier = self.game_setting.value(
@@ -127,6 +129,7 @@ class ui_Form(Ui_Form):
         self.spinBox_auto_replay.setValue(abs(self.auto_replay))
         self.checkBox_auto_replay.setChecked(self.auto_replay >= 0)
         self.checkBox_auto_notification.setChecked(self.auto_notification)
+        self.checkBox_plugins_enabled.setChecked(self.plugins_enabled)
         self.checkBox_autosave_video.setChecked(self.autosave_video)
         self.checkBox_autosave_video_set.setChecked(self.autosave_video_set)
         self.lineEdit_constraint.setText(self.board_constraint)
@@ -159,6 +162,7 @@ class ui_Form(Ui_Form):
         v = self.spinBox_auto_replay.value()
         self.auto_replay = v if self.checkBox_auto_replay.isChecked() else -v
         self.auto_notification = self.checkBox_auto_notification.isChecked()
+        self.plugins_enabled = self.checkBox_plugins_enabled.isChecked()
         self.player_identifier = self.lineEdit_label.text().strip()
         self.race_identifier = self.lineEdit_race_label.text().strip()
         self.unique_identifier = self.lineEdit_unique_label.text().strip()
@@ -186,6 +190,8 @@ class ui_Form(Ui_Form):
             'DEFAULT/double_click_restart', self.double_click_restart)
         self.game_setting.set_value(
             "DEFAULT/auto_notification", self.auto_notification)
+        self.game_setting.set_value(
+            "DEFAULT/plugins_enabled", self.plugins_enabled)
         self.game_setting.set_value(
             "DEFAULT/autosave_video", self.autosave_video)
         self.game_setting.set_value(

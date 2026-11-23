@@ -660,6 +660,9 @@ class Ui_MainWindow(Ui_MainWindow):
         # 是否自动弹窗
         self.auto_notification = self.game_setting.get_or_set_value(
             "DEFAULT/auto_notification", True, bool)
+        # 是否启用插件系统（插件管理器、ZMQ 服务与事件发送）
+        self.plugins_enabled = self.game_setting.get_or_set_value(
+            "DEFAULT/plugins_enabled", True, bool)
         self.player_identifier = self.game_setting.get_or_set_value(
             "DEFAULT/player_identifier", "匿名玩家(anonymous player)", str)
         self.race_identifier = self.game_setting.get_or_set_value(

@@ -131,6 +131,9 @@ class GameServerBridge(QObject):
         self._language_source_id = uuid4().hex
         self._language_revision = 0
         self._last_language_event: LanguageChangeEvent | None = None
+        # 插件系统开关。关闭后 start() 不启动服务，send_event() 直接返回。
+        self._enabled = True
+        self._started = False
 
         # 连接内部信号
         self._execute_signal.connect(
@@ -165,6 +168,19 @@ class GameServerBridge(QObject):
     def server(self) -> ZMQServer:
         """获取底层 ZMQ Server 实例"""
         return self._server
+
+    @property
+    def enabled(self) -> bool:
+        """插件系统是否启用。"""
+        return self._enabled
+
+    def set_enabled(self, enabled: bool) -> None:
+        """启用或停用插件系统。
+
+        停用只改变桥接器状态，不负责终止插件管理器进程；调用方还应停止
+        已启动的服务与子进程。重新启用后可以再次调用 start()。
+        """
+        self._enabled = bool(enabled)
 
     def _on_execute(
         self,
@@ -270,7 +286,13 @@ class GameServerBridge(QObject):
 
     def start(self) -> None:
         """启动服务"""
+        if not self._enabled:
+            logger.info("Plugin system is disabled; server start skipped")
+            return
+        if self._started:
+            return
         self._server.start()
+        self._started = True
         logger.info(
             f"Game server bridge started: pub={self.pub_endpoint}, "
             f"ctrl={self.ctrl_endpoint}")
@@ -278,6 +300,7 @@ class GameServerBridge(QObject):
     def stop(self) -> None:
         """停止服务"""
         self._server.stop()
+        self._started = False
         logger.info("Game server bridge stopped")
 
     def send_event(self, event: BaseEvent) -> None:
@@ -287,6 +310,8 @@ class GameServerBridge(QObject):
         Args:
             event: 事件对象
         """
+        if not self._enabled:
+            return
         if isinstance(event, LanguageChangeEvent):
             # 缓存和发布在同一临界区内完成。快照返回独立副本，
             # 不让后续 publish 对 timestamp 的写入改变已取出的快照。

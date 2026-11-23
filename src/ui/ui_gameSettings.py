@@ -406,6 +406,13 @@ class Ui_Form(object):
 
         self.verticalLayout_5.addWidget(self.checkBox_auto_notification)
 
+        self.checkBox_plugins_enabled = QCheckBox(self.frame_4)
+        self.checkBox_plugins_enabled.setObjectName(u"checkBox_plugins_enabled")
+        self.checkBox_plugins_enabled.setMinimumSize(QSize(0, 32))
+        self.checkBox_plugins_enabled.setStyleSheet(u"")
+
+        self.verticalLayout_5.addWidget(self.checkBox_plugins_enabled)
+
 
         self.verticalLayout_2.addWidget(self.frame_4)
 
@@ -598,6 +605,10 @@ class Ui_Form(object):
         self.checkBox_auto_notification.setToolTip("")
 #endif // QT_CONFIG(tooltip)
         self.checkBox_auto_notification.setText(QCoreApplication.translate("Form", u"\u5141\u8bb8\u7eaa\u5f55\u5f39\u7a97\uff08\u63a8\u8350\uff09", None))
+#if QT_CONFIG(tooltip)
+        self.checkBox_plugins_enabled.setToolTip(QCoreApplication.translate("Form", u"\u5173\u95ed\u540e\u4e0d\u542f\u52a8\u63d2\u4ef6\u7ba1\u7406\u5668\u4e0e\u901a\u4fe1\u670d\u52a1\uff0c\u63d2\u4ef6\u4e8b\u4ef6\u5c06\u4e0d\u518d\u53d1\u9001", None))
+#endif // QT_CONFIG(tooltip)
+        self.checkBox_plugins_enabled.setText(QCoreApplication.translate("Form", u"\u542f\u7528\u63d2\u4ef6\u7cfb\u7edf\uff08\u63a8\u8350\uff09", None))
         self.label_constraint.setText(QCoreApplication.translate("Form", u"\u5c40\u9762\u7ea6\u675f\uff1a", None))
         self.lineEdit_constraint.setText("")
         self.label_attempt_times_limit.setText(QCoreApplication.translate("Form", u"\u5c1d\u8bd5\u6b21\u6570\uff1a", None))
