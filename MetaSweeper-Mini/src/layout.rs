@@ -1,6 +1,9 @@
 pub const MENU: i32 = 27;
 pub const FOOTER: i32 = 41;
 pub const GAP: i32 = 8;
+pub const COUNTER_ROWS: usize = 17;
+pub const COUNTER_MIN: i32 = 5;
+pub const COUNTER_MAX: i32 = 255;
 pub const PRESETS: [(i32, i32, usize); 3] = [(8, 8, 10), (16, 16, 40), (16, 30, 99)];
 pub const SECTIONS: [&str; 3] = ["BEGINNER", "INTERMEDIATE", "EXPERT"];
 
@@ -14,6 +17,63 @@ impl Box2 {
 
     pub fn inset(self, edge: i32) -> Self {
         Self(self.0 + edge, self.1 + edge, self.2 - 2 * edge, self.3 - 2 * edge)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct CounterLayout {
+    pub heading: i32,
+    pub title_px: i32,
+    pub table_px: i32,
+    pub columns: (i32, i32),
+    row: i32,
+}
+
+impl CounterLayout {
+    pub fn new(pixels: i32) -> Self {
+        let scaled = |base: i32| (base * pixels / 26).max(base * 10 / 12);
+        let to_pixels = |points| (points * 4 + 1) / 3;
+        let table_px = scaled(15);
+        let line_px = to_pixels(table_px);
+        let ascent = (line_px * 2080 + 1024) / 2048;
+        let descent = (line_px * 521 + 1024) / 2048;
+        Self {
+            heading: scaled(27),
+            title_px: to_pixels(scaled(12)),
+            table_px,
+            columns: (scaled(80), scaled(150)),
+            row: (ascent + descent + 2).max(23),
+        }
+    }
+
+    pub fn size(self) -> (i32, i32) {
+        (34 + self.columns.0 + self.columns.1,
+         self.table_top() + self.row * COUNTER_ROWS as i32 + 16 + self.table_px)
+    }
+
+    pub fn table_top(self) -> i32 { 14 + self.heading }
+
+    pub fn title_line(self) -> i32 {
+        let px = self.title_px;
+        (px * 2080 + 1024) / 2048 + (px * 521 + 1024) / 2048
+    }
+
+    pub fn fit(pixels: i32, available: (i32, i32)) -> i32 {
+        (COUNTER_MIN..=pixels).rev().find(|&scale| {
+            let (width, height) = Self::new(scale).size();
+            width <= available.0 && height <= available.1
+        }).unwrap_or(COUNTER_MIN)
+    }
+
+    pub fn nearest(current: i32, proposed: (i32, i32), available: (i32, i32),
+                   axes: (bool, bool)) -> i32 {
+        let max = Self::fit(COUNTER_MAX, available);
+        (COUNTER_MIN..=max).min_by_key(|&scale| {
+            let (width, height) = Self::new(scale).size();
+            let dx = if axes.0 { i64::from(width - proposed.0) } else { 0 };
+            let dy = if axes.1 { i64::from(height - proposed.1) } else { 0 };
+            (dx * dx + dy * dy, (current - scale).abs())
+        }).unwrap_or(COUNTER_MIN)
     }
 }
 
@@ -84,6 +144,18 @@ impl Layout {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn counter_uses_qt_geometry_and_snaps_dragged_edges() {
+        let size = CounterLayout::new(27).size();
+        let larger = CounterLayout::new(33).size();
+        assert_eq!(size, (272, 532));
+        assert_eq!(larger, (325, 644));
+        assert_eq!(CounterLayout::nearest(27, (larger.0, size.1), larger, (true, false)), 33);
+        assert_eq!(CounterLayout::nearest(27, (size.0, larger.1), larger, (false, true)), 33);
+        assert_eq!(CounterLayout::fit(255, larger), 33);
+    }
+
     #[test]
     fn matches_winforms_pixels() {
         for (tile, reference, expected) in [

@@ -17,12 +17,34 @@ fn sdl_refresh_rate(window: &sdl3::video::Window) -> Option<f64> {
     Some(f64::from(mode.refresh_rate))
 }
 
+pub fn set_counter_hit_test(window: &mut sdl3::video::Window, close: bool) {
+    use sdl3::video::HitTestResult::*;
+    let raw = window.raw();
+    let _ = window.set_hit_test(move |point| {
+        let (mut width, mut height) = (0, 0);
+        unsafe { sdl3_sys::video::SDL_GetWindowSizeInPixels(raw, &mut width, &mut height); }
+        let (x, y) = (point.x, point.y);
+        match (x < 6, x >= width - 6, y < 6, y >= height - 6) {
+            (true, _, true, _) => ResizeTopLeft,
+            (_, true, true, _) => ResizeTopRight,
+            (true, _, _, true) => ResizeBottomLeft,
+            (_, true, _, true) => ResizeBottomRight,
+            (true, _, _, _) => ResizeLeft,
+            (_, true, _, _) => ResizeRight,
+            (_, _, true, _) => ResizeTop,
+            (_, _, _, true) => ResizeBottom,
+            _ if y < 37 && x < width - if close { 24 } else { 0 } => Draggable,
+            _ => Normal,
+        }
+    });
+}
+
 #[cfg(windows)]
 mod imp {
     use crate::config::{Settings, Text};
-    use crate::layout::{Layout, PRESETS};
+    use crate::layout::{CounterLayout, Layout, PRESETS};
     use sdl3::keyboard::Mod;
-    use sdl3::video::{Window, WindowBuilder};
+    use sdl3::video::{Window, WindowBuilder, WindowPos};
     use std::{
         cell::Cell, ffi::OsString, io, mem::size_of,
         os::windows::ffi::OsStringExt, path::{Path, PathBuf}, process::Command,
@@ -31,7 +53,7 @@ mod imp {
     use windows_sys::Win32::{
         Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
         Graphics::Dwm::{DwmExtendFrameIntoClientArea, DwmSetWindowAttribute,
-                        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND},
+                        DWMWA_CLOAK, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND},
         Graphics::Gdi::{
             ClientToScreen, EnumDisplaySettingsW, GetMonitorInfoW, MonitorFromRect, MonitorFromWindow, DEVMODEW,
             ENUM_CURRENT_SETTINGS, MONITORINFO, MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
@@ -50,13 +72,17 @@ mod imp {
 
     pub fn font_paths() -> Vec<PathBuf> {
         const CANDIDATES: &[&str] = &[
+            "C:\\Windows\\Fonts\\msyh.ttc",
             "C:\\Windows\\Fonts\\simhei.ttf",
             "C:\\Windows\\Fonts\\segoeui.ttf",
-            "C:\\Windows\\Fonts\\msyh.ttc",
             "C:\\Windows\\Fonts\\simsun.ttc",
             "C:\\Windows\\Fonts\\arial.ttf",
         ];
         CANDIDATES.iter().map(PathBuf::from).filter(|path| path.exists()).take(3).collect()
+    }
+
+    pub fn counter_font_face(path: &Path) -> Option<u32> {
+        path.file_name().is_some_and(|name| name == "msyh.ttc").then_some(1)
     }
 
     pub fn data_root() -> Result<PathBuf, String> {
@@ -86,7 +112,42 @@ mod imp {
         builder.hidden().position_centered();
     }
 
-    pub fn show_main(window: &mut Window) { window.show(); }
+    pub fn show_main(window: &mut Window) { show_cloaked(window); }
+
+    pub fn show_dialog(window: &mut Window) {
+        show_cloaked(window);
+        window.raise();
+    }
+
+    pub fn uncloak(window: &Window) {
+        let Some(hwnd) = hwnd(window) else { return };
+        let off: i32 = 0;
+        unsafe {
+            DwmSetWindowAttribute(hwnd, DWMWA_CLOAK as u32,
+                (&off as *const i32).cast(), size_of::<i32>() as u32);
+        }
+    }
+
+    pub fn stage_offscreen(window: &mut Window) -> Option<(i32, i32)> {
+        let position = window.position();
+        window.set_position(WindowPos::Positioned(-32000), WindowPos::Positioned(-32000));
+        Some(position)
+    }
+
+    pub fn restore_position(window: &mut Window, position: (i32, i32)) {
+        window.set_position(WindowPos::Positioned(position.0), WindowPos::Positioned(position.1));
+    }
+
+    fn show_cloaked(window: &mut Window) {
+        if let Some(hwnd) = hwnd(window) {
+            let on: i32 = 1;
+            unsafe {
+                DwmSetWindowAttribute(hwnd, DWMWA_CLOAK as u32,
+                    (&on as *const i32).cast(), size_of::<i32>() as u32);
+            }
+        }
+        window.show();
+    }
 
     pub fn set_capture_guard(window: &Window, enabled: bool) {
         if let Some(handle) = hwnd(window) {
@@ -130,6 +191,10 @@ mod imp {
         sdl3::hint::set("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
     }
 
+    pub fn configure_window_hints() {
+        sdl3::hint::set("SDL_WINDOWS_ERASE_BACKGROUND_MODE", "never");
+    }
+
     pub fn configure_process_priority() {
         unsafe {
             let process = GetCurrentProcess();
@@ -156,7 +221,7 @@ mod imp {
         let name = "SDL_WINDOW_ACTIVATE_WHEN_SHOWN";
         let previous = sdl3::hint::get(name);
         sdl3::hint::set(name, "0");
-        window.show();
+        show_cloaked(window);
         if let Some(previous) = previous {
             sdl3::hint::set(name, &previous);
         } else {
@@ -187,10 +252,6 @@ mod imp {
         }
         let top = (main_bounds.top + 10).min(work.bottom - height(counter_bounds)).max(work.top);
         move_window(counter, left.max(work.left), top);
-    }
-
-    pub fn counter_heading_width(window: &Window, width: i32) -> i32 {
-        width - if hwnd(window).is_some() { 0 } else { 24 }
     }
 
     pub fn message(window: &Window, title: &str, text: &str, warning: bool) -> bool {
@@ -309,9 +370,9 @@ mod imp {
         read_current_mode().or_else(|| super::sdl_refresh_rate(window))
     }
 
-    pub fn counter_hook(window: &Window, wake_type: u32) -> Result<Option<WindowHook>, String> {
+    pub fn counter_hook(window: &Window, wake_type: u32, pixels: i32) -> Result<Option<WindowHook>, String> {
         match hwnd(window) {
-            Some(hwnd) => WindowHook::counter(hwnd, wake_type).map(Some),
+            Some(hwnd) => WindowHook::counter(hwnd, wake_type, pixels).map(Some),
             None => Ok(None),
         }
     }
@@ -380,7 +441,13 @@ mod imp {
 
     enum HookState {
         Board(Cell<BoardSizing>),
-        Counter(Cell<bool>, u32),
+        Counter(Cell<CounterSizing>, u32),
+    }
+
+    #[derive(Clone, Copy)]
+    struct CounterSizing {
+        moved: bool,
+        pixels: i32,
     }
 
     pub struct WindowHook {
@@ -395,8 +462,9 @@ mod imp {
             })))
         }
 
-        fn counter(window: HWND, wake_type: u32) -> Result<Self, String> {
-            let hook = Self::attach(window, HookState::Counter(Cell::new(false), wake_type))?;
+        fn counter(window: HWND, wake_type: u32, pixels: i32) -> Result<Self, String> {
+            let hook = Self::attach(window, HookState::Counter(
+                Cell::new(CounterSizing { moved: false, pixels }), wake_type))?;
             unsafe {
                 let style = GetWindowLongPtrW(window, GWL_STYLE);
                 SetWindowLongPtrW(window, GWL_STYLE, style | WS_THICKFRAME as isize);
@@ -423,8 +491,17 @@ mod imp {
             }
         }
 
+        pub fn update_counter(&self, pixels: i32) {
+            if let HookState::Counter(state, _) = &*self.state {
+                state.set(CounterSizing { pixels, ..state.get() });
+            }
+        }
+
         pub fn moved_position(&self) -> Option<(i32, i32)> {
-            let moved = matches!(&*self.state, HookState::Counter(flag, _) if flag.replace(false));
+            let moved = matches!(&*self.state, HookState::Counter(state, _) if state.get().moved);
+            if let HookState::Counter(state, _) = &*self.state {
+                if moved { state.set(CounterSizing { moved: false, ..state.get() }); }
+            }
             if !moved { return None; }
             bounds(self.window).map(|rect| (rect.left, rect.top))
         }
@@ -445,6 +522,7 @@ mod imp {
         hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _: usize, data: usize,
     ) -> LRESULT {
         match (&*(data as *const HookState), msg) {
+            (HookState::Board(_) | HookState::Counter(..), WM_ERASEBKGND) => return 1,
             (HookState::Board(sizing), WM_SIZING) if lparam != 0 => {
                 if constrain_drag(hwnd, &mut *(lparam as *mut RECT), wparam as u32, sizing.get()) {
                     return 1;
@@ -452,14 +530,22 @@ mod imp {
             }
             (HookState::Counter(..), WM_NCCALCSIZE) => return 0,
             (HookState::Counter(..), WM_DWMCOMPOSITIONCHANGED) => extend_counter_frame(hwnd),
-            (HookState::Counter(..), WM_NCHITTEST) => {
-                let hit = DefSubclassProc(hwnd, msg, wparam, lparam);
-                return if (HTLEFT as LRESULT..=HTBOTTOMRIGHT as LRESULT).contains(&hit) {
-                    HTCLIENT as LRESULT
-                } else { hit };
+            (HookState::Counter(..), WM_SIZING) if lparam != 0 => {
+                let rect = &mut *(lparam as *mut RECT);
+                if let Some(work) = work_area(*rect) {
+                    let edge = wparam as u32;
+                    let HookState::Counter(state, _) = &*(data as *const HookState) else { return 0 };
+                    let axes = (!matches!(edge, WMSZ_TOP | WMSZ_BOTTOM),
+                        !matches!(edge, WMSZ_LEFT | WMSZ_RIGHT));
+                    let scale = CounterLayout::nearest(state.get().pixels, (width(*rect), height(*rect)),
+                        (width(work), height(work)), axes);
+                    resize_rect(rect, edge, CounterLayout::new(scale).size());
+                    state.set(CounterSizing { pixels: scale, ..state.get() });
+                    return 1;
+                }
             }
-            (HookState::Counter(moved, wake_type), WM_EXITSIZEMOVE) => {
-                moved.set(true);
+            (HookState::Counter(state, wake_type), WM_EXITSIZEMOVE) => {
+                state.set(CounterSizing { moved: true, ..state.get() });
                 super::wake_event(*wake_type, 0);
             }
             _ => {}
@@ -477,12 +563,15 @@ mod imp {
         let available = (width(work) - chrome.0, height(work) - chrome.1);
         let client = fit_drag(reference, level, footer,
             (width(*rect) - chrome.0, height(*rect) - chrome.1), available, weights);
-        let (width, height) = (client.0 + chrome.0, client.1 + chrome.1);
+        resize_rect(rect, edge, (client.0 + chrome.0, client.1 + chrome.1));
+        true
+    }
+
+    fn resize_rect(rect: &mut RECT, edge: u32, (width, height): (i32, i32)) {
         if matches!(edge, WMSZ_LEFT | WMSZ_TOPLEFT | WMSZ_BOTTOMLEFT) { rect.left = rect.right - width; }
         else { rect.right = rect.left + width; }
         if matches!(edge, WMSZ_TOP | WMSZ_TOPLEFT | WMSZ_TOPRIGHT) { rect.top = rect.bottom - height; }
         else { rect.bottom = rect.top + height; }
-        true
     }
 
     fn fit_drag(reference: i32, level: usize, footer: bool, proposed: (i32, i32),
@@ -547,6 +636,8 @@ mod imp {
         CANDIDATES.iter().map(PathBuf::from).filter(|path| path.exists()).take(3).collect()
     }
 
+    pub fn counter_font_face(_path: &Path) -> Option<u32> { None }
+
     pub fn data_root() -> Result<PathBuf, String> {
         std::env::current_exe().map_err(|e| e.to_string())?
             .parent().ok_or_else(|| "Cannot locate the program directory".to_string())
@@ -572,6 +663,17 @@ mod imp {
     }
 
     pub fn show_main(window: &mut Window) { window.show(); }
+
+    pub fn show_dialog(window: &mut Window) {
+        window.show();
+        window.raise();
+    }
+
+    pub fn uncloak(_window: &Window) {}
+
+    pub fn stage_offscreen(_window: &mut Window) -> Option<(i32, i32)> { None }
+
+    pub fn restore_position(_window: &mut Window, _position: (i32, i32)) {}
 
     pub fn set_capture_guard(_window: &Window, _enabled: bool) {}
 
@@ -623,6 +725,8 @@ mod imp {
 
     pub fn configure_dpi() {}
 
+    pub fn configure_window_hints() {}
+
     pub fn configure_process_priority() {}
 
     pub fn center_settings(window: &Window, owner: &Window) {
@@ -652,8 +756,6 @@ mod imp {
         });
         fit_to_screen(counter, position);
     }
-
-    pub fn counter_heading_width(_window: &Window, width: i32) -> i32 { width - 24 }
 
     pub fn message(_window: &Window, _title: &str, _text: &str, _warning: bool) -> bool { false }
 
@@ -705,7 +807,7 @@ mod imp {
 
     pub fn refresh_rate(window: &Window) -> Option<f64> { super::sdl_refresh_rate(window) }
 
-    pub fn counter_hook(_window: &Window, _wake_type: u32) -> Result<Option<WindowHook>, String> {
+    pub fn counter_hook(_window: &Window, _wake_type: u32, _pixels: i32) -> Result<Option<WindowHook>, String> {
         Ok(None)
     }
 
@@ -719,6 +821,7 @@ mod imp {
     #[allow(dead_code)]
     impl WindowHook {
         pub fn update_board(&self, _settings: &Settings) {}
+        pub fn update_counter(&self, _pixels: i32) {}
         pub fn moved_position(&self) -> Option<(i32, i32)> { None }
     }
 

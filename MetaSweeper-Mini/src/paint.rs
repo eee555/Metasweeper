@@ -402,16 +402,34 @@ pub enum Align {
 
 struct Fonts {
     fonts: Vec<Font>,
+    has_counter_face: bool,
 }
 
 impl Fonts {
-    fn new() -> Self {
-        let fonts = crate::platform::font_paths()
-            .into_iter()
-            .filter_map(|path| std::fs::read(path).ok())
-            .filter_map(|bytes| Font::from_bytes(bytes, FontSettings { scale: 56.0, ..Default::default() }).ok())
-            .collect();
-        Self { fonts }
+    fn new() -> Self { Self::load(false) }
+
+    fn load(counter: bool) -> Self {
+        let mut fonts = Vec::new();
+        let mut has_counter_face = false;
+        let options = FontSettings { scale: 56.0, ..Default::default() };
+        for path in crate::platform::font_paths() {
+            let Ok(bytes) = std::fs::read(&path) else { continue };
+            if let Some(index) = counter.then(|| crate::platform::counter_font_face(&path)).flatten() {
+                if let Ok(font) = Font::from_bytes(bytes.as_slice(), FontSettings {
+                    collection_index: index, ..options
+                }) {
+                    fonts.insert(0, font);
+                    has_counter_face = true;
+                }
+            }
+            if let Ok(font) = Font::from_bytes(bytes, options) { fonts.push(font); }
+        }
+        Self { fonts, has_counter_face }
+    }
+
+    fn regular(&self) -> &[Font] {
+        let start = if self.has_counter_face && self.fonts.len() > 1 { 1 } else { 0 };
+        &self.fonts[start..]
     }
 }
 
@@ -586,29 +604,34 @@ impl<'a> Painter<'a> {
     }
 
     pub fn text(&self, area: Box2, text: &str, size: i32, align: Align, color: u32) {
-        self.draw_text(area, text, size, align, color, false);
+        self.draw_text(area, text, size, align, color, false, self.fonts.regular());
+    }
+
+    pub fn counter_text(&self, area: Box2, text: &str, size: i32, color: u32) {
+        self.draw_text(area, text, size, Align::Left, color, false, &self.fonts.fonts);
     }
 
     pub fn paragraph(&self, area: Box2, text: &str, size: i32, color: u32) {
-        self.draw_text(area, text, size, Align::Left, color, true);
+        self.draw_text(area, text, size, Align::Left, color, true, self.fonts.regular());
     }
 
     pub fn text_at(&self, clip: Box2, text: &str, size: i32, x: i32, color: u32) {
-        let Some(font) = self.fonts.fonts.first() else { return };
+        let fonts = self.fonts.regular();
+        let Some(font) = fonts.first() else { return };
         let clip = self.scaled_area(clip);
         let px = size as f32 * self.scale as f32;
         let metrics = font.horizontal_line_metrics(px);
         let ascent = metrics.map_or(px * 0.8, |line| line.ascent);
         let height = metrics.map_or(px * 1.2, |line| line.new_line_size);
         let baseline = clip.1 as f32 + (clip.3 as f32 - height) / 2.0 + ascent;
-        draw_line(&self.fonts.fonts, &mut self.canvas.borrow_mut(), text, px, self.scaled(x) as f32, baseline, rgb(color), clip);
+        draw_line(fonts, &mut self.canvas.borrow_mut(), text, px, self.scaled(x) as f32, baseline, rgb(color), clip);
     }
 
-    fn draw_text(&self, area: Box2, text: &str, size: i32, align: Align, color: u32, wrap: bool) {
+    fn draw_text(&self, area: Box2, text: &str, size: i32, align: Align, color: u32, wrap: bool, fonts: &[Font]) {
         if area.2 <= 0 || area.3 <= 0 || text.is_empty() {
             return;
         }
-        let Some(font) = self.fonts.fonts.first() else { return };
+        let Some(font) = fonts.first() else { return };
         let area = self.scaled_area(area);
         let px = size as f32 * self.scale as f32;
         let line = font.horizontal_line_metrics(px);
@@ -617,24 +640,24 @@ impl<'a> Painter<'a> {
         let (r, g, b) = rgb(color);
         let mut canvas = self.canvas.borrow_mut();
         if wrap {
-            let lines = wrap_lines(&self.fonts.fonts, text, px, area.2 as f32);
+            let lines = wrap_lines(fonts, text, px, area.2 as f32);
             let mut baseline = area.1 as f32 + ascent;
             for line in lines {
                 if baseline - ascent >= (area.1 + area.3) as f32 {
                     break;
                 }
-                draw_line(&self.fonts.fonts, &mut canvas, &line, px, area.0 as f32, baseline, (r, g, b), area);
+                draw_line(fonts, &mut canvas, &line, px, area.0 as f32, baseline, (r, g, b), area);
                 baseline += line_height;
             }
         } else {
-            let width = measure_text(&self.fonts.fonts, text, px);
+            let width = measure_text(fonts, text, px);
             let origin = match align {
                 Align::Left => area.0 as f32,
                 Align::Center => area.0 as f32 + (area.2 as f32 - width) / 2.0,
                 Align::Right => area.0 as f32 + area.2 as f32 - width,
             };
             let baseline = area.1 as f32 + (area.3 as f32 - line_height) / 2.0 + ascent;
-            draw_line(&self.fonts.fonts, &mut canvas, text, px, origin, baseline, (r, g, b), area);
+            draw_line(fonts, &mut canvas, text, px, origin, baseline, (r, g, b), area);
         }
     }
 }
@@ -789,12 +812,12 @@ mod tests {
 
     #[test]
     fn counter_updates_only_changed_values_and_matches_full_repaint() {
-        use crate::{config::Settings, core::Round, view::Counter};
+        use crate::{config::Settings, core::Round, layout::CounterLayout, view::Counter};
 
         let settings = Settings::read(std::path::Path::new(".")).unwrap();
         let initial = Round::new(&settings).counter_rows(settings.text(crate::config::Text::Standard));
-        let fonts = Fonts::new();
-        let (width, height) = (256, 609);
+        let fonts = Fonts::load(true);
+        let (width, height) = CounterLayout::new(settings.counter_pixels).size();
         let stride = width as usize * 4;
         let mut pixels = vec![0; stride * height as usize];
         let mut counter = Counter::default();
@@ -836,6 +859,8 @@ impl Default for Buffer {
 }
 
 impl Buffer {
+    pub fn counter() -> Self { Self { surface: None, fonts: Fonts::load(true) } }
+
     pub fn measure(&self, text: &str, size: i32, scale: f64) -> i32 {
         measure_ui(&self.fonts, text, size, scale)
     }
@@ -890,7 +915,8 @@ impl Buffer {
 }
 
 fn measure_ui(fonts: &Fonts, text: &str, size: i32, scale: f64) -> i32 {
-    if fonts.fonts.is_empty() { return 0; }
+    let fonts = fonts.regular();
+    if fonts.is_empty() { return 0; }
     let scale = scale as f32;
-    (measure_text(&fonts.fonts, text, size as f32 * scale) / scale).ceil() as i32
+    (measure_text(fonts, text, size as f32 * scale) / scale).ceil() as i32
 }

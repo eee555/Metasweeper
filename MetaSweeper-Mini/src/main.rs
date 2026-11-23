@@ -11,7 +11,7 @@ mod view;
 
 use config::{Settings, Text};
 use core::{Replay, Round};
-use layout::{Box2, Layout, MENU};
+use layout::{Box2, CounterLayout, Layout, COUNTER_MIN, MENU};
 use paint::{Align, Art, Buffer, INK, WHITE};
 use settings_ui::Outcome;
 use sdl3::{
@@ -19,7 +19,7 @@ use sdl3::{
     keyboard::{Keycode, Mod, Scancode},
     mouse::MouseButton,
     rect::Rect,
-    video::{HitTestResult, Window},
+    video::Window,
     EventPump, Sdl, VideoSubsystem,
 };
 use std::{
@@ -83,14 +83,17 @@ struct Display {
     buffer: Buffer,
     dirty: bool,
     ui_scale: f64,
+    shown: bool,
+    reveal_position: Option<(i32, i32)>,
 }
 
 impl Display {
     fn new(window: Window) -> Self {
-        Self {
-            hook: None,
-            window, buffer: Buffer::default(), dirty: true, ui_scale: 1.0,
-        }
+        Self::with_buffer(window, Buffer::default())
+    }
+
+    fn with_buffer(window: Window, buffer: Buffer) -> Self {
+        Self { hook: None, window, buffer, dirty: true, ui_scale: 1.0, shown: false, reveal_position: None }
     }
 
     fn pixels(&self) -> (i32, i32) {
@@ -160,6 +163,7 @@ struct App {
     main: Display,
     counter: Option<Display>,
     counter_view: view::Counter,
+    counter_resize_at: Option<Instant>,
     dialog: Option<Dialog>,
     wayland: bool,
     settings: Settings,
@@ -191,6 +195,7 @@ impl App {
     fn new(root: PathBuf, mut settings: Settings, jobs: Sender<Job>, replies: Receiver<Result<(), String>>) -> Result<Self, String> {
         sdl3::hint::set("SDL_APP_ID", "org.metasweeper.Mini");
         sdl3::hint::set("SDL_IME_IMPLEMENTED_UI", "composition");
+        platform::configure_window_hints();
         platform::configure_dpi();
         let sdl = sdl3::init().map_err(|e| e.to_string())?;
         let video = sdl.video().map_err(|e| e.to_string())?;
@@ -211,7 +216,8 @@ impl App {
         let window = builder.build().map_err(|e| e.to_string())?;
         let round = Round::new(&settings);
         let mut app = Self {
-            sdl, video, main: Display::new(window), counter: None, counter_view: view::Counter::default(), dialog: None, wayland,
+            sdl, video, main: Display::new(window), counter: None, counter_view: view::Counter::default(),
+            counter_resize_at: None, dialog: None, wayland,
             root, settings, round, last_saved_round: false, jobs, replies, errors: Vec::new(),
             pending_writes: 0,
             save_requested: false,
@@ -228,7 +234,6 @@ impl App {
         if let Some(position) = app.settings.position {
             platform::fit_to_screen(&app.main.window, position);
         }
-        platform::show_main(&mut app.main.window);
         if app.settings.counter { app.show_counter()?; }
         app.update_refresh_rate();
         Ok(app)
@@ -292,39 +297,55 @@ impl App {
 
     fn show_counter(&mut self) -> Result<(), String> {
         if self.counter.is_some() { return Ok(()); }
-        let scale = self.settings.counter_pixels as f64 / 27.0;
-        let width = (256.0 * scale).round() as u32;
-        let row = (33.0 * scale).round().max(19.0) as u32;
-        let height = row * 17 + (48.0 * scale).round() as u32;
-        let height = height.min(self.main.window.get_display().ok()
-            .and_then(|d| d.get_usable_bounds().ok()).map(|b| b.height()).unwrap_or(1100));
-        let mut builder = self.video.window(self.settings.text(Text::Counter), width, height);
-        builder.borderless();
+        self.counter_resize_at = None;
+        let scale = CounterLayout::fit(self.settings.counter_pixels, counter_capacity(&self.main.window));
+        self.settings.counter_pixels = scale;
+        let (width, height) = CounterLayout::new(scale).size();
+        let mut builder = self.video.window(self.settings.text(Text::Counter), width as u32, height as u32);
+        builder.borderless().resizable();
         builder.hidden();
         builder.set_window_flags(builder.window_flags() | sdl3_sys::video::SDL_WINDOW_UTILITY.0 as u32);
         if !self.wayland {
             let (x, y) = self.main.window.position();
             let left = self.main.window.get_display().ok().and_then(|d| d.get_usable_bounds().ok()).map(|r| r.x).unwrap_or(0);
-            let x = if x - width as i32 - 9 >= left { x - width as i32 - 9 }
+            let x = if x - width - 9 >= left { x - width - 9 }
                 else { x + self.main.window.size().0 as i32 + 9 };
             let (x, y) = self.settings.counter_position.unwrap_or((x, y + 10));
             builder.position(x, y);
         }
         let mut window = builder.build().map_err(|e| e.to_string())?;
         unsafe { sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw()); }
-        let heading_width = platform::counter_heading_width(&window, width as i32);
-        let _ = window.set_hit_test(move |point| {
-            if point.y < 37 && point.x < heading_width { HitTestResult::Draggable }
-            else { HitTestResult::Normal }
-        });
-        let mut display = Display::new(window);
-        display.hook = platform::counter_hook(&display.window, self.wake_type)?;
+        let min = CounterLayout::new(COUNTER_MIN).size();
+        let _ = window.set_minimum_size(min.0 as u32, min.1 as u32);
+        let mut display = Display::with_buffer(window, Buffer::counter());
+        display.hook = platform::counter_hook(&display.window, self.wake_type, scale)?;
+        platform::set_counter_hit_test(&mut display.window, display.hook.is_none());
         platform::position_counter(&self.main.window, &display.window, self.settings.counter_position);
-        platform::show_without_activation(&mut display.window);
         self.counter_view.invalidate();
         self.counter = Some(display);
         self.update_refresh_rate();
         Ok(())
+    }
+
+    fn settle_counter_resize(&mut self) {
+        self.counter_resize_at = None;
+        let Some(counter) = &mut self.counter else { return };
+        let current = self.settings.counter_pixels;
+        let prior = CounterLayout::new(current).size();
+        let size = counter.ui_pixels();
+        if size == prior { return; }
+        let scale = CounterLayout::nearest(current, size, counter_capacity(&counter.window),
+            (size.0 != prior.0, size.1 != prior.1));
+        self.settings.counter_pixels = scale;
+        if let Some(hook) = &counter.hook { hook.update_counter(scale); }
+        let target = CounterLayout::new(scale).size();
+        if size != target {
+            let (width, height) = counter.logical(target.0, target.1);
+            let _ = counter.window.set_size(width.max(1) as u32, height.max(1) as u32);
+        }
+        self.counter_view.invalidate();
+        counter.dirty = true;
+        self.persist();
     }
 
     fn position_counter(&self) {
@@ -350,7 +371,8 @@ impl App {
         let mut builder = self.video.window(title, size.0, size.1);
         builder.position_centered();
         let settings = matches!(panel, Panel::Settings(_));
-        if settings { builder.hidden().high_pixel_density(); }
+        builder.hidden();
+        if settings { builder.high_pixel_density(); }
         let mut window = builder.build().map_err(|e| e.to_string())?;
         unsafe {
             sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw());
@@ -365,8 +387,6 @@ impl App {
                 let _ = window.set_size(width, height);
                 platform::center_settings(&window, &self.main.window);
             }
-            window.show();
-            window.raise();
             scale
         } else { 1.0 };
         if !matches!(panel, Panel::Message { .. }) { self.video.text_input().start(&window); }
@@ -414,7 +434,7 @@ impl App {
                     self.save_requested = true;
                     return Ok(());
                 }
-                match self.round.replay(settings.level) {
+                match self.round.replay(settings) {
                     Ok(replay) => {
                         if let Some(result) = platform::save_dialog(&self.main.window, settings, &replay.name) {
                             match result {
@@ -454,7 +474,7 @@ impl App {
             Action::Counter => {
                 self.settings.counter = self.counter.is_none();
                 if self.settings.counter { self.show_counter()?; }
-                else { self.counter = None; self.update_refresh_rate(); }
+                else { self.counter = None; self.counter_resize_at = None; self.update_refresh_rate(); }
                 self.persist();
             }
             Action::Identity => {
@@ -700,6 +720,9 @@ impl App {
         if down { self.held |= bit; } else { self.held &= !bit; }
         let (x, y) = self.replay_point(x, y);
         self.round.play((bit - 1) as u32 * 2 + u32::from(!down), x, y, &self.settings);
+        if self.round.should_auto_restart(self.settings.auto_replay) {
+            return self.action(Action::Restart);
+        }
         if self.round.ended() { self.held = 0; }
         self.sdl.mouse().capture(self.held != 0);
         self.sync_cursor();
@@ -714,7 +737,7 @@ impl App {
         if !self.round.timing_valid {
             self.errors.push(self.settings.text(Text::TimingWarning).into());
         } else if self.settings.autosave == 0 || (self.settings.autosave == 1 && self.round.phase() == 2) {
-            match self.round.replay(self.settings.level) {
+            match self.round.replay(&self.settings) {
                 Ok(replay) => self.queue_replay(replay, None),
                 Err(error) => self.errors.push(format!("{}\n{error}", self.settings.text(Text::ReplayGenerationError))),
             }
@@ -892,9 +915,14 @@ impl App {
                     }
                 }
                 WindowEvent::DisplayChanged(..) => self.update_refresh_rate(),
-                WindowEvent::Exposed | WindowEvent::PixelSizeChanged(..) | WindowEvent::Restored | WindowEvent::Shown => {
+                WindowEvent::Exposed | WindowEvent::Resized(..) | WindowEvent::PixelSizeChanged(..)
+                    | WindowEvent::Restored | WindowEvent::Shown => {
                     self.counter_view.invalidate();
                     if let Some(counter) = &mut self.counter {
+                        if matches!(event, WindowEvent::Resized(..) | WindowEvent::PixelSizeChanged(..))
+                            && counter.ui_pixels() != CounterLayout::new(self.settings.counter_pixels).size() {
+                            self.counter_resize_at = Some(Instant::now());
+                        }
                         if matches!(event, WindowEvent::Restored | WindowEvent::Shown) {
                             platform::recover_window(&counter.window);
                         }
@@ -919,6 +947,9 @@ impl App {
             self.resize_main(self.layout.tile);
             self.persist();
             self.sync_cursor();
+        }
+        if self.counter_resize_at.is_some_and(|since| now.saturating_duration_since(since) >= RESIZE_SETTLE) {
+            self.settle_counter_resize();
         }
         if refresh && self.refreshing() {
             if now.saturating_duration_since(self.refresh_checked) >= REFRESH_RECHECK {
@@ -1021,11 +1052,17 @@ impl App {
                 capture_guard = protect;
             }
             self.draw(&events)?;
+            if self.reveal() {
+                self.draw(&events)?;
+                self.restore_positions();
+                self.uncloak();
+            }
             timer.sync(self.wake_type, self.refreshing().then_some(self.refresh_every))?;
-            let resize = self.resized_at.map(|since| (since + RESIZE_SETTLE)
+            let resize = self.resized_at.into_iter().chain(self.counter_resize_at)
+                .map(|since| (since + RESIZE_SETTLE)
                 .saturating_duration_since(Instant::now()));
             let replay = (self.pending_writes > 0).then_some(Duration::from_millis(20));
-            let timeout = resize.into_iter().chain(replay).min();
+            let timeout = resize.chain(replay).min();
             let first = match timeout {
                 Some(timeout) => events.wait_event_timeout_ms(timeout.as_nanos().div_ceil(1_000_000) as u32),
                 None => Some(events.wait_event()),
@@ -1044,6 +1081,54 @@ impl App {
         self.remember_main_position();
         self.settings.save(&self.root).map_err(|e| e.to_string())
     }
+
+    fn reveal(&mut self) -> bool {
+        let mut revealed = false;
+        if !self.main.shown {
+            self.main.reveal_position = platform::stage_offscreen(&mut self.main.window);
+            platform::show_main(&mut self.main.window);
+            self.main.shown = true;
+            self.main.dirty = true;
+            revealed = true;
+        }
+        if let Some(counter) = self.counter.as_mut().filter(|counter| !counter.shown) {
+            counter.reveal_position = platform::stage_offscreen(&mut counter.window);
+            platform::show_without_activation(&mut counter.window);
+            counter.shown = true;
+            counter.dirty = true;
+            revealed = true;
+        }
+        if let Some(Dialog { display, .. }) = self.dialog.as_mut().filter(|dialog| !dialog.display.shown) {
+            display.reveal_position = platform::stage_offscreen(&mut display.window);
+            platform::show_dialog(&mut display.window);
+            display.shown = true;
+            display.dirty = true;
+            revealed = true;
+        }
+        revealed
+    }
+
+    fn restore_positions(&mut self) {
+        if let Some(position) = self.main.reveal_position.take() {
+            platform::restore_position(&mut self.main.window, position);
+        }
+        if let Some(counter) = &mut self.counter {
+            if let Some(position) = counter.reveal_position.take() {
+                platform::restore_position(&mut counter.window, position);
+            }
+        }
+        if let Some(dialog) = &mut self.dialog {
+            if let Some(position) = dialog.display.reveal_position.take() {
+                platform::restore_position(&mut dialog.display.window, position);
+            }
+        }
+    }
+
+    fn uncloak(&self) {
+        platform::uncloak(&self.main.window);
+        if let Some(counter) = &self.counter { platform::uncloak(&counter.window); }
+        if let Some(dialog) = &self.dialog { platform::uncloak(&dialog.display.window); }
+    }
 }
 
 impl Drop for App {
@@ -1051,6 +1136,11 @@ impl Drop for App {
 }
 
 fn ctrl(mods: Mod) -> bool { mods.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD) }
+
+fn counter_capacity(window: &Window) -> (i32, i32) {
+    window.get_display().ok().and_then(|display| display.get_usable_bounds().ok())
+        .map_or((1920, 1080), |bounds| (bounds.width() as i32, bounds.height() as i32))
+}
 
 fn scaled_size((width, height): (u32, u32), scale: f64) -> (u32, u32) {
     ((width as f64 * scale).round() as u32, (height as f64 * scale).round() as u32)

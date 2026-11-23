@@ -129,6 +129,7 @@ pub unsafe extern "C" fn encode_replay(
     identifiers: *const u8,
     identifiers_length: usize,
     used_cursor_limit: u32,
+    auto_replay_enabled: u32,
     length: &mut usize,
 ) -> *mut u8 {
     let video = &mut game.video;
@@ -159,7 +160,7 @@ pub unsafe extern "C" fn encode_replay(
     video.is_official = video.is_completed && video.mode == 0;
     video.use_question = false;
     video.use_cursor_pos_lim = used_cursor_limit != 0;
-    video.use_auto_replay = false;
+    video.use_auto_replay = auto_replay_enabled != 0;
     video.generate_evf_v4_raw_data();
 
     let bytes = std::mem::take(&mut video.raw_data).into_boxed_slice();
@@ -273,9 +274,11 @@ mod tests {
 
     #[test]
     fn replay_records_the_build_identity_and_result_flags() {
-        for (moves, won) in [
-            (&[(17, 17), (1, 1)][..], false),
-            (&[(17, 17), (1, 17), (17, 1)][..], true),
+        for (moves, won, auto_replay) in [
+            (&[(17, 17), (1, 1)][..], false, false),
+            (&[(17, 17), (1, 1)][..], false, true),
+            (&[(17, 17), (1, 17), (17, 1)][..], true, false),
+            (&[(17, 17), (1, 17), (17, 1)][..], true, true),
         ] {
             let layout = vec![vec![-1, 1], vec![1, 1]];
             let mut game = GameSession {
@@ -294,6 +297,7 @@ mod tests {
                     identifiers.as_ptr(),
                     identifiers.len(),
                     0,
+                    u32::from(auto_replay),
                     &mut length,
                 );
                 assert!(!data.is_null());
@@ -310,7 +314,7 @@ mod tests {
             assert_eq!(parsed.data.is_completed, won);
             assert_eq!(parsed.data.is_official, won);
             assert!(!parsed.data.use_question);
-            assert!(!parsed.data.use_auto_replay);
+            assert_eq!(parsed.data.use_auto_replay, auto_replay);
         }
     }
 }

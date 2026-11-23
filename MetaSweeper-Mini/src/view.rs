@@ -1,4 +1,4 @@
-use crate::{config::{Settings, Text}, core::Round, layout::{Box2, Layout, FOOTER, MENU, PRESETS},
+use crate::{config::{Settings, Text}, core::Round, layout::{Box2, CounterLayout, Layout, COUNTER_ROWS, FOOTER, MENU, PRESETS},
             paint::{Align, Art, Painter, INK, WHITE}};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -139,8 +139,7 @@ pub struct Counter {
 }
 
 struct CounterContents {
-    size: (i32, i32),
-    divider: i32,
+    geometry: (i32, i32, i32),
     values: Vec<String>,
 }
 
@@ -151,62 +150,72 @@ impl Counter {
 
     pub fn draw(&mut self, p: &Painter, settings: &Settings, values: Vec<String>, width: i32,
                 height: i32, close: bool) -> Option<Vec<Box2>> {
-        let size = (15.0 * settings.counter_pixels as f64 / 27.0).max(12.0) as i32;
-        let table = Box2(8, 37, width - 17, height - 45);
-        if let Some(painted) = self.painted.as_mut().filter(|painted| painted.size == (width, height)) {
+        let layout = CounterLayout::new(settings.counter_pixels);
+        let table = Box2(16, layout.table_top(), width - 32,
+            (height - layout.table_top() - 14 - layout.table_px).max(3));
+        let divider = 1 + (table.2 - 2) * layout.columns.0 / (layout.columns.0 + layout.columns.1);
+        let geometry = (width, height, settings.counter_pixels);
+        if let Some(painted) = self.painted.as_mut().filter(|painted| painted.geometry == geometry) {
             let mut regions = Vec::new();
             for (index, (previous, value)) in painted.values.iter().zip(&values).enumerate() {
                 if previous == value { continue; }
-                let area = counter_value_area(table, painted.divider, index);
+                let (_, area) = counter_cells(table, divider, index);
                 p.fill(area, WHITE);
-                if index > 0 { p.fill(Box2(area.0, area.1, area.2, 1), 0xe0e0e0); }
-                if index + 1 == values.len() {
-                    p.fill(Box2(area.0, area.1 + area.3 - 1, area.2, 1), 0x808080);
-                }
-                p.text(area, value, size, Align::Left, INK);
+                p.counter_text(text_cell(area), value, layout.table_px, INK);
                 regions.push(area);
             }
             painted.values = values;
             return Some(regions);
         }
 
-        let divider = draw_counter_table(p, settings, width, height, close, table, size, &values);
-        self.painted = Some(CounterContents { size: (width, height), divider, values });
+        draw_counter_table(p, settings, (width, height), close, table, divider, layout, &values);
+        self.painted = Some(CounterContents { geometry, values });
         None
     }
 }
 
-fn counter_value_area(table: Box2, divider: i32, index: usize) -> Box2 {
-    let y = table.1 + index as i32 * table.3 / 17;
-    let row = table.1 + (index as i32 + 1) * table.3 / 17 - y;
-    Box2(table.0 + divider + 6, y, table.2 - divider - 8, row)
+fn counter_cells(table: Box2, divider: i32, index: usize) -> (Box2, Box2) {
+    let y = table.1 + 1 + index as i32 * (table.3 - 2) / COUNTER_ROWS as i32;
+    let bottom = table.1 + 1 + (index as i32 + 1) * (table.3 - 2) / COUNTER_ROWS as i32;
+    let height = (bottom - y - i32::from(index + 1 < COUNTER_ROWS)).max(0);
+    (Box2(table.0 + 1, y, divider - 1, height),
+     Box2(table.0 + divider + 1, y, table.2 - divider - 2, height))
 }
 
-fn draw_counter_table(p: &Painter, settings: &Settings, width: i32, height: i32, close: bool,
-                      table: Box2, size: i32, values: &[String]) -> i32 {
+fn text_cell(Box2(x, y, width, height): Box2) -> Box2 { Box2(x + 3, y, width - 6, height) }
+
+fn draw_counter_table(p: &Painter, settings: &Settings, (width, height): (i32, i32), close: bool,
+                      table: Box2, divider: i32, layout: CounterLayout, values: &[String]) {
     let labels = [settings.text(Text::GameMode), "rtime", "Est Rtime", "3bv", "3bv/s", "zini", "ops", "isls",
                   "left", "right", "double", "stnb", "ioe", "thrp", "corr", "path", "pluck"];
-    p.fill(Box2(0, 0, width, height), 0xf5f5f5);
-    p.text(Box2(0, 0, width - if close { 22 } else { 0 }, 37),
-        settings.text(Text::Counter), size, Align::Center, INK);
+    p.fill(Box2(0, 0, width, height), 0xf2f2f2);
+    let title_line = layout.title_line();
+    p.text(Box2(16, 12 + layout.heading - title_line, width - 32, title_line),
+        settings.text(Text::Counter), layout.title_px, Align::Center, INK);
     if close {
         for offset in 0..8 {
             p.fill(Box2(width - 16 + offset, 14 + offset, 2, 2), INK);
             p.fill(Box2(width - 9 - offset, 14 + offset, 2, 2), INK);
         }
     }
-    let divider = (table.2 * 35 / 100).max(p.measure(labels[0], size) + 9).min(table.2 / 2);
     p.fill(table, WHITE);
-    p.border(table, 0x808080);
-    p.fill(Box2(table.0 + divider, table.1, 1, table.3), 0xd3d3d3);
-    for (i, (label, value)) in labels.into_iter().zip(values).enumerate() {
-        let area = counter_value_area(table, divider, i);
-        let Box2(_, y, _, row) = area;
-        if i > 0 { p.fill(Box2(table.0 + 1, y, table.2 - 2, 1), 0xe0e0e0); }
-        p.text(Box2(table.0 + 4, y, divider - 5, row), label, size, Align::Left, 0x242424);
-        p.text(area, value, size, Align::Left, INK);
+    p.border(table, 0xa0a0a0);
+    let bottom = table.1 + table.3 - 1;
+    let right = table.0 + table.2 - 1;
+    for y in (table.1 + 1..bottom).step_by(6) {
+        p.fill(Box2(table.0 + divider, y, 1, (bottom - y).min(4)), 0xc0c0c0);
     }
-    divider
+    for (i, (label, value)) in labels.into_iter().zip(values).enumerate() {
+        let (label_area, value_area) = counter_cells(table, divider, i);
+        if i + 1 < COUNTER_ROWS {
+            let y = label_area.1 + label_area.3;
+            for x in (table.0 + 1..right).step_by(6) {
+                p.fill(Box2(x, y, (right - x).min(4), 1), 0xc0c0c0);
+            }
+        }
+        p.counter_text(text_cell(label_area), label, layout.table_px, INK);
+        p.counter_text(text_cell(value_area), value, layout.table_px, INK);
+    }
 }
 
 pub fn dialog_button(width: i32, height: i32, ok: bool) -> Box2 {

@@ -62,6 +62,7 @@ pub enum Text {
     InvalidCoreSize,
     ReplayUnavailable,
     OverwriteReplay,
+    AutoReplay,
 }
 pub const STRINGS: &[[&str; 5]] = &[
         ["元扫雷迷你版", "MetaSweeper Mini", "MetaSweeper Mini", "MetaSweeper Mini", "メタマインスイーパーミニ"],
@@ -125,4 +126,5 @@ pub const STRINGS: &[[&str; 5]] = &[
         ["内嵌扫雷库的大小不正确。", "The embedded Minesweeper library has an invalid size.", "Die eingebettete Minesweeper-Bibliothek hat eine ungültige Größe.", "Osadzona biblioteka Sapera ma nieprawidłowy rozmiar.", "内蔵マインスイーパーライブラリのサイズが正しくありません。"],
         ["这一局的录像数据不可用。", "Replay data for this game is unavailable.", "Für dieses Spiel sind keine Aufzeichnungsdaten verfügbar.", "Dane nagrania tej gry są niedostępne.", "このゲームのリプレイデータを利用できません。"],
         ["文件已存在，再按一次确定覆盖。", "This file exists. Confirm again to replace it.", "Die Datei existiert. Erneut bestätigen, um sie zu ersetzen.", "Plik już istnieje. Potwierdź ponownie, aby go zastąpić.", "同名ファイルがあります。もう一度確定すると上書きします。"],
+        ["自动重开：", "Auto restart:", "Automatischer Neustart:", "Automatyczny restart:", "自動リスタート："],
 ];

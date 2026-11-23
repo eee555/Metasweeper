@@ -1,9 +1,10 @@
-use crate::layout::{PRESETS, SECTIONS};
+use crate::layout::{COUNTER_MAX, COUNTER_MIN, PRESETS, SECTIONS};
 use flate2::read::DeflateDecoder;
 use std::{fs, io::{self, Read}, path::{Path, PathBuf}, sync::OnceLock};
 
 pub const CODES: [&str; 5] = ["zh_CN", "en_US", "de_DE", "pl_PL", "ja_JP"];
 pub const LANGUAGES: [&str; 5] = ["简体中文", "English", "Deutsch", "Polski", "日本語"];
+pub const DEFAULT_AUTO_REPLAY: i32 = 30;
 pub use crate::text::Text;
 use crate::text::STRINGS;
 
@@ -16,6 +17,7 @@ pub struct Settings {
     pub race: String,
     pub country: String,
     pub autosave: usize,
+    pub auto_replay: i32,
     pub cursor_lock: bool,
     pub flag_win: bool,
     pub counter: bool,
@@ -48,9 +50,10 @@ impl Settings {
             country: clean(&get("country", "")),
             autosave: if !flag("DEFAULT", "autosave_video", true) { 2 }
                 else if flag("WINFORMS", "autosave_losses", !ini.exists) { 0 } else { 1 },
+            auto_replay: n("DEFAULT", "auto_replay", -DEFAULT_AUTO_REPLAY).clamp(-100, 100),
             cursor_lock: flag("DEFAULT", "cursor_limit", false), flag_win: flag("DEFAULT", "end_then_flag", true),
             counter: flag("WINFORMS", "show_counter", true), identity: flag("WINFORMS", "show_identity", true),
-            counter_pixels: n("DEFAULT", "scoreboard_pixsize", 27).clamp(12, 48),
+            counter_pixels: n("DEFAULT", "scoreboard_pixsize", 27).clamp(COUNTER_MIN, COUNTER_MAX),
             position: position("mainwinleft", "mainwintop"),
             counter_position: position("scoreboardleft", "scoreboardtop"),
         })
@@ -67,6 +70,7 @@ impl Settings {
             ("language", CODES[self.lang].into()), ("player_identifier", self.player.clone()),
             ("race_identifier", self.race.clone()), ("country", self.country.clone()),
             ("autosave_video", (self.autosave != 2).to_string()), ("cursor_limit", self.cursor_lock.to_string()),
+            ("auto_replay", self.auto_replay.to_string()),
             ("end_then_flag", self.flag_win.to_string()), ("scoreboard_pixsize", self.counter_pixels.to_string()),
             ("row", preset.0.to_string()), ("column", preset.1.to_string()), ("minenum", preset.2.to_string()),
         ] {

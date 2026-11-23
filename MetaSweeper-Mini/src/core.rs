@@ -88,6 +88,14 @@ impl Round {
 
     pub fn ended(&self) -> bool { self.status.phase >= 2 }
 
+    pub fn should_auto_restart(&self, threshold: i32) -> bool {
+        if self.phase() != 3 || threshold <= 0 || !self.timing_valid { return false; }
+        let video = &unsafe { self.session.as_ref() }.video;
+        let total = video.static_params.bbbv;
+        total != 0 && video.get_bbbv_solved()
+            .is_ok_and(|solved| solved * 100 < total * threshold as usize)
+    }
+
     pub fn seconds(&self) -> f64 { self.status.seconds }
     pub fn remaining(&self, mines: usize, flag_win: bool) -> u32 {
         if self.status.phase == 2 && flag_win { 0 }
@@ -106,7 +114,7 @@ impl Round {
             .is_some_and(|elapsed| (self.seconds() * 1000.0 - elapsed as f64).abs() <= 100.0);
     }
 
-    pub fn replay(&mut self, level: usize) -> io::Result<Replay> {
+    pub fn replay(&mut self, settings: &config::Settings) -> io::Result<Replay> {
         if !self.ended() || !self.timing_valid {
             return Err(io::Error::other("The game did not finish with a valid clock"));
         }
@@ -114,12 +122,13 @@ impl Round {
         let time = game.video.get_time();
         let total = game.video.static_params.bbbv;
         let speed = game.video.get_bbbv_s().unwrap_or(f64::NAN);
-        let name = format!("{}_0_{}_{total}_{}_{}{}", ["b", "i", "e"][level],
+        let name = format!("{}_0_{}_{total}_{}_{}{}", ["b", "i", "e"][settings.level],
             decimal(time), decimal(speed), safe_identifier(&self.player),
             if self.status.phase == 3 { "_fail" } else { "" });
         let mut len = 0;
         let identity = format!("{}\0{}\0{}", self.player, self.race, self.country);
-        let raw = unsafe { encode_replay(game, identity.as_ptr(), identity.len(), self.cursor_limit_used as u32, &mut len) };
+        let raw = unsafe { encode_replay(game, identity.as_ptr(), identity.len(),
+            self.cursor_limit_used as u32, u32::from(settings.auto_replay > 0), &mut len) };
         if raw.is_null() { return Err(io::Error::other("EVF data unavailable")); }
         let mut data = unsafe { std::slice::from_raw_parts(raw, len).to_vec() };
         unsafe { free_replay(raw, len) };
@@ -203,6 +212,32 @@ mod linux_tests {
     use super::*;
 
     #[test]
+    fn auto_restart_requires_loss_below_the_threshold() {
+        let root = std::env::temp_dir().join(format!("metasweeper-mini-test-{}", std::process::id()));
+        let settings = config::Settings::read(&root).unwrap();
+        for (second_cell, lost) in [((3, 3), true), ((3, CELL_PIXELS + 3), false)] {
+            let mut round = Round::new(&settings);
+            let session = unsafe { round.session.as_mut() };
+            let board = vec![vec![-1, 2], vec![2, -1]];
+            session.video = BaseVideo::<Vec<Vec<i32>>>::new(board, CELL_PIXELS as u8);
+            session.laid = true;
+
+            round.play(0, CELL_PIXELS + 3, 3, &settings);
+            round.play(1, CELL_PIXELS + 3, 3, &settings);
+            assert!(!round.should_auto_restart(100));
+            round.play(0, second_cell.0, second_cell.1, &settings);
+            round.play(1, second_cell.0, second_cell.1, &settings);
+
+            assert_eq!(round.phase(), if lost { 3 } else { 2 });
+            assert!(!round.should_auto_restart(-100));
+            assert!(!round.should_auto_restart(0));
+            assert!(!round.should_auto_restart(49));
+            assert!(!round.should_auto_restart(50));
+            assert_eq!(round.should_auto_restart(51), lost);
+        }
+    }
+
+    #[test]
     fn clock_check_uses_the_same_limit_for_lag_identifiers() {
         let root = std::env::temp_dir().join(format!("metasweeper-mini-test-{}", std::process::id()));
         let mut settings = config::Settings::read(&root).unwrap();
@@ -242,7 +277,7 @@ mod linux_tests {
             assert_eq!(round.phase(), 3);
             round.record_cursor_lock(true);
 
-            let replay = round.replay(settings.level).unwrap();
+            let replay = round.replay(&settings).unwrap();
             assert_eq!(replay.data[2] & 0x40 != 0, expected);
         }
     }

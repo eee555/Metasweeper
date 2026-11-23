@@ -1,6 +1,6 @@
 use crate::{
     config::{self, Settings, Text, LANGUAGES},
-    layout::Box2,
+    layout::{Box2, COUNTER_MAX, COUNTER_MIN},
     paint::{Align, Painter, INK, WHITE},
     view::{button, dialog_button},
 };
@@ -8,16 +8,18 @@ use sdl3::{keyboard::{Keycode, Mod}, VideoSubsystem};
 use std::{collections::HashSet, ops::Range};
 use unicode_segmentation::UnicodeSegmentation;
 
-pub const SIZE: (u32, u32) = (680, 430);
+pub const SIZE: (u32, u32) = (680, 470);
 const ROW_HEIGHT: i32 = 32;
 const FIELD_LEFT: i32 = 250;
 pub const FONT: i32 = 15;
 const ITEM_HEIGHT: i32 = 25;
 const VISIBLE_ITEMS: usize = 6;
 const COUNTRY: usize = 3;
-const EDIT_ROWS: [usize; 5] = [1, 2, COUNTRY, 5, 10];
-const OK: usize = 11;
-const CANCEL: usize = 12;
+const AUTO_REPLAY: usize = 11;
+const REPLAY_THRESHOLD: usize = 12;
+const EDIT_ROWS: [usize; 6] = [1, 2, COUNTRY, 5, 10, REPLAY_THRESHOLD];
+const OK: usize = 13;
+const CANCEL: usize = 14;
 
 #[derive(PartialEq, Eq)]
 pub enum Outcome { Stay, Apply, Cancel }
@@ -200,7 +202,8 @@ impl Dropdown {
 
 pub struct Form {
     pub draft: Settings,
-    edits: [Edit; 5],
+    auto_replay_checked: bool,
+    edits: [Edit; 6],
     focus: usize,
     dropdown: Option<Dropdown>,
     pub dragging: bool,
@@ -210,9 +213,11 @@ pub struct Form {
 impl Form {
     pub fn new(draft: Settings) -> Self {
         let mut edits = [draft.player.clone(), draft.race.clone(), draft.country.clone(),
-            draft.pixels[draft.level].to_string(), draft.counter_pixels.to_string()].map(Edit::new);
+            draft.pixels[draft.level].to_string(), draft.counter_pixels.to_string(),
+            draft.auto_replay.abs().to_string()].map(Edit::new);
         edits[0].select_all();
-        Self { draft, edits, focus: 1, dropdown: None, dragging: false, invalid_country: false }
+        Self { auto_replay_checked: draft.auto_replay >= 0, draft, edits, focus: 1,
+            dropdown: None, dragging: false, invalid_country: false }
     }
 
     pub fn edit_row(&self) -> Option<usize> { EDIT_ROWS.iter().position(|row| *row == self.focus) }
@@ -304,7 +309,11 @@ impl Form {
             }
             Keycode::Tab => {
                 if let Some(index) = self.dropdown.as_ref().and_then(|drop| drop.selected) { self.choose(index); }
-                let next = (self.focus + if shift { CANCEL } else { 1 }) % (CANCEL + 1);
+                let step = if shift { CANCEL } else { 1 };
+                let mut next = (self.focus + step) % (CANCEL + 1);
+                if next == REPLAY_THRESHOLD && !self.auto_replay_checked {
+                    next = (next + step) % (CANCEL + 1);
+                }
                 self.focus(next, true);
                 return Outcome::Stay;
             }
@@ -313,7 +322,7 @@ impl Form {
                 if matches!(self.focus, 0 | COUNTRY | 6) {
                     if self.dropdown.is_none() { self.open_dropdown(true); }
                     if let Some(dropdown) = &mut self.dropdown { dropdown.step(step); }
-                } else if matches!(self.focus, 5 | 10) {
+                } else if matches!(self.focus, 5 | 10 | REPLAY_THRESHOLD) {
                     self.adjust_number(step.signum());
                 }
                 return Outcome::Stay;
@@ -347,21 +356,24 @@ impl Form {
             7 => &mut self.draft.cursor_lock,
             8 => &mut self.draft.flag_win,
             9 => &mut self.draft.counter,
+            AUTO_REPLAY => &mut self.auto_replay_checked,
             _ => return,
         };
         *flag = !*flag;
     }
 
     fn number(&self, index: usize) -> (i32, i32, i32) {
-        let (fallback, min, max) = if index == 3 {
-            (self.draft.pixels[self.draft.level], 5, 255)
-        } else { (self.draft.counter_pixels, 12, 48) };
+        let (fallback, min, max) = match index {
+            3 => (self.draft.pixels[self.draft.level], 5, 255),
+            4 => (self.draft.counter_pixels, COUNTER_MIN, COUNTER_MAX),
+            _ => (self.draft.auto_replay.abs(), 0, 100),
+        };
         let number = self.edits[index].value.parse::<i64>().unwrap_or(fallback as i64);
         (number.clamp(min as i64, max as i64) as i32, min, max)
     }
 
     fn adjust_number(&mut self, step: i32) {
-        let index = if self.focus == 5 { 3 } else { 4 };
+        let Some(index) = self.edit_row() else { return; };
         let (value, min, max) = self.number(index);
         let edit = &mut self.edits[index];
         edit.value = (value + step).clamp(min, max).to_string();
@@ -381,11 +393,24 @@ impl Form {
         }
         if dialog_button(width, height, true).contains(x, y) { return Outcome::Apply; }
         if dialog_button(width, height, false).contains(x, y) { return Outcome::Cancel; }
-        let row = y.saturating_sub(12) as usize / ROW_HEIGHT as usize;
+        let mut row = y.saturating_sub(12) as usize / ROW_HEIGHT as usize;
         let was_open = self.dropdown.as_ref().is_some_and(|drop| drop.row == row);
         let prior_focus = self.focus;
         self.dropdown = None;
-        if y < 12 || row >= OK || x < FIELD_LEFT { return Outcome::Stay; }
+        if y < 12 || row > AUTO_REPLAY { return Outcome::Stay; }
+        if row == AUTO_REPLAY {
+            if (12..FIELD_LEFT).contains(&x) {
+                self.focus(AUTO_REPLAY, false);
+                self.toggle();
+                return Outcome::Stay;
+            }
+            if !self.auto_replay_checked || !input_area(REPLAY_THRESHOLD, width).contains(x, y) {
+                return Outcome::Stay;
+            }
+            row = REPLAY_THRESHOLD;
+        } else if x < FIELD_LEFT {
+            return Outcome::Stay;
+        }
         if row != self.focus { self.focus(row, false); }
         let rect = field(row, width);
         match row {
@@ -440,6 +465,8 @@ impl Form {
         self.draft.country = config::clean(&self.edits[2].value);
         self.draft.pixels[self.draft.level] = self.number(3).0;
         self.draft.counter_pixels = self.number(4).0;
+        let threshold = self.number(5).0;
+        self.draft.auto_replay = if self.auto_replay_checked { threshold } else { -threshold };
         true
     }
 
@@ -476,10 +503,16 @@ impl Form {
             let rect = field(row, width);
             let input = input_area(row, width);
             let active = self.focus == row;
+            if row == REPLAY_THRESHOLD && !self.auto_replay_checked {
+                p.fill(input, 0xeeeeee);
+                p.border(input, 0xb0b0b0);
+                p.text(input.inset(4), &self.edits[index].value, FONT, Align::Center, 0x777777);
+                continue;
+            }
             field_frame(p, if index >= 3 { input } else { rect }, active);
             draw_edit(p, input.inset(4), &self.edits[index], active, index >= 3);
             if row == COUNTRY { arrow(p, rect); }
-            if index >= 3 {
+            if matches!(row, 5 | 10) {
                 button(p, Box2(rect.0, rect.1, 26, rect.3), "");
                 p.fill(Box2(rect.0 + 9, rect.1 + rect.3 / 2, 8, 1), INK);
                 button(p, Box2(rect.0 + 94, rect.1, 26, rect.3), "+");
@@ -494,6 +527,15 @@ impl Form {
             p.text(Box2(FIELD_LEFT + 21, y, width - FIELD_LEFT - 33, ROW_HEIGHT),
                 cfg.text(title), FONT, Align::Left, INK);
         }
+        let replay_y = 12 + AUTO_REPLAY as i32 * ROW_HEIGHT;
+        let checkbox = Box2(12, replay_y + 8, 15, 15);
+        field_frame(p, checkbox, self.focus == AUTO_REPLAY);
+        if self.auto_replay_checked { p.checkmark(checkbox); }
+        p.text(Box2(33, replay_y, FIELD_LEFT - 43, ROW_HEIGHT),
+            cfg.text(Text::AutoReplay), FONT, Align::Left, INK);
+        let threshold = input_area(REPLAY_THRESHOLD, width);
+        p.text(Box2(threshold.0 + threshold.2 + 6, replay_y, 30, ROW_HEIGHT),
+            "%", FONT, Align::Left, if self.auto_replay_checked { INK } else { 0x777777 });
         if self.invalid_country {
             p.text(Box2(12, height - 74, width - 24, 23), cfg.text(Text::InvalidCountry), FONT, Align::Left, 0x9a251d);
         }
@@ -538,6 +580,7 @@ fn country_matches(query: &str) -> Vec<&'static str> {
 }
 
 fn field(row: usize, width: i32) -> Box2 {
+    let row = if row == REPLAY_THRESHOLD { AUTO_REPLAY } else { row };
     Box2(FIELD_LEFT, 15 + row as i32 * ROW_HEIGHT, width - FIELD_LEFT - 12, 26)
 }
 
@@ -546,6 +589,7 @@ fn input_area(row: usize, width: i32) -> Box2 {
     match row {
         0 | COUNTRY | 6 => Box2(x, y, w - 25, h),
         5 | 10 => Box2(x + 26, y, 68, h),
+        REPLAY_THRESHOLD => Box2(x, y, 130, h),
         _ => Box2(x, y, w, h),
     }
 }
@@ -592,6 +636,25 @@ fn draw_edit(p: &Painter, inner: Box2, edit: &Edit, active: bool, centered: bool
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_restart_form_preserves_signed_thresholds_including_zero() {
+        let root = std::env::temp_dir().join(format!("metasweeper-mini-test-{}", std::process::id()));
+        let mut settings = Settings::read(&root).unwrap();
+        settings.country.clear();
+        for value in [-30, 0, 30, 100] {
+            settings.auto_replay = value;
+            let mut form = Form::new(settings.clone());
+            assert_eq!(form.auto_replay_checked, value >= 0);
+            assert_eq!(form.number(5).0, value.abs());
+            assert!(form.prepare());
+            assert_eq!(form.draft.auto_replay, value);
+            form.focus(AUTO_REPLAY, false);
+            form.toggle();
+            assert!(form.prepare());
+            assert_eq!(form.draft.auto_replay, -value);
+        }
+    }
 
     #[test]
     fn replaces_a_selected_grapheme_and_renders_composition_in_place() {
