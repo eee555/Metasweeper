@@ -77,10 +77,6 @@ impl CounterLayout {
             .unwrap_or(COUNTER_MIN)
     }
 
-    pub fn for_height(height: i32) -> Self {
-        Self::new(Self::fit(COUNTER_MAX, (i32::MAX, height.max(1))))
-    }
-
     pub fn nearest(
         current: i32,
         proposed: (i32, i32),
@@ -206,9 +202,13 @@ impl Layout {
                 0,
             ),
             FullscreenMode::Counter => {
-                let counter_scale = CounterLayout::for_height(grid_height).heading;
+                let counter_scale = CounterLayout::fit(COUNTER_MAX, (i32::MAX, grid_height));
                 let counter_size = CounterLayout::new(counter_scale).size();
-                (grid_width + counter_size.0, grid_height, counter_scale)
+                (
+                    grid_width + counter_size.0,
+                    grid_height.max(counter_size.1),
+                    counter_scale,
+                )
             }
         };
         (
@@ -240,15 +240,19 @@ impl Layout {
         };
         let grid = Box2(
             grid_x,
-            inside.1 + inside.3 - self.inner_edge - height,
+            if mode == FullscreenMode::Counter {
+                inside.1 + (inside.3 - height) / 2
+            } else {
+                inside.1 + inside.3 - self.inner_edge - height
+            },
             width,
             height,
         );
         let status = (mode == FullscreenMode::Status)
             .then(|| Box2(inside.0, inside.1, inside.2, self.status_height()));
         let counter = (mode == FullscreenMode::Counter).then(|| {
-            let counter_size = CounterLayout::new(counter_scale).size();
-            Box2(inside.0, inside.1, counter_size.0, inside.3)
+            let (width, height) = CounterLayout::new(counter_scale).size();
+            Box2(inside.0, inside.1 + (inside.3 - height) / 2, width, height)
         });
         FullscreenRegions {
             frame,
@@ -373,23 +377,28 @@ mod tests {
                 assert_eq!(
                     counter,
                     Box2(
-                        regions.frame.1 + layout.outer_inset,
-                        regions.frame.1 + layout.outer_inset,
+                        inside.0,
+                        inside.1 + (inside.3 - counter_size.1) / 2,
                         counter_size.0,
-                        regions.grid.3 + 2 * layout.inner_edge
+                        counter_size.1
                     )
                 );
                 assert_eq!(
                     regions.grid,
                     Box2(
                         inside.0 + inside.2 - board_width,
-                        inside.1 + inside.3 - layout.inner_edge - board_height,
+                        inside.1 + (inside.3 - board_height) / 2,
                         board_width,
                         board_height
                     )
                 );
                 assert!(
                     counter.1 + counter.3 <= regions.frame.1 + regions.frame.3 - layout.outer_inset
+                );
+                assert!(counter.1 >= inside.1);
+                assert_eq!(
+                    inside.3,
+                    counter_size.1.max(board_height + 2 * layout.inner_edge)
                 );
             }
         }

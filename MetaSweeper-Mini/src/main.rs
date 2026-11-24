@@ -3,6 +3,7 @@
 mod config;
 mod core;
 mod layout;
+mod native;
 mod paint;
 mod platform;
 mod replay_signature;
@@ -13,6 +14,7 @@ mod view;
 use config::{Settings, Text};
 use core::{Replay, Round};
 use layout::{Box2, CounterLayout, FullscreenMode, Layout, COUNTER_MIN, MENU};
+use native::CELL_PIXELS;
 use paint::{Align, Art, Buffer, INK, WHITE};
 use sdl3::{
     event::{DisplayEvent, Event, WindowEvent},
@@ -584,7 +586,7 @@ impl App {
             let (width, height) = self.main.window.size();
             self.window_size_request = Some((width as i32, height as i32));
             if self.settings.level != self.windowed_level {
-                self.resize_main(self.layout.tile);
+                self.resize_main(self.settings.pixels[self.settings.level]);
                 if let Some(position) = self
                     .settings
                     .position
@@ -718,7 +720,7 @@ impl App {
                         self.settings.level = level;
                     } else {
                         self.settings.level = level;
-                        self.resize_main(self.layout.tile);
+                        self.resize_main(self.settings.pixels[level]);
                         if let Some(position) = self
                             .settings
                             .position
@@ -872,6 +874,38 @@ impl App {
     fn queue_replay(&mut self, replay: Replay, path: Option<PathBuf>) {
         if self.jobs.send(Job { replay, path }).is_ok() {
             self.pending_writes += 1;
+        } else {
+            self.errors
+                .push(self.settings.text(Text::ReplaySaveError).into());
+        }
+    }
+
+    fn collect_replay_replies(&mut self, wait: bool) {
+        while self.pending_writes > 0 {
+            let reply = if wait {
+                self.replies
+                    .recv()
+                    .map_err(|_| mpsc::TryRecvError::Disconnected)
+            } else {
+                self.replies.try_recv()
+            };
+            match reply {
+                Ok(result) => {
+                    self.pending_writes -= 1;
+                    if let Err(error) = result {
+                        self.errors.push(format!(
+                            "{}\n{error}",
+                            self.settings.text(Text::ReplaySaveError)
+                        ));
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.pending_writes = 0;
+                    self.errors
+                        .push(self.settings.text(Text::ReplaySaveError).into());
+                }
+            }
         }
     }
 
@@ -1105,11 +1139,14 @@ impl App {
         let tile = self.layout.tile as usize;
         if grid.contains(x, y) {
             (
-                (x - grid.0) as usize * 16 / tile,
-                (y - grid.1) as usize * 16 / tile,
+                (x - grid.0) as usize * CELL_PIXELS / tile,
+                (y - grid.1) as usize * CELL_PIXELS / tile,
             )
         } else {
-            (grid.2 as usize * 16 / tile, grid.3 as usize * 16 / tile)
+            (
+                grid.2 as usize * CELL_PIXELS / tile,
+                grid.3 as usize * CELL_PIXELS / tile,
+            )
         }
     }
 
@@ -1626,11 +1663,8 @@ impl App {
             if now.saturating_duration_since(self.refresh_checked) >= REFRESH_RECHECK {
                 self.update_refresh_rate();
             }
-            let old = self.round.seconds() as u32;
             self.round.refresh();
-            self.main.dirty |= !self.fullscreen
-                || self.fullscreen_mode != FullscreenMode::Board
-                || old != self.round.seconds() as u32;
+            self.main.dirty |= !self.fullscreen || self.fullscreen_mode == FullscreenMode::Status;
             if let Some(counter) = &mut self.counter {
                 counter.dirty = true;
             }
@@ -1638,12 +1672,7 @@ impl App {
         if self.round.phase() == 1 && !self.round.timing_valid {
             self.action(Action::Restart)?;
         }
-        while let Ok(reply) = self.replies.try_recv() {
-            self.pending_writes = self.pending_writes.saturating_sub(1);
-            if let Err(error) = reply {
-                self.errors.push(error);
-            }
-        }
+        self.collect_replay_replies(false);
         if self.pending_writes == 0
             && self.dialog.is_none()
             && std::mem::take(&mut self.save_requested)
@@ -1876,7 +1905,23 @@ impl App {
                 }
             }
         }
+        drop(timer);
         self.release_cursor();
+        self.sdl.mouse().capture(false);
+        self.collect_replay_replies(true);
+        if !self.errors.is_empty() {
+            self.close_dialog();
+            let error = self.errors.join("\n\n");
+            let title = self.settings.text(Text::Title);
+            if !platform::message(&self.main.window, title, &error, true) {
+                let _ = sdl3::messagebox::show_simple_message_box(
+                    sdl3::messagebox::MessageBoxFlag::ERROR,
+                    title,
+                    &error,
+                    &self.main.window,
+                );
+            }
+        }
         self.remember_main_position();
         self.settings.save(&self.root).map_err(|e| e.to_string())
     }

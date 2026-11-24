@@ -1,224 +1,213 @@
 use ms_toollib::videos::base_video::NewBaseVideo2;
 use ms_toollib::{laymine, BaseVideo, GameBoardState, MouseState};
 
-const CELL_PIXELS: usize = 16;
+pub const CELL_PIXELS: usize = 16;
 
 pub struct GameSession {
     video: BaseVideo<Vec<Vec<i32>>>,
     laid: bool,
 }
 
-#[repr(C)]
+#[derive(Default)]
 pub struct GameStatus {
-    seconds: f64,
-    path: f64,
-    phase: u32,
-    left: u32,
-    right: u32,
-    chords: u32,
-    flags: u32,
-    mouse_visual: u32,
+    pub seconds: f64,
+    pub path: f64,
+    pub phase: u32,
+    pub left: u32,
+    pub right: u32,
+    pub chords: u32,
+    pub flags: u32,
+    pub mouse_visual: u32,
 }
 
-#[no_mangle]
-pub extern "C" fn new_game(rows: usize, columns: usize, mines: usize) -> *mut GameSession {
-    let mut video =
-        BaseVideo::<Vec<Vec<i32>>>::new(vec![vec![0; columns]; rows], CELL_PIXELS as u8);
-    video.mine_num = mines;
-    video.set_live_pluck_enabled(true);
-    Box::into_raw(Box::new(GameSession { video, laid: false }))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn free_game(game: *mut GameSession) {
-    drop(Box::from_raw(game));
-}
-
-#[no_mangle]
-pub extern "C" fn game_status(game: &GameSession, status: &mut GameStatus) {
-    let video = &game.video;
-    *status = GameStatus {
-        seconds: video.get_time().max(0.0),
-        path: video.get_path(),
-        phase: match video.game_board_state {
-            GameBoardState::Playing => 1,
-            GameBoardState::Win => 2,
-            GameBoardState::Loss => 3,
-            _ => 0,
-        },
-        left: video.get_left() as u32,
-        right: video.get_right() as u32,
-        chords: video.get_double() as u32,
-        flags: video.get_flag() as u32,
-        mouse_visual: match video.minesweeper_board.mouse_state {
-            MouseState::DownUp => 1,
-            MouseState::Chording | MouseState::ChordingNotFlag => 2,
-            _ => 0,
-        },
-    };
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn game_button(
-    game: &mut GameSession,
-    button: u32,
-    x: usize,
-    y: usize,
-    flag_on_win: u32,
-    cells: *mut u8,
-) -> u32 {
-    let video = &mut game.video;
-    let pos = (y, x);
-    let (row, col) = (y / CELL_PIXELS, x / CELL_PIXELS);
-    if finished(video) {
-        return 0;
-    }
-    let event = match button {
-        0 => "lc",
-        1 => "lr",
-        2 => "rc",
-        3 => "rr",
-        _ => return 0,
-    };
-    if !game.laid
-        && button == 1
-        && row < video.height
-        && col < video.width
-        && video.minesweeper_board.mouse_state == MouseState::DownUp
-        && video.minesweeper_board.game_board[row][col] == 10
-    {
-        let board = laymine(video.height, video.width, video.mine_num, row, col);
-        if video.set_board(board).is_err() {
-            return 0;
-        }
-        game.laid = true;
-    }
-    if video.step(event, pos).is_err() {
-        return 0;
-    }
-    match video.game_board_state {
-        GameBoardState::Win if flag_on_win != 0 => video.win_then_flag_all_mine(),
-        GameBoardState::Loss => video.loss_then_open_all_mine(),
-        _ => {}
-    }
-    let cells = std::slice::from_raw_parts_mut(cells, video.height * video.width);
-    for (target, value) in cells
-        .iter_mut()
-        .zip(video.minesweeper_board.game_board.iter().flatten())
-    {
-        *target = *value as u8;
-    }
-    1
-}
-
-#[no_mangle]
-pub extern "C" fn game_move(game: &mut GameSession, x: usize, y: usize) {
-    let _ = game.video.step("mv", (y, x));
-}
-
-fn finished(video: &BaseVideo<Vec<Vec<i32>>>) -> bool {
-    matches!(
-        video.game_board_state,
-        GameBoardState::Win | GameBoardState::Loss
-    )
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn encode_replay(
-    game: &mut GameSession,
-    identifiers: *const u8,
-    identifiers_length: usize,
-    used_cursor_limit: u32,
-    auto_replay_enabled: u32,
-    length: &mut usize,
-) -> *mut u8 {
-    let video = &mut game.video;
-    if !finished(video) || video.video_action_state_recorder.is_empty() {
-        return std::ptr::null_mut();
-    }
-    let Ok(identifiers) =
-        std::str::from_utf8(std::slice::from_raw_parts(identifiers, identifiers_length))
-    else {
-        return std::ptr::null_mut();
-    };
-    let mut identifiers = identifiers.splitn(3, '\0');
-    let (Some(player), Some(race), Some(country)) =
-        (identifiers.next(), identifiers.next(), identifiers.next())
-    else {
-        return std::ptr::null_mut();
-    };
-    video.player_identifier = player.to_owned();
-    video.race_identifier = race.to_owned();
-    video.country = country.to_owned();
-    video.software = format!(
-        "迷你元{}-{}",
-        env!("CARGO_PKG_VERSION"),
-        std::env::consts::OS
-    );
-    video.translated = false;
-    video.is_fair = true;
-    video.is_official = video.is_completed && video.mode == 0;
-    video.use_question = false;
-    video.use_cursor_pos_lim = used_cursor_limit != 0;
-    video.use_auto_replay = auto_replay_enabled != 0;
-    video.generate_evf_v4_raw_data();
-
-    let bytes = std::mem::take(&mut video.raw_data).into_boxed_slice();
-    *length = bytes.len();
-    Box::into_raw(bytes) as *mut u8
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn free_replay(bytes: *mut u8, length: usize) {
-    drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
-        bytes, length,
-    )));
-}
-
-#[repr(C)]
-#[cfg_attr(test, derive(Default))]
 pub struct ReplayMetrics {
-    estimated_time: f64,
-    three_bv_per_second: f64,
-    stnb: f64,
-    ioe: f64,
-    thrp: f64,
-    corr: f64,
-    pluck: f64,
-    solved: u32,
-    total: u32,
-    zini: u32,
-    openings: u32,
-    islands: u32,
+    pub estimated_time: f64,
+    pub three_bv_per_second: f64,
+    pub stnb: f64,
+    pub ioe: f64,
+    pub thrp: f64,
+    pub corr: f64,
+    pub pluck: f64,
+    pub solved: u32,
+    pub total: u32,
+    pub zini: u32,
+    pub openings: u32,
+    pub islands: u32,
 }
 
-#[no_mangle]
-pub extern "C" fn game_metrics(game: &GameSession, metrics: &mut ReplayMetrics) -> u32 {
-    let video = &game.video;
-    if !finished(video) {
-        return 0;
+impl GameSession {
+    pub fn new(rows: usize, columns: usize, mines: usize) -> Self {
+        let mut video =
+            BaseVideo::<Vec<Vec<i32>>>::new(vec![vec![0; columns]; rows], CELL_PIXELS as u8);
+        video.mine_num = mines;
+        video.set_live_pluck_enabled(true);
+        Self { video, laid: false }
     }
 
-    let pluck = match video.live_pluck_snapshot().ready() {
-        Ok(Some(value)) => value,
-        Ok(None) => return 0,
-        Err(_) => f64::NAN,
-    };
-    *metrics = ReplayMetrics {
-        estimated_time: video.get_etime().unwrap_or(f64::NAN),
-        three_bv_per_second: video.get_bbbv_s().unwrap_or(f64::NAN),
-        stnb: video.get_stnb().unwrap_or(f64::NAN),
-        ioe: video.get_ioe().unwrap_or(f64::NAN),
-        thrp: video.get_thrp().unwrap_or(f64::NAN),
-        corr: video.get_corr().unwrap_or(f64::NAN),
-        pluck,
-        solved: video.get_bbbv_solved().unwrap_or_default() as u32,
-        total: video.static_params.bbbv as u32,
-        zini: video.static_params.zini as u32,
-        openings: video.static_params.op as u32,
-        islands: video.static_params.isl as u32,
-    };
-    1
+    #[cfg(test)]
+    pub fn with_board(board: Vec<Vec<i32>>) -> Self {
+        Self {
+            video: BaseVideo::<Vec<Vec<i32>>>::new(board, CELL_PIXELS as u8),
+            laid: true,
+        }
+    }
+
+    pub fn status(&self) -> GameStatus {
+        let video = &self.video;
+        GameStatus {
+            seconds: video.get_time().max(0.0),
+            path: video.get_path(),
+            phase: match video.game_board_state {
+                GameBoardState::Playing => 1,
+                GameBoardState::Win => 2,
+                GameBoardState::Loss => 3,
+                _ => 0,
+            },
+            left: video.get_left() as u32,
+            right: video.get_right() as u32,
+            chords: video.get_double() as u32,
+            flags: video.get_flag() as u32,
+            mouse_visual: match video.minesweeper_board.mouse_state {
+                MouseState::DownUp => 1,
+                MouseState::Chording | MouseState::ChordingNotFlag => 2,
+                _ => 0,
+            },
+        }
+    }
+
+    pub fn button(
+        &mut self,
+        button: u32,
+        x: usize,
+        y: usize,
+        flag_on_win: bool,
+        cells: &mut [u8],
+    ) -> bool {
+        if self.finished() || cells.len() != self.video.height * self.video.width {
+            return false;
+        }
+        let video = &mut self.video;
+        let (row, col) = (y / CELL_PIXELS, x / CELL_PIXELS);
+        let event = match button {
+            0 => "lc",
+            1 => "lr",
+            2 => "rc",
+            3 => "rr",
+            _ => return false,
+        };
+        if !self.laid
+            && button == 1
+            && row < video.height
+            && col < video.width
+            && video.minesweeper_board.mouse_state == MouseState::DownUp
+            && video.minesweeper_board.game_board[row][col] == 10
+        {
+            let board = laymine(video.height, video.width, video.mine_num, row, col);
+            if video.set_board(board).is_err() {
+                return false;
+            }
+            self.laid = true;
+        }
+        if video.step(event, (y, x)).is_err() {
+            return false;
+        }
+        match video.game_board_state {
+            GameBoardState::Win if flag_on_win => video.win_then_flag_all_mine(),
+            GameBoardState::Loss => video.loss_then_open_all_mine(),
+            _ => {}
+        }
+        for (target, value) in cells
+            .iter_mut()
+            .zip(video.minesweeper_board.game_board.iter().flatten())
+        {
+            *target = *value as u8;
+        }
+        true
+    }
+
+    pub fn track(&mut self, x: usize, y: usize) {
+        let _ = self.video.step("mv", (y, x));
+    }
+
+    fn finished(&self) -> bool {
+        matches!(
+            self.video.game_board_state,
+            GameBoardState::Win | GameBoardState::Loss
+        )
+    }
+
+    pub fn solved_below(&self, threshold: usize) -> bool {
+        let total = self.video.static_params.bbbv;
+        total != 0
+            && self
+                .video
+                .get_bbbv_solved()
+                .is_ok_and(|solved| solved * 100 < total * threshold)
+    }
+
+    pub fn replay_stats(&self) -> (f64, usize, f64) {
+        (
+            self.video.get_time(),
+            self.video.static_params.bbbv,
+            self.video.get_bbbv_s().unwrap_or(f64::NAN),
+        )
+    }
+
+    pub fn encode_replay(
+        &mut self,
+        player: &str,
+        race: &str,
+        country: &str,
+        used_cursor_limit: bool,
+        auto_replay_enabled: bool,
+    ) -> Option<Vec<u8>> {
+        if !self.finished() || self.video.video_action_state_recorder.is_empty() {
+            return None;
+        }
+        let video = &mut self.video;
+        video.player_identifier = player.to_owned();
+        video.race_identifier = race.to_owned();
+        video.country = country.to_owned();
+        video.software = format!(
+            "迷你元{}-{}",
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS
+        );
+        video.translated = false;
+        video.is_fair = true;
+        video.is_official = video.is_completed && video.mode == 0;
+        video.use_question = false;
+        video.use_cursor_pos_lim = used_cursor_limit;
+        video.use_auto_replay = auto_replay_enabled;
+        video.generate_evf_v4_raw_data();
+        Some(std::mem::take(&mut video.raw_data))
+    }
+
+    pub fn metrics(&self) -> Option<ReplayMetrics> {
+        if !self.finished() {
+            return None;
+        }
+        let video = &self.video;
+        let pluck = match video.live_pluck_snapshot().ready() {
+            Ok(Some(value)) => value,
+            Ok(None) => return None,
+            Err(_) => f64::NAN,
+        };
+        Some(ReplayMetrics {
+            estimated_time: video.get_etime().unwrap_or(f64::NAN),
+            three_bv_per_second: video.get_bbbv_s().unwrap_or(f64::NAN),
+            stnb: video.get_stnb().unwrap_or(f64::NAN),
+            ioe: video.get_ioe().unwrap_or(f64::NAN),
+            thrp: video.get_thrp().unwrap_or(f64::NAN),
+            corr: video.get_corr().unwrap_or(f64::NAN),
+            pluck,
+            solved: video.get_bbbv_solved().unwrap_or_default() as u32,
+            total: video.static_params.bbbv as u32,
+            zini: video.static_params.zini as u32,
+            openings: video.static_params.op as u32,
+            islands: video.static_params.isl as u32,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -227,47 +216,37 @@ mod tests {
     use ms_toollib::{videos::NewSomeVideo2, EvfVideo};
 
     #[test]
+    fn button_rejects_mismatched_cell_buffers_before_processing_input() {
+        let mut game = GameSession::with_board(vec![vec![-1, 1], vec![1, 1]]);
+        assert!(!game.button(0, 17, 17, true, &mut [10; 3]));
+        assert!(!game.button(0, 17, 17, true, &mut [10; 5]));
+        assert_eq!(game.status().mouse_visual, 0);
+        assert!(game.button(0, 17, 17, true, &mut [10; 4]));
+        assert_eq!(game.status().mouse_visual, 1);
+    }
+
+    #[test]
     fn background_pluck_keeps_the_successful_prefix_after_loss() {
         let layout = vec![vec![-1, 2, -1], vec![1, 2, 1], vec![0, 0, 0]];
-        let mut game = GameSession {
-            video: BaseVideo::<Vec<Vec<i32>>>::new(layout, CELL_PIXELS as u8),
-            laid: true,
-        };
+        let mut game = GameSession::with_board(layout);
         game.video.set_live_pluck_enabled(true);
         let mut visible = [10; 9];
-        let mut open = |game: &mut GameSession, x, y| unsafe {
-            assert_eq!(
-                game_button(
-                    game,
-                    0,
-                    x * CELL_PIXELS + 3,
-                    y * CELL_PIXELS + 3,
-                    1,
-                    visible.as_mut_ptr()
-                ),
-                1
-            );
-            game_button(
-                game,
-                1,
-                x * CELL_PIXELS + 3,
-                y * CELL_PIXELS + 3,
-                1,
-                visible.as_mut_ptr(),
-            )
+        let mut open = |game: &mut GameSession, x, y| {
+            let x = x * CELL_PIXELS + 3;
+            let y = y * CELL_PIXELS + 3;
+            assert!(game.button(0, x, y, true, &mut visible));
+            assert!(game.button(1, x, y, true, &mut visible));
         };
 
-        assert_eq!(open(&mut game, 1, 1), 1);
-        assert_eq!(open(&mut game, 1, 0), 1);
+        open(&mut game, 1, 1);
+        open(&mut game, 1, 0);
         let pluck = -0.75_f64.log10();
         let during_play = game.video.live_pluck_snapshot().wait().unwrap();
         assert!((during_play - pluck).abs() < 1e-12);
 
-        assert_eq!(open(&mut game, 0, 0), 1);
+        open(&mut game, 0, 0);
         assert_eq!(game.video.game_board_state, GameBoardState::Loss);
-        let mut metrics = ReplayMetrics::default();
-        assert_eq!(game_metrics(&game, &mut metrics), 1);
-        assert!((metrics.pluck - pluck).abs() < 1e-12);
+        assert!((game.metrics().unwrap().pluck - pluck).abs() < 1e-12);
         assert_eq!(visible[0], 15);
         assert_eq!(visible[2], 16);
     }
@@ -280,36 +259,22 @@ mod tests {
             (&[(17, 17), (1, 17), (17, 1)][..], true, false),
             (&[(17, 17), (1, 17), (17, 1)][..], true, true),
         ] {
-            let layout = vec![vec![-1, 1], vec![1, 1]];
-            let mut game = GameSession {
-                video: BaseVideo::<Vec<Vec<i32>>>::new(layout, CELL_PIXELS as u8),
-                laid: true,
-            };
+            let mut game = GameSession::with_board(vec![vec![-1, 1], vec![1, 1]]);
             for &position in moves {
                 game.video.step("lc", position).unwrap();
                 game.video.step("lr", position).unwrap();
             }
-            let identifiers = b"player\0\0";
-            let mut length = 0;
-            let replay = unsafe {
-                let data = encode_replay(
-                    &mut game,
-                    identifiers.as_ptr(),
-                    identifiers.len(),
-                    0,
-                    u32::from(auto_replay),
-                    &mut length,
-                );
-                assert!(!data.is_null());
-                let replay = std::slice::from_raw_parts(data, length).to_vec();
-                free_replay(data, length);
-                replay
-            };
+            let replay = game
+                .encode_replay("玩家", "赛事", "CN", false, auto_replay)
+                .unwrap();
             let mut parsed = EvfVideo::new(replay, "flags.evf");
             parsed.parse().unwrap();
             let version = env!("CARGO_PKG_VERSION");
             let os = std::env::consts::OS;
             assert_eq!(parsed.data.software, format!("迷你元{version}-{os}"));
+            assert_eq!(parsed.data.player_identifier, "玩家");
+            assert_eq!(parsed.data.race_identifier, "赛事");
+            assert_eq!(parsed.data.country, "CN");
             assert!(parsed.data.is_fair);
             assert_eq!(parsed.data.is_completed, won);
             assert_eq!(parsed.data.is_official, won);

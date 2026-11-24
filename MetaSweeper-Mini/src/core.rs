@@ -1,17 +1,19 @@
-include!("native.rs");
-
-use crate::{config, layout::PRESETS, replay_signature::sign};
+use crate::{
+    config,
+    layout::PRESETS,
+    native::{GameSession, GameStatus, ReplayMetrics},
+    replay_signature::sign,
+};
 use std::{
     fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
-    ptr::NonNull,
     sync::atomic::{AtomicU32, Ordering},
     time::{Duration, Instant},
 };
 
 pub struct Round {
-    session: NonNull<GameSession>,
+    session: GameSession,
     pub cells: Vec<u8>,
     pub status: GameStatus,
     pub metrics: Option<ReplayMetrics>,
@@ -29,19 +31,9 @@ impl Round {
     pub fn new(settings: &config::Settings) -> Self {
         let (rows, cols, mines) = PRESETS[settings.level];
         Self {
-            session: NonNull::new(new_game(rows as usize, cols as usize, mines))
-                .expect("native game allocation"),
+            session: GameSession::new(rows as usize, cols as usize, mines),
             cells: vec![10; (rows * cols) as usize],
-            status: GameStatus {
-                seconds: 0.0,
-                path: 0.0,
-                phase: 0,
-                left: 0,
-                right: 0,
-                chords: 0,
-                flags: 0,
-                mouse_visual: 0,
-            },
+            status: GameStatus::default(),
             metrics: None,
             player: settings.player.clone(),
             race: settings.race.clone(),
@@ -75,17 +67,10 @@ impl Round {
         let now = Instant::now();
         let clock = crate::platform::clock_ms();
         let ready = self.status.phase == 0;
-        let accepted = unsafe {
-            game_button(
-                self.session.as_mut(),
-                button,
-                x,
-                y,
-                settings.flag_win as u32,
-                self.cells.as_mut_ptr(),
-            )
-        };
-        if accepted == 0 {
+        if !self
+            .session
+            .button(button, x, y, settings.flag_win, &mut self.cells)
+        {
             return;
         }
         self.last_position = Some((x, y));
@@ -102,23 +87,18 @@ impl Round {
 
     pub fn track(&mut self, x: usize, y: usize) {
         if !self.ended() && self.last_position != Some((x, y)) {
-            unsafe { game_move(self.session.as_mut(), x, y) };
+            self.session.track(x, y);
             self.last_position = Some((x, y));
         }
     }
 
     pub fn refresh(&mut self) {
-        let game = unsafe { self.session.as_ref() };
-        game_status(game, &mut self.status);
+        self.status = self.session.status();
         if self.status.phase == 1 {
             self.check_clock(crate::platform::clock_ms(), Instant::now(), false);
         }
         if self.ended() && self.metrics.is_none() {
-            // A zeroed ReplayMetrics is valid: it contains only integer and float fields.
-            let mut metrics: ReplayMetrics = unsafe { std::mem::zeroed() };
-            if game_metrics(unsafe { self.session.as_ref() }, &mut metrics) == 1 {
-                self.metrics = Some(metrics);
-            }
+            self.metrics = self.session.metrics();
         }
     }
 
@@ -130,12 +110,7 @@ impl Round {
         if self.phase() != 3 || threshold <= 0 || !self.timing_valid {
             return false;
         }
-        let video = &unsafe { self.session.as_ref() }.video;
-        let total = video.static_params.bbbv;
-        total != 0
-            && video
-                .get_bbbv_solved()
-                .is_ok_and(|solved| solved * 100 < total * threshold as usize)
+        self.session.solved_below(threshold as usize)
     }
 
     pub fn seconds(&self) -> f64 {
@@ -178,10 +153,7 @@ impl Round {
                 "The game did not finish with a valid clock",
             ));
         }
-        let game = unsafe { self.session.as_mut() };
-        let time = game.video.get_time();
-        let total = game.video.static_params.bbbv;
-        let speed = game.video.get_bbbv_s().unwrap_or(f64::NAN);
+        let (time, total, speed) = self.session.replay_stats();
         let name = format!(
             "{}_0_{}_{total}_{}_{}{}",
             ["b", "i", "e"][settings.level],
@@ -190,31 +162,18 @@ impl Round {
             safe_identifier(&self.player),
             if self.status.phase == 3 { "_fail" } else { "" }
         );
-        let mut len = 0;
-        let identity = format!("{}\0{}\0{}", self.player, self.race, self.country);
-        let raw = unsafe {
-            encode_replay(
-                game,
-                identity.as_ptr(),
-                identity.len(),
-                self.cursor_limit_used as u32,
-                u32::from(settings.auto_replay > 0),
-                &mut len,
+        let mut data = self
+            .session
+            .encode_replay(
+                &self.player,
+                &self.race,
+                &self.country,
+                self.cursor_limit_used,
+                settings.auto_replay > 0,
             )
-        };
-        if raw.is_null() {
-            return Err(io::Error::other("EVF data unavailable"));
-        }
-        let mut data = unsafe { std::slice::from_raw_parts(raw, len).to_vec() };
-        unsafe { free_replay(raw, len) };
+            .ok_or_else(|| io::Error::other("EVF data unavailable"))?;
         sign(&mut data)?;
         Ok(Replay { name, data })
-    }
-}
-
-impl Drop for Round {
-    fn drop(&mut self) {
-        unsafe { free_game(self.session.as_ptr()) }
     }
 }
 
@@ -298,6 +257,7 @@ impl Replay {
 #[cfg(test)]
 mod linux_tests {
     use super::*;
+    use crate::native::CELL_PIXELS;
 
     #[test]
     fn auto_restart_requires_loss_below_the_threshold() {
@@ -306,10 +266,8 @@ mod linux_tests {
         let settings = config::Settings::read(&root).unwrap();
         for (second_cell, lost) in [((3, 3), true), ((3, CELL_PIXELS + 3), false)] {
             let mut round = Round::new(&settings);
-            let session = unsafe { round.session.as_mut() };
-            let board = vec![vec![-1, 2], vec![2, -1]];
-            session.video = BaseVideo::<Vec<Vec<i32>>>::new(board, CELL_PIXELS as u8);
-            session.laid = true;
+            round.session = GameSession::with_board(vec![vec![-1, 2], vec![2, -1]]);
+            round.cells.resize(4, 10);
 
             round.play(0, CELL_PIXELS + 3, 3, &settings);
             round.play(1, CELL_PIXELS + 3, 3, &settings);
@@ -358,10 +316,9 @@ mod linux_tests {
             (false, false, false),
         ] {
             let mut round = Round::new(&settings);
-            let session = unsafe { round.session.as_mut() };
-            let board = vec![vec![-1, 2, -1], vec![1, 2, 1], vec![0, 0, 0]];
-            session.video = BaseVideo::<Vec<Vec<i32>>>::new(board, CELL_PIXELS as u8);
-            session.laid = true;
+            round.session =
+                GameSession::with_board(vec![vec![-1, 2, -1], vec![1, 2, 1], vec![0, 0, 0]]);
+            round.cells.resize(9, 10);
 
             round.record_cursor_lock(true);
             settings.cursor_lock = at_start;

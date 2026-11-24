@@ -144,7 +144,7 @@ pub fn fullscreen(
             areas.extend(changed);
         }
     }
-    (!areas.is_empty()).then_some(areas)
+    Some(areas)
 }
 
 fn draw_counter(p: &Painter, settings: &Settings, values: &[String], area: Box2, scale: i32) {
@@ -255,7 +255,7 @@ impl FullscreenCounter {
                     regions.push(value_area);
                 }
                 painted.values = values.to_vec();
-                return (!regions.is_empty()).then_some(regions);
+                return Some(regions);
             }
         }
         draw_counter(p, settings, values, area, scale);
@@ -264,7 +264,7 @@ impl FullscreenCounter {
             scale,
             values: values.to_vec(),
         });
-        None
+        (!full).then(|| vec![area])
     }
 }
 

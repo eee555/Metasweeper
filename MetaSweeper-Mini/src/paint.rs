@@ -1047,6 +1047,63 @@ mod tests {
         counter.invalidate();
         assert_eq!(draw(&mut counter, &initial, &mut pixels), None);
     }
+
+    #[test]
+    fn fullscreen_counter_refresh_preserves_the_board_and_updates_changed_cells() {
+        use crate::{
+            config::Settings,
+            core::Round,
+            layout::FullscreenMode,
+            view::{self, FullscreenCounter},
+        };
+
+        let settings = Settings::read(std::path::Path::new(".")).unwrap();
+        let mut round = Round::new(&settings);
+        let layout = Layout::new(20, 20);
+        let mode = FullscreenMode::Counter;
+        let (width, height, _) = layout.fullscreen_size(settings.level, mode);
+        let size = (width, height);
+        let stride = width as usize * 4;
+        let fonts = Fonts::new();
+        let mut art = Art::new();
+        let mut draw = |counter: &mut FullscreenCounter, round: &Round, pixels: &mut [u8], full| {
+            let canvas = Canvas {
+                data: pixels,
+                width,
+                height,
+                stride,
+            };
+            view::fullscreen(
+                &Painter::new(canvas, &fonts, 1.0),
+                &mut art,
+                &settings,
+                round,
+                layout,
+                (-1, -1),
+                false,
+                size,
+                mode,
+                counter,
+                full,
+            )
+            .unwrap()
+        };
+        let mut pixels = vec![0; stride * height as usize];
+        let mut counter = FullscreenCounter::default();
+        draw(&mut counter, &round, &mut pixels, true);
+        assert!(draw(&mut counter, &round, &mut pixels, false).is_empty());
+
+        round.status.seconds = 12.345;
+        round.status.path = 543.2;
+        let regions = draw(&mut counter, &round, &mut pixels, false);
+        let board = layout.fullscreen_regions(settings.level, size, mode).grid;
+        assert_eq!(regions.len(), 2);
+        assert!(regions.iter().all(|area| area.0 + area.2 <= board.0));
+
+        let mut full = vec![0; pixels.len()];
+        draw(&mut FullscreenCounter::default(), &round, &mut full, true);
+        assert!(pixels == full);
+    }
 }
 
 pub struct Buffer {
