@@ -1,13 +1,12 @@
 # MetaSweeper-Mini
 
-元扫雷迷你版以 SDL3 + Rust 为主实现，同一份源码支持 Windows 和 Linux。
+元扫雷迷你版使用 SDL3 + Rust，同一份源码支持 Windows 和 Linux。
 
 ## 目录
 
 - `src/` 存放 Windows 和 Linux 共用的 SDL3 源码。平台差异集中在 `src/platform.rs`。
 - `assets/` 存放 LED 位图和 EVF 校验资源。
 - `Cargo.toml`、`build.ps1` 和 `build.sh` 位于本目录。
-- `win/` 存放旧版 WinForms 源码。
 - `obj/ms-toollib/` 存放固定提交的 ms_toollib 构建缓存。
 
 ## 共同约定
