@@ -9,7 +9,11 @@ pub const WHITE: u32 = 0xffffff;
 pub const SHADE: u32 = 0xa0a0a0;
 
 fn rgb(color: u32) -> (u8, u8, u8) {
-    (((color >> 16) & 255) as u8, ((color >> 8) & 255) as u8, (color & 255) as u8)
+    (
+        ((color >> 16) & 255) as u8,
+        ((color >> 8) & 255) as u8,
+        (color & 255) as u8,
+    )
 }
 
 struct Canvas<'a> {
@@ -84,7 +88,11 @@ struct Image {
 
 impl Image {
     fn new(w: i32, h: i32) -> Self {
-        Self { w, h, px: vec![0; (w.max(0) * h.max(0)) as usize] }
+        Self {
+            w,
+            h,
+            px: vec![0; (w.max(0) * h.max(0)) as usize],
+        }
     }
 
     fn over(&mut self, x: i32, y: i32, r: u8, g: u8, b: u8, coverage: u8) {
@@ -110,7 +118,8 @@ impl Image {
         let outr = (r as u32 * sa + dr * da * sc / 255) / outa;
         let outg = (g as u32 * sa + dg * da * sc / 255) / outa;
         let outb = (b as u32 * sa + db * da * sc / 255) / outa;
-        self.px[i] = (outa.min(255) << 24) | (outr.min(255) << 16) | (outg.min(255) << 8) | outb.min(255);
+        self.px[i] =
+            (outa.min(255) << 24) | (outr.min(255) << 16) | (outg.min(255) << 8) | outb.min(255);
     }
 }
 
@@ -186,7 +195,9 @@ fn rasterize(polys: &[Vec<Pt>], bx: i32, by: i32, bw: i32, bh: i32, samples: i32
             acc[base + i] += *v;
         }
     }
-    acc.iter().map(|v| (v / ss as f32 * 255.0).clamp(0.0, 255.0) as u8).collect()
+    acc.iter()
+        .map(|v| (v / ss as f32 * 255.0).clamp(0.0, 255.0) as u8)
+        .collect()
 }
 
 fn cubic(p0: Pt, c1: Pt, c2: Pt, p1: Pt, t: f64) -> Pt {
@@ -195,7 +206,10 @@ fn cubic(p0: Pt, c1: Pt, c2: Pt, p1: Pt, t: f64) -> Pt {
     let b = 3.0 * u * u * t;
     let c = 3.0 * u * t * t;
     let d = t * t * t;
-    (a * p0.0 + b * c1.0 + c * c2.0 + d * p1.0, a * p0.1 + b * c1.1 + c * c2.1 + d * p1.1)
+    (
+        a * p0.0 + b * c1.0 + c * c2.0 + d * p1.0,
+        a * p0.1 + b * c1.1 + c * c2.1 + d * p1.1,
+    )
 }
 
 fn flatten(commands: &[(u8, [f64; 6])]) -> Vec<Vec<Pt>> {
@@ -283,7 +297,12 @@ fn stroke_quads(paths: &[Vec<Pt>], width: f64) -> Vec<Vec<Pt>> {
                 continue;
             }
             let (nx, ny) = (-dy / len * half, dx / len * half);
-            quads.push(vec![(x1 + nx, y1 + ny), (x2 + nx, y2 + ny), (x2 - nx, y2 - ny), (x1 - nx, y1 - ny)]);
+            quads.push(vec![
+                (x1 + nx, y1 + ny),
+                (x2 + nx, y2 + ny),
+                (x2 - nx, y2 - ny),
+                (x1 - nx, y1 - ny),
+            ]);
         }
     }
     quads
@@ -406,39 +425,67 @@ struct Fonts {
 }
 
 impl Fonts {
-    fn new() -> Self { Self::load(false) }
+    fn new() -> Self {
+        Self::load(false)
+    }
 
     fn load(counter: bool) -> Self {
         let mut fonts = Vec::new();
         let mut has_counter_face = false;
-        let options = FontSettings { scale: 56.0, ..Default::default() };
+        let options = FontSettings {
+            scale: 56.0,
+            ..Default::default()
+        };
         for path in crate::platform::font_paths() {
-            let Ok(bytes) = std::fs::read(&path) else { continue };
-            if let Some(index) = counter.then(|| crate::platform::counter_font_face(&path)).flatten() {
-                if let Ok(font) = Font::from_bytes(bytes.as_slice(), FontSettings {
-                    collection_index: index, ..options
-                }) {
+            let Ok(bytes) = std::fs::read(&path) else {
+                continue;
+            };
+            if let Some(index) = counter
+                .then(|| crate::platform::counter_font_face(&path))
+                .flatten()
+            {
+                if let Ok(font) = Font::from_bytes(
+                    bytes.as_slice(),
+                    FontSettings {
+                        collection_index: index,
+                        ..options
+                    },
+                ) {
                     fonts.insert(0, font);
                     has_counter_face = true;
                 }
             }
-            if let Ok(font) = Font::from_bytes(bytes, options) { fonts.push(font); }
+            if let Ok(font) = Font::from_bytes(bytes, options) {
+                fonts.push(font);
+            }
         }
-        Self { fonts, has_counter_face }
+        Self {
+            fonts,
+            has_counter_face,
+        }
     }
 
     fn regular(&self) -> &[Font] {
-        let start = if self.has_counter_face && self.fonts.len() > 1 { 1 } else { 0 };
+        let start = if self.has_counter_face && self.fonts.len() > 1 {
+            1
+        } else {
+            0
+        };
         &self.fonts[start..]
     }
 }
 
 fn pick_font(fonts: &[Font], ch: char) -> &Font {
-    fonts.iter().find(|font| font.has_glyph(ch)).unwrap_or(&fonts[0])
+    fonts
+        .iter()
+        .find(|font| font.has_glyph(ch))
+        .unwrap_or(&fonts[0])
 }
 
 fn measure_text(fonts: &[Font], text: &str, px: f32) -> f32 {
-    text.chars().map(|ch| pick_font(fonts, ch).metrics(ch, px).advance_width).sum()
+    text.chars()
+        .map(|ch| pick_font(fonts, ch).metrics(ch, px).advance_width)
+        .sum()
 }
 
 fn draw_line(
@@ -512,7 +559,11 @@ pub struct Painter<'a> {
 
 impl<'a> Painter<'a> {
     fn new(canvas: Canvas<'a>, fonts: &'a Fonts, scale: f64) -> Self {
-        Self { canvas: RefCell::new(canvas), fonts, scale }
+        Self {
+            canvas: RefCell::new(canvas),
+            fonts,
+            scale,
+        }
     }
 
     fn scaled(&self, value: i32) -> i32 {
@@ -521,7 +572,12 @@ impl<'a> Painter<'a> {
 
     fn scaled_area(&self, Box2(x, y, w, h): Box2) -> Box2 {
         let (left, top) = (self.scaled(x), self.scaled(y));
-        Box2(left, top, self.scaled(x + w) - left, self.scaled(y + h) - top)
+        Box2(
+            left,
+            top,
+            self.scaled(x + w) - left,
+            self.scaled(y + h) - top,
+        )
     }
 
     pub fn fill(&self, area: Box2, color: u32) {
@@ -532,8 +588,10 @@ impl<'a> Painter<'a> {
         if points.len() < 3 {
             return;
         }
-        let poly: Vec<Pt> = points.iter()
-            .map(|&(x, y)| (x as f64 * self.scale, y as f64 * self.scale)).collect();
+        let poly: Vec<Pt> = points
+            .iter()
+            .map(|&(x, y)| (x as f64 * self.scale, y as f64 * self.scale))
+            .collect();
         let (mut min_x, mut max_x, mut min_y, mut max_y) = (i32::MAX, i32::MIN, i32::MAX, i32::MIN);
         for &(x, y) in &poly {
             min_x = min_x.min(x.floor() as i32);
@@ -558,16 +616,36 @@ impl<'a> Painter<'a> {
     }
 
     pub fn checkmark(&self, area: Box2) {
-        if area.2 < 10 || area.3 < 9 { return; }
+        if area.2 < 10 || area.3 < 9 {
+            return;
+        }
         let x = area.0 + (area.2 - 10) / 2;
         let y = area.1 + (area.3 - 9) / 2;
-        self.polygon(&[(x, y + 5), (x + 2, y + 3), (x + 4, y + 5),
-            (x + 8, y), (x + 10, y + 2), (x + 4, y + 9)], INK);
+        self.polygon(
+            &[
+                (x, y + 5),
+                (x + 2, y + 3),
+                (x + 4, y + 5),
+                (x + 8, y),
+                (x + 10, y + 2),
+                (x + 4, y + 9),
+            ],
+            INK,
+        );
     }
 
     pub fn chevron(&self, x: i32, y: i32) {
-        self.polygon(&[(x, y), (x + 2, y), (x + 5, y + 4),
-            (x + 2, y + 8), (x, y + 8), (x + 3, y + 4)], INK);
+        self.polygon(
+            &[
+                (x, y),
+                (x + 2, y),
+                (x + 5, y + 4),
+                (x + 2, y + 8),
+                (x, y + 8),
+                (x + 3, y + 4),
+            ],
+            INK,
+        );
     }
 
     pub fn bevel(&self, area: Box2, edge: i32, raised: bool) {
@@ -576,13 +654,31 @@ impl<'a> Painter<'a> {
         }
         let Box2(x, y, w, h) = area;
         let (right, bottom) = (x + w, y + h);
-        let (top, low) = if raised { (WHITE, SHADE) } else { (SHADE, WHITE) };
+        let (top, low) = if raised {
+            (WHITE, SHADE)
+        } else {
+            (SHADE, WHITE)
+        };
         self.polygon(
-            &[(x, y), (right, y), (right - edge, y + edge), (x + edge, y + edge), (x + edge, bottom - edge), (x, bottom)],
+            &[
+                (x, y),
+                (right, y),
+                (right - edge, y + edge),
+                (x + edge, y + edge),
+                (x + edge, bottom - edge),
+                (x, bottom),
+            ],
             top,
         );
         self.polygon(
-            &[(right, bottom), (x, bottom), (x + edge, bottom - edge), (right - edge, bottom - edge), (right - edge, y + edge), (right, y)],
+            &[
+                (right, bottom),
+                (x, bottom),
+                (x + edge, bottom - edge),
+                (right - edge, bottom - edge),
+                (right - edge, y + edge),
+                (right, y),
+            ],
             low,
         );
     }
@@ -608,11 +704,27 @@ impl<'a> Painter<'a> {
     }
 
     pub fn counter_text(&self, area: Box2, text: &str, size: i32, color: u32) {
-        self.draw_text(area, text, size, Align::Left, color, false, &self.fonts.fonts);
+        self.draw_text(
+            area,
+            text,
+            size,
+            Align::Left,
+            color,
+            false,
+            &self.fonts.fonts,
+        );
     }
 
     pub fn paragraph(&self, area: Box2, text: &str, size: i32, color: u32) {
-        self.draw_text(area, text, size, Align::Left, color, true, self.fonts.regular());
+        self.draw_text(
+            area,
+            text,
+            size,
+            Align::Left,
+            color,
+            true,
+            self.fonts.regular(),
+        );
     }
 
     pub fn text_at(&self, clip: Box2, text: &str, size: i32, x: i32, color: u32) {
@@ -624,10 +736,28 @@ impl<'a> Painter<'a> {
         let ascent = metrics.map_or(px * 0.8, |line| line.ascent);
         let height = metrics.map_or(px * 1.2, |line| line.new_line_size);
         let baseline = clip.1 as f32 + (clip.3 as f32 - height) / 2.0 + ascent;
-        draw_line(fonts, &mut self.canvas.borrow_mut(), text, px, self.scaled(x) as f32, baseline, rgb(color), clip);
+        draw_line(
+            fonts,
+            &mut self.canvas.borrow_mut(),
+            text,
+            px,
+            self.scaled(x) as f32,
+            baseline,
+            rgb(color),
+            clip,
+        );
     }
 
-    fn draw_text(&self, area: Box2, text: &str, size: i32, align: Align, color: u32, wrap: bool, fonts: &[Font]) {
+    fn draw_text(
+        &self,
+        area: Box2,
+        text: &str,
+        size: i32,
+        align: Align,
+        color: u32,
+        wrap: bool,
+        fonts: &[Font],
+    ) {
         if area.2 <= 0 || area.3 <= 0 || text.is_empty() {
             return;
         }
@@ -646,7 +776,16 @@ impl<'a> Painter<'a> {
                 if baseline - ascent >= (area.1 + area.3) as f32 {
                     break;
                 }
-                draw_line(fonts, &mut canvas, &line, px, area.0 as f32, baseline, (r, g, b), area);
+                draw_line(
+                    fonts,
+                    &mut canvas,
+                    &line,
+                    px,
+                    area.0 as f32,
+                    baseline,
+                    (r, g, b),
+                    area,
+                );
                 baseline += line_height;
             }
         } else {
@@ -657,7 +796,16 @@ impl<'a> Painter<'a> {
                 Align::Right => area.0 as f32 + area.2 as f32 - width,
             };
             let baseline = area.1 as f32 + (area.3 as f32 - line_height) / 2.0 + ascent;
-            draw_line(fonts, &mut canvas, text, px, origin, baseline, (r, g, b), area);
+            draw_line(
+                fonts,
+                &mut canvas,
+                text,
+                px,
+                origin,
+                baseline,
+                (r, g, b),
+                area,
+            );
         }
     }
 }
@@ -683,7 +831,9 @@ impl Art {
     pub fn new() -> Self {
         let mut reader = Reader(ART);
         let count = reader.byte();
-        let colors: Vec<u32> = (0..count).map(|_| u32::from_le_bytes(reader.bytes())).collect();
+        let colors: Vec<u32> = (0..count)
+            .map(|_| u32::from_le_bytes(reader.bytes()))
+            .collect();
         let sprites = (0..22)
             .map(|_| {
                 let design = reader.short() as i32;
@@ -702,7 +852,12 @@ impl Art {
                                 (op, values)
                             })
                             .collect();
-                        Shape { fill, stroke, width, commands }
+                        Shape {
+                            fill,
+                            stroke,
+                            width,
+                            commands,
+                        }
                     })
                     .collect();
                 Sprite { design, shapes }
@@ -733,7 +888,9 @@ impl Art {
             stride: canvas.stride,
             scale: painter.scale,
         };
-        if let Some((_, pixels)) = self.background.as_ref()
+        if let Some((_, pixels)) = self
+            .background
+            .as_ref()
             .filter(|(saved, pixels)| *saved == background && pixels.len() == canvas.data.len())
         {
             canvas.data.copy_from_slice(pixels);
@@ -745,7 +902,12 @@ impl Art {
         let grid = layout.grid(level, size, identity);
         painter.fill(Box2(0, 0, width, height), CANVAS);
         painter.bevel(
-            Box2(0, MENU, width, height - MENU - if identity { FOOTER } else { 0 }),
+            Box2(
+                0,
+                MENU,
+                width,
+                height - MENU - if identity { FOOTER } else { 0 },
+            ),
             layout.outer_edge,
             true,
         );
@@ -758,7 +920,10 @@ impl Art {
         if id >= self.sprites.len() || self.sprites[id].design == 0 {
             return;
         }
-        if !self.images[id].as_ref().is_some_and(|(side, _)| *side == size) {
+        if !self.images[id]
+            .as_ref()
+            .is_some_and(|(side, _)| *side == size)
+        {
             let image = render_sprite(&self.sprites[id], size);
             self.images[id] = Some((size, image));
         }
@@ -767,11 +932,22 @@ impl Art {
         }
     }
 
-    pub fn number(&mut self, painter: &Painter, x: i32, y: i32, width: i32, height: i32, value: u32) {
+    pub fn number(
+        &mut self,
+        painter: &Painter,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        value: u32,
+    ) {
         let value = value.min(999);
         for (pos, divisor) in [100, 10, 1].into_iter().enumerate() {
             let digit = (value / divisor % 10) as usize;
-            if !self.digits[digit].as_ref().is_some_and(|((w, h), _)| *w == width && *h == height) {
+            if !self.digits[digit]
+                .as_ref()
+                .is_some_and(|((w, h), _)| *w == width && *h == height)
+            {
                 self.digits[digit] = Some(((width, height), render_digit(digit, width, height)));
             }
             if let Some((_, image)) = &self.digits[digit] {
@@ -794,8 +970,19 @@ mod tests {
             let (width, height) = size;
             let stride = width as usize * 4;
             let mut pixels = vec![0x5a; stride * height as usize];
-            let canvas = Canvas { data: &mut pixels, width, height, stride };
-            art.board_background(&Painter::new(canvas, &fonts, 1.0), size, layout, 0, identity);
+            let canvas = Canvas {
+                data: &mut pixels,
+                width,
+                height,
+                stride,
+            };
+            art.board_background(
+                &Painter::new(canvas, &fonts, 1.0),
+                size,
+                layout,
+                0,
+                identity,
+            );
             pixels
         };
 
@@ -815,15 +1002,28 @@ mod tests {
         use crate::{config::Settings, core::Round, layout::CounterLayout, view::Counter};
 
         let settings = Settings::read(std::path::Path::new(".")).unwrap();
-        let initial = Round::new(&settings).counter_rows(settings.text(crate::config::Text::Standard));
+        let initial =
+            Round::new(&settings).counter_rows(settings.text(crate::config::Text::Standard));
         let fonts = Fonts::load(true);
         let (width, height) = CounterLayout::new(settings.counter_pixels).size();
         let stride = width as usize * 4;
         let mut pixels = vec![0; stride * height as usize];
         let mut counter = Counter::default();
         let draw = |counter: &mut Counter, values: &[String], pixels: &mut [u8]| {
-            let canvas = Canvas { data: pixels, width, height, stride };
-            counter.draw(&Painter::new(canvas, &fonts, 1.0), &settings, values.to_vec(), width, height, false)
+            let canvas = Canvas {
+                data: pixels,
+                width,
+                height,
+                stride,
+            };
+            counter.draw(
+                &Painter::new(canvas, &fonts, 1.0),
+                &settings,
+                values.to_vec(),
+                width,
+                height,
+                false,
+            )
         };
         assert_eq!(draw(&mut counter, &initial, &mut pixels), None);
         assert_eq!(draw(&mut counter, &initial, &mut pixels), Some(Vec::new()));
@@ -833,7 +1033,9 @@ mod tests {
         updated[15] = "543.2".into();
         let regions = draw(&mut counter, &updated, &mut pixels).unwrap();
         assert_eq!(regions.len(), 2);
-        assert!(regions.iter().all(|area| area.0 > width / 3 && area.3 < height / 10));
+        assert!(regions
+            .iter()
+            .all(|area| area.0 > width / 3 && area.3 < height / 10));
 
         let mut full = vec![0; pixels.len()];
         assert_eq!(draw(&mut Counter::default(), &updated, &mut full), None);
@@ -854,12 +1056,20 @@ pub struct Buffer {
 
 impl Default for Buffer {
     fn default() -> Self {
-        Self { surface: None, fonts: Fonts::new() }
+        Self {
+            surface: None,
+            fonts: Fonts::new(),
+        }
     }
 }
 
 impl Buffer {
-    pub fn counter() -> Self { Self { surface: None, fonts: Fonts::load(true) } }
+    pub fn counter() -> Self {
+        Self {
+            surface: None,
+            fonts: Fonts::load(true),
+        }
+    }
 
     pub fn measure(&self, text: &str, size: i32, scale: f64) -> i32 {
         measure_ui(&self.fonts, text, size, scale)
@@ -887,36 +1097,66 @@ impl Buffer {
     ) -> Result<(), String> {
         let mut screen = window.surface(events).map_err(|e| e.to_string())?;
         let (width, height) = (screen.width(), screen.height());
-        if !self.surface.as_ref().is_some_and(|s| (s.width(), s.height()) == (width, height)) {
-            self.surface = Some(Surface::new(width, height, PixelFormat::ARGB8888).map_err(|e| e.to_string())?);
+        if !self
+            .surface
+            .as_ref()
+            .is_some_and(|s| (s.width(), s.height()) == (width, height))
+        {
+            self.surface = Some(
+                Surface::new(width, height, PixelFormat::ARGB8888).map_err(|e| e.to_string())?,
+            );
         }
         let fonts = &self.fonts;
         let surface = self.surface.as_mut().unwrap();
         let pitch = surface.pitch() as usize;
         let regions = surface.with_lock_mut(|data| {
-            let canvas = Canvas { data, width: width as i32, height: height as i32, stride: pitch };
+            let canvas = Canvas {
+                data,
+                width: width as i32,
+                height: height as i32,
+                stride: pitch,
+            };
             let painter = Painter::new(canvas, fonts, scale);
-            draw(&painter, (width as f64 / scale).round() as i32, (height as f64 / scale).round() as i32)
-                .map(|regions| regions.into_iter().filter_map(|area| {
-                    let Box2(x, y, w, h) = painter.scaled_area(area);
-                    (w > 0 && h > 0).then(|| Rect::new(x, y, w as u32, h as u32))
-                }).collect::<Vec<_>>())
+            draw(
+                &painter,
+                (width as f64 / scale).round() as i32,
+                (height as f64 / scale).round() as i32,
+            )
+            .map(|regions| {
+                regions
+                    .into_iter()
+                    .filter_map(|area| {
+                        let Box2(x, y, w, h) = painter.scaled_area(area);
+                        (w > 0 && h > 0).then(|| Rect::new(x, y, w as u32, h as u32))
+                    })
+                    .collect::<Vec<_>>()
+            })
         });
         if let Some(regions) = regions {
-            if regions.is_empty() { return Ok(()); }
-            for &rect in &regions {
-                surface.blit(rect, &mut screen, rect).map_err(|e| e.to_string())?;
+            if regions.is_empty() {
+                return Ok(());
             }
-            return screen.update_window_rects(&regions).map_err(|e| e.to_string());
+            for &rect in &regions {
+                surface
+                    .blit(rect, &mut screen, rect)
+                    .map_err(|e| e.to_string())?;
+            }
+            return screen
+                .update_window_rects(&regions)
+                .map_err(|e| e.to_string());
         }
-        surface.blit(None, &mut screen, None).map_err(|e| e.to_string())?;
+        surface
+            .blit(None, &mut screen, None)
+            .map_err(|e| e.to_string())?;
         screen.update_window().map_err(|e| e.to_string())
     }
 }
 
 fn measure_ui(fonts: &Fonts, text: &str, size: i32, scale: f64) -> i32 {
     let fonts = fonts.regular();
-    if fonts.is_empty() { return 0; }
+    if fonts.is_empty() {
+        return 0;
+    }
     let scale = scale as f32;
     (measure_text(fonts, text, size as f32 * scale) / scale).ceil() as i32
 }

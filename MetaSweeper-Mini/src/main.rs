@@ -12,9 +12,8 @@ mod view;
 
 use config::{Settings, Text};
 use core::{Replay, Round};
-use layout::{Box2, CounterLayout, Layout, COUNTER_MIN, MENU};
+use layout::{Box2, CounterLayout, FullscreenMode, Layout, COUNTER_MIN, MENU};
 use paint::{Align, Art, Buffer, INK, WHITE};
-use settings_ui::Outcome;
 use sdl3::{
     event::{DisplayEvent, Event, WindowEvent},
     keyboard::{Keycode, Mod, Scancode},
@@ -23,6 +22,7 @@ use sdl3::{
     video::Window,
     EventPump, Sdl, VideoSubsystem,
 };
+use settings_ui::Outcome;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -34,6 +34,7 @@ use view::{Action, Choice, Menu};
 
 const RESIZE_SETTLE: Duration = Duration::from_millis(180);
 const REFRESH_RECHECK: Duration = Duration::from_secs(2);
+const FULLSCREEN_COUNTER_REFRESH: u64 = 500;
 const REFRESH_TICK: i32 = 1;
 
 #[derive(Default)]
@@ -44,15 +45,25 @@ struct RefreshTimer {
 impl RefreshTimer {
     fn sync(&mut self, event_type: u32, interval: Option<Duration>) -> Result<(), String> {
         use sdl3_sys::timer::{SDL_AddTimerNS, SDL_RemoveTimer};
-        if self.active.map(|(_, interval)| interval) == interval { return Ok(()); }
+        if self.active.map(|(_, interval)| interval) == interval {
+            return Ok(());
+        }
         if let Some((timer, _)) = self.active.take() {
-            unsafe { SDL_RemoveTimer(timer); }
+            unsafe {
+                SDL_RemoveTimer(timer);
+            }
         }
         if let Some(interval) = interval {
             let timer = unsafe {
-                SDL_AddTimerNS(interval.as_nanos() as u64, Some(refresh_tick), event_type as usize as *mut _)
+                SDL_AddTimerNS(
+                    interval.as_nanos() as u64,
+                    Some(refresh_tick),
+                    event_type as usize as *mut _,
+                )
             };
-            if timer.0 == 0 { return Err(sdl3::get_error().to_string()); }
+            if timer.0 == 0 {
+                return Err(sdl3::get_error().to_string());
+            }
             self.active = Some((timer, interval));
         }
         Ok(())
@@ -60,11 +71,15 @@ impl RefreshTimer {
 }
 
 impl Drop for RefreshTimer {
-    fn drop(&mut self) { let _ = self.sync(0, None); }
+    fn drop(&mut self) {
+        let _ = self.sync(0, None);
+    }
 }
 
 unsafe extern "C" fn refresh_tick(
-    event_type: *mut std::ffi::c_void, _: sdl3_sys::timer::SDL_TimerID, interval: u64,
+    event_type: *mut std::ffi::c_void,
+    _: sdl3_sys::timer::SDL_TimerID,
+    interval: u64,
 ) -> u64 {
     let event_type = event_type as usize as u32;
     if !unsafe { sdl3_sys::events::SDL_HasEvent(event_type) } {
@@ -74,7 +89,9 @@ unsafe extern "C" fn refresh_tick(
 }
 
 fn refresh_interval(rate: Option<f64>) -> Duration {
-    let rate = rate.filter(|rate| rate.is_finite() && *rate > 1.0).unwrap_or(60.0);
+    let rate = rate
+        .filter(|rate| rate.is_finite() && *rate > 1.0)
+        .unwrap_or(60.0);
     Duration::from_secs_f64(1.0 / rate).max(Duration::from_nanos(1))
 }
 
@@ -94,7 +111,15 @@ impl Display {
     }
 
     fn with_buffer(window: Window, buffer: Buffer) -> Self {
-        Self { hook: None, window, buffer, dirty: true, ui_scale: 1.0, shown: false, reveal_position: None }
+        Self {
+            hook: None,
+            window,
+            buffer,
+            dirty: true,
+            ui_scale: 1.0,
+            shown: false,
+            reveal_position: None,
+        }
     }
 
     fn pixels(&self) -> (i32, i32) {
@@ -105,48 +130,76 @@ impl Display {
     fn point(&self, x: f32, y: f32) -> (i32, i32) {
         let (w, h) = self.window.size();
         let (pw, ph) = self.pixels();
-        ((x * pw as f32 / w.max(1) as f32).floor() as i32,
-         (y * ph as f32 / h.max(1) as f32).floor() as i32)
+        (
+            (x * pw as f32 / w.max(1) as f32).floor() as i32,
+            (y * ph as f32 / h.max(1) as f32).floor() as i32,
+        )
     }
 
     fn logical(&self, x: i32, y: i32) -> (i32, i32) {
         let (w, h) = self.window.size();
         let (pw, ph) = self.pixels();
-        ((x as f64 * w as f64 / pw.max(1) as f64).round() as i32,
-         (y as f64 * h as f64 / ph.max(1) as f64).round() as i32)
+        (
+            (x as f64 * w as f64 / pw.max(1) as f64).round() as i32,
+            (y as f64 * h as f64 / ph.max(1) as f64).round() as i32,
+        )
     }
 
     fn ui_pixels(&self) -> (i32, i32) {
         let (w, h) = self.pixels();
-        ((w as f64 / self.ui_scale).round() as i32, (h as f64 / self.ui_scale).round() as i32)
+        (
+            (w as f64 / self.ui_scale).round() as i32,
+            (h as f64 / self.ui_scale).round() as i32,
+        )
     }
 
     fn ui_point(&self, x: f32, y: f32) -> (i32, i32) {
         let (x, y) = self.point(x, y);
-        (((x as f64 + 0.5) / self.ui_scale).floor() as i32,
-         ((y as f64 + 0.5) / self.ui_scale).floor() as i32)
+        (
+            ((x as f64 + 0.5) / self.ui_scale).floor() as i32,
+            ((y as f64 + 0.5) / self.ui_scale).floor() as i32,
+        )
     }
 
     fn ui_to_window(&self, x: i32, y: i32) -> (i32, i32) {
-        self.logical((x as f64 * self.ui_scale).round() as i32, (y as f64 * self.ui_scale).round() as i32)
+        self.logical(
+            (x as f64 * self.ui_scale).round() as i32,
+            (y as f64 * self.ui_scale).round() as i32,
+        )
     }
 
     fn measure_setting(&self, text: &str) -> i32 {
         self.buffer.measure(text, settings_ui::FONT, self.ui_scale)
     }
 
-    fn draw(&mut self, events: &EventPump, draw: impl FnOnce(&paint::Painter, i32, i32)) -> Result<(), String> {
-        if !self.dirty { return Ok(()); }
+    fn draw(
+        &mut self,
+        events: &EventPump,
+        draw: impl FnOnce(&paint::Painter, i32, i32),
+    ) -> Result<(), String> {
+        if !self.dirty {
+            return Ok(());
+        }
         self.dirty = false;
-        self.buffer.present(&self.window, events, self.ui_scale, draw)
+        self.buffer
+            .present(&self.window, events, self.ui_scale, draw)
     }
 }
 
 enum Panel {
     Settings(Box<settings_ui::Form>),
-    Fullscreen { show_status: bool },
-    Save { path: String, replay: Replay, overwrite: bool, select: bool },
-    Message { text: String },
+    Fullscreen {
+        mode: FullscreenMode,
+    },
+    Save {
+        path: String,
+        replay: Replay,
+        overwrite: bool,
+        select: bool,
+    },
+    Message {
+        text: String,
+    },
 }
 
 struct Dialog {
@@ -165,11 +218,12 @@ struct App {
     main: Display,
     counter: Option<Display>,
     counter_view: view::Counter,
+    fullscreen_counter: view::FullscreenCounter,
     counter_resize_at: Option<Instant>,
     dialog: Option<Dialog>,
     wayland: bool,
     fullscreen: bool,
-    fullscreen_status: bool,
+    fullscreen_mode: FullscreenMode,
     windowed_level: usize,
     settings: Settings,
     root: PathBuf,
@@ -197,7 +251,12 @@ struct App {
 }
 
 impl App {
-    fn new(root: PathBuf, mut settings: Settings, jobs: Sender<Job>, replies: Receiver<Result<(), String>>) -> Result<Self, String> {
+    fn new(
+        root: PathBuf,
+        mut settings: Settings,
+        jobs: Sender<Job>,
+        replies: Receiver<Result<(), String>>,
+    ) -> Result<Self, String> {
         sdl3::hint::set("SDL_APP_ID", "org.metasweeper.Mini");
         sdl3::hint::set("SDL_IME_IMPLEMENTED_UI", "composition");
         platform::configure_window_hints();
@@ -207,11 +266,16 @@ impl App {
         let wake_type = unsafe { sdl.event().map_err(|e| e.to_string())?.register_event() }
             .map_err(|e| e.to_string())?;
         let wayland = video.current_video_driver() == "wayland";
-        let available = video.displays().ok().and_then(|ds| ds.first().copied())
+        let available = video
+            .displays()
+            .ok()
+            .and_then(|ds| ds.first().copied())
             .and_then(|display| display.get_usable_bounds().ok())
-            .map(|b| (b.width() as i32 - 20, b.height() as i32 - 55)).unwrap_or((1920, 1020));
+            .map(|b| (b.width() as i32 - 20, b.height() as i32 - 55))
+            .unwrap_or((1920, 1020));
         let requested = settings.pixels[settings.level];
-        let reference = requested.min(Layout::fit(requested, settings.level, settings.identity, available).tile);
+        let reference = requested
+            .min(Layout::fit(requested, settings.level, settings.identity, available).tile);
         settings.pixels[settings.level] = reference;
         let layout = Layout::new(reference, reference);
         let size = layout.size(settings.level, settings.identity);
@@ -221,16 +285,41 @@ impl App {
         let window = builder.build().map_err(|e| e.to_string())?;
         let round = Round::new(&settings);
         let mut app = Self {
-            sdl, video, main: Display::new(window), counter: None, counter_view: view::Counter::default(),
-            counter_resize_at: None, dialog: None, wayland, fullscreen: false, fullscreen_status: false,
+            sdl,
+            video,
+            main: Display::new(window),
+            counter: None,
+            counter_view: view::Counter::default(),
+            fullscreen_counter: view::FullscreenCounter::default(),
+            counter_resize_at: None,
+            dialog: None,
+            wayland,
+            fullscreen: false,
+            fullscreen_mode: FullscreenMode::Status,
             windowed_level: settings.level,
-            root, settings, round, last_saved_round: false, jobs, replies, errors: Vec::new(),
+            root,
+            settings,
+            round,
+            last_saved_round: false,
+            jobs,
+            replies,
+            errors: Vec::new(),
             pending_writes: 0,
             save_requested: false,
-            layout, reference, window_size_request: None, resized_at: None,
-            pointer: (-1,-1), held: 0, restart_pressed: false,
-            confinement: false, menu: Menu::default(), art: Art::new(), quit: false,
-            wake_type, refresh_every: refresh_interval(None), refresh_checked: Instant::now(),
+            layout,
+            reference,
+            window_size_request: None,
+            resized_at: None,
+            pointer: (-1, -1),
+            held: 0,
+            restart_pressed: false,
+            confinement: false,
+            menu: Menu::default(),
+            art: Art::new(),
+            quit: false,
+            wake_type,
+            refresh_every: refresh_interval(None),
+            refresh_checked: Instant::now(),
         };
         if let Some(position) = app.settings.position {
             platform::fit_to_screen(&app.main.window, position);
@@ -240,7 +329,9 @@ impl App {
         if let Some(position) = app.settings.position {
             platform::fit_to_screen(&app.main.window, position);
         }
-        if app.settings.counter { app.show_counter()?; }
+        if app.settings.counter {
+            app.show_counter()?;
+        }
         app.update_refresh_rate();
         Ok(app)
     }
@@ -248,26 +339,41 @@ impl App {
     fn resize_main(&mut self, tile: i32) {
         self.release_cursor();
         let (level, footer) = (self.settings.level, self.settings.identity);
-        let available = self.main.window.get_display().ok()
+        let available = self
+            .main
+            .window
+            .get_display()
+            .ok()
             .and_then(|display| display.get_usable_bounds().ok())
             .map(|r| self.main.point(r.width() as f32, r.height() as f32))
             .map(|(width, height)| (width - 16, height - 48))
             .unwrap_or((1920, 1020));
-        if let Some(hook) = &self.main.hook { hook.update_board(&self.settings); }
-        if !platform::normal(&self.main.window) { self.user_resize(); return; }
+        if let Some(hook) = &self.main.hook {
+            hook.update_board(&self.settings);
+        }
+        if !platform::normal(&self.main.window) {
+            self.user_resize();
+            return;
+        }
         let available = platform::client_capacity(&self.main.window).unwrap_or(available);
         let target = tile.min(Layout::fit(self.reference, level, footer, available).tile);
         self.layout = Layout::new(target, self.reference);
         self.settings.pixels[level] = target;
         let min = Layout::new(5, self.reference).size(level, footer);
         let (min_x, min_y) = self.main.logical(min.0, min.1);
-        let _ = self.main.window.set_minimum_size(min_x.max(1) as u32, min_y.max(1) as u32);
+        let _ = self
+            .main
+            .window
+            .set_minimum_size(min_x.max(1) as u32, min_y.max(1) as u32);
         let desired = self.layout.size(level, footer);
         let logical = self.main.logical(desired.0, desired.1);
         self.resized_at = None;
         self.window_size_request = Some(logical);
         if self.main.window.size() != (logical.0 as u32, logical.1 as u32) {
-            let _ = self.main.window.set_size(logical.0.max(1) as u32, logical.1.max(1) as u32);
+            let _ = self
+                .main
+                .window
+                .set_size(logical.0.max(1) as u32, logical.1.max(1) as u32);
         }
         self.main.dirty = true;
     }
@@ -278,7 +384,12 @@ impl App {
         let size = (size.0 as i32, size.1 as i32);
         if self.window_size_request != Some(size) {
             self.window_size_request = None;
-            self.layout = Layout::fit(self.reference, self.settings.level, self.settings.identity, self.main.pixels());
+            self.layout = Layout::fit(
+                self.reference,
+                self.settings.level,
+                self.settings.identity,
+                self.main.pixels(),
+            );
             self.settings.pixels[self.settings.level] = self.layout.tile;
             if self.main.hook.is_some() {
                 self.main.dirty = true;
@@ -290,9 +401,16 @@ impl App {
     }
 
     fn update_refresh_rate(&mut self) {
-        let window = self.counter.as_ref().filter(|_| !self.fullscreen)
-            .map(|counter| &counter.window).unwrap_or(&self.main.window);
-        self.refresh_every = refresh_interval(platform::refresh_rate(window));
+        self.refresh_every = if self.fullscreen && self.fullscreen_mode == FullscreenMode::Counter {
+            Duration::from_millis(1000 / FULLSCREEN_COUNTER_REFRESH)
+        } else {
+            let window = self
+                .counter
+                .as_ref()
+                .map(|counter| &counter.window)
+                .unwrap_or(&self.main.window);
+            refresh_interval(platform::refresh_rate(window))
+        };
         self.refresh_checked = Instant::now();
     }
 
@@ -301,31 +419,58 @@ impl App {
     }
 
     fn show_counter(&mut self) -> Result<(), String> {
-        if self.counter.is_some() { return Ok(()); }
+        if self.counter.is_some() {
+            return Ok(());
+        }
         self.counter_resize_at = None;
-        let scale = CounterLayout::fit(self.settings.counter_pixels, counter_capacity(&self.main.window));
+        let scale = CounterLayout::fit(
+            self.settings.counter_pixels,
+            counter_capacity(&self.main.window),
+        );
         self.settings.counter_pixels = scale;
         let (width, height) = CounterLayout::new(scale).size();
-        let mut builder = self.video.window(self.settings.text(Text::Counter), width as u32, height as u32);
+        let mut builder = self.video.window(
+            self.settings.text(Text::Counter),
+            width as u32,
+            height as u32,
+        );
         builder.borderless().resizable();
         builder.hidden();
-        builder.set_window_flags(builder.window_flags() | sdl3_sys::video::SDL_WINDOW_UTILITY.0 as u32);
+        builder.set_window_flags(
+            builder.window_flags() | sdl3_sys::video::SDL_WINDOW_UTILITY.0 as u32,
+        );
         if !self.wayland {
             let (x, y) = self.main.window.position();
-            let left = self.main.window.get_display().ok().and_then(|d| d.get_usable_bounds().ok()).map(|r| r.x).unwrap_or(0);
-            let x = if x - width - 9 >= left { x - width - 9 }
-                else { x + self.main.window.size().0 as i32 + 9 };
+            let left = self
+                .main
+                .window
+                .get_display()
+                .ok()
+                .and_then(|d| d.get_usable_bounds().ok())
+                .map(|r| r.x)
+                .unwrap_or(0);
+            let x = if x - width - 9 >= left {
+                x - width - 9
+            } else {
+                x + self.main.window.size().0 as i32 + 9
+            };
             let (x, y) = self.settings.counter_position.unwrap_or((x, y + 10));
             builder.position(x, y);
         }
         let mut window = builder.build().map_err(|e| e.to_string())?;
-        unsafe { sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw()); }
+        unsafe {
+            sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw());
+        }
         let min = CounterLayout::new(COUNTER_MIN).size();
         let _ = window.set_minimum_size(min.0 as u32, min.1 as u32);
         let mut display = Display::with_buffer(window, Buffer::counter());
         display.hook = platform::counter_hook(&display.window, self.wake_type, scale)?;
         platform::set_counter_hit_test(&mut display.window, display.hook.is_none());
-        platform::position_counter(&self.main.window, &display.window, self.settings.counter_position);
+        platform::position_counter(
+            &self.main.window,
+            &display.window,
+            self.settings.counter_position,
+        );
         self.counter_view.invalidate();
         self.counter = Some(display);
         self.update_refresh_rate();
@@ -334,19 +479,31 @@ impl App {
 
     fn settle_counter_resize(&mut self) {
         self.counter_resize_at = None;
-        let Some(counter) = &mut self.counter else { return };
+        let Some(counter) = &mut self.counter else {
+            return;
+        };
         let current = self.settings.counter_pixels;
         let prior = CounterLayout::new(current).size();
         let size = counter.ui_pixels();
-        if size == prior { return; }
-        let scale = CounterLayout::nearest(current, size, counter_capacity(&counter.window),
-            (size.0 != prior.0, size.1 != prior.1));
+        if size == prior {
+            return;
+        }
+        let scale = CounterLayout::nearest(
+            current,
+            size,
+            counter_capacity(&counter.window),
+            (size.0 != prior.0, size.1 != prior.1),
+        );
         self.settings.counter_pixels = scale;
-        if let Some(hook) = &counter.hook { hook.update_counter(scale); }
+        if let Some(hook) = &counter.hook {
+            hook.update_counter(scale);
+        }
         let target = CounterLayout::new(scale).size();
         if size != target {
             let (width, height) = counter.logical(target.0, target.1);
-            let _ = counter.window.set_size(width.max(1) as u32, height.max(1) as u32);
+            let _ = counter
+                .window
+                .set_size(width.max(1) as u32, height.max(1) as u32);
         }
         self.counter_view.invalidate();
         counter.dirty = true;
@@ -354,26 +511,41 @@ impl App {
     }
 
     fn remember_main_position(&mut self) {
-        if self.fullscreen { return; }
+        if self.fullscreen {
+            return;
+        }
         if let Some(position) = platform::window_position(&self.main.window) {
             self.settings.position = Some(position);
         }
     }
 
-    fn change_fullscreen(&mut self, status: Option<bool>) -> bool {
-        let enabled = status.is_some();
+    fn change_fullscreen(&mut self, requested_mode: Option<FullscreenMode>) -> bool {
+        let enabled = requested_mode.is_some();
         if self.wayland {
-            self.errors.push(self.settings.text(Text::FullscreenWayland).into());
+            self.errors
+                .push(self.settings.text(Text::FullscreenWayland).into());
             return false;
         }
         self.cancel_input();
         self.menu.open = None;
         self.pointer = (-1, -1);
         let mut hide_counter = false;
+        let mode = requested_mode.unwrap_or(self.fullscreen_mode);
         if enabled {
             self.remember_main_position();
-            if let Some(counter) = &self.counter {
-                let displays = self.main.window.get_display().ok().zip(counter.window.get_display().ok());
+            if mode == FullscreenMode::Counter {
+                hide_counter = true;
+                if let Some(counter) = self.counter.as_mut() {
+                    counter.dirty = false;
+                    counter.shown = false;
+                }
+            } else if let Some(counter) = &self.counter {
+                let displays = self
+                    .main
+                    .window
+                    .get_display()
+                    .ok()
+                    .zip(counter.window.get_display().ok());
                 hide_counter = displays.is_none_or(|(main, counter)| main == counter);
                 if hide_counter {
                     if let Some(position) = platform::window_position(&counter.window) {
@@ -382,18 +554,24 @@ impl App {
                 }
             }
         }
-        let result = if let Some(show_status) = status {
-            let size = self.layout.fullscreen_size(self.settings.level, show_status);
-            platform::enter_exclusive_fullscreen(&mut self.main.window, size)
+        let result = if let Some(fullscreen_mode) = requested_mode {
+            let (width, height, _) = self
+                .layout
+                .fullscreen_size(self.settings.level, fullscreen_mode);
+            platform::enter_exclusive_fullscreen(&mut self.main.window, (width, height))
         } else {
             platform::leave_exclusive_fullscreen(&mut self.main.window)
         };
         if let Err(error) = result {
-            self.errors.push(format!("{}\n{error}", self.settings.text(Text::FullscreenError)));
+            self.errors.push(format!(
+                "{}\n{error}",
+                self.settings.text(Text::FullscreenError)
+            ));
             return false;
         }
         self.fullscreen = enabled;
-        self.fullscreen_status = status.unwrap_or(false);
+        self.fullscreen_mode = mode;
+        self.fullscreen_counter.invalidate();
         self.resized_at = None;
         if enabled {
             self.windowed_level = self.settings.level;
@@ -407,7 +585,11 @@ impl App {
             self.window_size_request = Some((width as i32, height as i32));
             if self.settings.level != self.windowed_level {
                 self.resize_main(self.layout.tile);
-                if let Some(position) = self.settings.position.filter(|_| platform::normal(&self.main.window)) {
+                if let Some(position) = self
+                    .settings
+                    .position
+                    .filter(|_| platform::normal(&self.main.window))
+                {
                     platform::fit_to_screen(&self.main.window, position);
                 }
             }
@@ -425,17 +607,27 @@ impl App {
 
     fn persist(&mut self) {
         if let Err(e) = self.settings.save(&self.root) {
-            self.errors.push(format!("{}\n{e}", self.settings.text(Text::SettingsSaveError)));
+            self.errors.push(format!(
+                "{}\n{e}",
+                self.settings.text(Text::SettingsSaveError)
+            ));
         }
     }
 
-    fn open_dialog(&mut self, title: &'static str, panel: Panel, size: (u32, u32)) -> Result<(), String> {
+    fn open_dialog(
+        &mut self,
+        title: &'static str,
+        panel: Panel,
+        size: (u32, u32),
+    ) -> Result<(), String> {
         self.cancel_input();
         let mut builder = self.video.window(title, size.0, size.1);
         builder.position_centered();
         let scaled = matches!(panel, Panel::Settings(_) | Panel::Fullscreen { .. });
         builder.hidden();
-        if scaled { builder.high_pixel_density(); }
+        if scaled {
+            builder.high_pixel_density();
+        }
         let mut window = builder.build().map_err(|e| e.to_string())?;
         unsafe {
             sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw());
@@ -451,8 +643,12 @@ impl App {
                 platform::center_settings(&window, &self.main.window);
             }
             scale
-        } else { 1.0 };
-        if matches!(panel, Panel::Settings(_) | Panel::Save { .. }) { self.video.text_input().start(&window); }
+        } else {
+            1.0
+        };
+        if matches!(panel, Panel::Settings(_) | Panel::Save { .. }) {
+            self.video.text_input().start(&window);
+        }
         let mut display = Display::new(window);
         display.ui_scale = ui_scale;
         self.dialog = Some(Dialog { display, panel });
@@ -473,15 +669,28 @@ impl App {
     }
 
     fn action(&mut self, action: Action) -> Result<(), String> {
-        if self.fullscreen && matches!(action, Action::Settings | Action::Shortcuts
-            | Action::Open | Action::Instructions | Action::License | Action::Counter | Action::Identity
-            | Action::Save)
+        if self.fullscreen
+            && matches!(
+                action,
+                Action::Settings
+                    | Action::Shortcuts
+                    | Action::Open
+                    | Action::Instructions
+                    | Action::License
+                    | Action::Counter
+                    | Action::Identity
+                    | Action::Save
+            )
             && (action != Action::Save || self.round.ended() && self.round.timing_valid)
-            && !self.change_fullscreen(None) {
+            && !self.change_fullscreen(None)
+        {
             return Ok(());
         }
-        if matches!(action, Action::Shortcuts | Action::Instructions | Action::License)
-            || (action == Action::Save && self.round.ended() && self.round.timing_valid) {
+        if matches!(
+            action,
+            Action::Shortcuts | Action::Instructions | Action::License
+        ) || (action == Action::Save && self.round.ended() && self.round.timing_valid)
+        {
             self.cancel_input();
         }
         let settings = &self.settings;
@@ -491,9 +700,16 @@ impl App {
                 if let Action::Level(level) = action {
                     if self.fullscreen {
                         if level != self.settings.level {
-                            let size = self.layout.fullscreen_size(level, self.fullscreen_status);
-                            if let Err(error) = platform::resize_exclusive_fullscreen(&self.main.window, size) {
-                                self.errors.push(format!("{}\n{error}", self.settings.text(Text::FullscreenError)));
+                            let (width, height, _) =
+                                self.layout.fullscreen_size(level, self.fullscreen_mode);
+                            if let Err(error) = platform::resize_exclusive_fullscreen(
+                                &self.main.window,
+                                (width, height),
+                            ) {
+                                self.errors.push(format!(
+                                    "{}\n{error}",
+                                    self.settings.text(Text::FullscreenError)
+                                ));
                                 return Ok(());
                             }
                             self.pointer = (-1, -1);
@@ -503,7 +719,11 @@ impl App {
                     } else {
                         self.settings.level = level;
                         self.resize_main(self.layout.tile);
-                        if let Some(position) = self.settings.position.filter(|_| platform::normal(&self.main.window)) {
+                        if let Some(position) = self
+                            .settings
+                            .position
+                            .filter(|_| platform::normal(&self.main.window))
+                        {
                             platform::fit_to_screen(&self.main.window, position);
                         }
                     }
@@ -519,27 +739,47 @@ impl App {
                 }
                 match self.round.replay(settings) {
                     Ok(replay) => {
-                        if let Some(result) = platform::save_dialog(&self.main.window, settings, &replay.name) {
+                        if let Some(result) =
+                            platform::save_dialog(&self.main.window, settings, &replay.name)
+                        {
                             match result {
                                 Ok(Some(path)) => self.queue_replay(replay, Some(path)),
                                 Ok(None) => (),
-                                Err(error) => self.errors.push(format!("{}\n{error}", settings.text(Text::ReplaySaveError))),
+                                Err(error) => self.errors.push(format!(
+                                    "{}\n{error}",
+                                    settings.text(Text::ReplaySaveError)
+                                )),
                             }
                             self.main.dirty = true;
                             return Ok(());
                         }
-                        let path = self.root.join("replay").join(format!("{}.evf", replay.name));
-                        self.open_dialog(settings.text(Text::SaveReplayTitle),
-                            Panel::Save { path: path.to_string_lossy().into_owned(), replay, overwrite: false, select: false }, (570, 120))?;
+                        let path = self
+                            .root
+                            .join("replay")
+                            .join(format!("{}.evf", replay.name));
+                        self.open_dialog(
+                            settings.text(Text::SaveReplayTitle),
+                            Panel::Save {
+                                path: path.to_string_lossy().into_owned(),
+                                replay,
+                                overwrite: false,
+                                select: false,
+                            },
+                            (570, 120),
+                        )?;
                     }
-                    Err(e) => self.errors.push(format!("{}\n{e}", settings.text(Text::ReplayGenerationError))),
+                    Err(e) => self.errors.push(format!(
+                        "{}\n{e}",
+                        settings.text(Text::ReplayGenerationError)
+                    )),
                 }
             }
             Action::Save => {}
             Action::Open => {
                 let root = self.root.join("replay");
                 if let Err(e) = fs::create_dir_all(&root).and_then(|_| open_directory(&root)) {
-                    self.errors.push(format!("{}\n{e}", settings.text(Text::ReplayFolderError)));
+                    self.errors
+                        .push(format!("{}\n{e}", settings.text(Text::ReplayFolderError)));
                 }
             }
             Action::Quit => self.quit = true,
@@ -547,13 +787,22 @@ impl App {
                 if self.fullscreen {
                     self.change_fullscreen(None);
                 } else {
-                    self.open_dialog(settings.text(Text::Fullscreen), Panel::Fullscreen { show_status: false }, (376, 62))?;
+                    self.open_dialog(
+                        settings.text(Text::Fullscreen),
+                        Panel::Fullscreen {
+                            mode: FullscreenMode::Board,
+                        },
+                        (556, 62),
+                    )?;
                 }
             }
             Action::Settings => {
                 let form = Box::new(settings_ui::Form::new(settings.clone()));
-                self.open_dialog(settings.text(Text::GameSettings),
-                    Panel::Settings(form), settings_ui::SIZE)?;
+                self.open_dialog(
+                    settings.text(Text::GameSettings),
+                    Panel::Settings(form),
+                    settings_ui::SIZE,
+                )?;
             }
             Action::CursorLock => {
                 self.settings.cursor_lock = !self.settings.cursor_lock;
@@ -563,8 +812,13 @@ impl App {
             }
             Action::Counter => {
                 self.settings.counter = self.counter.is_none();
-                if self.settings.counter { self.show_counter()?; }
-                else { self.counter = None; self.counter_resize_at = None; self.update_refresh_rate(); }
+                if self.settings.counter {
+                    self.show_counter()?;
+                } else {
+                    self.counter = None;
+                    self.counter_resize_at = None;
+                    self.update_refresh_rate();
+                }
                 self.persist();
             }
             Action::Identity => {
@@ -574,17 +828,30 @@ impl App {
             }
             Action::Shortcuts | Action::Instructions | Action::License => {
                 let text = match action {
-                    Action::Shortcuts => view::ENTRIES.iter().flat_map(|group| group.iter())
-                        .filter(|(_,_,key)| !key.is_empty())
+                    Action::Shortcuts => view::ENTRIES
+                        .iter()
+                        .flat_map(|group| group.iter())
+                        .filter(|(_, _, key)| !key.is_empty())
                         .map(|(_, id, key)| format!("{}    {key}", settings.text(*id)))
-                        .collect::<Vec<_>>().join("\n"),
-                    Action::Instructions => format!("{}\n\n{}", settings.text(Text::ClickHelp), settings.text(Text::WindowHelp)),
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    Action::Instructions => format!(
+                        "{}\n\n{}",
+                        settings.text(Text::ClickHelp),
+                        settings.text(Text::WindowHelp)
+                    ),
                     _ => include_str!("../obj/ms-toollib/LICENSE").into(),
                 };
                 let title = match action {
-                    Action::Shortcuts => Text::Shortcuts, Action::Instructions => Text::Instructions, _ => Text::License,
+                    Action::Shortcuts => Text::Shortcuts,
+                    Action::Instructions => Text::Instructions,
+                    _ => Text::License,
                 };
-                let native_title = if action == Action::License { "ms_toollib" } else { settings.text(title) };
+                let native_title = if action == Action::License {
+                    "ms_toollib"
+                } else {
+                    settings.text(title)
+                };
                 if platform::message(&self.main.window, native_title, &text, false) {
                     self.sync_cursor();
                     self.main.dirty = true;
@@ -594,7 +861,11 @@ impl App {
             }
         }
         self.main.dirty = true;
-        if let Some(counter) = &mut self.counter { counter.dirty = true; }
+        if !(self.fullscreen && self.fullscreen_mode == FullscreenMode::Counter) {
+            if let Some(counter) = &mut self.counter {
+                counter.dirty = true;
+            }
+        }
         Ok(())
     }
 
@@ -613,14 +884,22 @@ impl App {
         let next = self.settings.pixels[self.settings.level];
         if next != pixels || footer != self.settings.identity {
             self.resize_main(next);
-            if let Some(position) = self.settings.position.filter(|_| platform::normal(&self.main.window)) {
+            if let Some(position) = self
+                .settings
+                .position
+                .filter(|_| platform::normal(&self.main.window))
+            {
                 platform::fit_to_screen(&self.main.window, position);
             }
         }
         let _ = self.main.window.set_title(self.settings.text(Text::Title));
         self.round.set_identity(&self.settings);
-        if !self.settings.counter || counter_pixels != self.settings.counter_pixels { self.counter = None; }
-        if self.settings.counter { self.show_counter()?; }
+        if !self.settings.counter || counter_pixels != self.settings.counter_pixels {
+            self.counter = None;
+        }
+        if self.settings.counter {
+            self.show_counter()?;
+        }
         if let Some(counter) = &mut self.counter {
             let _ = counter.window.set_title(self.settings.text(Text::Counter));
             self.counter_view.invalidate();
@@ -634,7 +913,9 @@ impl App {
     }
 
     fn commit_dialog(&mut self) -> Result<(), String> {
-        let Some(dialog) = &mut self.dialog else { return Ok(()) };
+        let Some(dialog) = &mut self.dialog else {
+            return Ok(());
+        };
         match &mut dialog.panel {
             Panel::Settings(form) => {
                 if !form.prepare() {
@@ -642,9 +923,15 @@ impl App {
                     return Ok(());
                 }
             }
-            Panel::Save { path, overwrite, .. } => {
+            Panel::Save {
+                path, overwrite, ..
+            } => {
                 let target = save_path(&self.root, path);
-                if target.is_file() && !*overwrite { *overwrite = true; dialog.display.dirty = true; return Ok(()); }
+                if target.is_file() && !*overwrite {
+                    *overwrite = true;
+                    dialog.display.dirty = true;
+                    return Ok(());
+                }
             }
             Panel::Fullscreen { .. } | Panel::Message { .. } => {}
         }
@@ -663,9 +950,9 @@ impl App {
                     self.queue_replay(replay, Some(path));
                 }
             }
-            Panel::Fullscreen { show_status } => {
+            Panel::Fullscreen { mode } => {
                 self.main.window.raise();
-                self.change_fullscreen(Some(show_status));
+                self.change_fullscreen(Some(mode));
             }
             Panel::Message { .. } => {}
         }
@@ -675,19 +962,46 @@ impl App {
     }
 
     fn dialog_key(&mut self, key: Keycode, mods: Mod) -> Result<(), String> {
-        if let Some(Dialog { display, panel: Panel::Settings(form) }) = &mut self.dialog {
+        if let Some(Dialog {
+            display,
+            panel: Panel::Settings(form),
+        }) = &mut self.dialog
+        {
             let outcome = form.key(key, mods, &self.video);
             display.dirty = true;
             return self.settings_outcome(outcome);
         }
-        if key == Keycode::Escape { self.close_dialog(); self.sync_cursor(); return Ok(()); }
-        if key == Keycode::Return || key == Keycode::KpEnter { return self.commit_dialog(); }
+        if key == Keycode::Escape {
+            self.close_dialog();
+            self.sync_cursor();
+            return Ok(());
+        }
+        if key == Keycode::Return || key == Keycode::KpEnter {
+            return self.commit_dialog();
+        }
         let control = ctrl(mods);
-        let Some(dialog) = &mut self.dialog else { return Ok(()) };
+        let Some(dialog) = &mut self.dialog else {
+            return Ok(());
+        };
         match &mut dialog.panel {
-            Panel::Save { path, select, overwrite, .. } => {
-                edit_text(path, select, key, control,
-                    if control && key == Keycode::V { self.video.clipboard().clipboard_text().ok() } else { None }, 2048);
+            Panel::Save {
+                path,
+                select,
+                overwrite,
+                ..
+            } => {
+                edit_text(
+                    path,
+                    select,
+                    key,
+                    control,
+                    if control && key == Keycode::V {
+                        self.video.clipboard().clipboard_text().ok()
+                    } else {
+                        None
+                    },
+                    2048,
+                );
                 *overwrite = false;
             }
             Panel::Fullscreen { .. } | Panel::Message { .. } | Panel::Settings(_) => {}
@@ -709,30 +1023,47 @@ impl App {
     }
 
     fn dialog_click(&mut self, x: f32, y: f32, clicks: u8) -> Result<(), String> {
-        let Some(dialog) = &mut self.dialog else { return Ok(()) };
+        let Some(dialog) = &mut self.dialog else {
+            return Ok(());
+        };
         let (x, y) = dialog.display.ui_point(x, y);
         let (width, height) = dialog.display.ui_pixels();
         if let Panel::Settings(form) = &mut dialog.panel {
             if form.composing() {
-                unsafe { sdl3_sys::keyboard::SDL_ClearComposition(dialog.display.window.raw()); }
+                unsafe {
+                    sdl3_sys::keyboard::SDL_ClearComposition(dialog.display.window.raw());
+                }
                 form.clear_composition();
             }
-            let shift = self.sdl.keyboard().mod_state().intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
-            let outcome = form.click((x, y), (width, height), clicks, shift,
-                |text| dialog.display.measure_setting(text));
-            if form.dragging { self.sdl.mouse().capture(true); }
+            let shift = self
+                .sdl
+                .keyboard()
+                .mod_state()
+                .intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
+            let outcome = form.click((x, y), (width, height), clicks, shift, |text| {
+                dialog.display.measure_setting(text)
+            });
+            if form.dragging {
+                self.sdl.mouse().capture(true);
+            }
             dialog.display.dirty = true;
             return self.settings_outcome(outcome);
         }
-        if let Panel::Fullscreen { show_status } = &mut dialog.panel {
-            for choice in [false, true] {
+        if let Panel::Fullscreen { mode } = &mut dialog.panel {
+            for choice in [
+                FullscreenMode::Board,
+                FullscreenMode::Status,
+                FullscreenMode::Counter,
+            ] {
                 if view::fullscreen_button(width, height, choice).contains(x, y) {
-                    *show_status = choice;
+                    *mode = choice;
                     return self.commit_dialog();
                 }
             }
         } else if matches!(dialog.panel, Panel::Message { .. }) {
-            if view::dialog_button(width, height, false).contains(x, y) { self.close_dialog(); }
+            if view::dialog_button(width, height, false).contains(x, y) {
+                self.close_dialog();
+            }
         } else if view::dialog_button(width, height, true).contains(x, y) {
             self.commit_dialog()?;
         } else if view::dialog_button(width, height, false).contains(x, y) {
@@ -742,19 +1073,26 @@ impl App {
     }
 
     fn release_cursor(&mut self) {
-        if !self.confinement { return; }
+        if !self.confinement {
+            return;
+        }
         platform::release_cursor(&mut self.main.window);
         self.confinement = false;
     }
 
     fn sync_cursor(&mut self) {
-        if !self.settings.cursor_lock || self.wayland
-            || self.dialog.is_some() || self.resized_at.is_some()
-            || unsafe { sdl3_sys::keyboard::SDL_GetKeyboardFocus() } != self.main.window.raw() {
+        if !self.settings.cursor_lock
+            || self.wayland
+            || self.dialog.is_some()
+            || self.resized_at.is_some()
+            || unsafe { sdl3_sys::keyboard::SDL_GetKeyboardFocus() } != self.main.window.raw()
+        {
             self.release_cursor();
             return;
         }
-        if self.confinement { return; }
+        if self.confinement {
+            return;
+        }
         let r = self.grid();
         let (x, y) = self.main.logical(r.0, r.1);
         let (right, bottom) = self.main.logical(r.0 + r.2, r.1 + r.3);
@@ -766,7 +1104,10 @@ impl App {
         let grid = self.grid();
         let tile = self.layout.tile as usize;
         if grid.contains(x, y) {
-            ((x - grid.0) as usize * 16 / tile, (y - grid.1) as usize * 16 / tile)
+            (
+                (x - grid.0) as usize * 16 / tile,
+                (y - grid.1) as usize * 16 / tile,
+            )
         } else {
             (grid.2 as usize * 16 / tile, grid.3 as usize * 16 / tile)
         }
@@ -774,15 +1115,23 @@ impl App {
 
     fn grid(&self) -> Box2 {
         let size = self.main.pixels();
-        if self.fullscreen { self.layout.fullscreen_regions(self.settings.level, size, self.fullscreen_status).grid }
-        else { self.layout.grid(self.settings.level, size, self.settings.identity) }
+        if self.fullscreen {
+            self.layout
+                .fullscreen_regions(self.settings.level, size, self.fullscreen_mode)
+                .grid
+        } else {
+            self.layout
+                .grid(self.settings.level, size, self.settings.identity)
+        }
     }
 
     fn cancel_input(&mut self) {
         if self.held != 0 {
             let (x, y) = self.replay_point(-1, -1);
             for (bit, command) in [(1, 1), (2, 3)] {
-                if self.held & bit != 0 { self.round.play(command, x, y, &self.settings); }
+                if self.held & bit != 0 {
+                    self.round.play(command, x, y, &self.settings);
+                }
             }
             self.held = 0;
         }
@@ -797,58 +1146,107 @@ impl App {
         self.pointer = (x, y);
         self.main.dirty = true;
         if !self.fullscreen && btn == MouseButton::Left && down && y < MENU && self.held == 0 {
-            let choice = self.menu.top.iter().find(|(rect, _)| rect.contains(x, y)).map(|(_, i)| *i);
+            let choice = self
+                .menu
+                .top
+                .iter()
+                .find(|(rect, _)| rect.contains(x, y))
+                .map(|(_, i)| *i);
             self.menu.open = choice.filter(|choice| self.menu.open != Some(*choice));
             return Ok(());
         }
         if self.menu.open.is_some() {
-            if !down || btn != MouseButton::Left { return Ok(()); }
-            let choice = self.menu.options.iter().find(|(rect, _)| rect.contains(x, y)).map(|(_, c)| *c);
+            if !down || btn != MouseButton::Left {
+                return Ok(());
+            }
+            let choice = self
+                .menu
+                .options
+                .iter()
+                .find(|(rect, _)| rect.contains(x, y))
+                .map(|(_, c)| *c);
             self.menu.open = None;
-            if let Some(Choice::Command(action)) = choice { self.action(action)?; }
-            if let Some(Choice::Menu(index)) = choice { self.menu.open = Some(index); }
+            if let Some(Choice::Command(action)) = choice {
+                self.action(action)?;
+            }
+            if let Some(Choice::Menu(index)) = choice {
+                self.menu.open = Some(index);
+            }
             return Ok(());
         }
         let size = self.main.pixels();
         let status = if self.fullscreen {
-            self.layout.fullscreen_regions(self.settings.level, size, self.fullscreen_status).status
+            self.layout
+                .fullscreen_regions(self.settings.level, size, self.fullscreen_mode)
+                .status
         } else {
             Some(self.layout.status(size.0))
         };
         let over_status = status.is_some_and(|status| status.contains(x, y));
         if btn == MouseButton::Left && self.held == 0 && (self.restart_pressed || over_status) {
-            if !down && self.restart_pressed && over_status { self.action(Action::Restart)?; }
+            if !down && self.restart_pressed && over_status {
+                self.action(Action::Restart)?;
+            }
             self.restart_pressed = down && over_status;
             self.sdl.mouse().capture(self.restart_pressed);
             return Ok(());
         }
-        if self.round.ended() { return Ok(()); }
-        let bit = match btn { MouseButton::Left => 1, MouseButton::Right => 2, _ => return Ok(()) };
+        if self.round.ended() {
+            return Ok(());
+        }
+        let bit = match btn {
+            MouseButton::Left => 1,
+            MouseButton::Right => 2,
+            _ => return Ok(()),
+        };
         let inside = self.grid().contains(x, y);
-        if down && (!inside || self.held & bit != 0) || !down && self.held & bit == 0 { return Ok(()); }
-        if down { self.held |= bit; } else { self.held &= !bit; }
+        if down && (!inside || self.held & bit != 0) || !down && self.held & bit == 0 {
+            return Ok(());
+        }
+        if down {
+            self.held |= bit;
+        } else {
+            self.held &= !bit;
+        }
         let (x, y) = self.replay_point(x, y);
-        self.round.play((bit - 1) as u32 * 2 + u32::from(!down), x, y, &self.settings);
+        self.round.play(
+            (bit - 1) as u32 * 2 + u32::from(!down),
+            x,
+            y,
+            &self.settings,
+        );
         if self.round.should_auto_restart(self.settings.auto_replay) {
             return self.action(Action::Restart);
         }
-        if self.round.ended() { self.held = 0; }
+        if self.round.ended() {
+            self.held = 0;
+        }
         self.sdl.mouse().capture(self.held != 0);
         self.sync_cursor();
         self.finish();
-        if let Some(counter) = &mut self.counter { counter.dirty = true; }
+        if let Some(counter) = &mut self.counter {
+            counter.dirty = true;
+        }
         Ok(())
     }
 
     fn finish(&mut self) {
-        if !self.round.ended() || self.last_saved_round { return; }
+        if !self.round.ended() || self.last_saved_round {
+            return;
+        }
         self.last_saved_round = true;
         if !self.round.timing_valid {
-            self.errors.push(self.settings.text(Text::TimingWarning).into());
-        } else if self.settings.autosave == 0 || (self.settings.autosave == 1 && self.round.phase() == 2) {
+            self.errors
+                .push(self.settings.text(Text::TimingWarning).into());
+        } else if self.settings.autosave == 0
+            || (self.settings.autosave == 1 && self.round.phase() == 2)
+        {
             match self.round.replay(&self.settings) {
                 Ok(replay) => self.queue_replay(replay, None),
-                Err(error) => self.errors.push(format!("{}\n{error}", self.settings.text(Text::ReplayGenerationError))),
+                Err(error) => self.errors.push(format!(
+                    "{}\n{error}",
+                    self.settings.text(Text::ReplayGenerationError)
+                )),
             }
         }
     }
@@ -858,28 +1256,63 @@ impl App {
             Event::Quit { .. } => self.quit = true,
             Event::Display { display_event, .. } => match display_event {
                 DisplayEvent::Removed => {
-                    if self.fullscreen && !self.change_fullscreen(None) { return Ok(()); }
+                    if self.fullscreen && !self.change_fullscreen(None) {
+                        return Ok(());
+                    }
                     platform::recover_window(&self.main.window);
-                    if let Some(counter) = &self.counter { platform::recover_window(&counter.window); }
+                    if let Some(counter) = &self.counter {
+                        platform::recover_window(&counter.window);
+                    }
                     self.update_refresh_rate();
                 }
-                DisplayEvent::CurrentModeChanged | DisplayEvent::DesktopModeChanged | DisplayEvent::Added => {
+                DisplayEvent::CurrentModeChanged
+                | DisplayEvent::DesktopModeChanged
+                | DisplayEvent::Added => {
                     self.update_refresh_rate();
                 }
                 _ => {}
             },
-            Event::Window { window_id, win_event, .. } => self.window_event(window_id, win_event)?,
-            Event::KeyDown { keycode, scancode, keymod, repeat, window_id, .. } => {
+            Event::Window {
+                window_id,
+                win_event,
+                ..
+            } => self.window_event(window_id, win_event)?,
+            Event::KeyDown {
+                keycode,
+                scancode,
+                keymod,
+                repeat,
+                window_id,
+                ..
+            } => {
                 if let Some(dialog) = &self.dialog {
-                    if window_id == dialog.display.window.id() && (!repeat || matches!(dialog.panel, Panel::Settings(_))
-                        && matches!(keycode, Some(Keycode::Left | Keycode::Right | Keycode::Up | Keycode::Down
-                            | Keycode::PageUp | Keycode::PageDown | Keycode::Backspace | Keycode::Delete))) {
-                        if let Some(key) = keycode { return self.dialog_key(key, keymod); }
+                    if window_id == dialog.display.window.id()
+                        && (!repeat
+                            || matches!(dialog.panel, Panel::Settings(_))
+                                && matches!(
+                                    keycode,
+                                    Some(
+                                        Keycode::Left
+                                            | Keycode::Right
+                                            | Keycode::Up
+                                            | Keycode::Down
+                                            | Keycode::PageUp
+                                            | Keycode::PageDown
+                                            | Keycode::Backspace
+                                            | Keycode::Delete
+                                    )
+                                ))
+                    {
+                        if let Some(key) = keycode {
+                            return self.dialog_key(key, keymod);
+                        }
                         return Ok(());
                     }
                     return Ok(());
                 }
-                if repeat { return Ok(()); }
+                if repeat {
+                    return Ok(());
+                }
                 if keycode == Some(Keycode::Escape) {
                     self.menu.open = None;
                     self.main.dirty = true;
@@ -889,12 +1322,21 @@ impl App {
                     }
                 }
             }
-            Event::TextInput { text, window_id, .. } => {
+            Event::TextInput {
+                text, window_id, ..
+            } => {
                 if let Some(dialog) = &mut self.dialog {
-                    if dialog.display.window.id() != window_id { return Ok(()); }
+                    if dialog.display.window.id() != window_id {
+                        return Ok(());
+                    }
                     match &mut dialog.panel {
                         Panel::Settings(form) => form.text(&text),
-                        Panel::Save { path, select, overwrite, .. } => {
+                        Panel::Save {
+                            path,
+                            select,
+                            overwrite,
+                            ..
+                        } => {
                             append_text(path, select, &text, 2048);
                             *overwrite = false;
                         }
@@ -903,65 +1345,130 @@ impl App {
                     dialog.display.dirty = true;
                 }
             }
-            Event::TextEditing { text, start, length, window_id, .. } => {
-                if let Some(Dialog { display, panel: Panel::Settings(form) }) = &mut self.dialog {
+            Event::TextEditing {
+                text,
+                start,
+                length,
+                window_id,
+                ..
+            } => {
+                if let Some(Dialog {
+                    display,
+                    panel: Panel::Settings(form),
+                }) = &mut self.dialog
+                {
                     if display.window.id() == window_id {
                         form.composition(text, start, length);
                         display.dirty = true;
                     }
                 }
             }
-            Event::MouseWheel { window_id, y, direction, .. } => {
-                if let Some(Dialog { display, panel: Panel::Settings(form) }) = &mut self.dialog {
+            Event::MouseWheel {
+                window_id,
+                y,
+                direction,
+                ..
+            } => {
+                if let Some(Dialog {
+                    display,
+                    panel: Panel::Settings(form),
+                }) = &mut self.dialog
+                {
                     if display.window.id() == window_id && y != 0.0 {
                         let step = if y > 0.0 { -1 } else { 1 };
-                        let step = if direction == sdl3::mouse::MouseWheelDirection::Flipped { -step } else { step };
+                        let step = if direction == sdl3::mouse::MouseWheelDirection::Flipped {
+                            -step
+                        } else {
+                            step
+                        };
                         form.wheel(step * 3);
                         display.dirty = true;
                     }
                 }
             }
-            Event::MouseMotion { window_id, x, y, .. } if self.dialog.is_some() => {
-                if let Some(Dialog { display, panel: Panel::Settings(form) }) = &mut self.dialog {
+            Event::MouseMotion {
+                window_id, x, y, ..
+            } if self.dialog.is_some() => {
+                if let Some(Dialog {
+                    display,
+                    panel: Panel::Settings(form),
+                }) = &mut self.dialog
+                {
                     if display.window.id() == window_id && form.dragging {
                         let (x, _) = display.ui_point(x, y);
-                        form.drag(x, display.ui_pixels().0, |text| display.measure_setting(text));
+                        form.drag(x, display.ui_pixels().0, |text| {
+                            display.measure_setting(text)
+                        });
                         display.dirty = true;
                     }
                 }
             }
-            Event::MouseMotion { window_id, x, y, .. } if window_id == self.main.window.id() && self.dialog.is_none() => {
+            Event::MouseMotion {
+                window_id, x, y, ..
+            } if window_id == self.main.window.id() && self.dialog.is_none() => {
                 let pos = self.main.point(x, y);
-                if self.held != 0 || (!self.fullscreen && (self.menu.open.is_some()
-                    || pos.1 < MENU || self.pointer.1 < MENU)) { self.main.dirty = true; }
+                if self.held != 0
+                    || (!self.fullscreen
+                        && (self.menu.open.is_some() || pos.1 < MENU || self.pointer.1 < MENU))
+                {
+                    self.main.dirty = true;
+                }
                 self.pointer = pos;
                 if self.menu.open.is_none() {
                     let (x, y) = self.replay_point(pos.0, pos.1);
                     self.round.track(x, y);
                 }
             }
-            Event::MouseButtonDown { window_id, mouse_btn, x, y, clicks, .. } => {
+            Event::MouseButtonDown {
+                window_id,
+                mouse_btn,
+                x,
+                y,
+                clicks,
+                ..
+            } => {
                 if let Some(dialog) = &mut self.dialog {
                     if dialog.display.window.id() == window_id && mouse_btn == MouseButton::Left {
                         self.dialog_click(x, y, clicks)?;
-                    } else { dialog.display.window.raise(); }
-                } else if window_id == self.main.window.id() { self.mouse(mouse_btn, true, x, y)?; }
-                else if let Some(counter) = &self.counter {
+                    } else {
+                        dialog.display.window.raise();
+                    }
+                } else if window_id == self.main.window.id() {
+                    self.mouse(mouse_btn, true, x, y)?;
+                } else if let Some(counter) = &self.counter {
                     let (px, py) = counter.point(x, y);
                     let can_close = counter.hook.is_none();
-                    if can_close && window_id == counter.window.id() && (0..37).contains(&py) && px >= counter.pixels().0 - 24 {
+                    if can_close
+                        && window_id == counter.window.id()
+                        && (0..37).contains(&py)
+                        && px >= counter.pixels().0 - 24
+                    {
                         self.action(Action::Counter)?;
                     }
                 }
             }
-            Event::MouseButtonUp { window_id, mouse_btn: MouseButton::Left, .. } if self.dialog.is_some() => {
-                if let Some(Dialog { display, panel: Panel::Settings(form) }) = &mut self.dialog {
+            Event::MouseButtonUp {
+                window_id,
+                mouse_btn: MouseButton::Left,
+                ..
+            } if self.dialog.is_some() => {
+                if let Some(Dialog {
+                    display,
+                    panel: Panel::Settings(form),
+                }) = &mut self.dialog
+                {
                     if display.window.id() == window_id && std::mem::take(&mut form.dragging) {
                         self.sdl.mouse().capture(false);
                     }
                 }
             }
-            Event::MouseButtonUp { window_id, mouse_btn, x, y, .. } if window_id == self.main.window.id() && self.dialog.is_none() => {
+            Event::MouseButtonUp {
+                window_id,
+                mouse_btn,
+                x,
+                y,
+                ..
+            } if window_id == self.main.window.id() && self.dialog.is_none() => {
                 self.mouse(mouse_btn, false, x, y)?;
             }
             _ => {}
@@ -973,12 +1480,22 @@ impl App {
         if id == self.main.window.id() {
             match event {
                 WindowEvent::CloseRequested => self.quit = true,
-                WindowEvent::Resized(width, height) if !self.fullscreen
-                    && self.main.window.size() == (width as u32, height as u32) => self.user_resize(),
-                WindowEvent::PixelSizeChanged(width, height) if !self.fullscreen
-                    && self.main.pixels() == (width, height) => {
+                WindowEvent::Resized(width, height)
+                    if !self.fullscreen
+                        && self.main.window.size() == (width as u32, height as u32) =>
+                {
+                    self.user_resize()
+                }
+                WindowEvent::PixelSizeChanged(width, height)
+                    if !self.fullscreen && self.main.pixels() == (width, height) =>
+                {
                     let preferred = self.settings.pixels[self.settings.level];
-                    if self.resized_at.is_none() && self.layout.size(self.settings.level, self.settings.identity) != (width, height) {
+                    if self.resized_at.is_none()
+                        && self
+                            .layout
+                            .size(self.settings.level, self.settings.identity)
+                            != (width, height)
+                    {
                         self.resize_main(preferred);
                     }
                     self.main.dirty = true;
@@ -991,7 +1508,10 @@ impl App {
                     self.release_cursor();
                     self.remember_main_position();
                 }
-                WindowEvent::FocusLost => { self.menu.open = None; self.cancel_input(); }
+                WindowEvent::FocusLost => {
+                    self.menu.open = None;
+                    self.cancel_input();
+                }
                 WindowEvent::Minimized | WindowEvent::Hidden => self.release_cursor(),
                 WindowEvent::FocusGained => self.sync_cursor(),
                 WindowEvent::MouseLeave if self.held == 0 => {
@@ -1002,43 +1522,67 @@ impl App {
                 }
                 WindowEvent::DisplayChanged(..) => {
                     self.update_refresh_rate();
-                    if !self.fullscreen { self.resize_main(self.layout.tile); }
+                    if !self.fullscreen {
+                        self.resize_main(self.layout.tile);
+                    }
                 }
                 WindowEvent::Restored | WindowEvent::Shown => {
-                    if !self.fullscreen { platform::recover_window(&self.main.window); }
+                    if !self.fullscreen {
+                        platform::recover_window(&self.main.window);
+                    }
                     self.main.dirty = true;
                 }
                 WindowEvent::Exposed => self.main.dirty = true,
                 _ => {}
             }
-        } else if self.dialog.as_ref().is_some_and(|d| d.display.window.id() == id) {
-            if event == WindowEvent::CloseRequested { self.close_dialog(); }
-            else if let Some(dialog) = self.dialog.as_mut() {
+        } else if self
+            .dialog
+            .as_ref()
+            .is_some_and(|d| d.display.window.id() == id)
+        {
+            if event == WindowEvent::CloseRequested {
+                self.close_dialog();
+            } else if let Some(dialog) = self.dialog.as_mut() {
                 if event == WindowEvent::FocusLost {
                     if let Panel::Settings(form) = &mut dialog.panel {
                         form.clear_composition();
-                        if std::mem::take(&mut form.dragging) { self.sdl.mouse().capture(false); }
+                        if std::mem::take(&mut form.dragging) {
+                            self.sdl.mouse().capture(false);
+                        }
                     }
                 }
                 dialog.display.dirty = true;
             }
-        } else if self.counter.as_ref().is_some_and(|counter| counter.window.id() == id
-            && (!self.fullscreen || counter.shown)) {
+        } else if self
+            .counter
+            .as_ref()
+            .is_some_and(|counter| counter.window.id() == id && (!self.fullscreen || counter.shown))
+        {
             match event {
                 WindowEvent::CloseRequested => self.action(Action::Counter)?,
                 WindowEvent::Moved(..) if !self.wayland => {
-                    if let Some(position) = self.counter.as_ref()
-                        .and_then(|counter| platform::window_position(&counter.window)) {
+                    if let Some(position) = self
+                        .counter
+                        .as_ref()
+                        .and_then(|counter| platform::window_position(&counter.window))
+                    {
                         self.settings.counter_position = Some(position);
                     }
                 }
                 WindowEvent::DisplayChanged(..) => self.update_refresh_rate(),
-                WindowEvent::Exposed | WindowEvent::Resized(..) | WindowEvent::PixelSizeChanged(..)
-                    | WindowEvent::Restored | WindowEvent::Shown => {
+                WindowEvent::Exposed
+                | WindowEvent::Resized(..)
+                | WindowEvent::PixelSizeChanged(..)
+                | WindowEvent::Restored
+                | WindowEvent::Shown => {
                     self.counter_view.invalidate();
                     if let Some(counter) = &mut self.counter {
-                        if matches!(event, WindowEvent::Resized(..) | WindowEvent::PixelSizeChanged(..))
-                            && counter.ui_pixels() != CounterLayout::new(self.settings.counter_pixels).size() {
+                        if matches!(
+                            event,
+                            WindowEvent::Resized(..) | WindowEvent::PixelSizeChanged(..)
+                        ) && counter.ui_pixels()
+                            != CounterLayout::new(self.settings.counter_pixels).size()
+                        {
                             self.counter_resize_at = Some(Instant::now());
                         }
                         if matches!(event, WindowEvent::Restored | WindowEvent::Shown) {
@@ -1054,19 +1598,28 @@ impl App {
     }
 
     fn update(&mut self, now: Instant, refresh: bool) -> Result<(), String> {
-        if let Some(position) = self.counter.as_ref()
+        if let Some(position) = self
+            .counter
+            .as_ref()
             .and_then(|counter| counter.hook.as_ref())
-            .and_then(platform::WindowHook::moved_position) {
+            .and_then(platform::WindowHook::moved_position)
+        {
             self.settings.counter_position = Some(position);
             self.persist();
             self.update_refresh_rate();
         }
-        if self.resized_at.is_some_and(|since| now.saturating_duration_since(since) >= RESIZE_SETTLE) {
+        if self
+            .resized_at
+            .is_some_and(|since| now.saturating_duration_since(since) >= RESIZE_SETTLE)
+        {
             self.resize_main(self.layout.tile);
             self.persist();
             self.sync_cursor();
         }
-        if self.counter_resize_at.is_some_and(|since| now.saturating_duration_since(since) >= RESIZE_SETTLE) {
+        if self
+            .counter_resize_at
+            .is_some_and(|since| now.saturating_duration_since(since) >= RESIZE_SETTLE)
+        {
             self.settle_counter_resize();
         }
         if refresh && self.refreshing() {
@@ -1075,70 +1628,143 @@ impl App {
             }
             let old = self.round.seconds() as u32;
             self.round.refresh();
-            self.main.dirty |= (!self.fullscreen || self.fullscreen_status) && old != self.round.seconds() as u32;
-            if let Some(counter) = &mut self.counter { counter.dirty = true; }
+            self.main.dirty |= !self.fullscreen
+                || self.fullscreen_mode != FullscreenMode::Board
+                || old != self.round.seconds() as u32;
+            if let Some(counter) = &mut self.counter {
+                counter.dirty = true;
+            }
         }
         if self.round.phase() == 1 && !self.round.timing_valid {
             self.action(Action::Restart)?;
         }
         while let Ok(reply) = self.replies.try_recv() {
             self.pending_writes = self.pending_writes.saturating_sub(1);
-            if let Err(error) = reply { self.errors.push(error); }
+            if let Err(error) = reply {
+                self.errors.push(error);
+            }
         }
-        if self.pending_writes == 0 && self.dialog.is_none() && std::mem::take(&mut self.save_requested) {
+        if self.pending_writes == 0
+            && self.dialog.is_none()
+            && std::mem::take(&mut self.save_requested)
+        {
             self.action(Action::Save)?;
         }
         if self.dialog.is_none() && !self.errors.is_empty() {
             let error = self.errors.remove(0);
             self.cancel_input();
-            if platform::message(&self.main.window, self.settings.text(Text::Title), &error, true) {
+            if platform::message(
+                &self.main.window,
+                self.settings.text(Text::Title),
+                &error,
+                true,
+            ) {
                 self.sync_cursor();
                 return Ok(());
             }
-            self.open_dialog(self.settings.text(Text::Title), Panel::Message { text: error }, (490, 190))?;
+            self.open_dialog(
+                self.settings.text(Text::Title),
+                Panel::Message { text: error },
+                (490, 190),
+            )?;
         }
         Ok(())
     }
 
     fn draw(&mut self, events: &EventPump) -> Result<(), String> {
         let (art, menu) = (&mut self.art, &mut self.menu);
-        let (settings, round, layout, pointer, restart) = (&self.settings, &self.round, self.layout, self.pointer, self.restart_pressed);
+        let (settings, round, layout, pointer, restart) = (
+            &self.settings,
+            &self.round,
+            self.layout,
+            self.pointer,
+            self.restart_pressed,
+        );
         let fullscreen = self.fullscreen;
-        let show_status = self.fullscreen_status;
-        self.main.draw(events, |p, w, h| {
-            if fullscreen {
-                view::fullscreen(p, art, settings, round, layout, pointer, restart, (w, h), show_status);
-            } else {
-                view::game(p, art, settings, round, layout, menu, pointer, restart, (w, h));
-            }
-        })?;
-        if let Some(counter) = self.counter.as_mut().filter(|counter| counter.dirty && (!fullscreen || counter.shown)) {
+        let fullscreen_mode = self.fullscreen_mode;
+        let fullscreen_counter = &mut self.fullscreen_counter;
+        let full_redraw =
+            self.main.dirty || !fullscreen || fullscreen_mode != FullscreenMode::Counter;
+        self.main.dirty = false;
+        self.main.buffer.present_regions(
+            &self.main.window,
+            events,
+            self.main.ui_scale,
+            |p, w, h| {
+                if fullscreen {
+                    view::fullscreen(
+                        p,
+                        art,
+                        settings,
+                        round,
+                        layout,
+                        pointer,
+                        restart,
+                        (w, h),
+                        fullscreen_mode,
+                        fullscreen_counter,
+                        full_redraw,
+                    )
+                } else {
+                    view::game(
+                        p,
+                        art,
+                        settings,
+                        round,
+                        layout,
+                        menu,
+                        pointer,
+                        restart,
+                        (w, h),
+                    );
+                    None
+                }
+            },
+        )?;
+        if let Some(counter) = self
+            .counter
+            .as_mut()
+            .filter(|counter| counter.dirty && (!fullscreen || counter.shown))
+        {
             let close = counter.hook.is_none();
             let values = round.counter_rows(settings.text(Text::Standard));
-            counter.buffer.present_regions(&counter.window, events, counter.ui_scale, |p, w, h| {
-                self.counter_view.draw(p, settings, values, w, h, close)
-            })?;
+            counter.buffer.present_regions(
+                &counter.window,
+                events,
+                counter.ui_scale,
+                |p, w, h| self.counter_view.draw(p, settings, values, w, h, close),
+            )?;
             counter.dirty = false;
         }
         if let Some(Dialog { display, panel }) = &mut self.dialog {
             if let Panel::Settings(form) = panel {
                 let scale = platform::dpi_scale(&display.window);
                 if scale != display.ui_scale {
-                    let (width, height) = scaled_size(settings_ui::SIZE, scale / window_pixel_density(&display.window));
+                    let (width, height) = scaled_size(
+                        settings_ui::SIZE,
+                        scale / window_pixel_density(&display.window),
+                    );
                     let _ = display.window.set_size(width, height);
                     display.ui_scale = scale;
                     display.dirty = true;
                 }
                 if display.dirty {
                     let input = self.video.text_input();
-                    if let Some((area, caret)) = form.input_position(display.ui_pixels().0,
-                        |text| display.measure_setting(text)) {
+                    if let Some((area, caret)) = form
+                        .input_position(display.ui_pixels().0, |text| display.measure_setting(text))
+                    {
                         let (x, y) = display.ui_to_window(area.0, area.1);
-                        let (right, bottom) = display.ui_to_window(area.0 + area.2, area.1 + area.3);
+                        let (right, bottom) =
+                            display.ui_to_window(area.0 + area.2, area.1 + area.3);
                         let (cursor, _) = display.ui_to_window(area.0 + caret, area.1);
-                        input.set_rect(&display.window,
-                            Rect::new(x, y, (right - x).max(1) as u32, (bottom - y).max(1) as u32), cursor - x);
-                        if !input.is_active(&display.window) { input.start(&display.window); }
+                        input.set_rect(
+                            &display.window,
+                            Rect::new(x, y, (right - x).max(1) as u32, (bottom - y).max(1) as u32),
+                            cursor - x,
+                        );
+                        if !input.is_active(&display.window) {
+                            input.start(&display.window);
+                        }
                     } else if input.is_active(&display.window) {
                         input.stop(&display.window);
                     }
@@ -1148,20 +1774,48 @@ impl App {
                 Panel::Settings(form) => form.draw(p, w, h),
                 Panel::Fullscreen { .. } => {
                     p.fill(Box2(0, 0, w, h), 0xf5f5f5);
-                    view::button(p, view::fullscreen_button(w, h, false), settings.text(Text::FullscreenBoardOnly));
-                    view::button(p, view::fullscreen_button(w, h, true), settings.text(Text::FullscreenWithStatus));
+                    view::button(
+                        p,
+                        view::fullscreen_button(w, h, FullscreenMode::Board),
+                        settings.text(Text::FullscreenBoardOnly),
+                    );
+                    view::button(
+                        p,
+                        view::fullscreen_button(w, h, FullscreenMode::Status),
+                        settings.text(Text::FullscreenWithStatus),
+                    );
+                    view::button(
+                        p,
+                        view::fullscreen_button(w, h, FullscreenMode::Counter),
+                        settings.text(Text::FullscreenWithCounter),
+                    );
                 }
-                Panel::Save { path, overwrite, select, .. } => {
+                Panel::Save {
+                    path,
+                    overwrite,
+                    select,
+                    ..
+                } => {
                     p.fill(Box2(0, 0, w, h), 0xf5f5f5);
                     let area = Box2(12, 13, w - 24, 33);
                     p.fill(area, if *select { 0xd5e9ff } else { WHITE });
                     p.border(area, 0x467eac);
                     p.text(area.inset(5), path, 15, Align::Left, INK);
                     if *overwrite {
-                        p.text(Box2(12, 48, w-24, 25), settings.text(Text::OverwriteReplay), 15, Align::Left, 0x8a3030);
+                        p.text(
+                            Box2(12, 48, w - 24, 25),
+                            settings.text(Text::OverwriteReplay),
+                            15,
+                            Align::Left,
+                            0x8a3030,
+                        );
                     }
                     view::button(p, view::dialog_button(w, h, true), settings.text(Text::Ok));
-                    view::button(p, view::dialog_button(w, h, false), settings.text(Text::Cancel));
+                    view::button(
+                        p,
+                        view::dialog_button(w, h, false),
+                        settings.text(Text::Cancel),
+                    );
                 }
                 Panel::Message { text } => view::message(p, text, settings.text(Text::Ok), w, h),
             })?;
@@ -1188,24 +1842,38 @@ impl App {
                 self.restore_positions();
                 self.uncloak();
             }
-            timer.sync(self.wake_type, self.refreshing().then_some(self.refresh_every))?;
-            let resize = self.resized_at.into_iter().chain(self.counter_resize_at)
-                .map(|since| (since + RESIZE_SETTLE)
-                .saturating_duration_since(Instant::now()));
+            timer.sync(
+                self.wake_type,
+                self.refreshing().then_some(self.refresh_every),
+            )?;
+            let resize = self
+                .resized_at
+                .into_iter()
+                .chain(self.counter_resize_at)
+                .map(|since| (since + RESIZE_SETTLE).saturating_duration_since(Instant::now()));
             let replay = (self.pending_writes > 0).then_some(Duration::from_millis(20));
-            let timeout = resize.chain(replay).min();
+            let fullscreen_counter_refresh = (self.fullscreen
+                && self.fullscreen_mode == FullscreenMode::Counter
+                && self.refreshing())
+            .then_some(self.refresh_every);
+            let timeout = resize.chain(replay).chain(fullscreen_counter_refresh).min();
             let first = match timeout {
-                Some(timeout) => events.wait_event_timeout_ms(timeout.as_nanos().div_ceil(1_000_000) as u32),
+                Some(timeout) => {
+                    events.wait_event_timeout_ms(timeout.as_nanos().div_ceil(1_000_000) as u32)
+                }
                 None => Some(events.wait_event()),
             };
             refresh = false;
             for event in first.into_iter().chain(events.poll_iter()) {
-                if matches!(event, Event::User { type_, code: REFRESH_TICK, .. } if type_ == self.wake_type) {
+                if matches!(event, Event::User { type_, code: REFRESH_TICK, .. } if type_ == self.wake_type)
+                {
                     refresh = true;
                 } else {
                     self.event(event)?;
                 }
-                if self.quit { break; }
+                if self.quit {
+                    break;
+                }
             }
         }
         self.release_cursor();
@@ -1222,14 +1890,20 @@ impl App {
             self.main.dirty = true;
             revealed = true;
         }
-        if let Some(counter) = self.counter.as_mut().filter(|counter| !self.fullscreen && !counter.shown) {
+        if let Some(counter) = self
+            .counter
+            .as_mut()
+            .filter(|counter| !self.fullscreen && !counter.shown)
+        {
             counter.reveal_position = platform::stage_offscreen(&mut counter.window);
             platform::show_without_activation(&mut counter.window);
             counter.shown = true;
             counter.dirty = true;
             revealed = true;
         }
-        if let Some(Dialog { display, .. }) = self.dialog.as_mut().filter(|dialog| !dialog.display.shown) {
+        if let Some(Dialog { display, .. }) =
+            self.dialog.as_mut().filter(|dialog| !dialog.display.shown)
+        {
             display.reveal_position = platform::stage_offscreen(&mut display.window);
             platform::show_dialog(&mut display.window);
             display.shown = true;
@@ -1257,46 +1931,90 @@ impl App {
 
     fn uncloak(&self) {
         platform::uncloak(&self.main.window);
-        if let Some(counter) = &self.counter { platform::uncloak(&counter.window); }
-        if let Some(dialog) = &self.dialog { platform::uncloak(&dialog.display.window); }
+        if let Some(counter) = &self.counter {
+            platform::uncloak(&counter.window);
+        }
+        if let Some(dialog) = &self.dialog {
+            platform::uncloak(&dialog.display.window);
+        }
     }
 }
 
 impl Drop for App {
-    fn drop(&mut self) { self.release_cursor(); }
+    fn drop(&mut self) {
+        self.release_cursor();
+    }
 }
 
-fn ctrl(mods: Mod) -> bool { mods.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD) }
+fn ctrl(mods: Mod) -> bool {
+    mods.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD)
+}
 
 fn counter_capacity(window: &Window) -> (i32, i32) {
-    window.get_display().ok().and_then(|display| display.get_usable_bounds().ok())
-        .map_or((1920, 1080), |bounds| (bounds.width() as i32, bounds.height() as i32))
+    window
+        .get_display()
+        .ok()
+        .and_then(|display| display.get_usable_bounds().ok())
+        .map_or((1920, 1080), |bounds| {
+            (bounds.width() as i32, bounds.height() as i32)
+        })
 }
 
 fn scaled_size((width, height): (u32, u32), scale: f64) -> (u32, u32) {
-    ((width as f64 * scale).round() as u32, (height as f64 * scale).round() as u32)
+    (
+        (width as f64 * scale).round() as u32,
+        (height as f64 * scale).round() as u32,
+    )
 }
 
 fn window_pixel_density(window: &Window) -> f64 {
     let density = f64::from(window.pixel_density());
-    if density.is_finite() && density > 0.0 { density } else { 1.0 }
+    if density.is_finite() && density > 0.0 {
+        density
+    } else {
+        1.0
+    }
 }
 
 fn shortcut(key: Option<Keycode>, scancode: Option<Scancode>, mods: Mod) -> Option<Action> {
-    if !platform::shortcut_allowed(mods) { return None; }
+    if !platform::shortcut_allowed(mods) {
+        return None;
+    }
     let control = ctrl(mods);
     // Keycodes follow the active keyboard layout/IME, which can turn the
     // physical "/" key into "、" (outside the Keycode enum). Match the
     // physical scancode instead, like WinForms' Keys.OemQuestion.
-    if !control && scancode == Some(Scancode::Slash) { return Some(Action::Counter); }
+    if !control && scancode == Some(Scancode::Slash) {
+        return Some(Action::Counter);
+    }
     match (key, control) {
         (Some(Keycode::S), true) => Some(Action::Save),
         (Some(Keycode::I), true) => Some(Action::Identity),
         (Some(Keycode::X), true) => Some(Action::Quit),
-        (Some(Keycode::F4), false) if !mods.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD
-            | Mod::LALTMOD | Mod::RALTMOD | Mod::LGUIMOD | Mod::RGUIMOD) => Some(Action::CursorLock),
-        (Some(Keycode::F11), false) if !mods.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD
-            | Mod::LALTMOD | Mod::RALTMOD | Mod::LGUIMOD | Mod::RGUIMOD) => Some(Action::Fullscreen),
+        (Some(Keycode::F4), false)
+            if !mods.intersects(
+                Mod::LSHIFTMOD
+                    | Mod::RSHIFTMOD
+                    | Mod::LALTMOD
+                    | Mod::RALTMOD
+                    | Mod::LGUIMOD
+                    | Mod::RGUIMOD,
+            ) =>
+        {
+            Some(Action::CursorLock)
+        }
+        (Some(Keycode::F11), false)
+            if !mods.intersects(
+                Mod::LSHIFTMOD
+                    | Mod::RSHIFTMOD
+                    | Mod::LALTMOD
+                    | Mod::RALTMOD
+                    | Mod::LGUIMOD
+                    | Mod::RGUIMOD,
+            ) =>
+        {
+            Some(Action::Fullscreen)
+        }
         (Some(Keycode::F2 | Keycode::N), false) => Some(Action::Restart),
         (Some(Keycode::_1 | Keycode::B), false) => Some(Action::Level(0)),
         (Some(Keycode::_2 | Keycode::I), false) => Some(Action::Level(1)),
@@ -1309,25 +2027,51 @@ fn shortcut(key: Option<Keycode>, scancode: Option<Scancode>, mods: Mod) -> Opti
     }
 }
 
-fn edit_text(value: &mut String, select: &mut bool, key: Keycode, control: bool, clipboard: Option<String>, max: usize) {
+fn edit_text(
+    value: &mut String,
+    select: &mut bool,
+    key: Keycode,
+    control: bool,
+    clipboard: Option<String>,
+    max: usize,
+) {
     match (key, control) {
         (Keycode::A, true) => *select = true,
-        (Keycode::V, true) => if let Some(text) = clipboard { append_text(value, select, &text, max); },
-        (Keycode::Backspace | Keycode::Delete, false) if *select => { value.clear(); *select = false; }
-        (Keycode::Backspace, false) => { value.pop(); }
+        (Keycode::V, true) => {
+            if let Some(text) = clipboard {
+                append_text(value, select, &text, max);
+            }
+        }
+        (Keycode::Backspace | Keycode::Delete, false) if *select => {
+            value.clear();
+            *select = false;
+        }
+        (Keycode::Backspace, false) => {
+            value.pop();
+        }
         (Keycode::Left | Keycode::Right, false) => *select = false,
         _ => {}
     }
 }
 
 fn append_text(value: &mut String, select: &mut bool, text: &str, max: usize) {
-    if *select { value.clear(); *select = false; }
-    value.extend(text.chars().filter(|ch| !ch.is_control()).take(max.saturating_sub(value.chars().count())));
+    if *select {
+        value.clear();
+        *select = false;
+    }
+    value.extend(
+        text.chars()
+            .filter(|ch| !ch.is_control())
+            .take(max.saturating_sub(value.chars().count())),
+    );
 }
 
 fn save_path(root: &Path, name: &str) -> PathBuf {
     let mut path = root.join("replay").join(name.trim());
-    if !path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("evf")) {
+    if !path
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("evf"))
+    {
         path.as_mut_os_string().push(".evf");
     }
     path
@@ -1361,9 +2105,18 @@ mod tests {
 
     #[test]
     fn slash_shortcut_uses_physical_key_when_ime_remaps_keycode() {
-        assert_eq!(shortcut(None, Some(Scancode::Slash), Mod::NOMOD), Some(Action::Counter));
-        assert_eq!(shortcut(Some(Keycode::Slash), Some(Scancode::Slash), Mod::NOMOD), Some(Action::Counter));
-        assert_eq!(shortcut(Some(Keycode::Period), Some(Scancode::Slash), Mod::NOMOD), Some(Action::Counter));
+        assert_eq!(
+            shortcut(None, Some(Scancode::Slash), Mod::NOMOD),
+            Some(Action::Counter)
+        );
+        assert_eq!(
+            shortcut(Some(Keycode::Slash), Some(Scancode::Slash), Mod::NOMOD),
+            Some(Action::Counter)
+        );
+        assert_eq!(
+            shortcut(Some(Keycode::Period), Some(Scancode::Slash), Mod::NOMOD),
+            Some(Action::Counter)
+        );
         assert_eq!(shortcut(None, Some(Scancode::Slash), Mod::LCTRLMOD), None);
         assert_eq!(shortcut(None, Some(Scancode::A), Mod::NOMOD), None);
     }
@@ -1377,19 +2130,29 @@ fn run() -> Result<(), String> {
     let directory = root.join("replay");
     let (jobs, queue) = mpsc::channel::<Job>();
     let (reply, replies) = mpsc::channel();
-    let writer = thread::Builder::new().name("Mini replay writer".into()).spawn(move || {
-        while let Ok(job) = queue.recv() {
-            let result = job.replay.save(&directory, job.path.as_deref()).map(|_| ()).map_err(|err| err.to_string());
-            if let Err(error) = &result { eprintln!("{error}"); }
-            let _ = reply.send(result);
-        }
-    }).map_err(|e| e.to_string())?;
+    let writer = thread::Builder::new()
+        .name("Mini replay writer".into())
+        .spawn(move || {
+            while let Ok(job) = queue.recv() {
+                let result = job
+                    .replay
+                    .save(&directory, job.path.as_deref())
+                    .map(|_| ())
+                    .map_err(|err| err.to_string());
+                if let Err(error) = &result {
+                    eprintln!("{error}");
+                }
+                let _ = reply.send(result);
+            }
+        })
+        .map_err(|e| e.to_string())?;
     let result = App::new(root, settings, jobs, replies).and_then(App::run);
     let _ = writer.join();
     result
 }
 
 fn main() {
+    platform::apply_process_hardening();
     if let Err(error) = run() {
         eprintln!("MetaSweeper-Mini: {error}");
         platform::fatal(&error);

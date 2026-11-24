@@ -68,6 +68,7 @@ pub enum Text {
     FullscreenWayland,
     FullscreenBoardOnly,
     FullscreenWithStatus,
+    FullscreenWithCounter,
 }
 pub const STRINGS: &[[&str; 5]] = &[
         ["元扫雷迷你版", "MetaSweeper Mini", "MetaSweeper Mini", "MetaSweeper Mini", "メタマインスイーパーミニ"],
@@ -135,6 +136,7 @@ pub const STRINGS: &[[&str; 5]] = &[
         ["独占全屏", "Exclusive fullscreen", "Exklusiver Vollbildmodus", "Wyłączny tryb pełnoekranowy", "排他フルスクリーン"],
         ["无法切换独占全屏。", "Could not toggle exclusive fullscreen.", "Der exklusive Vollbildmodus konnte nicht umgeschaltet werden.", "Nie udało się przełączyć wyłącznego trybu pełnoekranowego.", "排他フルスクリーンを切り替えられませんでした。"],
         ["Wayland 无法切换屏幕分辨率。请使用 X11 运行 Mini。", "Wayland cannot switch the display resolution. Run Mini with X11.", "Wayland kann die Bildschirmauflösung nicht ändern. Starte Mini mit X11.", "Wayland nie może zmienić rozdzielczości ekranu. Uruchom Mini z X11.", "Wayland では画面解像度を切り替えられません。Mini を X11 で起動してください。"],
-        ["仅棋盘", "Board only", "Nur Spielfeld", "Tylko plansza", "盤面のみ"],
-        ["棋盘＋计时栏", "Board + timer", "Spielfeld + Timer", "Plansza + zegar", "盤面とタイマー"],
+        ["仅雷区", "Minefield only", "Nur Minenfeld", "Tylko pole minowe", "盤面のみ"],
+        ["雷区＋计时栏", "Minefield + timer", "Minenfeld + Timer", "Pole minowe + zegar", "盤面とタイマー"],
+        ["雷区＋计数器", "Minefield + counter", "Minenfeld + Zähler", "Pole minowe + licznik", "盤面とカウンター"],
 ];

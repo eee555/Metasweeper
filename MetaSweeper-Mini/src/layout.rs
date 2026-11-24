@@ -16,7 +16,12 @@ impl Box2 {
     }
 
     pub fn inset(self, edge: i32) -> Self {
-        Self(self.0 + edge, self.1 + edge, self.2 - 2 * edge, self.3 - 2 * edge)
+        Self(
+            self.0 + edge,
+            self.1 + edge,
+            self.2 - 2 * edge,
+            self.3 - 2 * edge,
+        )
     }
 }
 
@@ -26,7 +31,7 @@ pub struct CounterLayout {
     pub title_px: i32,
     pub table_px: i32,
     pub columns: (i32, i32),
-    row: i32,
+    pub row: i32,
 }
 
 impl CounterLayout {
@@ -47,11 +52,15 @@ impl CounterLayout {
     }
 
     pub fn size(self) -> (i32, i32) {
-        (34 + self.columns.0 + self.columns.1,
-         self.table_top() + self.row * COUNTER_ROWS as i32 + 16 + self.table_px)
+        (
+            34 + self.columns.0 + self.columns.1,
+            self.table_top() + self.row * COUNTER_ROWS as i32 + 16 + self.table_px,
+        )
     }
 
-    pub fn table_top(self) -> i32 { 14 + self.heading }
+    pub fn table_top(self) -> i32 {
+        14 + self.heading
+    }
 
     pub fn title_line(self) -> i32 {
         let px = self.title_px;
@@ -59,21 +68,42 @@ impl CounterLayout {
     }
 
     pub fn fit(pixels: i32, available: (i32, i32)) -> i32 {
-        (COUNTER_MIN..=pixels).rev().find(|&scale| {
-            let (width, height) = Self::new(scale).size();
-            width <= available.0 && height <= available.1
-        }).unwrap_or(COUNTER_MIN)
+        (COUNTER_MIN..=pixels)
+            .rev()
+            .find(|&scale| {
+                let (width, height) = Self::new(scale).size();
+                width <= available.0 && height <= available.1
+            })
+            .unwrap_or(COUNTER_MIN)
     }
 
-    pub fn nearest(current: i32, proposed: (i32, i32), available: (i32, i32),
-                   axes: (bool, bool)) -> i32 {
+    pub fn for_height(height: i32) -> Self {
+        Self::new(Self::fit(COUNTER_MAX, (i32::MAX, height.max(1))))
+    }
+
+    pub fn nearest(
+        current: i32,
+        proposed: (i32, i32),
+        available: (i32, i32),
+        axes: (bool, bool),
+    ) -> i32 {
         let max = Self::fit(COUNTER_MAX, available);
-        (COUNTER_MIN..=max).min_by_key(|&scale| {
-            let (width, height) = Self::new(scale).size();
-            let dx = if axes.0 { i64::from(width - proposed.0) } else { 0 };
-            let dy = if axes.1 { i64::from(height - proposed.1) } else { 0 };
-            (dx * dx + dy * dy, (current - scale).abs())
-        }).unwrap_or(COUNTER_MIN)
+        (COUNTER_MIN..=max)
+            .min_by_key(|&scale| {
+                let (width, height) = Self::new(scale).size();
+                let dx = if axes.0 {
+                    i64::from(width - proposed.0)
+                } else {
+                    0
+                };
+                let dy = if axes.1 {
+                    i64::from(height - proposed.1)
+                } else {
+                    0
+                };
+                (dx * dx + dy * dy, (current - scale).abs())
+            })
+            .unwrap_or(COUNTER_MIN)
     }
 }
 
@@ -92,15 +122,32 @@ pub struct FullscreenRegions {
     pub frame: Box2,
     pub grid: Box2,
     pub status: Option<Box2>,
+    pub counter: Option<Box2>,
+    pub counter_scale: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FullscreenMode {
+    Board,
+    Status,
+    Counter,
 }
 
 impl Layout {
     pub fn new(tile: i32, reference: i32) -> Self {
-        let bevel = |pixels| ((pixels * tile) as f64 / reference.max(1) as f64).round_ties_even().max(1.0) as i32;
+        let bevel = |pixels| {
+            ((pixels * tile) as f64 / reference.max(1) as f64)
+                .round_ties_even()
+                .max(1.0) as i32
+        };
         Self {
-            tile, outer_edge: bevel(6), inner_edge: bevel(4),
-            outer_inset: bevel(6) + 10, status_inset: bevel(4) + 5,
-            sprite: tile * 3 / 2, digit: tile * 312 / 368,
+            tile,
+            outer_edge: bevel(6),
+            inner_edge: bevel(4),
+            outer_inset: bevel(6) + 10,
+            status_inset: bevel(4) + 5,
+            sprite: tile * 3 / 2,
+            digit: tile * 312 / 368,
         }
     }
 
@@ -108,8 +155,10 @@ impl Layout {
         let (rows, cols, _) = PRESETS[level];
         let width = (cols * self.tile + 2 * self.inner_edge).max(self.status_width());
         let height = rows * self.tile + 2 * self.inner_edge + self.status_height() + GAP;
-        (width + 2 * self.outer_inset,
-         MENU + height + 2 * self.outer_inset + if footer { FOOTER } else { 0 })
+        (
+            width + 2 * self.outer_inset,
+            MENU + height + 2 * self.outer_inset + if footer { FOOTER } else { 0 },
+        )
     }
 
     pub fn status_height(self) -> i32 {
@@ -121,16 +170,23 @@ impl Layout {
     }
 
     pub fn status(self, width: i32) -> Box2 {
-        Box2(self.outer_inset, MENU + self.outer_inset,
-             width - 2 * self.outer_inset, self.status_height())
+        Box2(
+            self.outer_inset,
+            MENU + self.outer_inset,
+            width - 2 * self.outer_inset,
+            self.status_height(),
+        )
     }
 
     pub fn grid(self, level: usize, size: (i32, i32), footer: bool) -> Box2 {
         let (rows, cols, _) = PRESETS[level];
         let spare = (size.1 - self.size(level, footer).1).max(0) / 2;
-        Box2((size.0 - cols * self.tile) / 2,
-             MENU + self.outer_inset + self.status_height() + GAP + self.inner_edge + spare,
-             cols * self.tile, rows * self.tile)
+        Box2(
+            (size.0 - cols * self.tile) / 2,
+            MENU + self.outer_inset + self.status_height() + GAP + self.inner_edge + spare,
+            cols * self.tile,
+            rows * self.tile,
+        )
     }
 
     pub fn board_size(self, level: usize) -> (i32, i32) {
@@ -138,27 +194,69 @@ impl Layout {
         (cols * self.tile, rows * self.tile)
     }
 
-    pub fn fullscreen_size(self, level: usize, show_status: bool) -> (i32, i32) {
+    pub fn fullscreen_size(self, level: usize, mode: FullscreenMode) -> (i32, i32, i32) {
         let (width, height) = self.board_size(level);
         let grid_width = width + 2 * self.inner_edge;
         let grid_height = height + 2 * self.inner_edge;
-        let (width, height) = if show_status {
-            (grid_width.max(self.status_width()), grid_height + self.status_height() + GAP)
-        } else {
-            (grid_width, grid_height)
+        let (width, height, counter_scale) = match mode {
+            FullscreenMode::Board => (grid_width, grid_height, 0),
+            FullscreenMode::Status => (
+                grid_width.max(self.status_width()),
+                grid_height + self.status_height() + GAP,
+                0,
+            ),
+            FullscreenMode::Counter => {
+                let counter_scale = CounterLayout::for_height(grid_height).heading;
+                let counter_size = CounterLayout::new(counter_scale).size();
+                (grid_width + counter_size.0, grid_height, counter_scale)
+            }
         };
-        (width + 2 * self.outer_inset, height + 2 * self.outer_inset)
+        (
+            width + 2 * self.outer_inset,
+            height + 2 * self.outer_inset,
+            counter_scale,
+        )
     }
 
-    pub fn fullscreen_regions(self, level: usize, size: (i32, i32), show_status: bool) -> FullscreenRegions {
+    pub fn fullscreen_regions(
+        self,
+        level: usize,
+        size: (i32, i32),
+        mode: FullscreenMode,
+    ) -> FullscreenRegions {
         let (width, height) = self.board_size(level);
-        let (frame_width, frame_height) = self.fullscreen_size(level, show_status);
-        let frame = Box2((size.0 - frame_width) / 2, (size.1 - frame_height) / 2, frame_width, frame_height);
+        let (frame_width, frame_height, counter_scale) = self.fullscreen_size(level, mode);
+        let frame = Box2(
+            (size.0 - frame_width) / 2,
+            (size.1 - frame_height) / 2,
+            frame_width,
+            frame_height,
+        );
         let inside = frame.inset(self.outer_inset);
-        let grid = Box2(inside.0 + (inside.2 - width) / 2,
-                        inside.1 + inside.3 - self.inner_edge - height, width, height);
-        let status = show_status.then(|| Box2(inside.0, inside.1, inside.2, self.status_height()));
-        FullscreenRegions { frame, grid, status }
+        let grid_x = if mode == FullscreenMode::Counter {
+            inside.0 + inside.2 - width
+        } else {
+            inside.0 + (inside.2 - width) / 2
+        };
+        let grid = Box2(
+            grid_x,
+            inside.1 + inside.3 - self.inner_edge - height,
+            width,
+            height,
+        );
+        let status = (mode == FullscreenMode::Status)
+            .then(|| Box2(inside.0, inside.1, inside.2, self.status_height()));
+        let counter = (mode == FullscreenMode::Counter).then(|| {
+            let counter_size = CounterLayout::new(counter_scale).size();
+            Box2(inside.0, inside.1, counter_size.0, inside.3)
+        });
+        FullscreenRegions {
+            frame,
+            grid,
+            status,
+            counter,
+            counter_scale,
+        }
     }
 
     pub fn fit(reference: i32, level: usize, footer: bool, available: (i32, i32)) -> Self {
@@ -175,7 +273,6 @@ impl Layout {
         }
         Self::new(low, reference)
     }
-
 }
 
 #[cfg(test)]
@@ -188,16 +285,25 @@ mod tests {
         let larger = CounterLayout::new(33).size();
         assert_eq!(size, (272, 532));
         assert_eq!(larger, (325, 644));
-        assert_eq!(CounterLayout::nearest(27, (larger.0, size.1), larger, (true, false)), 33);
-        assert_eq!(CounterLayout::nearest(27, (size.0, larger.1), larger, (false, true)), 33);
+        assert_eq!(
+            CounterLayout::nearest(27, (larger.0, size.1), larger, (true, false)),
+            33
+        );
+        assert_eq!(
+            CounterLayout::nearest(27, (size.0, larger.1), larger, (false, true)),
+            33
+        );
         assert_eq!(CounterLayout::fit(255, larger), 33);
     }
 
     #[test]
     fn matches_winforms_pixels() {
         for (tile, reference, expected) in [
-            (20, 20, (200, 324)), (30, 30, (280, 419)), (50, 50, (440, 609)),
-            (70, 50, (608, 811)), (20, 50, (188, 308)),
+            (20, 20, (200, 324)),
+            (30, 30, (280, 419)),
+            (50, 50, (440, 609)),
+            (70, 50, (608, 811)),
+            (20, 50, (188, 308)),
         ] {
             let layout = Layout::new(tile, reference);
             assert_eq!(layout.size(0, true), expected);
@@ -207,28 +313,85 @@ mod tests {
     }
 
     #[test]
-    fn fullscreen_keeps_the_frame_and_cell_size_in_both_modes() {
+    fn fullscreen_keeps_the_frame_and_cell_size_in_all_modes() {
         for tile in [5, 20, 50] {
             let layout = Layout::new(tile, 20);
             for level in 0..PRESETS.len() {
                 let (width, height) = layout.board_size(level);
                 let border = layout.outer_inset + layout.inner_edge;
-                let size = layout.fullscreen_size(level, false);
-                let regions = layout.fullscreen_regions(level, size, false);
-                assert_eq!(regions.grid, Box2(border, border, width, height));
-                assert_eq!(regions.frame.inset(border), regions.grid);
+                let (frame_width, frame_height, _) =
+                    layout.fullscreen_size(level, FullscreenMode::Board);
+                let regions = layout.fullscreen_regions(
+                    level,
+                    (frame_width, frame_height),
+                    FullscreenMode::Board,
+                );
+                let inside = regions.frame.inset(layout.outer_inset);
+                assert_eq!(
+                    regions.grid,
+                    Box2(
+                        inside.0 + (inside.2 - width) / 2,
+                        inside.1 + inside.3 - layout.inner_edge - height,
+                        width,
+                        height
+                    )
+                );
                 assert_eq!(regions.status, None);
 
-                let size = layout.fullscreen_size(level, true);
-                let regions = layout.fullscreen_regions(level, (size.0 + 12, size.1 + 8), true);
-                assert_eq!(regions.frame, Box2(6, 4, size.0, size.1));
-                assert_eq!(regions.grid.2, width);
-                assert_eq!(regions.grid.3, height);
+                let (frame_width, frame_height, _) =
+                    layout.fullscreen_size(level, FullscreenMode::Status);
+                let (board_width, board_height) = layout.board_size(level);
+                let regions = layout.fullscreen_regions(
+                    level,
+                    (frame_width + 12, frame_height + 8),
+                    FullscreenMode::Status,
+                );
+                assert_eq!(regions.frame, Box2(6, 4, frame_width, frame_height));
+                assert_eq!(regions.grid.2, board_width);
+                assert_eq!(regions.grid.3, board_height);
                 let status = regions.status.unwrap();
-                assert_eq!(status.1 + status.3 + GAP + layout.inner_edge, regions.grid.1);
-                assert_eq!(regions.frame.1 + regions.frame.3 - border, regions.grid.1 + height);
+                assert_eq!(
+                    status.1 + status.3 + GAP + layout.inner_edge,
+                    regions.grid.1
+                );
+                assert_eq!(
+                    regions.frame.1 + regions.frame.3 - border,
+                    regions.grid.1 + board_height
+                );
+
+                let (frame_width, frame_height, counter_scale) =
+                    layout.fullscreen_size(level, FullscreenMode::Counter);
+                let regions = layout.fullscreen_regions(
+                    level,
+                    (frame_width, frame_height),
+                    FullscreenMode::Counter,
+                );
+                assert_eq!(regions.counter_scale, counter_scale);
+                let counter = regions.counter.unwrap();
+                let counter_size = CounterLayout::new(counter_scale).size();
+                let inside = regions.frame.inset(layout.outer_inset);
+                assert_eq!(
+                    counter,
+                    Box2(
+                        regions.frame.1 + layout.outer_inset,
+                        regions.frame.1 + layout.outer_inset,
+                        counter_size.0,
+                        regions.grid.3 + 2 * layout.inner_edge
+                    )
+                );
+                assert_eq!(
+                    regions.grid,
+                    Box2(
+                        inside.0 + inside.2 - board_width,
+                        inside.1 + inside.3 - layout.inner_edge - board_height,
+                        board_width,
+                        board_height
+                    )
+                );
+                assert!(
+                    counter.1 + counter.3 <= regions.frame.1 + regions.frame.3 - layout.outer_inset
+                );
             }
         }
     }
-
 }
