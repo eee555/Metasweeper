@@ -1,8 +1,9 @@
 use crate::{
     config::{self, Settings, Text, LANGUAGES},
+    dropdown::{self, Dropdown, ARROW_WIDTH},
     layout::{Box2, COUNTER_MAX, COUNTER_MIN},
     paint::{Align, Painter, INK, WHITE},
-    view::{button, dialog_button},
+    view::{control_button, dialog_button, ButtonPointer},
 };
 use sdl3::{
     keyboard::{Keycode, Mod},
@@ -15,8 +16,6 @@ pub const SIZE: (u32, u32) = (680, 470);
 const ROW_HEIGHT: i32 = 32;
 const FIELD_LEFT: i32 = 250;
 pub const FONT: i32 = 15;
-const ITEM_HEIGHT: i32 = 25;
-const VISIBLE_ITEMS: usize = 6;
 const COUNTRY: usize = 3;
 const AUTO_REPLAY: usize = 11;
 const REPLAY_THRESHOLD: usize = 12;
@@ -272,37 +271,14 @@ impl Edit {
     }
 }
 
-struct Dropdown {
-    row: usize,
-    choices: Vec<&'static str>,
-    first: usize,
-    selected: Option<usize>,
-}
-
-impl Dropdown {
-    fn rect(&self, width: i32) -> Box2 {
-        let Box2(x, y, w, h) = field(self.row, width);
-        Box2(
-            x,
-            y + h,
-            w,
-            self.choices.len().min(VISIBLE_ITEMS) as i32 * ITEM_HEIGHT,
-        )
-    }
-
-    fn step(&mut self, step: i32) {
-        let last = self.choices.len() - 1;
-        let index = match self.selected {
-            Some(index) => index.saturating_add_signed(step as isize).min(last),
-            None if step < 0 => self.first.saturating_sub(1),
-            None => self.first,
-        };
-        self.selected = Some(index);
-        self.first = self
-            .first
-            .min(index)
-            .max((index + 1).saturating_sub(VISIBLE_ITEMS));
-    }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Control {
+    Confirm,
+    Cancel,
+    Step { row: usize, step: i32 },
+    Checkbox(usize),
+    Dropdown(usize),
+    Option(usize),
 }
 
 pub struct Form {
@@ -313,6 +289,7 @@ pub struct Form {
     dropdown: Option<Dropdown>,
     pub dragging: bool,
     invalid_country: bool,
+    pointer: ButtonPointer<Control>,
 }
 
 impl Form {
@@ -335,6 +312,7 @@ impl Form {
             dropdown: None,
             dragging: false,
             invalid_country: false,
+            pointer: ButtonPointer::default(),
         }
     }
 
@@ -382,24 +360,19 @@ impl Form {
             ),
             _ => return,
         };
-        self.dropdown = (!choices.is_empty()).then_some(Dropdown {
-            row: self.focus,
-            choices,
-            first: 0,
-            selected,
-        });
+        self.dropdown = Dropdown::new(choices, selected);
     }
 
     fn choose(&mut self, index: usize) {
         let Some(dropdown) = self.dropdown.take() else {
             return;
         };
-        match dropdown.row {
+        match self.focus {
             0 => self.draft.lang = index,
             6 => self.draft.autosave = index,
             COUNTRY => {
                 let edit = &mut self.edits[2];
-                edit.value = dropdown.choices[index].into();
+                edit.value = dropdown.label(index).into();
                 edit.move_to(edit.value.len(), false);
                 self.invalid_country = false;
             }
@@ -431,6 +404,30 @@ impl Form {
         self.open_dropdown(false);
     }
 
+    fn enter(&mut self) -> Outcome {
+        if let Some(dropdown) = self.dropdown.as_ref() {
+            let choice = dropdown.selected().or_else(|| {
+                (self.focus == COUNTRY
+                    && config::country_code(self.edits[2].value.trim()).is_none())
+                .then_some(dropdown.first_visible())
+            });
+            if let Some(index) = choice {
+                self.choose(index);
+            } else {
+                self.dropdown = None;
+            }
+            return Outcome::Stay;
+        }
+        match self.focus {
+            0 | COUNTRY | 6 => {
+                self.open_dropdown(true);
+                Outcome::Stay
+            }
+            CANCEL => Outcome::Cancel,
+            _ => Outcome::Apply,
+        }
+    }
+
     pub fn key(&mut self, key: Keycode, mods: Mod, video: &VideoSubsystem) -> Outcome {
         let shift = mods.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
         let control = mods.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD);
@@ -446,29 +443,10 @@ impl Form {
                 };
             }
             Keycode::Return | Keycode::KpEnter => {
-                if let Some(dropdown) = self.dropdown.as_ref() {
-                    if dropdown.row == COUNTRY
-                        && config::country_code(self.edits[2].value.trim()).is_some()
-                    {
-                        self.dropdown = None;
-                        return Outcome::Stay;
-                    }
-                    if let Some(index) = dropdown
-                        .selected
-                        .or_else(|| (dropdown.row == COUNTRY).then_some(dropdown.first))
-                    {
-                        self.choose(index);
-                    }
-                    return Outcome::Stay;
-                }
-                return if self.focus == CANCEL {
-                    Outcome::Cancel
-                } else {
-                    Outcome::Apply
-                };
+                return self.enter();
             }
             Keycode::Tab => {
-                if let Some(index) = self.dropdown.as_ref().and_then(|drop| drop.selected) {
+                if let Some(index) = self.dropdown.as_ref().and_then(Dropdown::selected) {
                     self.choose(index);
                 }
                 let step = if shift { CANCEL } else { 1 };
@@ -560,6 +538,76 @@ impl Form {
         edit.select_all();
     }
 
+    fn can_step(&self, row: usize, step: i32) -> bool {
+        let (value, min, max) = self.number(if row == 5 { 3 } else { 4 });
+        (min..=max).contains(&(value + step))
+    }
+
+    fn control_at(&self, point: (i32, i32), (width, height): (i32, i32)) -> Option<Control> {
+        let (x, y) = point;
+        if let Some(index) = self
+            .dropdown
+            .as_ref()
+            .and_then(|drop| drop.item_at(field(self.focus, width), point))
+        {
+            return Some(Control::Option(index));
+        }
+        for (ok, control) in [(true, Control::Confirm), (false, Control::Cancel)] {
+            if dialog_button(width, height, ok).contains(x, y) {
+                return Some(control);
+            }
+        }
+        for row in [5, 10] {
+            for step in [-1, 1] {
+                if step_button(row, width, step).contains(x, y) {
+                    return Some(Control::Step { row, step });
+                }
+            }
+        }
+        for row in [4, 7, 8, 9, AUTO_REPLAY] {
+            if checkbox_area(row, width).contains(x, y) {
+                return Some(Control::Checkbox(row));
+            }
+        }
+        for row in [0, COUNTRY, 6] {
+            if dropdown::trigger_area(field(row, width), row == COUNTRY).contains(x, y) {
+                return Some(Control::Dropdown(row));
+            }
+        }
+        None
+    }
+
+    pub fn motion(&mut self, point: (i32, i32), size: (i32, i32)) -> bool {
+        self.pointer.motion(self.control_at(point, size))
+    }
+
+    pub fn mouse_leave(&mut self) {
+        self.pointer.motion(None);
+    }
+
+    pub fn cancel_pointer(&mut self) {
+        self.pointer = ButtonPointer::default();
+        self.dragging = false;
+    }
+
+    pub fn capturing(&self) -> bool {
+        self.dragging || self.pointer.pressed.is_some()
+    }
+
+    pub fn release(&mut self, point: (i32, i32), size: (i32, i32)) -> Outcome {
+        self.dragging = false;
+        match self.pointer.release(self.control_at(point, size)) {
+            Some(Control::Confirm) => Outcome::Apply,
+            Some(Control::Cancel) => Outcome::Cancel,
+            Some(Control::Step { row, step }) if self.can_step(row, step) => {
+                self.focus(row, false);
+                self.adjust_number(step);
+                Outcome::Stay
+            }
+            _ => Outcome::Stay,
+        }
+    }
+
     pub fn click(
         &mut self,
         point: (i32, i32),
@@ -567,56 +615,58 @@ impl Form {
         clicks: u8,
         shift: bool,
         measure: impl Fn(&str) -> i32,
-    ) -> Outcome {
+    ) {
         let (x, y) = point;
-        let (width, height) = size;
-        if let Some(drop) = &self.dropdown {
-            let rect = drop.rect(width);
-            if rect.contains(x, y) {
-                self.choose(drop.first + ((y - rect.1) / ITEM_HEIGHT) as usize);
-                return Outcome::Stay;
+        let (width, _) = size;
+        let target = self.control_at(point, size);
+        self.pointer.motion(target);
+        match target {
+            Some(Control::Option(index)) => {
+                self.choose(index);
+                self.motion(point, size);
+                return;
             }
-        }
-        if dialog_button(width, height, true).contains(x, y) {
-            return Outcome::Apply;
-        }
-        if dialog_button(width, height, false).contains(x, y) {
-            return Outcome::Cancel;
+            Some(Control::Confirm | Control::Cancel) => {
+                self.pointer.pressed = target;
+                return;
+            }
+            Some(Control::Step { row, step }) => {
+                self.dropdown = None;
+                if self.can_step(row, step) {
+                    self.pointer.pressed = target;
+                }
+                return;
+            }
+            Some(Control::Checkbox(row)) => {
+                self.focus(row, false);
+                self.toggle();
+                return;
+            }
+            _ => {}
         }
         let mut row = y.saturating_sub(12) as usize / ROW_HEIGHT as usize;
-        let was_open = self.dropdown.as_ref().is_some_and(|drop| drop.row == row);
+        let was_open = self.dropdown.is_some() && self.focus == row;
         let prior_focus = self.focus;
         self.dropdown = None;
         if y < 12 || row > AUTO_REPLAY {
-            return Outcome::Stay;
+            return;
         }
         if row == AUTO_REPLAY {
-            if (12..FIELD_LEFT).contains(&x) {
-                self.focus(AUTO_REPLAY, false);
-                self.toggle();
-                return Outcome::Stay;
-            }
             if !self.auto_replay_checked || !input_area(REPLAY_THRESHOLD, width).contains(x, y) {
-                return Outcome::Stay;
+                return;
             }
             row = REPLAY_THRESHOLD;
         } else if x < FIELD_LEFT {
-            return Outcome::Stay;
+            return;
         }
         if row != self.focus {
             self.focus(row, false);
         }
-        let rect = field(row, width);
-        match row {
-            0 | 6 if !was_open => self.open_dropdown(true),
-            COUNTRY if x >= rect.0 + rect.2 - 25 => {
+        match target {
+            Some(Control::Dropdown(_)) => {
                 if !was_open {
                     self.open_dropdown(true);
                 }
-            }
-            4 | 7 | 8 | 9 => self.toggle(),
-            5 | 10 if x < rect.0 + 120 && !input_area(row, width).contains(x, y) => {
-                self.adjust_number(if x < rect.0 + 26 { -1 } else { 1 });
             }
             _ => {
                 if let Some(index) = self.edit_row() {
@@ -635,7 +685,6 @@ impl Form {
                 }
             }
         }
-        Outcome::Stay
     }
 
     pub fn drag(&mut self, x: i32, width: i32, measure: impl Fn(&str) -> i32) {
@@ -651,11 +700,7 @@ impl Form {
 
     pub fn wheel(&mut self, direction: i32) {
         if let Some(drop) = &mut self.dropdown {
-            drop.first = drop
-                .first
-                .saturating_add_signed(direction as isize)
-                .min(drop.choices.len().saturating_sub(VISIBLE_ITEMS));
-            drop.selected = None;
+            drop.scroll(direction);
         }
     }
 
@@ -736,6 +781,7 @@ impl Form {
         ] {
             let rect = field(row, width);
             field_frame(p, rect, self.focus == row);
+            self.draw_dropdown_arrow(p, rect, row);
             p.text(
                 input_area(row, width).inset(4),
                 value,
@@ -743,7 +789,6 @@ impl Form {
                 Align::Left,
                 INK,
             );
-            arrow(p, rect);
         }
         for (index, row) in EDIT_ROWS.into_iter().enumerate() {
             let rect = field(row, width);
@@ -764,12 +809,19 @@ impl Form {
             field_frame(p, if index >= 3 { input } else { rect }, active);
             draw_edit(p, input.inset(4), &self.edits[index], active, index >= 3);
             if row == COUNTRY {
-                arrow(p, rect);
+                self.draw_dropdown_arrow(p, rect, row);
             }
             if matches!(row, 5 | 10) {
-                button(p, Box2(rect.0, rect.1, 26, rect.3), "");
-                p.fill(Box2(rect.0 + 9, rect.1 + rect.3 / 2, 8, 1), INK);
-                button(p, Box2(rect.0 + 94, rect.1, 26, rect.3), "+");
+                for (step, title) in [(-1, "−"), (1, "+")] {
+                    control_button(
+                        p,
+                        step_button(row, width, step),
+                        title,
+                        self.pointer
+                            .state(Control::Step { row, step }, self.can_step(row, step)),
+                        false,
+                    );
+                }
             }
         }
         for (row, checked, title) in [
@@ -780,6 +832,7 @@ impl Form {
         ] {
             let y = 12 + row as i32 * ROW_HEIGHT;
             let rect = Box2(FIELD_LEFT, y + 8, 15, 15);
+            self.draw_checkbox_hover(p, row, width);
             field_frame(p, rect, self.focus == row);
             if checked {
                 p.checkmark(rect);
@@ -794,6 +847,7 @@ impl Form {
         }
         let replay_y = 12 + AUTO_REPLAY as i32 * ROW_HEIGHT;
         let checkbox = Box2(12, replay_y + 8, 15, 15);
+        self.draw_checkbox_hover(p, AUTO_REPLAY, width);
         field_frame(p, checkbox, self.focus == AUTO_REPLAY);
         if self.auto_replay_checked {
             p.checkmark(checkbox);
@@ -826,34 +880,50 @@ impl Form {
                 0x9a251d,
             );
         }
-        for (ok, key) in [(true, Text::Ok), (false, Text::Cancel)] {
-            let rect = dialog_button(width, height, ok);
-            button(p, rect, cfg.text(key));
-            if self.focus == if ok { OK } else { CANCEL } {
-                p.border(rect, 0x467eac);
-            }
+        for (ok, key, control) in [
+            (true, Text::Ok, Control::Confirm),
+            (false, Text::Cancel, Control::Cancel),
+        ] {
+            control_button(
+                p,
+                dialog_button(width, height, ok),
+                cfg.text(key),
+                self.pointer.state(control, true),
+                ok != (self.focus == CANCEL),
+            );
         }
         if let Some(drop) = &self.dropdown {
-            let rect = drop.rect(width);
-            let last = (drop.first + VISIBLE_ITEMS).min(drop.choices.len());
-            for index in drop.first..last {
-                let row = Box2(
-                    rect.0,
-                    rect.1 + (index - drop.first) as i32 * ITEM_HEIGHT,
-                    rect.2,
-                    ITEM_HEIGHT,
-                );
-                p.fill(
-                    row,
-                    if drop.selected == Some(index) {
-                        0xd5e9ff
-                    } else {
-                        WHITE
-                    },
-                );
-                p.text(row.inset(4), drop.choices[index], FONT, Align::Left, INK);
-            }
-            p.border(rect, 0x9b9b9b);
+            let hovered = match self.pointer.hovered {
+                Some(Control::Option(index)) => Some(index),
+                _ => None,
+            };
+            drop.draw(
+                p,
+                field(self.focus, width),
+                FONT,
+                hovered,
+                |index, choice| match self.focus {
+                    0 => index == cfg.lang,
+                    6 => index == cfg.autosave,
+                    _ => choice.eq_ignore_ascii_case(self.edits[2].value.trim()),
+                },
+            );
+        }
+    }
+
+    fn draw_dropdown_arrow(&self, p: &Painter, rect: Box2, row: usize) {
+        dropdown::draw_trigger(
+            p,
+            rect,
+            row == COUNTRY,
+            self.dropdown.is_some() && self.focus == row,
+            self.pointer.hovered == Some(Control::Dropdown(row)),
+        );
+    }
+
+    fn draw_checkbox_hover(&self, p: &Painter, row: usize, width: i32) {
+        if self.pointer.hovered == Some(Control::Checkbox(row)) {
+            p.fill(checkbox_area(row, width).inset(2), 0xe4eef8);
         }
     }
 }
@@ -904,30 +974,30 @@ fn field(row: usize, width: i32) -> Box2 {
 fn input_area(row: usize, width: i32) -> Box2 {
     let Box2(x, y, w, h) = field(row, width);
     match row {
-        0 | COUNTRY | 6 => Box2(x, y, w - 25, h),
+        0 | COUNTRY | 6 => Box2(x, y, w - ARROW_WIDTH, h),
         5 | 10 => Box2(x + 26, y, 68, h),
         REPLAY_THRESHOLD => Box2(x, y, 130, h),
         _ => Box2(x, y, w, h),
     }
 }
 
+fn step_button(row: usize, width: i32, step: i32) -> Box2 {
+    let Box2(x, y, _, height) = field(row, width);
+    Box2(x + if step < 0 { 0 } else { 94 }, y, 26, height)
+}
+
+fn checkbox_area(row: usize, width: i32) -> Box2 {
+    let y = 12 + row as i32 * ROW_HEIGHT;
+    if row == AUTO_REPLAY {
+        Box2(12, y, FIELD_LEFT - 12, ROW_HEIGHT)
+    } else {
+        Box2(FIELD_LEFT, y, width - FIELD_LEFT - 12, ROW_HEIGHT)
+    }
+}
+
 fn field_frame(p: &Painter, area: Box2, active: bool) {
     p.fill(area, WHITE);
     p.border(area, if active { 0x467eac } else { 0xb0b0b0 });
-}
-
-fn arrow(p: &Painter, area: Box2) {
-    for (step, width) in [9, 7, 5, 3, 1].into_iter().enumerate() {
-        p.fill(
-            Box2(
-                area.0 + area.2 - 13 - width / 2,
-                area.1 + 11 + step as i32,
-                width,
-                1,
-            ),
-            INK,
-        );
-    }
 }
 
 fn edit_padding(field_width: i32, text_width: i32, centered: bool) -> i32 {
@@ -965,6 +1035,67 @@ fn draw_edit(p: &Painter, inner: Box2, edit: &Edit, active: bool, centered: bool
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn enter_opens_and_confirms_settings_dropdowns() {
+        let root =
+            std::env::temp_dir().join(format!("metasweeper-mini-test-{}", std::process::id()));
+        let mut form = Form::new(Settings::read(&root).unwrap());
+        form.draft.lang = 0;
+        form.draft.autosave = 0;
+
+        for row in [0, 6] {
+            form.focus(row, true);
+            assert!(form.enter() == Outcome::Stay);
+            let dropdown = form.dropdown.as_mut().unwrap();
+            dropdown.step(1);
+            assert!(form.enter() == Outcome::Stay);
+            assert!(form.dropdown.is_none());
+        }
+        assert_eq!(form.draft.lang, 1);
+        assert_eq!(form.draft.autosave, 1);
+
+        form.edits[2].value = "中国".into();
+        form.focus(COUNTRY, true);
+        assert!(form.enter() == Outcome::Stay);
+        let dropdown = form.dropdown.as_mut().unwrap();
+        dropdown.step(1);
+        let selected = dropdown.label(dropdown.selected().unwrap());
+        assert_ne!(selected, "中国");
+        assert!(form.enter() == Outcome::Stay);
+        assert_eq!(form.edits[2].value, selected);
+        assert!(form.dropdown.is_none());
+
+        form.focus(OK, false);
+        assert!(form.enter() == Outcome::Apply);
+    }
+
+    #[test]
+    fn settings_buttons_require_release_over_the_pressed_control() {
+        let root =
+            std::env::temp_dir().join(format!("metasweeper-mini-test-{}", std::process::id()));
+        let mut form = Form::new(Settings::read(&root).unwrap());
+        let size = (SIZE.0 as i32, SIZE.1 as i32);
+        let button_point = |Box2(x, y, _, _)| (x + 1, y + 1);
+        let confirm = button_point(dialog_button(size.0, size.1, true));
+        let cancel = button_point(dialog_button(size.0, size.1, false));
+        form.click(confirm, size, 1, false, |_| 0);
+        assert!(form.capturing());
+        assert!(form.release(cancel, size) == Outcome::Stay);
+        assert!(!form.capturing());
+        form.click(confirm, size, 1, false, |_| 0);
+        assert!(form.release(confirm, size) == Outcome::Apply);
+
+        form.edits[3].value = "5".into();
+        let decrease = button_point(step_button(5, size.0, -1));
+        let increase = button_point(step_button(5, size.0, 1));
+        form.click(decrease, size, 1, false, |_| 0);
+        assert!(!form.capturing());
+        form.click(increase, size, 1, false, |_| 0);
+        assert_eq!(form.number(3).0, 5);
+        form.release(increase, size);
+        assert_eq!(form.number(3).0, 6);
+    }
 
     #[test]
     fn auto_restart_form_preserves_signed_thresholds_including_zero() {

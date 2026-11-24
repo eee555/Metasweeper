@@ -2,6 +2,7 @@
 
 mod config;
 mod core;
+mod dropdown;
 mod layout;
 mod native;
 mod paint;
@@ -36,7 +37,6 @@ use view::{Action, Choice, Menu};
 
 const RESIZE_SETTLE: Duration = Duration::from_millis(180);
 const REFRESH_RECHECK: Duration = Duration::from_secs(2);
-const FULLSCREEN_COUNTER_REFRESH: u64 = 500;
 const REFRESH_TICK: i32 = 1;
 
 #[derive(Default)]
@@ -95,6 +95,14 @@ fn refresh_interval(rate: Option<f64>) -> Duration {
         .filter(|rate| rate.is_finite() && *rate > 1.0)
         .unwrap_or(60.0);
     Duration::from_secs_f64(1.0 / rate).max(Duration::from_nanos(1))
+}
+
+fn input_delay(timestamp: u64) -> Duration {
+    if timestamp == 0 {
+        return Duration::ZERO;
+    }
+    let now = unsafe { sdl3_sys::timer::SDL_GetTicksNS() };
+    Duration::from_nanos(now.saturating_sub(timestamp))
 }
 
 struct Display {
@@ -192,6 +200,7 @@ enum Panel {
     Settings(Box<settings_ui::Form>),
     Fullscreen {
         mode: FullscreenMode,
+        pointer: view::ButtonPointer<FullscreenMode>,
     },
     Save {
         path: String,
@@ -202,6 +211,19 @@ enum Panel {
     Message {
         text: String,
     },
+}
+
+const FULLSCREEN_CHOICES: [(FullscreenMode, Text, &str); 3] = [
+    (FullscreenMode::Board, Text::FullscreenBoardOnly, "1"),
+    (FullscreenMode::Status, Text::FullscreenWithStatus, "2"),
+    (FullscreenMode::Counter, Text::FullscreenWithCounter, "3"),
+];
+
+fn fullscreen_choice_at(size: (i32, i32), (x, y): (i32, i32)) -> Option<FullscreenMode> {
+    FULLSCREEN_CHOICES
+        .iter()
+        .map(|&(mode, _, _)| mode)
+        .find(|&mode| view::fullscreen_button(size.0, size.1, mode).contains(x, y))
 }
 
 struct Dialog {
@@ -403,16 +425,14 @@ impl App {
     }
 
     fn update_refresh_rate(&mut self) {
-        self.refresh_every = if self.fullscreen && self.fullscreen_mode == FullscreenMode::Counter {
-            Duration::from_millis(1000 / FULLSCREEN_COUNTER_REFRESH)
-        } else {
-            let window = self
-                .counter
-                .as_ref()
-                .map(|counter| &counter.window)
-                .unwrap_or(&self.main.window);
-            refresh_interval(platform::refresh_rate(window))
-        };
+        let main_rate = platform::refresh_rate(&self.main.window);
+        let counter_rate = self
+            .counter
+            .as_ref()
+            .filter(|counter| counter.shown)
+            .and_then(|counter| platform::refresh_rate(&counter.window));
+        self.refresh_every =
+            refresh_interval(main_rate.into_iter().chain(counter_rate).reduce(f64::max));
         self.refresh_checked = Instant::now();
     }
 
@@ -661,9 +681,11 @@ impl App {
         if let Some(dialog) = self.dialog.take() {
             self.video.text_input().stop(&dialog.display.window);
             let settings = matches!(dialog.panel, Panel::Settings(_));
+            if settings || matches!(dialog.panel, Panel::Fullscreen { .. }) {
+                self.sdl.mouse().capture(false);
+            }
             drop(dialog);
             if settings {
-                self.sdl.mouse().capture(false);
                 self.main.window.raise();
                 self.main.dirty = true;
             }
@@ -793,6 +815,7 @@ impl App {
                         settings.text(Text::Fullscreen),
                         Panel::Fullscreen {
                             mode: FullscreenMode::Board,
+                            pointer: view::ButtonPointer::default(),
                         },
                         (556, 62),
                     )?;
@@ -984,7 +1007,8 @@ impl App {
                     self.queue_replay(replay, Some(path));
                 }
             }
-            Panel::Fullscreen { mode } => {
+            Panel::Fullscreen { mode, .. } => {
+                self.sdl.mouse().capture(false);
                 self.main.window.raise();
                 self.change_fullscreen(Some(mode));
             }
@@ -1018,6 +1042,30 @@ impl App {
             return Ok(());
         };
         match &mut dialog.panel {
+            Panel::Fullscreen { mode, .. } => {
+                match key {
+                    Keycode::_1 | Keycode::Kp1 => *mode = FullscreenMode::Board,
+                    Keycode::_2 | Keycode::Kp2 => *mode = FullscreenMode::Status,
+                    Keycode::_3 | Keycode::Kp3 => *mode = FullscreenMode::Counter,
+                    Keycode::Left | Keycode::Right | Keycode::Tab => {
+                        let index = match *mode {
+                            FullscreenMode::Board => 0,
+                            FullscreenMode::Status => 1,
+                            FullscreenMode::Counter => 2,
+                        };
+                        let backwards = key == Keycode::Left
+                            || key == Keycode::Tab
+                                && mods.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
+                        let count = FULLSCREEN_CHOICES.len();
+                        let step = if backwards { count - 1 } else { 1 };
+                        *mode = FULLSCREEN_CHOICES[(index + step) % count].0;
+                        dialog.display.dirty = true;
+                        return Ok(());
+                    }
+                    _ => return Ok(()),
+                }
+                return self.commit_dialog();
+            }
             Panel::Save {
                 path,
                 select,
@@ -1038,7 +1086,7 @@ impl App {
                 );
                 *overwrite = false;
             }
-            Panel::Fullscreen { .. } | Panel::Message { .. } | Panel::Settings(_) => {}
+            Panel::Message { .. } | Panel::Settings(_) => {}
         }
         dialog.display.dirty = true;
         Ok(())
@@ -1074,26 +1122,23 @@ impl App {
                 .keyboard()
                 .mod_state()
                 .intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
-            let outcome = form.click((x, y), (width, height), clicks, shift, |text| {
+            form.click((x, y), (width, height), clicks, shift, |text| {
                 dialog.display.measure_setting(text)
             });
-            if form.dragging {
+            if form.capturing() {
                 self.sdl.mouse().capture(true);
             }
             dialog.display.dirty = true;
-            return self.settings_outcome(outcome);
+            return Ok(());
         }
-        if let Panel::Fullscreen { mode } = &mut dialog.panel {
-            for choice in [
-                FullscreenMode::Board,
-                FullscreenMode::Status,
-                FullscreenMode::Counter,
-            ] {
-                if view::fullscreen_button(width, height, choice).contains(x, y) {
-                    *mode = choice;
-                    return self.commit_dialog();
-                }
+        if let Panel::Fullscreen { pointer, .. } = &mut dialog.panel {
+            let choice = fullscreen_choice_at((width, height), (x, y));
+            pointer.motion(choice);
+            pointer.pressed = choice;
+            if choice.is_some() {
+                self.sdl.mouse().capture(true);
             }
+            dialog.display.dirty = true;
         } else if matches!(dialog.panel, Panel::Message { .. }) {
             if view::dialog_button(width, height, false).contains(x, y) {
                 self.close_dialog();
@@ -1102,6 +1147,38 @@ impl App {
             self.commit_dialog()?;
         } else if view::dialog_button(width, height, false).contains(x, y) {
             self.close_dialog();
+        }
+        Ok(())
+    }
+
+    fn dialog_release(&mut self, window_id: u32, x: f32, y: f32) -> Result<(), String> {
+        let Some(dialog) = &mut self.dialog else {
+            return Ok(());
+        };
+        let same_window = dialog.display.window.id() == window_id;
+        let point = if same_window {
+            dialog.display.ui_point(x, y)
+        } else {
+            (-1, -1)
+        };
+        let size = dialog.display.ui_pixels();
+        match &mut dialog.panel {
+            Panel::Settings(form) if form.capturing() => {
+                self.sdl.mouse().capture(false);
+                let outcome = form.release(point, size);
+                dialog.display.dirty = true;
+                self.settings_outcome(outcome)?;
+            }
+            Panel::Fullscreen { mode, pointer } if pointer.pressed.is_some() => {
+                self.sdl.mouse().capture(false);
+                let selected = pointer.release(fullscreen_choice_at(size, point));
+                dialog.display.dirty = true;
+                if let Some(selected) = selected {
+                    *mode = selected;
+                    self.commit_dialog()?;
+                }
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -1163,11 +1240,15 @@ impl App {
     }
 
     fn cancel_input(&mut self) {
+        self.cancel_input_at(Duration::ZERO);
+    }
+
+    fn cancel_input_at(&mut self, delay: Duration) {
         if self.held != 0 {
             let (x, y) = self.replay_point(-1, -1);
             for (bit, command) in [(1, 1), (2, 3)] {
                 if self.held & bit != 0 {
-                    self.round.play(command, x, y, &self.settings);
+                    self.round.play(command, x, y, &self.settings, delay);
                 }
             }
             self.held = 0;
@@ -1178,7 +1259,14 @@ impl App {
         self.main.dirty = true;
     }
 
-    fn mouse(&mut self, btn: MouseButton, down: bool, x: f32, y: f32) -> Result<(), String> {
+    fn mouse(
+        &mut self,
+        btn: MouseButton,
+        down: bool,
+        x: f32,
+        y: f32,
+        timestamp: u64,
+    ) -> Result<(), String> {
         let (x, y) = self.main.point(x, y);
         self.pointer = (x, y);
         self.main.dirty = true;
@@ -1251,6 +1339,7 @@ impl App {
             x,
             y,
             &self.settings,
+            input_delay(timestamp),
         );
         if self.round.should_auto_restart(self.settings.auto_replay) {
             return self.action(Action::Restart);
@@ -1310,10 +1399,11 @@ impl App {
                 _ => {}
             },
             Event::Window {
+                timestamp,
                 window_id,
                 win_event,
                 ..
-            } => self.window_event(window_id, win_event)?,
+            } => self.window_event(window_id, win_event, timestamp)?,
             Event::KeyDown {
                 keycode,
                 scancode,
@@ -1404,6 +1494,8 @@ impl App {
                 window_id,
                 y,
                 direction,
+                mouse_x,
+                mouse_y,
                 ..
             } => {
                 if let Some(Dialog {
@@ -1419,6 +1511,7 @@ impl App {
                             step
                         };
                         form.wheel(step * 3);
+                        form.motion(display.ui_point(mouse_x, mouse_y), display.ui_pixels());
                         display.dirty = true;
                     }
                 }
@@ -1426,22 +1519,34 @@ impl App {
             Event::MouseMotion {
                 window_id, x, y, ..
             } if self.dialog.is_some() => {
-                if let Some(Dialog {
-                    display,
-                    panel: Panel::Settings(form),
-                }) = &mut self.dialog
+                if let Some(Dialog { display, panel }) = self
+                    .dialog
+                    .as_mut()
+                    .filter(|dialog| dialog.display.window.id() == window_id)
                 {
-                    if display.window.id() == window_id && form.dragging {
-                        let (x, _) = display.ui_point(x, y);
-                        form.drag(x, display.ui_pixels().0, |text| {
-                            display.measure_setting(text)
-                        });
-                        display.dirty = true;
+                    let point = display.ui_point(x, y);
+                    let size = display.ui_pixels();
+                    match panel {
+                        Panel::Settings(form) => {
+                            display.dirty |= form.motion(point, size);
+                            if form.dragging {
+                                form.drag(point.0, size.0, |text| display.measure_setting(text));
+                                display.dirty = true;
+                            }
+                        }
+                        Panel::Fullscreen { pointer, .. } => {
+                            display.dirty |= pointer.motion(fullscreen_choice_at(size, point));
+                        }
+                        _ => {}
                     }
                 }
             }
             Event::MouseMotion {
-                window_id, x, y, ..
+                timestamp,
+                window_id,
+                x,
+                y,
+                ..
             } if window_id == self.main.window.id() && self.dialog.is_none() => {
                 let pos = self.main.point(x, y);
                 if self.held != 0
@@ -1453,10 +1558,11 @@ impl App {
                 self.pointer = pos;
                 if self.menu.open.is_none() {
                     let (x, y) = self.replay_point(pos.0, pos.1);
-                    self.round.track(x, y);
+                    self.round.track(x, y, input_delay(timestamp));
                 }
             }
             Event::MouseButtonDown {
+                timestamp,
                 window_id,
                 mouse_btn,
                 x,
@@ -1471,7 +1577,7 @@ impl App {
                         dialog.display.window.raise();
                     }
                 } else if window_id == self.main.window.id() {
-                    self.mouse(mouse_btn, true, x, y)?;
+                    self.mouse(mouse_btn, true, x, y, timestamp)?;
                 } else if let Some(counter) = &self.counter {
                     let (px, py) = counter.point(x, y);
                     let can_close = counter.hook.is_none();
@@ -1487,33 +1593,28 @@ impl App {
             Event::MouseButtonUp {
                 window_id,
                 mouse_btn: MouseButton::Left,
+                x,
+                y,
                 ..
             } if self.dialog.is_some() => {
-                if let Some(Dialog {
-                    display,
-                    panel: Panel::Settings(form),
-                }) = &mut self.dialog
-                {
-                    if display.window.id() == window_id && std::mem::take(&mut form.dragging) {
-                        self.sdl.mouse().capture(false);
-                    }
-                }
+                self.dialog_release(window_id, x, y)?;
             }
             Event::MouseButtonUp {
+                timestamp,
                 window_id,
                 mouse_btn,
                 x,
                 y,
                 ..
             } if window_id == self.main.window.id() && self.dialog.is_none() => {
-                self.mouse(mouse_btn, false, x, y)?;
+                self.mouse(mouse_btn, false, x, y, timestamp)?;
             }
             _ => {}
         }
         Ok(())
     }
 
-    fn window_event(&mut self, id: u32, event: WindowEvent) -> Result<(), String> {
+    fn window_event(&mut self, id: u32, event: WindowEvent, timestamp: u64) -> Result<(), String> {
         if id == self.main.window.id() {
             match event {
                 WindowEvent::CloseRequested => self.quit = true,
@@ -1547,14 +1648,14 @@ impl App {
                 }
                 WindowEvent::FocusLost => {
                     self.menu.open = None;
-                    self.cancel_input();
+                    self.cancel_input_at(input_delay(timestamp));
                 }
                 WindowEvent::Minimized | WindowEvent::Hidden => self.release_cursor(),
                 WindowEvent::FocusGained => self.sync_cursor(),
                 WindowEvent::MouseLeave if self.held == 0 => {
                     self.pointer = (-1, -1);
                     let (x, y) = self.replay_point(-1, -1);
-                    self.round.track(x, y);
+                    self.round.track(x, y, input_delay(timestamp));
                     self.main.dirty = true;
                 }
                 WindowEvent::DisplayChanged(..) => {
@@ -1580,13 +1681,25 @@ impl App {
             if event == WindowEvent::CloseRequested {
                 self.close_dialog();
             } else if let Some(dialog) = self.dialog.as_mut() {
-                if event == WindowEvent::FocusLost {
-                    if let Panel::Settings(form) = &mut dialog.panel {
+                match (&mut dialog.panel, event) {
+                    (Panel::Settings(form), WindowEvent::FocusLost) => {
                         form.clear_composition();
-                        if std::mem::take(&mut form.dragging) {
+                        if form.capturing() {
                             self.sdl.mouse().capture(false);
                         }
+                        form.cancel_pointer();
                     }
+                    (Panel::Settings(form), WindowEvent::MouseLeave) => form.mouse_leave(),
+                    (Panel::Fullscreen { pointer, .. }, WindowEvent::FocusLost) => {
+                        if pointer.pressed.is_some() {
+                            self.sdl.mouse().capture(false);
+                        }
+                        *pointer = view::ButtonPointer::default();
+                    }
+                    (Panel::Fullscreen { pointer, .. }, WindowEvent::MouseLeave) => {
+                        pointer.motion(None);
+                    }
+                    _ => {}
                 }
                 dialog.display.dirty = true;
             }
@@ -1663,8 +1776,10 @@ impl App {
             if now.saturating_duration_since(self.refresh_checked) >= REFRESH_RECHECK {
                 self.update_refresh_rate();
             }
+            let previous_second = self.round.seconds() as u32;
             self.round.refresh();
-            self.main.dirty |= !self.fullscreen || self.fullscreen_mode == FullscreenMode::Status;
+            let timer_visible = !self.fullscreen || self.fullscreen_mode == FullscreenMode::Status;
+            self.main.dirty |= timer_visible && previous_second != self.round.seconds() as u32;
             if let Some(counter) = &mut self.counter {
                 counter.dirty = true;
             }
@@ -1700,56 +1815,53 @@ impl App {
         Ok(())
     }
 
-    fn draw(&mut self, events: &EventPump) -> Result<(), String> {
-        let (art, menu) = (&mut self.art, &mut self.menu);
-        let (settings, round, layout, pointer, restart) = (
-            &self.settings,
-            &self.round,
-            self.layout,
-            self.pointer,
-            self.restart_pressed,
-        );
+    fn draw(&mut self, events: &EventPump, refresh: bool) -> Result<(), String> {
         let fullscreen = self.fullscreen;
         let fullscreen_mode = self.fullscreen_mode;
-        let fullscreen_counter = &mut self.fullscreen_counter;
-        let full_redraw =
-            self.main.dirty || !fullscreen || fullscreen_mode != FullscreenMode::Counter;
-        self.main.dirty = false;
-        self.main.buffer.present_regions(
-            &self.main.window,
-            events,
-            self.main.ui_scale,
-            |p, w, h| {
-                if fullscreen {
-                    view::fullscreen(
-                        p,
-                        art,
-                        settings,
-                        round,
-                        layout,
-                        pointer,
-                        restart,
-                        (w, h),
-                        fullscreen_mode,
-                        fullscreen_counter,
-                        full_redraw,
-                    )
-                } else {
-                    view::game(
-                        p,
-                        art,
-                        settings,
-                        round,
-                        layout,
-                        menu,
-                        pointer,
-                        restart,
-                        (w, h),
-                    );
-                    None
-                }
-            },
-        )?;
+        let (settings, round) = (&self.settings, &self.round);
+        let counter_refresh = refresh && fullscreen && fullscreen_mode == FullscreenMode::Counter;
+        if self.main.dirty || counter_refresh {
+            let (art, menu) = (&mut self.art, &mut self.menu);
+            let (layout, pointer, restart) = (self.layout, self.pointer, self.restart_pressed);
+            let fullscreen_counter = &mut self.fullscreen_counter;
+            let full_redraw = self.main.dirty;
+            self.main.dirty = false;
+            self.main.buffer.present_regions(
+                &self.main.window,
+                events,
+                self.main.ui_scale,
+                |p, w, h| {
+                    if fullscreen {
+                        view::fullscreen(
+                            p,
+                            art,
+                            settings,
+                            round,
+                            layout,
+                            pointer,
+                            restart,
+                            (w, h),
+                            fullscreen_mode,
+                            fullscreen_counter,
+                            full_redraw,
+                        )
+                    } else {
+                        view::game(
+                            p,
+                            art,
+                            settings,
+                            round,
+                            layout,
+                            menu,
+                            pointer,
+                            restart,
+                            (w, h),
+                        );
+                        None
+                    }
+                },
+            )?;
+        }
         if let Some(counter) = self
             .counter
             .as_mut()
@@ -1801,23 +1913,33 @@ impl App {
             }
             display.draw(events, |p, w, h| match panel {
                 Panel::Settings(form) => form.draw(p, w, h),
-                Panel::Fullscreen { .. } => {
+                Panel::Fullscreen { mode, pointer } => {
                     p.fill(Box2(0, 0, w, h), 0xf5f5f5);
-                    view::button(
-                        p,
-                        view::fullscreen_button(w, h, FullscreenMode::Board),
-                        settings.text(Text::FullscreenBoardOnly),
-                    );
-                    view::button(
-                        p,
-                        view::fullscreen_button(w, h, FullscreenMode::Status),
-                        settings.text(Text::FullscreenWithStatus),
-                    );
-                    view::button(
-                        p,
-                        view::fullscreen_button(w, h, FullscreenMode::Counter),
-                        settings.text(Text::FullscreenWithCounter),
-                    );
+                    for (choice, label, shortcut) in FULLSCREEN_CHOICES {
+                        let area = view::fullscreen_button(w, h, choice);
+                        view::control_button(
+                            p,
+                            area,
+                            "",
+                            pointer.state(choice, true),
+                            *mode == choice,
+                        );
+                        let Box2(x, y, width, height) = area;
+                        p.text(
+                            Box2(x + 6, y, 13, height),
+                            shortcut,
+                            12,
+                            Align::Center,
+                            0x465768,
+                        );
+                        p.text(
+                            Box2(x + 21, y, width - 25, height),
+                            settings.text(label),
+                            15,
+                            Align::Center,
+                            INK,
+                        );
+                    }
                 }
                 Panel::Save {
                     path,
@@ -1865,9 +1987,9 @@ impl App {
                 platform::set_capture_guard(&self.main.window, protect);
                 capture_guard = protect;
             }
-            self.draw(&events)?;
+            self.draw(&events, refresh)?;
             if self.reveal() {
-                self.draw(&events)?;
+                self.draw(&events, false)?;
                 self.restore_positions();
                 self.uncloak();
             }
@@ -1881,11 +2003,7 @@ impl App {
                 .chain(self.counter_resize_at)
                 .map(|since| (since + RESIZE_SETTLE).saturating_duration_since(Instant::now()));
             let replay = (self.pending_writes > 0).then_some(Duration::from_millis(20));
-            let fullscreen_counter_refresh = (self.fullscreen
-                && self.fullscreen_mode == FullscreenMode::Counter
-                && self.refreshing())
-            .then_some(self.refresh_every);
-            let timeout = resize.chain(replay).chain(fullscreen_counter_refresh).min();
+            let timeout = resize.chain(replay).min();
             let first = match timeout {
                 Some(timeout) => {
                     events.wait_event_timeout_ms(timeout.as_nanos().div_ceil(1_000_000) as u32)
@@ -2168,7 +2286,6 @@ mod tests {
 }
 
 fn run() -> Result<(), String> {
-    platform::configure_process_priority();
     let root = platform::data_root()?;
     let settings = Settings::read(&root).map_err(|e| e.to_string())?;
     platform::prepare_root(&root, &settings)?;

@@ -1,5 +1,6 @@
 use ms_toollib::videos::base_video::NewBaseVideo2;
 use ms_toollib::{laymine, BaseVideo, GameBoardState, MouseState};
+use std::time::Instant;
 
 pub const CELL_PIXELS: usize = 16;
 
@@ -82,6 +83,7 @@ impl GameSession {
         y: usize,
         flag_on_win: bool,
         cells: &mut [u8],
+        input_at: Instant,
     ) -> bool {
         if self.finished() || cells.len() != self.video.height * self.video.width {
             return false;
@@ -108,7 +110,7 @@ impl GameSession {
             }
             self.laid = true;
         }
-        if video.step(event, (y, x)).is_err() {
+        if video.step_at(event, (y, x), input_at).is_err() {
             return false;
         }
         match video.game_board_state {
@@ -125,8 +127,8 @@ impl GameSession {
         true
     }
 
-    pub fn track(&mut self, x: usize, y: usize) {
-        let _ = self.video.step("mv", (y, x));
+    pub fn track(&mut self, x: usize, y: usize, input_at: Instant) {
+        let _ = self.video.step_at("mv", (y, x), input_at);
     }
 
     fn finished(&self) -> bool {
@@ -218,10 +220,10 @@ mod tests {
     #[test]
     fn button_rejects_mismatched_cell_buffers_before_processing_input() {
         let mut game = GameSession::with_board(vec![vec![-1, 1], vec![1, 1]]);
-        assert!(!game.button(0, 17, 17, true, &mut [10; 3]));
-        assert!(!game.button(0, 17, 17, true, &mut [10; 5]));
+        assert!(!game.button(0, 17, 17, true, &mut [10; 3], Instant::now()));
+        assert!(!game.button(0, 17, 17, true, &mut [10; 5], Instant::now()));
         assert_eq!(game.status().mouse_visual, 0);
-        assert!(game.button(0, 17, 17, true, &mut [10; 4]));
+        assert!(game.button(0, 17, 17, true, &mut [10; 4], Instant::now()));
         assert_eq!(game.status().mouse_visual, 1);
     }
 
@@ -234,8 +236,8 @@ mod tests {
         let mut open = |game: &mut GameSession, x, y| {
             let x = x * CELL_PIXELS + 3;
             let y = y * CELL_PIXELS + 3;
-            assert!(game.button(0, x, y, true, &mut visible));
-            assert!(game.button(1, x, y, true, &mut visible));
+            assert!(game.button(0, x, y, true, &mut visible, Instant::now()));
+            assert!(game.button(1, x, y, true, &mut visible, Instant::now()));
         };
 
         open(&mut game, 1, 1);
@@ -281,5 +283,34 @@ mod tests {
             assert!(!parsed.data.use_question);
             assert_eq!(parsed.data.use_auto_replay, auto_replay);
         }
+    }
+
+    #[test]
+    fn replay_uses_input_timestamps_for_a_buffered_round() {
+        use std::time::Duration;
+
+        let mut game = GameSession::with_board(vec![vec![-1, 1], vec![1, 1]]);
+        let now = Instant::now();
+        let start = now - Duration::from_millis(480);
+        let end = start + Duration::from_millis(417);
+        game.video.video_start_instant = start;
+        let mut cells = [10; 4];
+        for (x, y, time) in [(17, 17, start), (3, 3, end)] {
+            assert!(game.button(0, x, y, true, &mut cells, time));
+            assert!(game.button(1, x, y, true, &mut cells, time));
+        }
+        assert_eq!(game.status().phase, 3);
+        assert_eq!(game.replay_stats().0, 0.417);
+        let data = game.encode_replay("玩家", "", "", false, false).unwrap();
+        let mut parsed = EvfVideo::new(data, "timing.evf");
+        parsed.parse().unwrap();
+        assert_eq!(parsed.data.get_rtime().unwrap(), 0.417);
+        assert!(
+            parsed
+                .data
+                .end_time
+                .abs_diff(parsed.data.start_time + 417_000)
+                < 5_000
+        );
     }
 }

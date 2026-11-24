@@ -633,9 +633,92 @@ pub fn fullscreen_button(width: i32, height: i32, mode: FullscreenMode) -> Box2 
 }
 
 pub fn button(p: &Painter, area: Box2, title: &str) {
-    p.fill(area, 0xebebeb);
-    p.border(area, 0x999999);
-    p.text(area, title, 15, Align::Center, INK);
+    control_button(p, area, title, ButtonState::Normal, false);
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ButtonState {
+    Normal,
+    Hover,
+    Pressed,
+    Disabled,
+}
+
+pub struct ButtonPointer<T> {
+    pub hovered: Option<T>,
+    pub pressed: Option<T>,
+}
+
+impl<T> Default for ButtonPointer<T> {
+    fn default() -> Self {
+        Self {
+            hovered: None,
+            pressed: None,
+        }
+    }
+}
+
+impl<T: Copy + Eq> ButtonPointer<T> {
+    pub fn motion(&mut self, target: Option<T>) -> bool {
+        std::mem::replace(&mut self.hovered, target) != target
+    }
+
+    pub fn release(&mut self, target: Option<T>) -> Option<T> {
+        self.hovered = target;
+        self.pressed
+            .take()
+            .filter(|pressed| Some(*pressed) == target)
+    }
+
+    pub fn state(&self, target: T, enabled: bool) -> ButtonState {
+        if !enabled {
+            ButtonState::Disabled
+        } else if self.hovered != Some(target) {
+            ButtonState::Normal
+        } else if self.pressed == Some(target) {
+            ButtonState::Pressed
+        } else if self.pressed.is_none() {
+            ButtonState::Hover
+        } else {
+            ButtonState::Normal
+        }
+    }
+}
+
+pub fn control_button(p: &Painter, area: Box2, title: &str, state: ButtonState, focused: bool) {
+    p.fill(
+        area,
+        match state {
+            ButtonState::Normal => 0xebebeb,
+            ButtonState::Hover => 0xe4eef8,
+            ButtonState::Pressed => 0xd5e5f4,
+            ButtonState::Disabled => 0xf1f1f1,
+        },
+    );
+    if state == ButtonState::Pressed {
+        p.bevel(area.inset(1), 1, false);
+    }
+    p.border(
+        area,
+        if focused {
+            0x467eac
+        } else if state == ButtonState::Disabled {
+            0xc6c6c6
+        } else {
+            0x999999
+        },
+    );
+    p.text(
+        area,
+        title,
+        15,
+        Align::Center,
+        if state == ButtonState::Disabled {
+            0x888888
+        } else {
+            INK
+        },
+    );
 }
 
 pub fn message(p: &Painter, text: &str, confirm: &str, width: i32, height: i32) {

@@ -21,6 +21,7 @@ pub struct Round {
     race: String,
     pub country: String,
     last_position: Option<(usize, usize)>,
+    last_input_at: Instant,
     cursor_limit_used: bool,
     pub timing_valid: bool,
     started_clock_ms: Option<u64>,
@@ -39,6 +40,7 @@ impl Round {
             race: settings.race.clone(),
             country: config::country_code(&settings.country).unwrap_or_default(),
             last_position: None,
+            last_input_at: Instant::now(),
             cursor_limit_used: false,
             timing_valid: true,
             started_clock_ms: None,
@@ -60,16 +62,25 @@ impl Round {
         }
     }
 
-    pub fn play(&mut self, button: u32, x: usize, y: usize, settings: &config::Settings) {
+    pub fn play(
+        &mut self,
+        button: u32,
+        x: usize,
+        y: usize,
+        settings: &config::Settings,
+        input_delay: Duration,
+    ) {
         if self.ended() {
             return;
         }
         let now = Instant::now();
         let clock = crate::platform::clock_ms();
+        let input_at = self.input_instant(now, input_delay);
+        let clock = clock.and_then(|ms| ms.checked_sub((now - input_at).as_millis() as u64));
         let ready = self.status.phase == 0;
         if !self
             .session
-            .button(button, x, y, settings.flag_win, &mut self.cells)
+            .button(button, x, y, settings.flag_win, &mut self.cells, input_at)
         {
             return;
         }
@@ -85,9 +96,16 @@ impl Round {
         }
     }
 
-    pub fn track(&mut self, x: usize, y: usize) {
+    fn input_instant(&mut self, now: Instant, delay: Duration) -> Instant {
+        let input_at = now.checked_sub(delay).unwrap_or(self.last_input_at);
+        self.last_input_at = input_at.max(self.last_input_at);
+        self.last_input_at
+    }
+
+    pub fn track(&mut self, x: usize, y: usize, input_delay: Duration) {
         if !self.ended() && self.last_position != Some((x, y)) {
-            self.session.track(x, y);
+            let input_at = self.input_instant(Instant::now(), input_delay);
+            self.session.track(x, y, input_at);
             self.last_position = Some((x, y));
         }
     }
@@ -155,12 +173,17 @@ impl Round {
         }
         let (time, total, speed) = self.session.replay_stats();
         let name = format!(
-            "{}_0_{}_{total}_{}_{}{}",
+            "{}_0_{}_{total}_{}_{}{}{}",
             ["b", "i", "e"][settings.level],
             decimal(time),
             decimal(speed),
             safe_identifier(&self.player),
-            if self.status.phase == 3 { "_fail" } else { "" }
+            if self.status.phase == 3 { "_fail" } else { "" },
+            if cfg!(mini_custom_replay_signer) {
+                ""
+            } else {
+                "_fake"
+            }
         );
         let mut data = self
             .session
@@ -269,11 +292,11 @@ mod linux_tests {
             round.session = GameSession::with_board(vec![vec![-1, 2], vec![2, -1]]);
             round.cells.resize(4, 10);
 
-            round.play(0, CELL_PIXELS + 3, 3, &settings);
-            round.play(1, CELL_PIXELS + 3, 3, &settings);
+            round.play(0, CELL_PIXELS + 3, 3, &settings, Duration::ZERO);
+            round.play(1, CELL_PIXELS + 3, 3, &settings, Duration::ZERO);
             assert!(!round.should_auto_restart(100));
-            round.play(0, second_cell.0, second_cell.1, &settings);
-            round.play(1, second_cell.0, second_cell.1, &settings);
+            round.play(0, second_cell.0, second_cell.1, &settings, Duration::ZERO);
+            round.play(1, second_cell.0, second_cell.1, &settings, Duration::ZERO);
 
             assert_eq!(round.phase(), if lost { 3 } else { 2 });
             assert!(!round.should_auto_restart(-100));
@@ -322,18 +345,34 @@ mod linux_tests {
 
             round.record_cursor_lock(true);
             settings.cursor_lock = at_start;
-            round.play(0, CELL_PIXELS + 3, CELL_PIXELS + 3, &settings);
-            round.play(1, CELL_PIXELS + 3, CELL_PIXELS + 3, &settings);
+            round.play(
+                0,
+                CELL_PIXELS + 3,
+                CELL_PIXELS + 3,
+                &settings,
+                Duration::ZERO,
+            );
+            round.play(
+                1,
+                CELL_PIXELS + 3,
+                CELL_PIXELS + 3,
+                &settings,
+                Duration::ZERO,
+            );
             assert_eq!(round.phase(), 1);
             round.record_cursor_lock(during_play);
             settings.cursor_lock = false;
             round.record_cursor_lock(false);
-            round.play(0, 3, 3, &settings);
-            round.play(1, 3, 3, &settings);
+            round.play(0, 3, 3, &settings, Duration::ZERO);
+            round.play(1, 3, 3, &settings, Duration::ZERO);
             assert_eq!(round.phase(), 3);
             round.record_cursor_lock(true);
 
             let replay = round.replay(&settings).unwrap();
+            assert_eq!(
+                replay.name.ends_with("_fake"),
+                !cfg!(mini_custom_replay_signer)
+            );
             assert_eq!(replay.data[2] & 0x40 != 0, expected);
         }
     }

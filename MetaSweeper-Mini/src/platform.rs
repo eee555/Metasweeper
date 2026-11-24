@@ -4,6 +4,7 @@
 pub use imp::*;
 
 pub fn apply_process_hardening() {
+    #[cfg(windows)]
     imp::apply_process_hardening();
 }
 
@@ -169,10 +170,7 @@ mod imp {
             MonitorFromWindow, DEVMODEW, ENUM_CURRENT_SETTINGS, MONITORINFO, MONITORINFOEXW,
             MONITOR_DEFAULTTONEAREST,
         },
-        System::Threading::{
-            GetCurrentProcess, GetPriorityClass, SetPriorityClass, HIGH_PRIORITY_CLASS,
-            REALTIME_PRIORITY_CLASS,
-        },
+        System::Threading::GetCurrentProcess,
         UI::{
             Controls::{
                 Dialogs::{
@@ -182,12 +180,13 @@ mod imp {
                 MARGINS,
             },
             HiDpi::GetDpiForWindow,
-            Shell::{DefSubclassProc, IsUserAnAdmin, RemoveWindowSubclass, SetWindowSubclass},
+            Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::*,
         },
     };
 
     pub fn apply_process_hardening() {
+        use sdl3::log::{log_warn, Category};
         use windows_sys::Win32::System::SystemServices::{
             PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY, PROCESS_MITIGATION_DEP_POLICY,
             PROCESS_MITIGATION_DYNAMIC_CODE_POLICY,
@@ -195,22 +194,67 @@ mod imp {
             PROCESS_MITIGATION_IMAGE_LOAD_POLICY, PROCESS_MITIGATION_STRICT_HANDLE_CHECK_POLICY,
         };
         use windows_sys::Win32::System::Threading::{
-            ProcessDEPPolicy, ProcessDynamicCodePolicy, ProcessExtensionPointDisablePolicy,
-            ProcessImageLoadPolicy, ProcessSignaturePolicy, ProcessStrictHandleCheckPolicy,
-            SetProcessMitigationPolicy, PROCESS_MITIGATION_POLICY,
+            GetProcessMitigationPolicy, ProcessDEPPolicy, ProcessDynamicCodePolicy,
+            ProcessExtensionPointDisablePolicy, ProcessImageLoadPolicy, ProcessSignaturePolicy,
+            ProcessStrictHandleCheckPolicy, SetProcessMitigationPolicy, PROCESS_MITIGATION_POLICY,
         };
 
-        unsafe fn set_policy<T>(policy: PROCESS_MITIGATION_POLICY, value: &T) -> bool {
-            unsafe {
+        fn apply_policy<T: Default>(
+            name: &str,
+            policy: PROCESS_MITIGATION_POLICY,
+            value: &T,
+            flags: impl Fn(&T) -> u32,
+        ) {
+            let applied = unsafe {
                 SetProcessMitigationPolicy(
                     policy,
                     value as *const T as *const std::ffi::c_void,
                     size_of::<T>(),
                 ) != 0
+            };
+            let apply_error = (!applied).then(io::Error::last_os_error);
+            let mut actual = T::default();
+            let verified = unsafe {
+                GetProcessMitigationPolicy(
+                    GetCurrentProcess(),
+                    policy,
+                    (&mut actual as *mut T).cast(),
+                    size_of::<T>(),
+                ) != 0
+            };
+            if !verified {
+                log_warn(
+                    Category::Application,
+                    &format!("{name} verification failed: {}", io::Error::last_os_error()),
+                );
+            } else if flags(&actual) & flags(value) == flags(value) {
+                return;
+            } else {
+                log_warn(
+                    Category::Application,
+                    &format!(
+                        "{name} effective flags {:#x}, expected {:#x}",
+                        flags(&actual),
+                        flags(value)
+                    ),
+                );
+            }
+            if let Some(error) = apply_error {
+                log_warn(
+                    Category::Application,
+                    &format!("{name} could not be applied: {error}"),
+                );
             }
         }
+        macro_rules! verify {
+            ($policy:ident, $value:ident) => {
+                apply_policy(stringify!($policy), $policy, &$value, |value| unsafe {
+                    value.Anonymous.Flags
+                });
+            };
+        }
         let mut dep = PROCESS_MITIGATION_DEP_POLICY::default();
-        dep.Anonymous.Flags = 0b111;
+        dep.Anonymous.Flags = 0b11;
         dep.Permanent = true;
         let mut strict = PROCESS_MITIGATION_STRICT_HANDLE_CHECK_POLICY::default();
         strict.Anonymous.Flags = 1;
@@ -221,13 +265,14 @@ mod imp {
         let mut image = PROCESS_MITIGATION_IMAGE_LOAD_POLICY::default();
         image.Anonymous.Flags = 0b111;
         let mut binary = PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY::default();
-        binary.Anonymous.Flags = 0b111;
-        let _ = unsafe { set_policy(ProcessDEPPolicy, &dep) };
-        let _ = unsafe { set_policy(ProcessStrictHandleCheckPolicy, &strict) };
-        let _ = unsafe { set_policy(ProcessExtensionPointDisablePolicy, &extension) };
-        let _ = unsafe { set_policy(ProcessDynamicCodePolicy, &dynamic) };
-        let _ = unsafe { set_policy(ProcessImageLoadPolicy, &image) };
-        let _ = unsafe { set_policy(ProcessSignaturePolicy, &binary) };
+        const MICROSOFT_SIGNED_ONLY: u32 = 1;
+        binary.Anonymous.Flags = MICROSOFT_SIGNED_ONLY;
+        verify!(ProcessDEPPolicy, dep);
+        verify!(ProcessStrictHandleCheckPolicy, strict);
+        verify!(ProcessExtensionPointDisablePolicy, extension);
+        verify!(ProcessDynamicCodePolicy, dynamic);
+        verify!(ProcessImageLoadPolicy, image);
+        verify!(ProcessSignaturePolicy, binary);
     }
 
     pub fn font_paths() -> Vec<PathBuf> {
@@ -399,18 +444,6 @@ mod imp {
 
     pub fn configure_window_hints() {
         sdl3::hint::set("SDL_WINDOWS_ERASE_BACKGROUND_MODE", "never");
-    }
-
-    pub fn configure_process_priority() {
-        unsafe {
-            let process = GetCurrentProcess();
-            let realtime = IsUserAnAdmin() != 0
-                && SetPriorityClass(process, REALTIME_PRIORITY_CLASS) != 0
-                && GetPriorityClass(process) == REALTIME_PRIORITY_CLASS;
-            if !realtime {
-                SetPriorityClass(process, HIGH_PRIORITY_CLASS);
-            }
-        }
     }
 
     pub fn center_settings(window: &Window, owner: &Window) {
@@ -1230,8 +1263,6 @@ mod imp {
     pub fn configure_dpi() {}
 
     pub fn configure_window_hints() {}
-
-    pub fn configure_process_priority() {}
 
     pub fn center_settings(window: &Window, owner: &Window) {
         if window.subsystem().current_video_driver() != "x11" {

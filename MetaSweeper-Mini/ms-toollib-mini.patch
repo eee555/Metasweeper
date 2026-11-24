@@ -1,0 +1,143 @@
+diff --git a/base/Cargo.toml b/base/Cargo.toml
+--- a/base/Cargo.toml
++++ b/base/Cargo.toml
+@@ -15,5 +15,5 @@
+ default = ["rs"]
+ js = ["web-time"]
+ py = ["rand", "tract-onnx", "web-time"]
+-rs = ["rand", "tract-onnx", "web-time"]
++rs = ["rand", "web-time"]
+
+diff --git a/base/src/algorithms.rs b/base/src/algorithms.rs
+--- a/base/src/algorithms.rs
++++ b/base/src/algorithms.rs
+@@ -4,4 +4,6 @@
+ };
+ #[cfg(any(feature = "py", feature = "rs"))]
+-use crate::utils::{cal_bbbv_exp, legalize_board};
++use crate::utils::cal_bbbv_exp;
++#[cfg(feature = "tract-onnx")]
++use crate::utils::legalize_board;
+
+@@ -14,4 +16,4 @@
+
+-#[cfg(any(feature = "py", feature = "rs"))]
++#[cfg(feature = "tract-onnx")]
+ use crate::obr::ImageBoard;
+
+@@ -33,7 +35,7 @@
+
+-#[cfg(any(feature = "py", feature = "rs"))]
++#[cfg(feature = "tract-onnx")]
+ use tract_ndarray::Array;
+
+-#[cfg(any(feature = "py", feature = "rs"))]
++#[cfg(feature = "tract-onnx")]
+ use tract_onnx::prelude::*;
+
+@@ -1380,4 +1380,4 @@
+
+-#[cfg(any(feature = "py", feature = "rs"))]
++#[cfg(feature = "tract-onnx")]
+ fn obr_cell(
+     cell_image: &Vec<f32>,
+@@ -1446,4 +1446,4 @@
+ /// 注意：由于利用了神经网络技术，可能发生识别错误，此时输出是不一定合法的局面。
+-#[cfg(any(feature = "py", feature = "rs"))]
++#[cfg(feature = "tract-onnx")]
+ pub fn obr_board(
+     data_vec: Vec<usize>,
+diff --git a/base/src/lib.rs b/base/src/lib.rs
+--- a/base/src/lib.rs
++++ b/base/src/lib.rs
+@@ -76,10 +76,11 @@
+
+ mod algorithms;
+ #[cfg(any(feature = "py", feature = "rs"))]
+-pub use algorithms::{laymine_solvable_thread, sample_bbbvs_exp, obr_board};
++pub use algorithms::{laymine_solvable_thread, sample_bbbvs_exp};
++#[cfg(feature = "tract-onnx")]
++pub use algorithms::obr_board;
+
+ #[cfg(any(feature = "py", feature = "rs"))]
+ #[deprecated]
+-pub use {
+-    algorithms::sample_bbbvs_exp as sample_3BVs_exp,
+-    algorithms::obr_board as OBR_board,
+-};
++pub use algorithms::sample_bbbvs_exp as sample_3BVs_exp;
++#[cfg(feature = "tract-onnx")]
++#[deprecated]
++pub use algorithms::obr_board as OBR_board;
+
+ pub use algorithms::{
+@@ -119,6 +120,6 @@
+
+-#[cfg(any(feature = "py", feature = "rs"))]
++#[cfg(feature = "tract-onnx")]
+ mod obr;
+-#[cfg(any(feature = "py", feature = "rs"))]
++#[cfg(feature = "tract-onnx")]
+ pub use obr::ImageBoard;
+
+diff --git a/base/src/videos/base_video.rs b/base/src/videos/base_video.rs
+--- a/base/src/videos/base_video.rs
++++ b/base/src/videos/base_video.rs
+@@ -925,9 +925,20 @@
+     pub fn step(&mut self, e: &str, pos: (usize, usize)) -> Result<u8, ()>
+     where
+         T: std::ops::Index<usize> + BoardSize + std::fmt::Debug + ReplaceBoard,
+         T::Output: std::ops::Index<usize, Output = i32>,
+     {
+-        // 第一时间获取时间戳
+-        let step_instant = Instant::now();
++        self.step_at(e, pos, Instant::now())
++    }
++
++    /// Applies a mouse event at its monotonic event time.
++    /// Pass events in order, with timestamps between session creation and now.
++    pub fn step_at(
++        &mut self,
++        e: &str,
++        pos: (usize, usize),
++        step_instant: Instant,
++    ) -> Result<u8, ()>
++    where
++        T: std::ops::Index<usize> + BoardSize + std::fmt::Debug + ReplaceBoard,
++        T::Output: std::ops::Index<usize, Output = i32>,
++    {
+         let mut time_ms = time_ms_between(step_instant, self.video_start_instant);
+         let mut time = time_ms as f64 / 1000.0;
++        let wall_time = || {
++            let age = Instant::now().saturating_duration_since(step_instant);
++            SystemTime::now()
++                .duration_since(UNIX_EPOCH)
++                .unwrap_or_default()
++                .saturating_sub(age)
++                .as_micros() as u64
++        };
+         // 获胜、失败、播放模式下，直接返回
+@@ -981,8 +1000,4 @@
+                     // 高精度的时间戳，单位为微秒
+                     // https://doc.rust-lang.org/std/time/struct.Instant.html
+-                    self.start_time = SystemTime::now()
+-                        .duration_since(UNIX_EPOCH)
+-                        .unwrap()
+-                        .as_micros() as u64;
++                    self.start_time = wall_time();
+                 }
+@@ -992,9 +1007,6 @@
+-                self.end_time = SystemTime::now()
+-                    .duration_since(UNIX_EPOCH)
+-                    .unwrap()
+-                    .as_micros() as u64;
++                self.end_time = wall_time();
+                 self.is_completed = false;
+@@ -1009,8 +1021,5 @@
+             GameBoardState::Win => {
+-                self.end_time = SystemTime::now()
+-                    .duration_since(UNIX_EPOCH)
+-                    .unwrap()
+-                    .as_micros() as u64;
++                self.end_time = wall_time();
+                 self.is_completed = true;
