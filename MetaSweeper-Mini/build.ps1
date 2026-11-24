@@ -22,15 +22,13 @@ if ($env:VSCMD_ARG_TGT_ARCH -ne 'x64' -or -not (Get-Command cl.exe -ErrorAction 
     Enter-VsDevShell -VsInstallPath $installation -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
 }
 
+$targetDir = Join-Path $PSScriptRoot 'obj\win-sdl3'
 Push-Location -LiteralPath $PSScriptRoot
 try {
-    if (-not $env:CARGO_TARGET_DIR) {
-        $env:CARGO_TARGET_DIR = Join-Path $PSScriptRoot 'obj\win-sdl3'
-    }
-    cargo build --locked --release @offlineArg
+    cargo build --locked --release --target-dir $targetDir @offlineArg
     if ($LASTEXITCODE -ne 0) { throw 'Could not build MetaSweeper-Mini.' }
 
-    $exe = Get-Item -LiteralPath (Join-Path $env:CARGO_TARGET_DIR 'release\MetaSweeper-Mini.exe')
+    $exe = Get-Item -LiteralPath (Join-Path $targetDir 'release\MetaSweeper-Mini.exe')
     if ($OutputPath -and $OutputPath -ne $exe.FullName) {
         New-Item -ItemType Directory -Path (Split-Path -Parent $OutputPath) -Force | Out-Null
         Copy-Item -LiteralPath $exe.FullName -Destination $OutputPath -Force

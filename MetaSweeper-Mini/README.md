@@ -15,7 +15,7 @@
 - 只支持标准初级 `8×8×10`、中级 `16×16×40`、高级 `16×30×99`。
 - 配置使用 `gameSetting.ini`，录像写入同目录的 `replay/`。Windows 使用工作目录，Linux 使用可执行文件所在目录。
 - 三个难度分别保存 `pixsize`，范围 `5–255`。
-- EVF 录像文件名与元扫雷一致，并带 HMAC-SHA256 校验。
+- EVF 录像文件名与元扫雷一致，默认使用 HMAC-SHA256 校验。
 - 正常结束的对局标记为公平，标准模式的胜局同时标记为官方。对局中检测到计时偏差超过 100 毫秒时会重开。
 - Mini 的版本号在 `Cargo.toml` 的 `[package].version` 中维护。EVF 的 `software` 随编译版本和目标平台生成，例如 `迷你元1.0.0-windows` 和 `迷你元1.0.0-linux`。
 
@@ -43,7 +43,28 @@ bash ./build.sh
 
 在 GitHub Actions 手动运行 **Build MetaSweeper-Mini** 可以下载 Windows x64 版和 CentOS 7 x64 兼容包。CentOS 7 包在 manylinux2014 环境中构建，使用 X11，并检查可执行文件所需的 glibc 版本不高于 2.17。
 
+## 接入录像签名
+
+签名作者可以在仓库外提供 `replay_signer.rs`，其中实现 `pub(crate) fn sign_payload(payload: &[u8]) -> Result<[u8; 32], String>`。Mini 传入 EVF v4 去掉末尾两字节校验字段长度后的数据，并将返回值写入 EVF 校验字段。手动保存和自动保存共用此接口。
+
+将 `MINI_REPLAY_SIGNER` 设为该 `.rs` 文件的绝对路径，再运行原有构建命令。Windows、Linux 和直接运行 `cargo build` 都读取同一个环境变量：
+
+```powershell
+$env:MINI_REPLAY_SIGNER = 'C:\private\replay_signer.rs'
+.\build.ps1
+```
+
+```bash
+MINI_REPLAY_SIGNER=/path/to/private/replay_signer.rs bash ./build.sh
+```
+
+未设置时使用内置签名。指定路径后，文件缺失或接口不匹配会使构建失败。签名函数返回 `Err` 时，该录像保存失败。正式发布前应将两平台生成的录像交给元扫雷正式版验签。
+
 ## 运行
+
+按 `F11` 选择「仅棋盘」或「棋盘＋计时栏」后进入独占全屏，再按一次退出。计时栏包含剩余雷数、笑脸和时间。两种布局都保留灰色立体边框。Mini 保留格子的像素大小，选择能容纳所选内容和边框的最小分辨率，同尺寸优先选较高刷新率。余下区域留黑。计数器在另一块屏幕时继续显示，在同一块屏幕时暂时隐藏。Windows 和 Linux X11 支持切换，Wayland 下需用 `SDL_VIDEO_DRIVER=x11` 运行 Mini。
+
+全屏时按 `1`、`2`、`3` 可以直接切换难度。Mini 保留计时栏选项和格子大小，根据新棋盘尺寸重新选择分辨率。无法应用新分辨率时保留原难度。
 
 按 `F4` 切换并保存鼠标锁定设置。EVF 记录开局时是否启用，或本局进行中是否启用过。Windows 切出主窗口时暂时释放鼠标，返回时恢复。Linux 可用 `SDL_VIDEO_DRIVER=x11` 选择 X11。Wayland 下光标不会被实际限制，EVF 仍按设置状态记录。
 

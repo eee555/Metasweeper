@@ -3,7 +3,7 @@ use fontdue::{Font, FontSettings};
 use sdl3::{pixels::PixelFormat, rect::Rect, surface::Surface, video::Window, EventPump};
 use std::cell::RefCell;
 
-const CANVAS: u32 = 0xc0c0c0;
+pub const CANVAS: u32 = 0xc0c0c0;
 pub const INK: u32 = 0x000000;
 pub const WHITE: u32 = 0xffffff;
 pub const SHADE: u32 = 0xa0a0a0;

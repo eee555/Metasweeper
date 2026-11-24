@@ -17,6 +17,71 @@ fn sdl_refresh_rate(window: &sdl3::video::Window) -> Option<f64> {
     Some(f64::from(mode.refresh_rate))
 }
 
+fn fullscreen_mode(window: &sdl3::video::Window, board: (i32, i32)) -> Result<sdl3::video::DisplayMode, String> {
+    let display = window.get_display().map_err(|error| error.to_string())?;
+    display.get_fullscreen_modes().map_err(|error| error.to_string())?.into_iter()
+        .filter_map(|mode| {
+            let width = (mode.w as f32 * mode.pixel_density).round() as i32;
+            let height = (mode.h as f32 * mode.pixel_density).round() as i32;
+            (width >= board.0 && height >= board.1).then_some((mode, i64::from(width) * i64::from(height)))
+        })
+        .min_by(|(left, left_area), (right, right_area)| {
+            left_area.cmp(right_area).then_with(|| right.refresh_rate.total_cmp(&left.refresh_rate))
+        })
+        .map(|(mode, _)| mode)
+        .ok_or_else(|| "No display mode fits the board".into())
+}
+
+fn sync_fullscreen_mode(window: &sdl3::video::Window, mode: &sdl3_sys::video::SDL_DisplayMode) -> Result<(), String> {
+    if !window.sync() {
+        return Err(sdl3::get_error().to_string());
+    }
+    let expected = ((mode.w as f32 * mode.pixel_density).round() as u32,
+                    (mode.h as f32 * mode.pixel_density).round() as u32);
+    if window.size_in_pixels() != expected {
+        return Err("The display did not apply the requested fullscreen resolution".into());
+    }
+    Ok(())
+}
+
+pub fn enter_exclusive_fullscreen(window: &mut sdl3::video::Window, board: (i32, i32)) -> Result<(), String> {
+    let mode = fullscreen_mode(window, board)?.to_ll();
+    if !unsafe { sdl3_sys::video::SDL_SetWindowFullscreenMode(window.raw(), &mode) } {
+        return Err(sdl3::get_error().to_string());
+    }
+    let entered = window.set_fullscreen(true).map_err(|error| error.to_string())
+        .and_then(|()| sync_fullscreen_mode(window, &mode));
+    if entered.is_err() {
+        let _ = leave_exclusive_fullscreen(window);
+    }
+    entered
+}
+
+pub fn resize_exclusive_fullscreen(window: &sdl3::video::Window, board: (i32, i32)) -> Result<(), String> {
+    use sdl3_sys::video::{SDL_GetWindowFullscreenMode, SDL_SetWindowFullscreenMode};
+    let mode = fullscreen_mode(window, board)?.to_ll();
+    let previous = unsafe { SDL_GetWindowFullscreenMode(window.raw()).as_ref()
+        .map(|mode| sdl3::video::DisplayMode::from_ll(mode).to_ll()) }
+        .ok_or_else(|| "No active exclusive fullscreen mode".to_owned())?;
+    if !unsafe { SDL_SetWindowFullscreenMode(window.raw(), &mode) } {
+        return Err(sdl3::get_error().to_string());
+    }
+    let resized = sync_fullscreen_mode(window, &mode);
+    if resized.is_err() && unsafe { SDL_SetWindowFullscreenMode(window.raw(), &previous) } {
+        window.sync();
+    }
+    resized
+}
+
+pub fn leave_exclusive_fullscreen(window: &mut sdl3::video::Window) -> Result<(), String> {
+    window.set_fullscreen(false).map_err(|error| error.to_string())?;
+    if !window.sync() {
+        return Err(sdl3::get_error().to_string());
+    }
+    unsafe { sdl3_sys::video::SDL_SetWindowFullscreenMode(window.raw(), std::ptr::null()); }
+    Ok(())
+}
+
 pub fn set_counter_hit_test(window: &mut sdl3::video::Window, close: bool) {
     use sdl3::video::HitTestResult::*;
     let raw = window.raw();

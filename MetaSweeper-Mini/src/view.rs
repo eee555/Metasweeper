@@ -1,8 +1,8 @@
 use crate::{config::{Settings, Text}, core::Round, layout::{Box2, CounterLayout, Layout, COUNTER_ROWS, FOOTER, MENU, PRESETS},
-            paint::{Align, Art, Painter, INK, WHITE}};
+            paint::{Align, Art, Painter, CANVAS, INK, WHITE}};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Action { Restart, Level(usize), Save, Open, Quit, Settings, Shortcuts, CursorLock, Counter, Identity, Instructions, License }
+pub enum Action { Restart, Level(usize), Save, Open, Quit, Settings, Shortcuts, CursorLock, Counter, Identity, Fullscreen, Instructions, License }
 
 pub const MENUS: [Text; 4] = [Text::GameMenu, Text::SettingsMenu, Text::ViewMenu, Text::HelpMenu];
 pub const ENTRIES: [&[(Action, Text, &str)]; 4] = [
@@ -12,7 +12,8 @@ pub const ENTRIES: [&[(Action, Text, &str)]; 4] = [
       (Action::Quit, Text::Quit, "Ctrl+X")],
     &[(Action::Settings, Text::GameSettings, "S"), (Action::Shortcuts, Text::Shortcuts, "Z"),
       (Action::CursorLock, Text::LockCursor, "F4")],
-    &[(Action::Counter, Text::Counter, "/"), (Action::Identity, Text::IdentityBar, "Ctrl+I")],
+    &[(Action::Counter, Text::Counter, "/"), (Action::Identity, Text::IdentityBar, "Ctrl+I"),
+      (Action::Fullscreen, Text::Fullscreen, "F11")],
     &[(Action::Instructions, Text::Instructions, ""), (Action::License, Text::License, "")],
 ];
 
@@ -29,29 +30,11 @@ pub enum Choice { Command(Action), Menu(usize) }
 pub fn game(p: &Painter, art: &mut Art, settings: &Settings, round: &Round, layout: Layout,
             menu: &mut Menu, pointer: (i32, i32), face_pressed: bool, size: (i32, i32)) {
     let (width, height) = size;
-    let (rows, cols, mines) = PRESETS[settings.level];
     let grid = layout.grid(settings.level, size, settings.identity);
     let status = layout.status(width);
     art.board_background(p, size, layout, settings.level, settings.identity);
-    let visual = round.mouse_visual();
-    let active = (visual != 0 && grid.contains(pointer.0, pointer.1))
-        .then(|| ((pointer.0 - grid.0) / layout.tile, (pointer.1 - grid.1) / layout.tile));
-    for row in 0..rows {
-        for col in 0..cols {
-            let mut tile = round.cells[(row * cols + col) as usize] as usize;
-            if tile == 10 && active.is_some_and(|(x, y)| {
-                let radius = i32::from(visual == 2);
-                (x - col).abs() <= radius && (y - row).abs() <= radius
-            }) { tile = 0; }
-            art.sprite(p, grid.0 + col * layout.tile, grid.1 + row * layout.tile, layout.tile, tile);
-        }
-    }
-    let y = status.1 + layout.status_inset;
-    art.number(p, status.0 + layout.status_inset, y, layout.digit, layout.sprite, round.remaining(mines, settings.flag_win));
-    art.number(p, status.0 + status.2 - layout.status_inset - 3 * layout.digit, y,
-               layout.digit, layout.sprite, round.seconds() as u32);
-    let face = match round.phase() { 2 => 3, 3 => 2, _ if face_pressed => 4, _ if visual != 0 => 1, _ => 0 };
-    art.sprite(p, (width - layout.sprite) / 2, y, layout.sprite, 17 + face);
+    board_cells(p, art, round, layout.tile, grid, pointer);
+    draw_status(p, art, settings, round, layout, status, face_pressed);
     if settings.identity {
         let name_width = width - if round.country.is_empty() { 0 } else { 57 };
         p.text(Box2(6, height - FOOTER, name_width - 12, FOOTER), &round.player, 16, Align::Center, 0x242424);
@@ -60,6 +43,50 @@ pub fn game(p: &Painter, art: &mut Art, settings: &Settings, round: &Round, layo
         }
     }
     draw_menu(p, settings, round, menu, size, pointer);
+}
+
+pub fn fullscreen(p: &Painter, art: &mut Art, settings: &Settings, round: &Round, layout: Layout,
+                  pointer: (i32, i32), face_pressed: bool, size: (i32, i32), show_status: bool) {
+    let regions = layout.fullscreen_regions(settings.level, size, show_status);
+    p.fill(Box2(0, 0, size.0, size.1), INK);
+    p.fill(regions.frame, CANVAS);
+    p.bevel(regions.frame, layout.outer_edge, true);
+    p.bevel(regions.grid.inset(-layout.inner_edge), layout.inner_edge, false);
+    board_cells(p, art, round, layout.tile, regions.grid, pointer);
+    if let Some(status) = regions.status {
+        p.bevel(status, layout.inner_edge, false);
+        draw_status(p, art, settings, round, layout, status, face_pressed);
+    }
+}
+
+fn draw_status(p: &Painter, art: &mut Art, settings: &Settings, round: &Round, layout: Layout,
+               status: Box2, face_pressed: bool) {
+    let mines = PRESETS[settings.level].2;
+    let y = status.1 + layout.status_inset;
+    art.number(p, status.0 + layout.status_inset, y, layout.digit, layout.sprite, round.remaining(mines, settings.flag_win));
+    art.number(p, status.0 + status.2 - layout.status_inset - 3 * layout.digit, y,
+               layout.digit, layout.sprite, round.seconds() as u32);
+    let face = match round.phase() { 2 => 3, 3 => 2, _ if face_pressed => 4, _ if round.mouse_visual() != 0 => 1, _ => 0 };
+    art.sprite(p, status.0 + (status.2 - layout.sprite) / 2, y, layout.sprite, 17 + face);
+}
+
+fn board_cells(p: &Painter, art: &mut Art, round: &Round, tile: i32, grid: Box2,
+               pointer: (i32, i32)) {
+    let visual = round.mouse_visual();
+    let cols = grid.2 / tile;
+    let rows = grid.3 / tile;
+    let active = (visual != 0 && grid.contains(pointer.0, pointer.1))
+        .then(|| ((pointer.0 - grid.0) / tile, (pointer.1 - grid.1) / tile));
+    for row in 0..rows {
+        for col in 0..cols {
+            let mut sprite = round.cells[(row * cols + col) as usize] as usize;
+            if sprite == 10 && active.is_some_and(|(x, y)| {
+                let radius = i32::from(visual == 2);
+                (x - col).abs() <= radius && (y - row).abs() <= radius
+            }) { sprite = 0; }
+            art.sprite(p, grid.0 + col * tile, grid.1 + row * tile, tile, sprite);
+        }
+    }
 }
 
 fn draw_menu(p: &Painter, settings: &Settings, round: &Round, menu: &mut Menu, size: (i32, i32), pointer: (i32, i32)) {
@@ -220,6 +247,11 @@ fn draw_counter_table(p: &Painter, settings: &Settings, (width, height): (i32, i
 
 pub fn dialog_button(width: i32, height: i32, ok: bool) -> Box2 {
     Box2(width - if ok { 202 } else { 104 }, height - 42, 92, 29)
+}
+
+pub fn fullscreen_button(width: i32, height: i32, show_status: bool) -> Box2 {
+    let half = width / 2;
+    Box2(if show_status { half + 6 } else { 12 }, (height - 34) / 2, half - 18, 34)
 }
 
 pub fn button(p: &Painter, area: Box2, title: &str) {

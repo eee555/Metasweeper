@@ -1,8 +1,6 @@
 include!("native.rs");
 
-use crate::{config, layout::PRESETS};
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
+use crate::{config, layout::PRESETS, replay_signature::sign};
 use std::{fs::{self, OpenOptions}, io::{self, Write}, path::{Path, PathBuf},
           ptr::NonNull, sync::atomic::{AtomicU32, Ordering}, time::{Duration, Instant}};
 
@@ -152,17 +150,6 @@ fn safe_identifier(name: &str) -> String {
     crate::platform::filename_stem(name)
 }
 
-fn sign(data: &mut Vec<u8>) -> io::Result<()> {
-    if !data.ends_with(&[0, 0, 0]) { return Err(io::Error::other("Invalid unsigned EVF header")); }
-    data.truncate(data.len() - 2);
-    let mut hmac = Hmac::<Sha256>::new_from_slice(include_bytes!("../assets/replay-key.bin"))
-        .expect("valid embedded HMAC key");
-    hmac.update(data);
-    data.extend_from_slice(&[0, 32]);
-    data.extend_from_slice(&hmac.finalize().into_bytes());
-    Ok(())
-}
-
 pub struct Replay { pub name: String, pub data: Vec<u8> }
 
 impl Replay {
@@ -283,6 +270,7 @@ mod linux_tests {
     }
 
     #[test]
+    #[cfg(not(mini_custom_replay_signer))]
     fn evf_signature_matches_windows_fixture() {
         let mut data = vec![4, 0, 0, 3, 3, 10, 16, 1, 2, 3, 4, 5, 0, 0, 0];
         sign(&mut data).unwrap();
