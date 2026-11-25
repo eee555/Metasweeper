@@ -10,6 +10,7 @@ pub enum Action {
     Restart,
     Level(usize),
     Save,
+    ExportCsv,
     Open,
     Quit,
     Settings,
@@ -718,6 +719,26 @@ pub fn control_button(p: &Painter, area: Box2, title: &str, state: ButtonState, 
         } else {
             INK
         },
+    );
+}
+
+pub fn csv_progress(p: &Painter, label: &str, percent: u8, width: i32, height: i32) {
+    p.fill(Box2(0, 0, width, height), 0xf5f5f5);
+    p.text(Box2(18, 18, width - 36, 25), label, 16, Align::Left, INK);
+    let track = Box2(18, 52, width - 100, 19);
+    p.fill(track, 0xe0e4e8);
+    let Box2(x, y, inner_width, inner_height) = track.inset(1);
+    p.fill(
+        Box2(x, y, inner_width * i32::from(percent) / 100, inner_height),
+        0x2879bf,
+    );
+    p.border(track, 0xa1a7ae);
+    p.text(
+        Box2(width - 72, 49, 54, 25),
+        &format!("{percent}%"),
+        15,
+        Align::Right,
+        INK,
     );
 }
 

@@ -5,8 +5,8 @@ use aes_gcm::{
 use md5::{Digest, Md5};
 use ms_toollib::{videos::base_video::LivePluckSnapshot, BaseVideo};
 use std::{
-    fs::OpenOptions,
-    io::{self, Read, Seek, SeekFrom, Write},
+    fs::{File, OpenOptions},
+    io::{self, BufReader, Read, Seek, SeekFrom, Take, Write},
     path::Path,
 };
 
@@ -15,6 +15,7 @@ const KEY: [u8; 16] = [
 ];
 const VERSION: u8 = 0;
 const PLUCK_OFFSET: usize = 51;
+const HEADER_LEN: usize = 84;
 
 #[repr(u8)]
 pub(crate) enum GameResult {
@@ -36,7 +37,7 @@ impl Record {
         replay: &[u8],
     ) -> Self {
         let board_len = (video.height * video.width).div_ceil(8);
-        let mut data = Vec::with_capacity(84 + board_len);
+        let mut data = Vec::with_capacity(HEADER_LEN + board_len);
         data.extend([result as u8, video.height as u8, video.width as u8]);
         data.extend((video.mine_num as u16).to_be_bytes());
         for value in [
@@ -127,6 +128,139 @@ impl Record {
         frame.extend(self.data);
         file.write_all(&frame)
     }
+}
+
+pub(crate) struct SavedRecord<'a> {
+    pub state: u8,
+    pub rows: usize,
+    pub columns: usize,
+    pub mines: u16,
+    pub milliseconds: u32,
+    pub clicks: [u32; 3],
+    pub effective_clicks: [u32; 3],
+    pub bbbv: u16,
+    pub solved: u16,
+    pub zini: u16,
+    pub path: f64,
+    pub start_time: u64,
+    pub mode: u8,
+    pub official: bool,
+    pub fair: bool,
+    pub openings: u16,
+    pub islands: u16,
+    pub board: &'a [u8],
+}
+
+impl<'a> SavedRecord<'a> {
+    fn decode(data: &'a [u8]) -> Option<Self> {
+        if data.len() < HEADER_LEN {
+            return None;
+        }
+        let read_u16 = |offset| u16::from_be_bytes(data[offset..offset + 2].try_into().unwrap());
+        let read_u32 = |offset| u32::from_be_bytes(data[offset..offset + 4].try_into().unwrap());
+        let rows = usize::from(data[1]);
+        let columns = usize::from(data[2]);
+        let board = data.get(HEADER_LEN..HEADER_LEN + usize::from(read_u16(82)))?;
+        if rows == 0 || columns == 0 {
+            return None;
+        }
+        Some(Self {
+            state: data[0],
+            rows,
+            columns,
+            mines: read_u16(3),
+            milliseconds: read_u32(5),
+            clicks: [read_u32(9), read_u32(13), read_u32(17)],
+            effective_clicks: [read_u32(25), read_u32(21), read_u32(29)],
+            bbbv: read_u16(33),
+            solved: read_u16(35),
+            zini: read_u16(37),
+            path: f64::from_be_bytes(data[43..51].try_into().unwrap()),
+            start_time: u64::from_be_bytes(data[59..67].try_into().unwrap()),
+            mode: data[67],
+            official: data[68] == 1,
+            fair: data[69] == 1,
+            openings: read_u16(70),
+            islands: read_u16(72),
+            board,
+        })
+    }
+}
+
+pub(crate) struct StatsReader {
+    reader: Take<BufReader<File>>,
+    length: u64,
+}
+
+impl StatsReader {
+    pub(crate) fn open(path: &Path) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let length = file.metadata()?.len();
+        let mut reader = BufReader::new(file).take(length);
+        let mut version = [0];
+        reader.read_exact(&mut version)?;
+        if version[0] != VERSION {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Unsupported stats.dat version {}", version[0]),
+            ));
+        }
+        Ok(Self { reader, length })
+    }
+
+    pub(crate) fn progress(&self) -> u8 {
+        let consumed = self.length - self.reader.limit();
+        ((u128::from(consumed) * 100 / u128::from(self.length)) as u8).min(99)
+    }
+
+    pub(crate) fn read_batch(&mut self, size: usize) -> io::Result<Vec<Vec<u8>>> {
+        let mut frames = Vec::with_capacity(size);
+        for _ in 0..size {
+            let mut frame_size = [0; 2];
+            match self.reader.read_exact(&mut frame_size) {
+                Ok(()) => {}
+                Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => break,
+                Err(error) => return Err(error),
+            }
+            let mut blob = vec![0; u16::from_be_bytes(frame_size) as usize];
+            match self.reader.read_exact(&mut blob) {
+                Ok(()) => frames.push(blob),
+                Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => break,
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(frames)
+    }
+}
+
+pub(crate) fn decode_frames(
+    frames: &mut [Vec<u8>],
+    mut visit: impl FnMut(SavedRecord<'_>) -> io::Result<()>,
+) -> io::Result<bool> {
+    let cipher = Aes128Gcm::new(&KEY.into());
+    let mut found = false;
+    for blob in frames {
+        if blob.len() < 28 {
+            continue;
+        }
+        let (metadata, data) = blob.split_at_mut(28);
+        if cipher
+            .decrypt_in_place_detached(
+                (&metadata[..12]).into(),
+                b"",
+                data,
+                (&metadata[12..]).into(),
+            )
+            .is_err()
+        {
+            continue;
+        }
+        if let Some(record) = SavedRecord::decode(data) {
+            found = true;
+            visit(record)?;
+        }
+    }
+    Ok(found)
 }
 
 #[cfg(test)]

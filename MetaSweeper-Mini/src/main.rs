@@ -2,7 +2,9 @@
 
 mod config;
 mod core;
+mod csv_export;
 mod dropdown;
+mod folder_picker;
 mod layout;
 mod native;
 mod paint;
@@ -21,7 +23,7 @@ use paint::{Align, Art, Buffer, INK, WHITE};
 use sdl3::{
     event::{DisplayEvent, Event, WindowEvent},
     keyboard::{Keycode, Mod, Scancode},
-    mouse::MouseButton,
+    mouse::{Cursor, MouseButton, SystemCursor},
     rect::Rect,
     video::Window,
     EventPump, Sdl, VideoSubsystem,
@@ -40,6 +42,11 @@ use view::{Action, Choice, Menu};
 const RESIZE_SETTLE: Duration = Duration::from_millis(180);
 const REFRESH_RECHECK: Duration = Duration::from_secs(2);
 const REFRESH_TICK: i32 = 1;
+const CSV_PROGRESS_SIZE: (u32, u32) = (400, 108);
+
+fn restore_default_cursor() {
+    unsafe { sdl3_sys::mouse::SDL_SetCursor(sdl3_sys::mouse::SDL_GetDefaultCursor()) };
+}
 
 #[derive(Default)]
 struct RefreshTimer {
@@ -210,6 +217,8 @@ enum Panel {
         overwrite: bool,
         select: bool,
     },
+    CsvFolder(folder_picker::Picker),
+    CsvProgress(u8),
     Message {
         text: String,
     },
@@ -236,6 +245,10 @@ struct Dialog {
 enum Job {
     Replay(Replay, Option<PathBuf>),
     Stats(Record),
+    ExportCsv {
+        targets: [PathBuf; 2],
+        overwrite: bool,
+    },
 }
 
 impl Job {
@@ -243,13 +256,18 @@ impl Job {
         match self {
             Self::Replay(..) => Text::ReplaySaveError,
             Self::Stats(_) => Text::StatsSaveError,
+            Self::ExportCsv { .. } => Text::CsvExportError,
         }
     }
 }
 
-type WriteReply = Result<(), (Text, String)>;
+enum WriteReply {
+    ExportProgress(u8),
+    Finished(Result<Option<[PathBuf; 2]>, (Text, String)>),
+}
 
 struct App {
+    text_cursor: Option<Cursor>,
     sdl: Sdl,
     video: VideoSubsystem,
     main: Display,
@@ -322,6 +340,7 @@ impl App {
         let window = builder.build().map_err(|e| e.to_string())?;
         let round = Round::new(&settings);
         let mut app = Self {
+            text_cursor: Cursor::from_system(SystemCursor::IBeam).ok(),
             sdl,
             video,
             main: Display::new(window),
@@ -658,7 +677,13 @@ impl App {
         self.cancel_input();
         let mut builder = self.video.window(title, size.0, size.1);
         builder.position_centered();
-        let scaled = matches!(panel, Panel::Settings(_) | Panel::Fullscreen { .. });
+        let scaled = matches!(
+            panel,
+            Panel::Settings(_)
+                | Panel::Fullscreen { .. }
+                | Panel::CsvFolder(_)
+                | Panel::CsvProgress(_)
+        );
         builder.hidden();
         if scaled {
             builder.high_pixel_density();
@@ -694,11 +719,17 @@ impl App {
         if let Some(dialog) = self.dialog.take() {
             self.video.text_input().stop(&dialog.display.window);
             let settings = matches!(dialog.panel, Panel::Settings(_));
+            let refocus =
+                settings || matches!(dialog.panel, Panel::CsvFolder(_) | Panel::CsvProgress(_));
+            if matches!(dialog.panel, Panel::CsvFolder(_)) {
+                restore_default_cursor();
+                self.sdl.mouse().capture(false);
+            }
             if settings || matches!(dialog.panel, Panel::Fullscreen { .. }) {
                 self.sdl.mouse().capture(false);
             }
             drop(dialog);
-            if settings {
+            if refocus {
                 self.main.window.raise();
                 self.main.dirty = true;
             }
@@ -712,6 +743,7 @@ impl App {
                 Action::Settings
                     | Action::Shortcuts
                     | Action::Open
+                    | Action::ExportCsv
                     | Action::Instructions
                     | Action::License
                     | Action::Counter
@@ -816,6 +848,15 @@ impl App {
                 }
             }
             Action::Save => {}
+            Action::ExportCsv => {
+                self.menu.open = None;
+                self.main.dirty = true;
+                self.open_dialog(
+                    settings.text(Text::CsvExportTitle),
+                    Panel::CsvFolder(folder_picker::Picker::new(&self.root)),
+                    folder_picker::SIZE,
+                )?;
+            }
             Action::Open => {
                 let root = self.root.join("replay");
                 if let Err(e) = fs::create_dir_all(&root).and_then(|_| open_directory(&root)) {
@@ -915,12 +956,26 @@ impl App {
         self.queue_write(Job::Replay(replay, path));
     }
 
-    fn queue_write(&mut self, job: Job) {
+    fn queue_write(&mut self, job: Job) -> bool {
         match self.jobs.send(job) {
-            Ok(()) => self.pending_writes += 1,
-            Err(error) => self
-                .errors
-                .push(self.settings.text(error.0.error_text()).into()),
+            Ok(()) => {
+                self.pending_writes += 1;
+                true
+            }
+            Err(error) => {
+                self.errors
+                    .push(self.settings.text(error.0.error_text()).into());
+                false
+            }
+        }
+    }
+
+    fn close_csv_progress(&mut self) {
+        if matches!(
+            self.dialog.as_ref().map(|dialog| &dialog.panel),
+            Some(Panel::CsvProgress(_))
+        ) {
+            self.close_dialog();
         }
     }
 
@@ -934,16 +989,49 @@ impl App {
                 self.replies.try_recv()
             };
             match reply {
-                Ok(result) => {
+                Ok(WriteReply::ExportProgress(percent)) => {
+                    if let Some(Dialog {
+                        display,
+                        panel: Panel::CsvProgress(current),
+                    }) = &mut self.dialog
+                    {
+                        *current = percent;
+                        display.dirty = true;
+                    }
+                }
+                Ok(WriteReply::Finished(result)) => {
                     self.pending_writes -= 1;
-                    if let Err((text, error)) = result {
-                        self.errors
-                            .push(format!("{}\n{error}", self.settings.text(text)));
+                    if matches!(result, Ok(Some(_)) | Err((Text::CsvExportError, _))) {
+                        self.close_csv_progress();
+                    }
+                    match result {
+                        Err((text, error)) => self
+                            .errors
+                            .push(format!("{}\n{error}", self.settings.text(text))),
+                        Ok(Some([stats, textstats])) if !wait => {
+                            let title = self.settings.text(Text::CsvExportTitle);
+                            let message = format!(
+                                "{}\n{}\n{}",
+                                self.settings.text(Text::CsvExportDone),
+                                stats.display(),
+                                textstats.display()
+                            );
+                            if !platform::message(&self.main.window, title, &message, false) {
+                                let _ = sdl3::messagebox::show_simple_message_box(
+                                    sdl3::messagebox::MessageBoxFlag::INFORMATION,
+                                    title,
+                                    &message,
+                                    &self.main.window,
+                                );
+                            }
+                        }
+                        Ok(_) => {}
                     }
                 }
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {
                     self.pending_writes = 0;
+                    self.close_csv_progress();
                     self.errors
                         .push(self.settings.text(Text::ReplaySaveError).into());
                 }
@@ -992,6 +1080,29 @@ impl App {
         let Some(dialog) = &mut self.dialog else {
             return Ok(());
         };
+        if let Panel::CsvFolder(picker) = &mut dialog.panel {
+            dialog.display.dirty = true;
+            let Some(directory) = picker.destination() else {
+                return Ok(());
+            };
+            let targets = csv_export::targets(directory, &self.settings.player);
+            let Some(overwrite) =
+                picker.confirm_overwrite(targets.iter().any(|target| target.exists()))
+            else {
+                return Ok(());
+            };
+            self.close_dialog();
+            self.open_dialog(
+                self.settings.text(Text::CsvExportTitle),
+                Panel::CsvProgress(0),
+                CSV_PROGRESS_SIZE,
+            )?;
+            if !self.queue_write(Job::ExportCsv { targets, overwrite }) {
+                self.close_csv_progress();
+            }
+            self.sync_cursor();
+            return Ok(());
+        }
         match &mut dialog.panel {
             Panel::Settings(form) => {
                 if !form.prepare() {
@@ -1002,14 +1113,14 @@ impl App {
             Panel::Save {
                 path, overwrite, ..
             } => {
-                let target = save_path(&self.root, path);
-                if target.is_file() && !*overwrite {
+                if save_path(&self.root, path).is_file() && !*overwrite {
                     *overwrite = true;
                     dialog.display.dirty = true;
                     return Ok(());
                 }
             }
-            Panel::Fullscreen { .. } | Panel::Message { .. } => {}
+            Panel::CsvProgress(_) => return Ok(()),
+            Panel::Fullscreen { .. } | Panel::Message { .. } | Panel::CsvFolder(_) => {}
         }
         let dialog = self.dialog.take().unwrap();
         self.video.text_input().stop(&dialog.display.window);
@@ -1031,7 +1142,7 @@ impl App {
                 self.main.window.raise();
                 self.change_fullscreen(Some(mode));
             }
-            Panel::Message { .. } => {}
+            Panel::Message { .. } | Panel::CsvFolder(_) | Panel::CsvProgress(_) => {}
         }
         self.main.dirty = true;
         self.sync_cursor();
@@ -1039,6 +1150,21 @@ impl App {
     }
 
     fn dialog_key(&mut self, key: Keycode, mods: Mod) -> Result<(), String> {
+        if matches!(
+            self.dialog.as_ref().map(|dialog| &dialog.panel),
+            Some(Panel::CsvProgress(_))
+        ) {
+            return Ok(());
+        }
+        if let Some(Dialog {
+            display,
+            panel: Panel::CsvFolder(picker),
+        }) = &mut self.dialog
+        {
+            let outcome = picker.key(key, mods, &self.video, display.ui_pixels());
+            display.dirty = true;
+            return self.folder_picker_outcome(outcome);
+        }
         if let Some(Dialog {
             display,
             panel: Panel::Settings(form),
@@ -1105,7 +1231,10 @@ impl App {
                 );
                 *overwrite = false;
             }
-            Panel::Message { .. } | Panel::Settings(_) => {}
+            Panel::Message { .. }
+            | Panel::Settings(_)
+            | Panel::CsvFolder(_)
+            | Panel::CsvProgress(_) => {}
         }
         dialog.display.dirty = true;
         Ok(())
@@ -1123,12 +1252,53 @@ impl App {
         }
     }
 
+    fn folder_picker_outcome(&mut self, outcome: folder_picker::Outcome) -> Result<(), String> {
+        match outcome {
+            folder_picker::Outcome::Stay => Ok(()),
+            folder_picker::Outcome::Choose => self.commit_dialog(),
+            folder_picker::Outcome::Cancel => {
+                self.close_dialog();
+                self.sync_cursor();
+                Ok(())
+            }
+        }
+    }
+
     fn dialog_click(&mut self, x: f32, y: f32, clicks: u8) -> Result<(), String> {
         let Some(dialog) = &mut self.dialog else {
             return Ok(());
         };
         let (x, y) = dialog.display.ui_point(x, y);
         let (width, height) = dialog.display.ui_pixels();
+        if matches!(dialog.panel, Panel::CsvProgress(_)) {
+            return Ok(());
+        }
+        if let Panel::CsvFolder(picker) = &mut dialog.panel {
+            if folder_picker::path_field(width).contains(x, y) {
+                if picker.composing() {
+                    unsafe {
+                        sdl3_sys::keyboard::SDL_ClearComposition(dialog.display.window.raw());
+                    }
+                    picker.composition(String::new(), 0, 0);
+                }
+                let shift = self
+                    .sdl
+                    .keyboard()
+                    .mod_state()
+                    .intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
+                picker.path_click(x, width, clicks, shift, |text| {
+                    dialog.display.measure_setting(text)
+                });
+                if picker.dragging {
+                    self.sdl.mouse().capture(true);
+                }
+                dialog.display.dirty = true;
+                return Ok(());
+            }
+            let outcome = picker.click((x, y), (width, height), clicks);
+            dialog.display.dirty = true;
+            return self.folder_picker_outcome(outcome);
+        }
         if let Panel::Settings(form) = &mut dialog.panel {
             if form.composing() {
                 unsafe {
@@ -1182,6 +1352,13 @@ impl App {
         };
         let size = dialog.display.ui_pixels();
         match &mut dialog.panel {
+            Panel::CsvFolder(picker) if picker.dragging => {
+                picker.dragging = false;
+                self.sdl.mouse().capture(false);
+                if !folder_picker::path_field(size.0).contains(point.0, point.1) {
+                    restore_default_cursor();
+                }
+            }
             Panel::Settings(form) if form.capturing() => {
                 self.sdl.mouse().capture(false);
                 let outcome = form.release(point, size);
@@ -1451,7 +1628,7 @@ impl App {
                 if let Some(dialog) = &self.dialog {
                     if window_id == dialog.display.window.id()
                         && (!repeat
-                            || matches!(dialog.panel, Panel::Settings(_))
+                            || matches!(dialog.panel, Panel::Settings(_) | Panel::CsvFolder(_))
                                 && matches!(
                                     keycode,
                                     Some(
@@ -1461,6 +1638,8 @@ impl App {
                                             | Keycode::Down
                                             | Keycode::PageUp
                                             | Keycode::PageDown
+                                            | Keycode::Home
+                                            | Keycode::End
                                             | Keycode::Backspace
                                             | Keycode::Delete
                                     )
@@ -1480,7 +1659,9 @@ impl App {
                     self.menu.open = None;
                     self.main.dirty = true;
                 } else if let Some(action) = shortcut(keycode, scancode, keymod) {
-                    if action != Action::CursorLock || window_id == self.main.window.id() {
+                    if !matches!(action, Action::CursorLock | Action::ExportCsv)
+                        || window_id == self.main.window.id()
+                    {
                         self.action(action)?;
                     }
                 }
@@ -1494,6 +1675,7 @@ impl App {
                     }
                     match &mut dialog.panel {
                         Panel::Settings(form) => form.text(&text),
+                        Panel::CsvFolder(picker) => picker.text(&text),
                         Panel::Save {
                             path,
                             select,
@@ -1515,15 +1697,17 @@ impl App {
                 window_id,
                 ..
             } => {
-                if let Some(Dialog {
-                    display,
-                    panel: Panel::Settings(form),
-                }) = &mut self.dialog
+                if let Some(Dialog { display, panel }) = self
+                    .dialog
+                    .as_mut()
+                    .filter(|dialog| dialog.display.window.id() == window_id)
                 {
-                    if display.window.id() == window_id {
-                        form.composition(text, start, length);
-                        display.dirty = true;
+                    match panel {
+                        Panel::Settings(form) => form.composition(text, start, length),
+                        Panel::CsvFolder(picker) => picker.composition(text, start, length),
+                        _ => return Ok(()),
                     }
+                    display.dirty = true;
                 }
             }
             Event::MouseWheel {
@@ -1534,22 +1718,28 @@ impl App {
                 mouse_y,
                 ..
             } => {
-                if let Some(Dialog {
-                    display,
-                    panel: Panel::Settings(form),
-                }) = &mut self.dialog
+                if let Some(Dialog { display, panel }) = self
+                    .dialog
+                    .as_mut()
+                    .filter(|dialog| dialog.display.window.id() == window_id && y != 0.0)
                 {
-                    if display.window.id() == window_id && y != 0.0 {
-                        let step = if y > 0.0 { -1 } else { 1 };
-                        let step = if direction == sdl3::mouse::MouseWheelDirection::Flipped {
-                            -step
-                        } else {
-                            step
-                        };
-                        form.wheel(step * 3);
-                        form.motion(display.ui_point(mouse_x, mouse_y), display.ui_pixels());
-                        display.dirty = true;
+                    let step = if y > 0.0 { -1 } else { 1 };
+                    let step = if direction == sdl3::mouse::MouseWheelDirection::Flipped {
+                        -step
+                    } else {
+                        step
+                    };
+                    match panel {
+                        Panel::Settings(form) => {
+                            form.wheel(step * 3);
+                            form.motion(display.ui_point(mouse_x, mouse_y), display.ui_pixels());
+                        }
+                        Panel::CsvFolder(picker) => {
+                            picker.scroll(step as isize * 3, display.ui_pixels().1)
+                        }
+                        _ => return Ok(()),
                     }
+                    display.dirty = true;
                 }
             }
             Event::MouseMotion {
@@ -1563,6 +1753,23 @@ impl App {
                     let point = display.ui_point(x, y);
                     let size = display.ui_pixels();
                     match panel {
+                        Panel::CsvFolder(picker) => {
+                            if picker.dragging
+                                || folder_picker::path_field(size.0).contains(point.0, point.1)
+                            {
+                                if let Some(cursor) = &self.text_cursor {
+                                    cursor.set();
+                                }
+                            } else {
+                                restore_default_cursor();
+                            }
+                            if picker.dragging {
+                                picker.path_drag(point.0, size.0, |text| {
+                                    display.measure_setting(text)
+                                });
+                                display.dirty = true;
+                            }
+                        }
                         Panel::Settings(form) => {
                             display.dirty |= form.motion(point, size);
                             if form.dragging {
@@ -1715,7 +1922,12 @@ impl App {
             .is_some_and(|d| d.display.window.id() == id)
         {
             if event == WindowEvent::CloseRequested {
-                self.close_dialog();
+                if !matches!(
+                    self.dialog.as_ref().map(|dialog| &dialog.panel),
+                    Some(Panel::CsvProgress(_))
+                ) {
+                    self.close_dialog();
+                }
             } else if let Some(dialog) = self.dialog.as_mut() {
                 match (&mut dialog.panel, event) {
                     (Panel::Settings(form), WindowEvent::FocusLost) => {
@@ -1726,6 +1938,17 @@ impl App {
                         form.cancel_pointer();
                     }
                     (Panel::Settings(form), WindowEvent::MouseLeave) => form.mouse_leave(),
+                    (Panel::CsvFolder(picker), WindowEvent::FocusLost) => {
+                        picker.composition(String::new(), 0, 0);
+                        if picker.dragging {
+                            picker.dragging = false;
+                            self.sdl.mouse().capture(false);
+                        }
+                        restore_default_cursor();
+                    }
+                    (Panel::CsvFolder(picker), WindowEvent::MouseLeave) if !picker.dragging => {
+                        restore_default_cursor();
+                    }
                     (Panel::Fullscreen { pointer, .. }, WindowEvent::FocusLost) => {
                         if pointer.pressed.is_some() {
                             self.sdl.mouse().capture(false);
@@ -1914,22 +2137,39 @@ impl App {
             counter.dirty = false;
         }
         if let Some(Dialog { display, panel }) = &mut self.dialog {
-            if let Panel::Settings(form) = panel {
+            let size = match panel {
+                Panel::Settings(_) => Some(settings_ui::SIZE),
+                Panel::CsvFolder(_) => Some(folder_picker::SIZE),
+                Panel::CsvProgress(_) => Some(CSV_PROGRESS_SIZE),
+                _ => None,
+            };
+            if let Some(size) = size {
                 let scale = platform::dpi_scale(&display.window);
                 if scale != display.ui_scale {
-                    let (width, height) = scaled_size(
-                        settings_ui::SIZE,
-                        scale / window_pixel_density(&display.window),
-                    );
+                    let (width, height) =
+                        scaled_size(size, scale / window_pixel_density(&display.window));
                     let _ = display.window.set_size(width, height);
                     display.ui_scale = scale;
                     display.dirty = true;
                 }
-                if display.dirty {
+            }
+            if display.dirty {
+                let input_position = match panel {
+                    Panel::Settings(form) => {
+                        Some(form.input_position(display.ui_pixels().0, |text| {
+                            display.measure_setting(text)
+                        }))
+                    }
+                    Panel::CsvFolder(picker) if display.shown => {
+                        Some(picker.input_position(display.ui_pixels().0, |text| {
+                            display.measure_setting(text)
+                        }))
+                    }
+                    _ => None,
+                };
+                if let Some(position) = input_position {
                     let input = self.video.text_input();
-                    if let Some((area, caret)) = form
-                        .input_position(display.ui_pixels().0, |text| display.measure_setting(text))
-                    {
+                    if let Some((area, caret)) = position {
                         let (x, y) = display.ui_to_window(area.0, area.1);
                         let (right, bottom) =
                             display.ui_to_window(area.0 + area.2, area.1 + area.3);
@@ -2003,6 +2243,10 @@ impl App {
                         view::dialog_button(w, h, false),
                         settings.text(Text::Cancel),
                     );
+                }
+                Panel::CsvFolder(picker) => picker.draw(p, settings, w, h),
+                Panel::CsvProgress(percent) => {
+                    view::csv_progress(p, settings.text(Text::CsvExporting), *percent, w, h)
                 }
                 Panel::Message { text } => view::message(p, text, settings.text(Text::Ok), w, h),
             })?;
@@ -2176,6 +2420,14 @@ fn window_pixel_density(window: &Window) -> f64 {
 }
 
 fn shortcut(key: Option<Keycode>, scancode: Option<Scancode>, mods: Mod) -> Option<Action> {
+    let shift = Mod::LSHIFTMOD | Mod::RSHIFTMOD;
+    if scancode == Some(Scancode::E)
+        && ctrl(mods)
+        && mods.intersects(shift)
+        && !mods.intersects(Mod::LALTMOD | Mod::RALTMOD | Mod::LGUIMOD | Mod::RGUIMOD)
+    {
+        return Some(Action::ExportCsv);
+    }
     if !platform::shortcut_allowed(mods) {
         return None;
     }
@@ -2285,6 +2537,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn csv_export_is_only_bound_to_the_hidden_shortcut() {
+        let modifiers = Mod::LCTRLMOD | Mod::LSHIFTMOD;
+        assert_eq!(
+            shortcut(Some(Keycode::E), Some(Scancode::E), modifiers),
+            Some(Action::ExportCsv)
+        );
+        assert_ne!(
+            shortcut(Some(Keycode::E), Some(Scancode::E), Mod::LCTRLMOD),
+            Some(Action::ExportCsv)
+        );
+        assert_ne!(
+            shortcut(
+                Some(Keycode::E),
+                Some(Scancode::E),
+                modifiers | Mod::LALTMOD
+            ),
+            Some(Action::ExportCsv)
+        );
+        assert!(view::ENTRIES
+            .iter()
+            .flat_map(|entries| entries.iter())
+            .all(|(action, _, _)| *action != Action::ExportCsv));
+    }
+
+    #[test]
     fn refresh_timer_posts_a_tick_with_fractional_millisecond_period() {
         let interval = refresh_interval(Some(360.0));
         assert_eq!(interval, Duration::from_nanos(2_777_778));
@@ -2339,19 +2616,29 @@ fn run() -> Result<(), String> {
                 let text = job.error_text();
                 let result = match job {
                     Job::Replay(replay, path) => {
-                        replay.save(&directory, path.as_deref()).map(|_| ())
+                        replay.save(&directory, path.as_deref()).map(|_| None)
                     }
-                    Job::Stats(record) => record.append(&stats_path).map_err(|error| {
-                        std::io::Error::new(
-                            error.kind(),
-                            format!("{}: {error}", stats_path.display()),
-                        )
-                    }),
+                    Job::Stats(record) => {
+                        record.append(&stats_path).map(|_| None).map_err(|error| {
+                            std::io::Error::new(
+                                error.kind(),
+                                format!("{}: {error}", stats_path.display()),
+                            )
+                        })
+                    }
+                    Job::ExportCsv { targets, overwrite } => {
+                        csv_export::export(&stats_path, &targets, overwrite, |percent| {
+                            let _ = reply.send(WriteReply::ExportProgress(percent));
+                        })
+                        .map(|()| Some(targets))
+                    }
                 };
                 if let Err(error) = &result {
                     eprintln!("{error}");
                 }
-                let _ = reply.send(result.map_err(|error| (text, error.to_string())));
+                let _ = reply.send(WriteReply::Finished(
+                    result.map_err(|error| (text, error.to_string())),
+                ));
             }
         })
         .map_err(|e| e.to_string())?;

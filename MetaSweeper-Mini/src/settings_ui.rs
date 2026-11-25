@@ -31,12 +31,13 @@ pub enum Outcome {
 }
 
 #[derive(Default)]
-struct Edit {
-    value: String,
+pub(crate) struct Edit {
+    pub(crate) value: String,
     anchor: usize,
     caret: usize,
     offset: i32,
     composition: Option<Composition>,
+    limit: Option<usize>,
 }
 
 struct Composition {
@@ -52,18 +53,29 @@ fn text_byte(text: &str, index: i32) -> usize {
 }
 
 impl Edit {
-    fn new(value: String) -> Self {
+    pub(crate) fn new(value: String) -> Self {
         Self {
             value,
             ..Self::default()
         }
     }
 
+    pub(crate) fn with_limit(value: String, limit: usize) -> Self {
+        Self {
+            limit: Some(limit),
+            ..Self::new(value)
+        }
+    }
+
+    pub(crate) fn composing(&self) -> bool {
+        self.composition.is_some()
+    }
+
     fn selection(&self) -> Range<usize> {
         self.anchor.min(self.caret)..self.anchor.max(self.caret)
     }
 
-    fn select_all(&mut self) {
+    pub(crate) fn select_all(&mut self) {
         self.anchor = 0;
         self.caret = self.value.len();
     }
@@ -123,11 +135,11 @@ impl Edit {
         self.move_to(caret, false);
     }
 
-    fn insert(&mut self, text: &str, numeric: bool) {
+    pub(crate) fn insert(&mut self, text: &str, numeric: bool) {
         self.composition = None;
         let range = self.selection();
         let units = crate::platform::text_units;
-        let limit: usize = if numeric { 10 } else { 128 };
+        let limit = self.limit.unwrap_or(if numeric { 10 } else { 128 });
         let mut remaining =
             limit.saturating_sub(units(&self.value) - units(&self.value[range.clone()]));
         let accepted: String = text
@@ -155,7 +167,7 @@ impl Edit {
         }
     }
 
-    fn set_composition(&mut self, text: String, start: i32, length: i32) {
+    pub(crate) fn set_composition(&mut self, text: String, start: i32, length: i32) {
         self.composition = (!text.is_empty()).then(|| {
             let cursor = if start < 0 {
                 text.len()
@@ -188,7 +200,13 @@ impl Edit {
         }
     }
 
-    fn click(&mut self, x: i32, extend: bool, double_click: bool, measure: impl Fn(&str) -> i32) {
+    pub(crate) fn click(
+        &mut self,
+        x: i32,
+        extend: bool,
+        double_click: bool,
+        measure: impl Fn(&str) -> i32,
+    ) {
         let x = x + self.offset;
         let at = self
             .value
@@ -213,7 +231,7 @@ impl Edit {
         self.move_to(at, extend);
     }
 
-    fn key(
+    pub(crate) fn key(
         &mut self,
         key: Keycode,
         shift: bool,
@@ -268,6 +286,25 @@ impl Edit {
             }
             _ => {}
         }
+    }
+
+    pub(crate) fn input_position(
+        &mut self,
+        inner: Box2,
+        measure: impl Fn(&str) -> i32,
+        centered: bool,
+    ) -> (Box2, i32) {
+        let (text, caret, _, _) = self.presentation();
+        let caret = measure(&text[..caret]);
+        let text_width = measure(&text);
+        let visible = (inner.2 - 1).max(0);
+        self.offset = self
+            .offset
+            .clamp(0, (text_width - visible).max(0))
+            .max(caret - visible)
+            .min(caret);
+        let padding = edit_padding(inner.2, text_width, centered);
+        (inner, padding + caret - self.offset)
     }
 }
 
@@ -731,18 +768,7 @@ impl Form {
     ) -> Option<(Box2, i32)> {
         let index = self.edit_row()?;
         let inner = input_area(self.focus, width).inset(4);
-        let edit = &mut self.edits[index];
-        let (text, caret, _, _) = edit.presentation();
-        let caret = measure(&text[..caret]);
-        let text_width = measure(&text);
-        let visible = (inner.2 - 1).max(0);
-        edit.offset = edit
-            .offset
-            .clamp(0, (text_width - visible).max(0))
-            .max(caret - visible)
-            .min(caret);
-        let padding = edit_padding(inner.2, text_width, index >= 3);
-        Some((inner, padding + caret - edit.offset))
+        Some(self.edits[index].input_position(inner, measure, index >= 3))
     }
 
     pub fn draw(&self, p: &Painter, width: i32, height: i32) {
@@ -1008,7 +1034,7 @@ fn edit_padding(field_width: i32, text_width: i32, centered: bool) -> i32 {
     }
 }
 
-fn draw_edit(p: &Painter, inner: Box2, edit: &Edit, active: bool, centered: bool) {
+pub(crate) fn draw_edit(p: &Painter, inner: Box2, edit: &Edit, active: bool, centered: bool) {
     let (text, caret, selection, composition) = edit.presentation();
     let origin = inner.0 + edit_padding(inner.2, p.measure(&text, FONT), centered) - edit.offset;
     let position = |at| origin + p.measure(&text[..at], FONT);
