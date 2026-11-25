@@ -1107,6 +1107,7 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             del_items += [13, 14, 15]
 
         if len(del_items) < 9:
+            self.record_setting.sync()
             ui = gameRecordPop.ui_Form(
                 del_items, b.bbbv, nf_items, self.mainWindow)
             ui.label_16.setText(mode_text)
