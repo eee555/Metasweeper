@@ -1,4 +1,5 @@
 AI_AGENT_POLICY.md -text
 .githooks/* text eol=lf
 MetaSweeper-Mini/build.sh text eol=lf
+MetaSweeper-Mini/ms-toollib-mini.patch text eol=lf
 MetaSweeper-Mini/assets/*.bin binary
