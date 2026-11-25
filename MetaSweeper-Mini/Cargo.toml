@@ -15,6 +15,8 @@ sdl3 = { version = "=0.20.0", features = ["build-from-source-static"] }
 sdl3-sys = { version = "0.7.3", features = ["no-sdl-audio", "no-sdl-camera", "no-sdl-gpu", "no-sdl-haptic", "no-sdl-hidapi", "no-sdl-joystick", "no-sdl-sensor", "no-sdl-tray"] }
 hmac = "0.12"
 sha2 = "0.10"
+aes-gcm = "0.10"
+md-5 = "0.10"
 flate2 = "1"
 fontdue = "0.9"
 unicode-segmentation = "1"

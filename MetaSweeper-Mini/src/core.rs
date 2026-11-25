@@ -3,6 +3,7 @@ use crate::{
     layout::PRESETS,
     native::{GameSession, GameStatus, ReplayMetrics},
     replay_signature::sign,
+    stats::{GameResult, Record},
 };
 use std::{
     fs::{self, OpenOptions},
@@ -186,17 +187,40 @@ impl Round {
             }
         );
         let mut data = self
-            .session
-            .encode_replay(
-                &self.player,
-                &self.race,
-                &self.country,
-                self.cursor_limit_used,
-                settings.auto_replay > 0,
-            )
+            .encode_replay(settings)
             .ok_or_else(|| io::Error::other("EVF data unavailable"))?;
         sign(&mut data)?;
         Ok(Replay { name, data })
+    }
+
+    pub(crate) fn stats(
+        &mut self,
+        settings: &config::Settings,
+        result: GameResult,
+        replay: Option<&Replay>,
+    ) -> Record {
+        if matches!(result, GameResult::Restart) {
+            self.session.abandon();
+        }
+        let unsigned;
+        let data = match replay {
+            Some(replay) => &replay.data,
+            None => {
+                unsigned = self.encode_replay(settings).unwrap_or_default();
+                &unsigned
+            }
+        };
+        self.session.stats(result, self.timing_valid, data)
+    }
+
+    fn encode_replay(&mut self, settings: &config::Settings) -> Option<Vec<u8>> {
+        self.session.encode_replay(
+            &self.player,
+            &self.race,
+            &self.country,
+            self.cursor_limit_used,
+            settings.auto_replay > 0,
+        )
     }
 }
 

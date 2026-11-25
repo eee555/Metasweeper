@@ -2,6 +2,8 @@ use ms_toollib::videos::base_video::NewBaseVideo2;
 use ms_toollib::{laymine, BaseVideo, GameBoardState, MouseState};
 use std::time::Instant;
 
+use crate::stats::{GameResult, Record};
+
 pub const CELL_PIXELS: usize = 16;
 
 pub struct GameSession {
@@ -136,6 +138,14 @@ impl GameSession {
             self.video.game_board_state,
             GameBoardState::Win | GameBoardState::Loss
         )
+    }
+
+    pub(crate) fn abandon(&mut self) {
+        let _ = self.video.step_game_state("replay");
+    }
+
+    pub(crate) fn stats(&self, result: GameResult, fair: bool, replay: &[u8]) -> Record {
+        Record::new(&self.video, result, fair, replay)
     }
 
     pub fn solved_below(&self, threshold: usize) -> bool {

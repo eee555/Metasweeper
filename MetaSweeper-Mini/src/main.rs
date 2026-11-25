@@ -9,6 +9,7 @@ mod paint;
 mod platform;
 mod replay_signature;
 mod settings_ui;
+mod stats;
 mod text;
 mod view;
 
@@ -26,6 +27,7 @@ use sdl3::{
     EventPump, Sdl, VideoSubsystem,
 };
 use settings_ui::Outcome;
+use stats::{GameResult, Record};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -231,10 +233,21 @@ struct Dialog {
     panel: Panel,
 }
 
-struct Job {
-    replay: Replay,
-    path: Option<PathBuf>,
+enum Job {
+    Replay(Replay, Option<PathBuf>),
+    Stats(Record),
 }
+
+impl Job {
+    fn error_text(&self) -> Text {
+        match self {
+            Self::Replay(..) => Text::ReplaySaveError,
+            Self::Stats(_) => Text::StatsSaveError,
+        }
+    }
+}
+
+type WriteReply = Result<(), (Text, String)>;
 
 struct App {
     sdl: Sdl,
@@ -256,7 +269,7 @@ struct App {
     pending_writes: usize,
     save_requested: bool,
     jobs: Sender<Job>,
-    replies: Receiver<Result<(), String>>,
+    replies: Receiver<WriteReply>,
     errors: Vec<String>,
     reference: i32,
     layout: Layout,
@@ -279,7 +292,7 @@ impl App {
         root: PathBuf,
         mut settings: Settings,
         jobs: Sender<Job>,
-        replies: Receiver<Result<(), String>>,
+        replies: Receiver<WriteReply>,
     ) -> Result<Self, String> {
         sdl3::hint::set("SDL_APP_ID", "org.metasweeper.Mini");
         sdl3::hint::set("SDL_IME_IMPLEMENTED_UI", "composition");
@@ -752,6 +765,10 @@ impl App {
                         }
                     }
                 }
+                if self.round.phase() == 1 {
+                    let record = self.round.stats(&self.settings, GameResult::Restart, None);
+                    self.queue_write(Job::Stats(record));
+                }
                 self.save_requested = false;
                 self.round = Round::new(&self.settings);
                 self.last_saved_round = false;
@@ -895,15 +912,19 @@ impl App {
     }
 
     fn queue_replay(&mut self, replay: Replay, path: Option<PathBuf>) {
-        if self.jobs.send(Job { replay, path }).is_ok() {
-            self.pending_writes += 1;
-        } else {
-            self.errors
-                .push(self.settings.text(Text::ReplaySaveError).into());
+        self.queue_write(Job::Replay(replay, path));
+    }
+
+    fn queue_write(&mut self, job: Job) {
+        match self.jobs.send(job) {
+            Ok(()) => self.pending_writes += 1,
+            Err(error) => self
+                .errors
+                .push(self.settings.text(error.0.error_text()).into()),
         }
     }
 
-    fn collect_replay_replies(&mut self, wait: bool) {
+    fn collect_write_replies(&mut self, wait: bool) {
         while self.pending_writes > 0 {
             let reply = if wait {
                 self.replies
@@ -915,11 +936,9 @@ impl App {
             match reply {
                 Ok(result) => {
                     self.pending_writes -= 1;
-                    if let Err(error) = result {
-                        self.errors.push(format!(
-                            "{}\n{error}",
-                            self.settings.text(Text::ReplaySaveError)
-                        ));
+                    if let Err((text, error)) = result {
+                        self.errors
+                            .push(format!("{}\n{error}", self.settings.text(text)));
                     }
                 }
                 Err(mpsc::TryRecvError::Empty) => break,
@@ -1341,7 +1360,9 @@ impl App {
             &self.settings,
             input_delay(timestamp),
         );
-        if self.round.should_auto_restart(self.settings.auto_replay) {
+        let auto_restart = self.round.should_auto_restart(self.settings.auto_replay);
+        self.finish(auto_restart);
+        if auto_restart {
             return self.action(Action::Restart);
         }
         if self.round.ended() {
@@ -1349,25 +1370,40 @@ impl App {
         }
         self.sdl.mouse().capture(self.held != 0);
         self.sync_cursor();
-        self.finish();
         if let Some(counter) = &mut self.counter {
             counter.dirty = true;
         }
         Ok(())
     }
 
-    fn finish(&mut self) {
+    fn finish(&mut self, auto_restart: bool) {
         if !self.round.ended() || self.last_saved_round {
             return;
         }
         self.last_saved_round = true;
+        let won = self.round.phase() == 2;
+        let result = if won {
+            GameResult::Win
+        } else {
+            GameResult::Loss
+        };
+        let replay = self
+            .round
+            .timing_valid
+            .then(|| self.round.replay(&self.settings));
+        let record = self.round.stats(
+            &self.settings,
+            result,
+            replay.as_ref().and_then(|result| result.as_ref().ok()),
+        );
+        self.queue_write(Job::Stats(record));
         if !self.round.timing_valid {
             self.errors
                 .push(self.settings.text(Text::TimingWarning).into());
-        } else if self.settings.autosave == 0
-            || (self.settings.autosave == 1 && self.round.phase() == 2)
-        {
-            match self.round.replay(&self.settings) {
+        } else if let Some(replay) = replay.filter(|_| {
+            !auto_restart && (self.settings.autosave == 0 || (self.settings.autosave == 1 && won))
+        }) {
+            match replay {
                 Ok(replay) => self.queue_replay(replay, None),
                 Err(error) => self.errors.push(format!(
                     "{}\n{error}",
@@ -1787,7 +1823,7 @@ impl App {
         if self.round.phase() == 1 && !self.round.timing_valid {
             self.action(Action::Restart)?;
         }
-        self.collect_replay_replies(false);
+        self.collect_write_replies(false);
         if self.pending_writes == 0
             && self.dialog.is_none()
             && std::mem::take(&mut self.save_requested)
@@ -2026,7 +2062,7 @@ impl App {
         drop(timer);
         self.release_cursor();
         self.sdl.mouse().capture(false);
-        self.collect_replay_replies(true);
+        self.collect_write_replies(true);
         if !self.errors.is_empty() {
             self.close_dialog();
             let error = self.errors.join("\n\n");
@@ -2290,21 +2326,32 @@ fn run() -> Result<(), String> {
     let settings = Settings::read(&root).map_err(|e| e.to_string())?;
     platform::prepare_root(&root, &settings)?;
     let directory = root.join("replay");
+    let stats_path = std::env::var_os("MINI_STATS_PATH")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("stats.dat"));
     let (jobs, queue) = mpsc::channel::<Job>();
     let (reply, replies) = mpsc::channel();
     let writer = thread::Builder::new()
-        .name("Mini replay writer".into())
+        .name("Mini game writer".into())
         .spawn(move || {
             while let Ok(job) = queue.recv() {
-                let result = job
-                    .replay
-                    .save(&directory, job.path.as_deref())
-                    .map(|_| ())
-                    .map_err(|err| err.to_string());
+                let text = job.error_text();
+                let result = match job {
+                    Job::Replay(replay, path) => {
+                        replay.save(&directory, path.as_deref()).map(|_| ())
+                    }
+                    Job::Stats(record) => record.append(&stats_path).map_err(|error| {
+                        std::io::Error::new(
+                            error.kind(),
+                            format!("{}: {error}", stats_path.display()),
+                        )
+                    }),
+                };
                 if let Err(error) = &result {
                     eprintln!("{error}");
                 }
-                let _ = reply.send(result);
+                let _ = reply.send(result.map_err(|error| (text, error.to_string())));
             }
         })
         .map_err(|e| e.to_string())?;
