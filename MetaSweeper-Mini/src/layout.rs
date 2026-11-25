@@ -179,6 +179,25 @@ impl Layout {
         )
     }
 
+    pub fn status_face(self, status: Box2) -> Box2 {
+        Box2(
+            status.0 + (status.2 - self.sprite) / 2,
+            status.1 + self.status_inset,
+            self.sprite,
+            self.sprite,
+        )
+    }
+
+    pub fn status_timer(self, status: Box2) -> Box2 {
+        let width = 3 * self.digit;
+        Box2(
+            status.0 + status.2 - self.status_inset - width,
+            status.1 + self.status_inset,
+            width,
+            self.sprite,
+        )
+    }
+
     pub fn grid(self, level: usize, size: (i32, i32), footer: bool) -> Box2 {
         let (rows, cols, _) = PRESETS[level];
         let spare = (size.1 - self.size(level, footer).1).max(0) / 2;

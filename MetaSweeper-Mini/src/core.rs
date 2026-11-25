@@ -141,7 +141,11 @@ impl Round {
     }
 
     pub fn seconds(&self) -> f64 {
-        self.status.seconds
+        if self.phase() == 0 {
+            0.0
+        } else {
+            self.status.seconds
+        }
     }
     pub fn remaining(&self, mines: usize, flag_win: bool) -> u32 {
         if self.status.phase == 2 && flag_win {
@@ -171,7 +175,7 @@ impl Round {
         self.last_clock_check = Some(now);
         self.timing_valid = clock
             .checked_sub(start)
-            .is_some_and(|elapsed| (self.seconds() * 1000.0 - elapsed as f64).abs() <= 100.0);
+            .is_some_and(|elapsed| (self.status.seconds * 1000.0 - elapsed as f64).abs() <= 100.0);
     }
 
     pub fn replay(&mut self, settings: &config::Settings) -> Result<Replay, String> {
@@ -328,6 +332,31 @@ mod linux_tests {
     use crate::native::CELL_PIXELS;
 
     #[test]
+    fn pregame_flags_update_the_mine_count_but_not_the_displayed_metrics() {
+        let root = tempfile::tempdir().unwrap();
+        let settings = config::Settings::read(root.path()).unwrap();
+        let mut round = Round::new(&settings);
+        round.session = GameSession::with_board(vec![vec![-1, 1, 0], vec![1, 1, 0], vec![0, 0, 0]]);
+        round.cells.resize(9, 10);
+        let initial = round.counter_rows("Standard");
+
+        for button in [2, 3] {
+            round.play(button, 3, 3, &settings, Duration::ZERO);
+        }
+        assert_eq!(round.cells[0], 11);
+        assert_eq!(round.remaining(1, false), 0);
+        assert_eq!(round.status.right, 1);
+        assert_eq!(round.counter_rows("Standard"), initial);
+        assert_eq!(round.seconds(), 0.0);
+
+        for button in [0, 1] {
+            round.play(button, CELL_PIXELS + 3, 3, &settings, Duration::ZERO);
+        }
+        assert_eq!(round.phase(), 1);
+        assert!(round.counter_rows("Standard")[9].starts_with("1@"));
+    }
+
+    #[test]
     fn auto_restart_requires_loss_below_the_threshold() {
         let root =
             std::env::temp_dir().join(format!("metasweeper-mini-test-{}", std::process::id()));
@@ -463,13 +492,19 @@ mod linux_tests {
 
 impl Round {
     pub fn counter_rows(&self, mode: &'static str) -> CounterRows {
+        let mut rows = [const { Cow::Borrowed("--") }; COUNTER_ROWS];
+        rows[0] = mode.into();
+        if self.phase() == 0 {
+            rows[1] = "0.000".into();
+            rows[8..=10].fill(Cow::Borrowed("0@0.000"));
+            rows[15] = "0.0".into();
+            return rows;
+        }
         let time = self.seconds();
         let rate = |count| {
             let per_second = if time > 0.0 { count as f64 / time } else { 0.0 };
             format!("{count}@{per_second:.3}")
         };
-        let mut rows = [const { Cow::Borrowed("--") }; COUNTER_ROWS];
-        rows[0] = mode.into();
         rows[1] = decimal(time).into();
         rows[8] = rate(self.status.left).into();
         rows[9] = rate(self.status.right).into();

@@ -3,6 +3,22 @@
 
 pub use imp::*;
 
+pub fn double_click_time() -> std::time::Duration {
+    let milliseconds = sdl3::hint::get("SDL_MOUSE_DOUBLE_CLICK_TIME")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or_else(|| {
+            #[cfg(windows)]
+            {
+                unsafe { windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime() }
+            }
+            #[cfg(not(windows))]
+            {
+                500
+            }
+        });
+    std::time::Duration::from_millis(u64::from(milliseconds))
+}
+
 pub fn apply_process_hardening() {
     #[cfg(windows)]
     imp::apply_process_hardening();
@@ -320,6 +336,37 @@ mod imp {
     pub fn show_dialog(window: &mut Window) {
         show_cloaked(window);
         window.raise();
+    }
+
+    pub fn set_dialog_caption_buttons(window: &Window, allow_close: bool) {
+        let Some(hwnd) = hwnd(window) else { return };
+        let mut disabled = WS_MINIMIZEBOX;
+        if !allow_close {
+            disabled |= WS_SYSMENU;
+        }
+        remove_window_styles(hwnd, disabled);
+    }
+
+    pub fn disable_maximize_button(window: &Window) {
+        if let Some(hwnd) = hwnd(window) {
+            remove_window_styles(hwnd, WS_MAXIMIZEBOX);
+        }
+    }
+
+    fn remove_window_styles(hwnd: HWND, styles: u32) {
+        unsafe {
+            let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            SetWindowLongPtrW(hwnd, GWL_STYLE, style & !(styles as isize));
+            SetWindowPos(
+                hwnd,
+                null_mut(),
+                0,
+                0,
+                0,
+                0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+            );
+        }
     }
 
     pub fn uncloak(window: &Window) {
@@ -800,14 +847,16 @@ mod imp {
 
     impl WindowHook {
         fn board(window: HWND, reference: i32, settings: &Settings) -> Result<Self, String> {
-            Self::attach(
+            let hook = Self::attach(
                 window,
                 HookState::Board(Cell::new(BoardSizing {
                     reference,
                     level: settings.level,
                     footer: settings.identity,
                 })),
-            )
+            )?;
+            remove_window_styles(window, WS_MAXIMIZEBOX);
+            Ok(hook)
         }
 
         fn counter(window: HWND, wake_type: u32, pixels: i32) -> Result<Self, String> {
@@ -924,6 +973,11 @@ mod imp {
     ) -> LRESULT {
         match (&*(data as *const HookState), msg) {
             (HookState::Board(_) | HookState::Counter(..), WM_ERASEBKGND) => return 1,
+            (HookState::Board(_), WM_STYLECHANGING)
+                if wparam as i32 == GWL_STYLE && lparam != 0 =>
+            {
+                (*(lparam as *mut STYLESTRUCT)).styleNew &= !WS_MAXIMIZEBOX;
+            }
             (HookState::Board(sizing), WM_SIZING) if lparam != 0 => {
                 if constrain_drag(
                     hwnd,
@@ -1151,6 +1205,8 @@ mod imp {
         window.show();
         window.raise();
     }
+
+    pub fn disable_maximize_button(_window: &Window) {}
 
     pub fn uncloak(_window: &Window) {}
 

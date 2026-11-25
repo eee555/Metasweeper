@@ -20,6 +20,7 @@ pub enum Action {
     Identity,
     Fullscreen,
     Instructions,
+    About,
     License,
 }
 
@@ -52,6 +53,7 @@ pub const ENTRIES: [&[(Action, Text, &str)]; 4] = [
     &[
         (Action::Instructions, Text::Instructions, ""),
         (Action::License, Text::License, ""),
+        (Action::About, Text::About, ""),
     ],
 ];
 
@@ -306,6 +308,7 @@ fn draw_status(
 ) {
     let mines = PRESETS[settings.level].2;
     let y = status.1 + layout.status_inset;
+    let timer = layout.status_timer(status);
     art.number(
         p,
         status.0 + layout.status_inset,
@@ -316,8 +319,8 @@ fn draw_status(
     );
     art.number(
         p,
-        status.0 + status.2 - layout.status_inset - 3 * layout.digit,
-        y,
+        timer.0,
+        timer.1,
         layout.digit,
         layout.sprite,
         round.seconds() as u32,
@@ -329,13 +332,8 @@ fn draw_status(
         _ if round.mouse_visual() != 0 => 1,
         _ => 0,
     };
-    art.sprite(
-        p,
-        status.0 + (status.2 - layout.sprite) / 2,
-        y,
-        layout.sprite,
-        17 + face,
-    );
+    let face_rect = layout.status_face(status);
+    art.sprite(p, face_rect.0, face_rect.1, layout.sprite, 17 + face);
 }
 
 fn board_cells(
@@ -609,18 +607,27 @@ pub fn dialog_button(width: i32, height: i32, ok: bool) -> Box2 {
     Box2(width - if ok { 202 } else { 104 }, height - 42, 92, 29)
 }
 
+pub fn about_version(width: i32) -> Box2 {
+    Box2((width - 120) / 2, 44, 120, 26)
+}
+
+pub const FULLSCREEN_DIALOG_SIZE: (u32, u32) = (224, 138);
+
 pub fn fullscreen_button(width: i32, height: i32, mode: FullscreenMode) -> Box2 {
+    const BUTTON_HEIGHT: i32 = 34;
+    const GAP: i32 = 6;
+    const MARGIN: i32 = 12;
     let index = match mode {
         FullscreenMode::Board => 0,
         FullscreenMode::Status => 1,
         FullscreenMode::Counter => 2,
     };
-    let button_width = (width - 36) / 3;
+    let top = (height - 3 * BUTTON_HEIGHT - 2 * GAP) / 2;
     Box2(
-        12 + index * (button_width + 6),
-        (height - 34) / 2,
-        button_width,
-        34,
+        MARGIN,
+        top + index * (BUTTON_HEIGHT + GAP),
+        width - 2 * MARGIN,
+        BUTTON_HEIGHT,
     )
 }
 

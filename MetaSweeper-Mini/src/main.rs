@@ -44,6 +44,7 @@ const REFRESH_RECHECK: Duration = Duration::from_secs(2);
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(50);
 const REFRESH_TICK: i32 = 1;
 const CSV_PROGRESS_SIZE: (u32, u32) = (400, 108);
+const ABOUT_SIZE: (u32, u32) = (320, 130);
 
 fn restore_default_cursor() {
     unsafe { sdl3_sys::mouse::SDL_SetCursor(sdl3_sys::mouse::SDL_GetDefaultCursor()) };
@@ -216,6 +217,9 @@ enum Panel {
     },
     CsvFolder(folder_picker::Picker),
     CsvProgress(u8),
+    About {
+        version_clicks: u8,
+    },
     Message {
         text: String,
     },
@@ -293,6 +297,8 @@ struct App {
     pointer: (i32, i32),
     held: u8,
     restart_pressed: bool,
+    status_clicks: u8,
+    timer_restart_at: Option<Instant>,
     confinement: bool,
     menu: Menu,
     art: Art,
@@ -366,6 +372,8 @@ impl App {
             pointer: (-1, -1),
             held: 0,
             restart_pressed: false,
+            status_clicks: 0,
+            timer_restart_at: None,
             confinement: false,
             menu: Menu::default(),
             art: Art::new(),
@@ -522,6 +530,7 @@ impl App {
             builder.position(x, y);
         }
         let mut window = builder.build().map_err(|e| e.to_string())?;
+        platform::disable_maximize_button(&window);
         unsafe {
             sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw());
         }
@@ -684,6 +693,7 @@ impl App {
         panel: Panel,
         size: (u32, u32),
     ) -> Result<(), String> {
+        self.timer_restart_at = None;
         self.cancel_input();
         let mut builder = self.video.window(title, size.0, size.1);
         builder.position_centered();
@@ -693,6 +703,7 @@ impl App {
                 | Panel::Fullscreen { .. }
                 | Panel::CsvFolder(_)
                 | Panel::CsvProgress(_)
+                | Panel::About { .. }
         );
         builder.hidden();
         if scaled {
@@ -702,6 +713,10 @@ impl App {
         unsafe {
             sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw());
             sdl3_sys::video::SDL_SetWindowModal(window.raw(), true);
+        }
+        #[cfg(windows)]
+        if scaled {
+            platform::set_dialog_caption_buttons(&window, !matches!(panel, Panel::CsvProgress(_)));
         }
         let ui_scale = if scaled {
             platform::center_settings(&window, &self.main.window);
@@ -752,6 +767,7 @@ impl App {
                 action,
                 Action::Settings
                     | Action::Shortcuts
+                    | Action::About
                     | Action::Open
                     | Action::ExportCsv
                     | Action::Instructions
@@ -775,6 +791,7 @@ impl App {
         let settings = &self.settings;
         match action {
             Action::Restart | Action::Level(_) => {
+                self.timer_restart_at = None;
                 self.cancel_input();
                 if let Action::Level(level) = action {
                     if self.fullscreen {
@@ -882,7 +899,7 @@ impl App {
                             mode: FullscreenMode::Board,
                             pointer: view::ButtonPointer::default(),
                         },
-                        (556, 62),
+                        view::FULLSCREEN_DIALOG_SIZE,
                     )?;
                 }
             }
@@ -915,6 +932,13 @@ impl App {
                 self.settings.identity = !self.settings.identity;
                 self.resize_main(self.layout.tile);
                 self.persist();
+            }
+            Action::About => {
+                self.open_dialog(
+                    settings.text(Text::About),
+                    Panel::About { version_clicks: 0 },
+                    ABOUT_SIZE,
+                )?;
             }
             Action::Shortcuts | Action::Instructions | Action::License => {
                 let text = match action {
@@ -1127,7 +1151,10 @@ impl App {
                 }
             }
             Panel::CsvProgress(_) => return Ok(()),
-            Panel::Fullscreen { .. } | Panel::Message { .. } | Panel::CsvFolder(_) => {}
+            Panel::Fullscreen { .. }
+            | Panel::Message { .. }
+            | Panel::About { .. }
+            | Panel::CsvFolder(_) => {}
         }
         let dialog = self.dialog.take().unwrap();
         self.video.text_input().stop(&dialog.display.window);
@@ -1149,7 +1176,10 @@ impl App {
                 self.main.window.raise();
                 self.change_fullscreen(Some(mode));
             }
-            Panel::Message { .. } | Panel::CsvFolder(_) | Panel::CsvProgress(_) => {}
+            Panel::Message { .. }
+            | Panel::About { .. }
+            | Panel::CsvFolder(_)
+            | Panel::CsvProgress(_) => {}
         }
         self.main.dirty = true;
         self.sync_cursor();
@@ -1199,13 +1229,13 @@ impl App {
                     Keycode::_1 | Keycode::Kp1 => *mode = FullscreenMode::Board,
                     Keycode::_2 | Keycode::Kp2 => *mode = FullscreenMode::Status,
                     Keycode::_3 | Keycode::Kp3 => *mode = FullscreenMode::Counter,
-                    Keycode::Left | Keycode::Right | Keycode::Tab => {
+                    Keycode::Up | Keycode::Down | Keycode::Left | Keycode::Right | Keycode::Tab => {
                         let index = match *mode {
                             FullscreenMode::Board => 0,
                             FullscreenMode::Status => 1,
                             FullscreenMode::Counter => 2,
                         };
-                        let backwards = key == Keycode::Left
+                        let backwards = matches!(key, Keycode::Up | Keycode::Left)
                             || key == Keycode::Tab
                                 && mods.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD);
                         let count = FULLSCREEN_CHOICES.len();
@@ -1239,6 +1269,7 @@ impl App {
                 *overwrite = false;
             }
             Panel::Message { .. }
+            | Panel::About { .. }
             | Panel::Settings(_)
             | Panel::CsvFolder(_)
             | Panel::CsvProgress(_) => {}
@@ -1335,6 +1366,23 @@ impl App {
                 self.sdl.mouse().capture(true);
             }
             dialog.display.dirty = true;
+        } else if let Panel::About { version_clicks } = &mut dialog.panel {
+            if view::about_version(width).contains(x, y) {
+                *version_clicks += 1;
+                if *version_clicks == 5 {
+                    self.close_dialog();
+                    self.show_easter_egg(
+                        Text::EasterEggGuide,
+                        Text::EasterEggTriggers,
+                        (510, 300),
+                    )?;
+                }
+            } else {
+                *version_clicks = 0;
+                if view::dialog_button(width, height, false).contains(x, y) {
+                    self.close_dialog();
+                }
+            }
         } else if matches!(dialog.panel, Panel::Message { .. }) {
             if view::dialog_button(width, height, false).contains(x, y) {
                 self.close_dialog();
@@ -1456,23 +1504,69 @@ impl App {
             self.held = 0;
         }
         self.restart_pressed = false;
+        self.status_clicks = 0;
         self.release_cursor();
         self.sdl.mouse().capture(false);
         self.main.dirty = true;
+    }
+
+    fn show_easter_egg(
+        &mut self,
+        title: Text,
+        message: Text,
+        size: (u32, u32),
+    ) -> Result<(), String> {
+        if self.fullscreen && !self.change_fullscreen(None) {
+            return Ok(());
+        }
+        self.open_dialog(
+            self.settings.text(title),
+            Panel::Message {
+                text: self.settings.text(message).into(),
+            },
+            size,
+        )?;
+        if let Some(dialog) = &self.dialog {
+            #[cfg(windows)]
+            platform::set_dialog_caption_buttons(&dialog.display.window, true);
+            platform::center_settings(&dialog.display.window, &self.main.window);
+        }
+        Ok(())
+    }
+
+    fn restart_from_status(&mut self) -> Result<(), String> {
+        let clicks = self.status_clicks + 1;
+        self.action(Action::Restart)?;
+        if clicks < 5 {
+            self.status_clicks = clicks;
+            Ok(())
+        } else {
+            self.show_easter_egg(
+                Text::SmileyMeltdown,
+                Text::SmileyMeltdownMessage,
+                (300, 106),
+            )
+        }
     }
 
     fn mouse(
         &mut self,
         btn: MouseButton,
         down: bool,
-        x: f32,
-        y: f32,
+        position: (f32, f32),
         timestamp: u64,
     ) -> Result<(), String> {
-        let (x, y) = self.main.point(x, y);
+        let (x, y) = self.main.point(position.0, position.1);
         self.pointer = (x, y);
         self.main.dirty = true;
         if !self.fullscreen && btn == MouseButton::Left && down && y < MENU && self.held == 0 {
+            if self.timer_restart_at.is_some() {
+                self.restart_from_status()?;
+                if self.dialog.is_some() {
+                    return Ok(());
+                }
+            }
+            self.status_clicks = 0;
             let choice = self
                 .menu
                 .top
@@ -1510,15 +1604,70 @@ impl App {
             Some(self.layout.status(size.0))
         };
         let over_status = status.is_some_and(|status| status.contains(x, y));
+        let over_timer = self.round.ended()
+            && status.is_some_and(|status| self.layout.status_timer(status).contains(x, y));
+        if btn == MouseButton::Left && down {
+            if let Some(deadline) = self.timer_restart_at.take() {
+                if over_timer && Instant::now() <= deadline {
+                    return self.show_easter_egg(
+                        Text::TimerOnStrike,
+                        Text::TimerOnStrikeMessage,
+                        (340, 112),
+                    );
+                }
+                self.restart_from_status()?;
+                if self.dialog.is_some() {
+                    return Ok(());
+                }
+            }
+        }
+        if down && (btn != MouseButton::Left || !over_status) {
+            self.status_clicks = 0;
+        }
         if btn == MouseButton::Left && self.held == 0 && (self.restart_pressed || over_status) {
-            if !down && self.restart_pressed && over_status {
-                self.action(Action::Restart)?;
+            if !down && self.restart_pressed {
+                if over_status {
+                    if over_timer {
+                        self.restart_pressed = false;
+                        self.sdl.mouse().capture(false);
+                        let interval =
+                            platform::double_click_time().max(Duration::from_millis(500));
+                        self.timer_restart_at = Some(Instant::now() + interval);
+                        return Ok(());
+                    }
+                    return self.restart_from_status();
+                }
+                self.status_clicks = 0;
             }
             self.restart_pressed = down && over_status;
             self.sdl.mouse().capture(self.restart_pressed);
             return Ok(());
         }
         if self.round.ended() {
+            if down && btn == MouseButton::Right {
+                if self.round.phase() == 2
+                    && status.is_some_and(|status| self.layout.status_face(status).contains(x, y))
+                {
+                    return self.show_easter_egg(
+                        Text::MinesOffDuty,
+                        Text::MinesOffDutyMessage,
+                        (380, 122),
+                    );
+                }
+                if self.round.phase() == 3 {
+                    let grid = self.grid();
+                    if let Some((col, row)) = grid.cell_at((x, y), self.layout.tile) {
+                        let cols = grid.2 / self.layout.tile;
+                        if self.round.cells.get((row * cols + col) as usize) == Some(&15) {
+                            return self.show_easter_egg(
+                                Text::MineProtest,
+                                Text::MineProtestMessage,
+                                (300, 106),
+                            );
+                        }
+                    }
+                }
+            }
             return Ok(());
         }
         let bit = match btn {
@@ -1839,7 +1988,7 @@ impl App {
                         dialog.display.window.raise();
                     }
                 } else if window_id == self.main.window.id() {
-                    self.mouse(mouse_btn, true, x, y, timestamp)?;
+                    self.mouse(mouse_btn, true, (x, y), timestamp)?;
                 } else if let Some(counter) = &self.counter {
                     let (px, py) = counter.point(x, y);
                     let can_close = counter.hook.is_none();
@@ -1869,7 +2018,7 @@ impl App {
                 y,
                 ..
             } if window_id == self.main.window.id() && self.dialog.is_none() => {
-                self.mouse(mouse_btn, false, x, y, timestamp)?;
+                self.mouse(mouse_btn, false, (x, y), timestamp)?;
             }
             _ => {}
         }
@@ -2160,6 +2309,7 @@ impl App {
                 Panel::Settings(_) => Some(settings_ui::SIZE),
                 Panel::CsvFolder(_) => Some(folder_picker::SIZE),
                 Panel::CsvProgress(_) => Some(CSV_PROGRESS_SIZE),
+                Panel::About { .. } => Some(ABOUT_SIZE),
                 _ => None,
             };
             if let Some(size) = size {
@@ -2267,6 +2417,24 @@ impl App {
                 Panel::CsvProgress(percent) => {
                     view::csv_progress(p, settings.text(Text::CsvExporting), *percent, w, h)
                 }
+                Panel::About { .. } => {
+                    p.fill(Box2(0, 0, w, h), 0xf5f5f5);
+                    p.text(
+                        Box2(12, 12, w - 24, 28),
+                        settings.text(Text::Title),
+                        18,
+                        Align::Center,
+                        INK,
+                    );
+                    p.text(
+                        view::about_version(w),
+                        concat!("v", env!("CARGO_PKG_VERSION")),
+                        15,
+                        Align::Center,
+                        INK,
+                    );
+                    view::button(p, view::dialog_button(w, h, false), settings.text(Text::Ok));
+                }
                 Panel::Message { text } => view::message(p, text, settings.text(Text::Ok), w, h),
             })?;
         }
@@ -2299,7 +2467,10 @@ impl App {
                 .chain(self.counter_resize_at)
                 .map(|since| (since + RESIZE_SETTLE).saturating_duration_since(Instant::now()));
             let replay = (self.pending_writes > 0).then_some(Duration::from_millis(20));
-            let timeout = resize.chain(replay).min();
+            let timer_restart = self
+                .timer_restart_at
+                .map(|deadline| deadline.saturating_duration_since(Instant::now()));
+            let timeout = resize.chain(replay).chain(timer_restart).min();
             let first = match timeout {
                 Some(timeout) => {
                     events.wait_event_timeout_ms(timeout.as_nanos().div_ceil(1_000_000) as u32)
@@ -2317,6 +2488,13 @@ impl App {
                 if self.quit {
                     break;
                 }
+            }
+            if !self.quit
+                && self
+                    .timer_restart_at
+                    .is_some_and(|deadline| Instant::now() >= deadline)
+            {
+                self.restart_from_status()?;
             }
         }
         drop(timer);

@@ -1152,6 +1152,7 @@ mod tests {
         draw(&mut counter, &round, &mut pixels, true);
         assert!(draw(&mut counter, &round, &mut pixels, false).is_empty());
 
+        round.status.phase = 1;
         round.status.seconds = 12.345;
         round.status.path = 543.2;
         let regions = draw(&mut counter, &round, &mut pixels, false);
