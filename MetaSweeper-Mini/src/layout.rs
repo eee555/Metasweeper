@@ -15,6 +15,11 @@ impl Box2 {
         x >= self.0 && x < self.0 + self.2 && y >= self.1 && y < self.1 + self.3
     }
 
+    pub fn cell_at(self, (x, y): (i32, i32), tile: i32) -> Option<(i32, i32)> {
+        self.contains(x, y)
+            .then(|| ((x - self.0) / tile, (y - self.1) / tile))
+    }
+
     pub fn inset(self, edge: i32) -> Self {
         Self(
             self.0 + edge,
@@ -282,6 +287,16 @@ impl Layout {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn board_preview_cell_changes_at_cell_and_board_edges() {
+        let grid = Box2(7, 13, 40, 40);
+        assert_eq!(grid.cell_at((7, 13), 20), Some((0, 0)));
+        assert_eq!(grid.cell_at((26, 32), 20), Some((0, 0)));
+        assert_eq!(grid.cell_at((27, 33), 20), Some((1, 1)));
+        assert_eq!(grid.cell_at((47, 33), 20), None);
+        assert_eq!(grid.cell_at((7, 12), 20), None);
+    }
 
     #[test]
     fn counter_uses_qt_geometry_and_snaps_dragged_edges() {

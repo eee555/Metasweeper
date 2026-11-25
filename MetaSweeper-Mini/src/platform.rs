@@ -276,25 +276,8 @@ mod imp {
     }
 
     pub fn font_paths() -> Vec<PathBuf> {
-        const CANDIDATES: &[&str] = &[
-            "C:\\Windows\\Fonts\\msyh.ttc",
-            "C:\\Windows\\Fonts\\simhei.ttf",
-            "C:\\Windows\\Fonts\\segoeui.ttf",
-            "C:\\Windows\\Fonts\\simsun.ttc",
-            "C:\\Windows\\Fonts\\arial.ttf",
-        ];
-        CANDIDATES
-            .iter()
-            .map(PathBuf::from)
-            .filter(|path| path.exists())
-            .take(3)
-            .collect()
-    }
-
-    pub fn counter_font_face(path: &Path) -> Option<u32> {
-        path.file_name()
-            .is_some_and(|name| name == "msyh.ttc")
-            .then_some(1)
+        let windows = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+        vec![PathBuf::from(windows).join("Fonts").join("msyh.ttc")]
     }
 
     pub fn data_root() -> Result<PathBuf, String> {
@@ -1125,10 +1108,6 @@ mod imp {
             .filter(|path| path.exists())
             .take(3)
             .collect()
-    }
-
-    pub fn counter_font_face(_path: &Path) -> Option<u32> {
-        None
     }
 
     pub fn data_root() -> Result<PathBuf, String> {

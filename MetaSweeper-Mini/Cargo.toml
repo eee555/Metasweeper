@@ -24,6 +24,8 @@ fontdue = "0.9"
 unicode-segmentation = "1"
 
 [target.'cfg(windows)'.dependencies]
+ab_glyph = "0.2.32"
+sdl3-sys = { version = "0.7.3", features = ["no-sdl-render", "no-sdl-power", "no-sdl-dialog"] }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Graphics_Dwm",

@@ -1,7 +1,15 @@
 use crate::layout::{Box2, Layout, FOOTER, MENU};
+#[cfg(windows)]
+use ab_glyph::{Font as _, FontVec, ScaleFont};
+use fontdue::Metrics;
+#[cfg(not(windows))]
 use fontdue::{Font, FontSettings};
 use sdl3::{pixels::PixelFormat, rect::Rect, surface::Surface, video::Window, EventPump};
-use std::cell::RefCell;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
 
 pub const CANVAS: u32 = 0xc0c0c0;
 pub const INK: u32 = 0x000000;
@@ -400,8 +408,8 @@ fn render_digit(digit: usize, width: i32, height: i32) -> Image {
                 2 => 0xff0000,
                 _ => continue,
             };
-            let left = scale_edge(col as i32, width, 13);
-            let right = scale_edge(col as i32 + 1, width, 13);
+            let left = scale_edge(col, width, 13);
+            let right = scale_edge(col + 1, width, 13);
             for y in top..bottom {
                 for x in left..right {
                     image.px[(y * width + x) as usize] = 0xff000000 | color;
@@ -420,76 +428,143 @@ pub enum Align {
 }
 
 struct Fonts {
-    fonts: Vec<Font>,
-    has_counter_face: bool,
+    faces: Vec<Font>,
+    glyphs: Mutex<GlyphCache>,
 }
 
 impl Fonts {
-    fn new() -> Self {
-        Self::load(false)
+    fn get() -> &'static Self {
+        static FONTS: OnceLock<Fonts> = OnceLock::new();
+        FONTS.get_or_init(|| Self {
+            faces: crate::platform::font_paths()
+                .iter()
+                .filter_map(|path| load_font(std::fs::read(path).ok()?))
+                .collect(),
+            glyphs: Mutex::default(),
+        })
     }
+}
 
-    fn load(counter: bool) -> Self {
-        let mut fonts = Vec::new();
-        let mut has_counter_face = false;
-        let options = FontSettings {
+#[cfg(not(windows))]
+fn load_font(bytes: Vec<u8>) -> Option<Font> {
+    Font::from_bytes(
+        bytes,
+        FontSettings {
             scale: 56.0,
             ..Default::default()
-        };
-        for path in crate::platform::font_paths() {
-            let Ok(bytes) = std::fs::read(&path) else {
-                continue;
-            };
-            if let Some(index) = counter
-                .then(|| crate::platform::counter_font_face(&path))
-                .flatten()
-            {
-                if let Ok(font) = Font::from_bytes(
-                    bytes.as_slice(),
-                    FontSettings {
-                        collection_index: index,
-                        ..options
-                    },
-                ) {
-                    fonts.insert(0, font);
-                    has_counter_face = true;
-                }
-            }
-            if let Ok(font) = Font::from_bytes(bytes, options) {
-                fonts.push(font);
-            }
-        }
-        Self {
-            fonts,
-            has_counter_face,
-        }
+        },
+    )
+    .ok()
+}
+
+#[cfg(windows)]
+struct Font {
+    face: FontVec,
+    height_per_em: f32,
+}
+
+#[cfg(windows)]
+fn load_font(bytes: Vec<u8>) -> Option<Font> {
+    let face = FontVec::try_from_vec(bytes).ok()?;
+    let height_per_em = face.height_unscaled() / face.units_per_em()?;
+    (height_per_em.is_finite() && height_per_em > 0.0).then_some(Font {
+        face,
+        height_per_em,
+    })
+}
+
+#[cfg(windows)]
+impl Font {
+    fn has_glyph(&self, ch: char) -> bool {
+        self.face.glyph_id(ch).0 != 0
     }
 
-    fn regular(&self) -> &[Font] {
-        let start = if self.has_counter_face && self.fonts.len() > 1 {
-            1
-        } else {
-            0
+    fn horizontal_line_metrics(&self, px: f32) -> Option<fontdue::LineMetrics> {
+        let scaled = self.face.as_scaled(px * self.height_per_em);
+        Some(fontdue::LineMetrics {
+            ascent: scaled.ascent(),
+            descent: scaled.descent(),
+            line_gap: scaled.line_gap(),
+            new_line_size: scaled.height() + scaled.line_gap(),
+        })
+    }
+
+    fn advance(&self, ch: char, px: f32) -> f32 {
+        let scaled = self.face.as_scaled(px * self.height_per_em);
+        scaled.h_advance(scaled.glyph_id(ch))
+    }
+
+    fn rasterize(&self, ch: char, px: f32) -> Glyph {
+        let scaled = self.face.as_scaled(px * self.height_per_em);
+        let glyph = scaled.scaled_glyph(ch);
+        let mut metrics = Metrics {
+            advance_width: scaled.h_advance(glyph.id),
+            ..Metrics::default()
         };
-        &self.fonts[start..]
+        let Some(outline) = self.face.outline_glyph(glyph) else {
+            return (metrics, Vec::new());
+        };
+        let bounds = outline.px_bounds();
+        metrics.xmin = bounds.min.x as i32;
+        metrics.ymin = -bounds.max.y as i32;
+        metrics.width = bounds.width() as usize;
+        metrics.height = bounds.height() as usize;
+        let mut bitmap = vec![0; metrics.width * metrics.height];
+        outline.draw(|x, y, alpha| {
+            bitmap[y as usize * metrics.width + x as usize] =
+                (alpha.clamp(0.0, 1.0) * 255.0).round() as u8;
+        });
+        (metrics, bitmap)
+    }
+}
+
+#[cfg(windows)]
+fn glyph_advance(font: &Font, ch: char, px: f32) -> f32 {
+    font.advance(ch, px)
+}
+
+#[cfg(not(windows))]
+fn glyph_advance(font: &Font, ch: char, px: f32) -> f32 {
+    font.metrics(ch, px).advance_width
+}
+
+type Glyph = (Metrics, Vec<u8>);
+
+#[derive(Default)]
+struct GlyphCache(HashMap<(char, u32), Glyph>);
+
+impl GlyphCache {
+    fn rasterize(&mut self, fonts: &[Font], ch: char, px: f32) -> &Glyph {
+        const MAX_CACHED_GLYPHS: usize = 256;
+        let key = (ch, px.to_bits());
+        if self.0.len() >= MAX_CACHED_GLYPHS && !self.0.contains_key(&key) {
+            self.0.clear();
+        }
+        self.0
+            .entry(key)
+            .or_insert_with(|| pick_font(fonts, ch).rasterize(ch, px))
     }
 }
 
 fn pick_font(fonts: &[Font], ch: char) -> &Font {
+    if let [font] = fonts {
+        return font;
+    }
     fonts
         .iter()
         .find(|font| font.has_glyph(ch))
-        .unwrap_or(&fonts[0])
+        .unwrap_or_else(|| &fonts[0])
 }
 
 fn measure_text(fonts: &[Font], text: &str, px: f32) -> f32 {
     text.chars()
-        .map(|ch| pick_font(fonts, ch).metrics(ch, px).advance_width)
+        .map(|ch| glyph_advance(pick_font(fonts, ch), ch, px))
         .sum()
 }
 
 fn draw_line(
     fonts: &[Font],
+    glyphs: &mut GlyphCache,
     canvas: &mut Canvas,
     text: &str,
     px: f32,
@@ -501,8 +576,7 @@ fn draw_line(
     let (cr, cg, cb) = color;
     let mut pen = 0f32;
     for ch in text.chars() {
-        let font = pick_font(fonts, ch);
-        let (metrics, bitmap) = font.rasterize(ch, px);
+        let (metrics, bitmap) = glyphs.rasterize(fonts, ch, px);
         let gx = (origin_x + pen + metrics.xmin as f32).round() as i32;
         let gy = (baseline - (metrics.ymin as f32 + metrics.height as f32)).round() as i32;
         if metrics.width > 0 && metrics.height > 0 {
@@ -538,7 +612,7 @@ fn wrap_lines(fonts: &[Font], text: &str, px: f32, max_width: f32) -> Vec<String
         let mut current = String::new();
         let mut width = 0.0;
         for ch in raw.chars() {
-            let advance = pick_font(fonts, ch).metrics(ch, px).advance_width;
+            let advance = glyph_advance(pick_font(fonts, ch), ch, px);
             if width + advance > max_width && !current.is_empty() {
                 lines.push(std::mem::take(&mut current));
                 width = 0.0;
@@ -700,35 +774,15 @@ impl<'a> Painter<'a> {
     }
 
     pub fn text(&self, area: Box2, text: &str, size: i32, align: Align, color: u32) {
-        self.draw_text(area, text, size, align, color, false, self.fonts.regular());
-    }
-
-    pub fn counter_text(&self, area: Box2, text: &str, size: i32, color: u32) {
-        self.draw_text(
-            area,
-            text,
-            size,
-            Align::Left,
-            color,
-            false,
-            &self.fonts.fonts,
-        );
+        self.draw_text(area, text, size, align, color, false);
     }
 
     pub fn paragraph(&self, area: Box2, text: &str, size: i32, color: u32) {
-        self.draw_text(
-            area,
-            text,
-            size,
-            Align::Left,
-            color,
-            true,
-            self.fonts.regular(),
-        );
+        self.draw_text(area, text, size, Align::Left, color, true);
     }
 
     pub fn text_at(&self, clip: Box2, text: &str, size: i32, x: i32, color: u32) {
-        let fonts = self.fonts.regular();
+        let fonts = &self.fonts.faces;
         let Some(font) = fonts.first() else { return };
         let clip = self.scaled_area(clip);
         let px = size as f32 * self.scale as f32;
@@ -736,8 +790,14 @@ impl<'a> Painter<'a> {
         let ascent = metrics.map_or(px * 0.8, |line| line.ascent);
         let height = metrics.map_or(px * 1.2, |line| line.new_line_size);
         let baseline = clip.1 as f32 + (clip.3 as f32 - height) / 2.0 + ascent;
+        let mut glyphs = self
+            .fonts
+            .glyphs
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         draw_line(
             fonts,
+            &mut glyphs,
             &mut self.canvas.borrow_mut(),
             text,
             px,
@@ -748,19 +808,11 @@ impl<'a> Painter<'a> {
         );
     }
 
-    fn draw_text(
-        &self,
-        area: Box2,
-        text: &str,
-        size: i32,
-        align: Align,
-        color: u32,
-        wrap: bool,
-        fonts: &[Font],
-    ) {
+    fn draw_text(&self, area: Box2, text: &str, size: i32, align: Align, color: u32, wrap: bool) {
         if area.2 <= 0 || area.3 <= 0 || text.is_empty() {
             return;
         }
+        let fonts = &self.fonts.faces;
         let Some(font) = fonts.first() else { return };
         let area = self.scaled_area(area);
         let px = size as f32 * self.scale as f32;
@@ -769,6 +821,11 @@ impl<'a> Painter<'a> {
         let line_height = line.map(|m| m.new_line_size).unwrap_or(px * 1.2);
         let (r, g, b) = rgb(color);
         let mut canvas = self.canvas.borrow_mut();
+        let mut glyphs = self
+            .fonts
+            .glyphs
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         if wrap {
             let lines = wrap_lines(fonts, text, px, area.2 as f32);
             let mut baseline = area.1 as f32 + ascent;
@@ -778,6 +835,7 @@ impl<'a> Painter<'a> {
                 }
                 draw_line(
                     fonts,
+                    &mut glyphs,
                     &mut canvas,
                     &line,
                     px,
@@ -789,15 +847,17 @@ impl<'a> Painter<'a> {
                 baseline += line_height;
             }
         } else {
-            let width = measure_text(fonts, text, px);
             let origin = match align {
                 Align::Left => area.0 as f32,
-                Align::Center => area.0 as f32 + (area.2 as f32 - width) / 2.0,
-                Align::Right => area.0 as f32 + area.2 as f32 - width,
+                Align::Center => {
+                    area.0 as f32 + (area.2 as f32 - measure_text(fonts, text, px)) / 2.0
+                }
+                Align::Right => area.0 as f32 + area.2 as f32 - measure_text(fonts, text, px),
             };
             let baseline = area.1 as f32 + (area.3 as f32 - line_height) / 2.0 + ascent;
             draw_line(
                 fonts,
+                &mut glyphs,
                 &mut canvas,
                 text,
                 px,
@@ -964,7 +1024,7 @@ mod tests {
     #[test]
     fn board_background_restores_pixels_and_tracks_layout_changes() {
         let mut art = Art::new();
-        let fonts = Fonts::new();
+        let fonts = Fonts::get();
         let size = (240, 380);
         let render = |art: &mut Art, layout, identity| {
             let (width, height) = size;
@@ -976,13 +1036,7 @@ mod tests {
                 height,
                 stride,
             };
-            art.board_background(
-                &Painter::new(canvas, &fonts, 1.0),
-                size,
-                layout,
-                0,
-                identity,
-            );
+            art.board_background(&Painter::new(canvas, fonts, 1.0), size, layout, 0, identity);
             pixels
         };
 
@@ -999,17 +1053,22 @@ mod tests {
 
     #[test]
     fn counter_updates_only_changed_values_and_matches_full_repaint() {
-        use crate::{config::Settings, core::Round, layout::CounterLayout, view::Counter};
+        use crate::{
+            config::Settings,
+            core::{CounterRows, Round},
+            layout::CounterLayout,
+            view::Counter,
+        };
 
         let settings = Settings::read(std::path::Path::new(".")).unwrap();
         let initial =
             Round::new(&settings).counter_rows(settings.text(crate::config::Text::Standard));
-        let fonts = Fonts::load(true);
+        let fonts = Fonts::get();
         let (width, height) = CounterLayout::new(settings.counter_pixels).size();
         let stride = width as usize * 4;
         let mut pixels = vec![0; stride * height as usize];
         let mut counter = Counter::default();
-        let draw = |counter: &mut Counter, values: &[String], pixels: &mut [u8]| {
+        let draw = |counter: &mut Counter, values: &CounterRows, pixels: &mut [u8]| {
             let canvas = Canvas {
                 data: pixels,
                 width,
@@ -1017,9 +1076,9 @@ mod tests {
                 stride,
             };
             counter.draw(
-                &Painter::new(canvas, &fonts, 1.0),
+                &Painter::new(canvas, fonts, 1.0),
                 &settings,
-                values.to_vec(),
+                values.clone(),
                 width,
                 height,
                 false,
@@ -1064,7 +1123,7 @@ mod tests {
         let (width, height, _) = layout.fullscreen_size(settings.level, mode);
         let size = (width, height);
         let stride = width as usize * 4;
-        let fonts = Fonts::new();
+        let fonts = Fonts::get();
         let mut art = Art::new();
         let mut draw = |counter: &mut FullscreenCounter, round: &Round, pixels: &mut [u8], full| {
             let canvas = Canvas {
@@ -1074,7 +1133,7 @@ mod tests {
                 stride,
             };
             view::fullscreen(
-                &Painter::new(canvas, &fonts, 1.0),
+                &Painter::new(canvas, fonts, 1.0),
                 &mut art,
                 &settings,
                 round,
@@ -1108,28 +1167,21 @@ mod tests {
 
 pub struct Buffer {
     surface: Option<Surface<'static>>,
-    fonts: Fonts,
+    fonts: &'static Fonts,
 }
 
 impl Default for Buffer {
     fn default() -> Self {
         Self {
             surface: None,
-            fonts: Fonts::new(),
+            fonts: Fonts::get(),
         }
     }
 }
 
 impl Buffer {
-    pub fn counter() -> Self {
-        Self {
-            surface: None,
-            fonts: Fonts::load(true),
-        }
-    }
-
     pub fn measure(&self, text: &str, size: i32, scale: f64) -> i32 {
-        measure_ui(&self.fonts, text, size, scale)
+        measure_ui(self.fonts, text, size, scale)
     }
 
     pub fn present(
@@ -1163,7 +1215,7 @@ impl Buffer {
                 Surface::new(width, height, PixelFormat::ARGB8888).map_err(|e| e.to_string())?,
             );
         }
-        let fonts = &self.fonts;
+        let fonts = self.fonts;
         let surface = self.surface.as_mut().unwrap();
         let pitch = surface.pitch() as usize;
         let regions = surface.with_lock_mut(|data| {
@@ -1210,7 +1262,7 @@ impl Buffer {
 }
 
 fn measure_ui(fonts: &Fonts, text: &str, size: i32, scale: f64) -> i32 {
-    let fonts = fonts.regular();
+    let fonts = &fonts.faces;
     if fonts.is_empty() {
         return 0;
     }

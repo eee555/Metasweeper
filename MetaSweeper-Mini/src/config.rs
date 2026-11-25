@@ -83,7 +83,7 @@ impl Settings {
             country: clean(&get("country", "")),
             autosave: if !flag("DEFAULT", "autosave_video", true) {
                 2
-            } else if flag("WINFORMS", "autosave_losses", !ini.exists) {
+            } else if flag("WINFORMS", "autosave_losses", false) {
                 0
             } else {
                 1
@@ -203,15 +203,14 @@ pub fn countries() -> impl Iterator<Item = (&'static str, &'static str)> {
 struct Ini {
     path: PathBuf,
     lines: Vec<String>,
-    exists: bool,
 }
 
 impl Ini {
     fn open(root: &Path) -> io::Result<Self> {
         let path = root.join("gameSetting.ini");
-        let (text, exists) = match fs::read_to_string(&path) {
-            Ok(text) => (text, true),
-            Err(e) if e.kind() == io::ErrorKind::NotFound => (String::new(), false),
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
             Err(e) => return Err(e),
         };
         Ok(Self {
@@ -221,7 +220,6 @@ impl Ini {
                 .lines()
                 .map(str::to_owned)
                 .collect(),
-            exists,
         })
     }
 
@@ -279,5 +277,23 @@ impl Ini {
             let _ = fs::remove_file(temp);
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_to_autosaving_wins_and_respects_saved_modes() {
+        let root = tempfile::tempdir().unwrap();
+        let mut settings = Settings::read(root.path()).unwrap();
+        assert_eq!(settings.autosave, 1);
+
+        for mode in [1, 0, 2] {
+            settings.autosave = mode;
+            settings.save(root.path()).unwrap();
+            assert_eq!(Settings::read(root.path()).unwrap().autosave, mode);
+        }
     }
 }

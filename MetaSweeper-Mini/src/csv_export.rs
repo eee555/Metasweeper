@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 
 const STATS_HEADER: &str = "Day,Month,Year,Hour,Min,Sec,mode,Time,BBBV,BBBVs,style,cell0,cell1,cell2,cell3,cell4,cell5,cell6,cell7,cell8,Lcl,Rcl,Dcl,Leff,Reff,Deff,Openings,Islands,Path,GZiNi,HZiNi";
 const TEXTSTATS_HEADER: &str = "Mode,Event,Year,Month,Day,Hour,Minute,Second,Level,Width,Height,Mines,Time,Solved 3BV,3BV,ZiNi,HZiNi,Openings,Islands,Left Clicks,Right Clicks,Double Clicks,Left Effective Clicks,Right Effective Clicks,Double Effective Clicks,Path,Ones,Twos,Threes,Fours,Fives,Sixes,Sevens,Eights";
-const BATCH_SIZE: usize = 16;
+const BATCH_SIZE: usize = 128;
 const MODES: [&str; 17] = [
     "classic",
     "",

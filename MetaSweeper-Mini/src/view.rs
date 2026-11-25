@@ -1,6 +1,6 @@
 use crate::{
     config::{Settings, Text},
-    core::Round,
+    core::{CounterRows, Round},
     layout::{Box2, CounterLayout, FullscreenMode, Layout, COUNTER_ROWS, FOOTER, MENU, PRESETS},
     paint::{Align, Art, Painter, CANVAS, INK, WHITE},
 };
@@ -140,7 +140,7 @@ pub fn fullscreen(
     }
     if let Some(area) = regions.counter {
         let values = round.counter_rows(settings.text(Text::Standard));
-        if let Some(changed) = counter.draw(p, settings, &values, area, regions.counter_scale, full)
+        if let Some(changed) = counter.draw(p, settings, values, area, regions.counter_scale, full)
         {
             areas.extend(changed);
         }
@@ -148,7 +148,7 @@ pub fn fullscreen(
     Some(areas)
 }
 
-fn draw_counter(p: &Painter, settings: &Settings, values: &[String], area: Box2, scale: i32) {
+fn draw_counter(p: &Painter, settings: &Settings, values: &CounterRows, area: Box2, scale: i32) {
     let layout = CounterLayout::new(scale);
     let title = settings.text(Text::Counter);
     let title_line = layout.title_line();
@@ -169,6 +169,17 @@ fn draw_counter(p: &Painter, settings: &Settings, values: &[String], area: Box2,
     p.fill(table, WHITE);
     p.border(table, 0x888888);
     let divider = 1 + (table.2 - 2) * layout.columns.0 / (layout.columns.0 + layout.columns.1);
+    draw_counter_rows(p, settings, values, table, divider, layout.table_px);
+}
+
+fn draw_counter_rows(
+    p: &Painter,
+    settings: &Settings,
+    values: &CounterRows,
+    table: Box2,
+    divider: i32,
+    text_px: i32,
+) {
     let labels = [
         settings.text(Text::GameMode),
         "rtime",
@@ -197,13 +208,30 @@ fn draw_counter(p: &Painter, settings: &Settings, values: &[String], area: Box2,
                 p.fill(Box2(x, y, (right - x).min(4), 1), 0xc0c0c0);
             }
         }
-        p.counter_text(counter_text_cell(label_area), label, layout.table_px, INK);
-        p.counter_text(counter_text_cell(value_area), value, layout.table_px, INK);
+        p.text(text_cell(label_area), label, text_px, Align::Left, INK);
+        p.text(text_cell(value_area), value, text_px, Align::Left, INK);
     }
 }
 
-fn counter_text_cell(area: Box2) -> Box2 {
-    Box2(area.0 + 3, area.1, (area.2 - 6).max(1), area.3)
+fn update_counter_rows(
+    p: &Painter,
+    previous: &CounterRows,
+    values: &CounterRows,
+    table: Box2,
+    divider: i32,
+    text_px: i32,
+) -> Vec<Box2> {
+    let mut regions = Vec::new();
+    for (index, (previous, value)) in previous.iter().zip(values).enumerate() {
+        if previous == value {
+            continue;
+        }
+        let (_, area) = counter_cells(table, divider, index);
+        p.fill(area, WHITE);
+        p.text(text_cell(area), value, text_px, Align::Left, INK);
+        regions.push(area);
+    }
+    regions
 }
 
 #[derive(Default)]
@@ -214,7 +242,7 @@ pub struct FullscreenCounter {
 struct FullscreenCounterContents {
     area: Box2,
     scale: i32,
-    values: Vec<String>,
+    values: CounterRows,
 }
 
 impl FullscreenCounter {
@@ -226,7 +254,7 @@ impl FullscreenCounter {
         &mut self,
         p: &Painter,
         settings: &Settings,
-        values: &[String],
+        values: CounterRows,
         area: Box2,
         scale: i32,
         full: bool,
@@ -245,25 +273,23 @@ impl FullscreenCounter {
                 .as_mut()
                 .filter(|painted| painted.area == area && painted.scale == scale)
             {
-                let mut regions = Vec::new();
-                for (index, (previous, value)) in painted.values.iter().zip(values).enumerate() {
-                    if previous == value {
-                        continue;
-                    }
-                    let (_, value_area) = counter_cells(table, divider, index);
-                    p.fill(value_area, WHITE);
-                    p.counter_text(counter_text_cell(value_area), value, layout.table_px, INK);
-                    regions.push(value_area);
-                }
-                painted.values = values.to_vec();
+                let regions = update_counter_rows(
+                    p,
+                    &painted.values,
+                    &values,
+                    table,
+                    divider,
+                    layout.table_px,
+                );
+                painted.values = values;
                 return Some(regions);
             }
         }
-        draw_counter(p, settings, values, area, scale);
+        draw_counter(p, settings, &values, area, scale);
         self.painted = Some(FullscreenCounterContents {
             area,
             scale,
-            values: values.to_vec(),
+            values,
         });
         (!full).then(|| vec![area])
     }
@@ -323,8 +349,11 @@ fn board_cells(
     let visual = round.mouse_visual();
     let cols = grid.2 / tile;
     let rows = grid.3 / tile;
-    let active = (visual != 0 && grid.contains(pointer.0, pointer.1))
-        .then(|| ((pointer.0 - grid.0) / tile, (pointer.1 - grid.1) / tile));
+    let active = if visual != 0 {
+        grid.cell_at(pointer, tile)
+    } else {
+        None
+    };
     for row in 0..rows {
         for col in 0..cols {
             let mut sprite = round.cells[(row * cols + col) as usize] as usize;
@@ -476,7 +505,7 @@ pub struct Counter {
 
 struct CounterContents {
     geometry: (i32, i32, i32),
-    values: Vec<String>,
+    values: CounterRows,
 }
 
 impl Counter {
@@ -488,7 +517,7 @@ impl Counter {
         &mut self,
         p: &Painter,
         settings: &Settings,
-        values: Vec<String>,
+        values: CounterRows,
         width: i32,
         height: i32,
         close: bool,
@@ -507,16 +536,8 @@ impl Counter {
             .as_mut()
             .filter(|painted| painted.geometry == geometry)
         {
-            let mut regions = Vec::new();
-            for (index, (previous, value)) in painted.values.iter().zip(&values).enumerate() {
-                if previous == value {
-                    continue;
-                }
-                let (_, area) = counter_cells(table, divider, index);
-                p.fill(area, WHITE);
-                p.counter_text(text_cell(area), value, layout.table_px, INK);
-                regions.push(area);
-            }
+            let regions =
+                update_counter_rows(p, &painted.values, &values, table, divider, layout.table_px);
             painted.values = values;
             return Some(regions);
         }
@@ -558,27 +579,8 @@ fn draw_counter_table(
     table: Box2,
     divider: i32,
     layout: CounterLayout,
-    values: &[String],
+    values: &CounterRows,
 ) {
-    let labels = [
-        settings.text(Text::GameMode),
-        "rtime",
-        "Est Rtime",
-        "3bv",
-        "3bv/s",
-        "zini",
-        "ops",
-        "isls",
-        "left",
-        "right",
-        "double",
-        "stnb",
-        "ioe",
-        "thrp",
-        "corr",
-        "path",
-        "pluck",
-    ];
     p.fill(Box2(0, 0, width, height), 0xf2f2f2);
     let title_line = layout.title_line();
     p.text(
@@ -597,21 +599,10 @@ fn draw_counter_table(
     p.fill(table, WHITE);
     p.border(table, 0xa0a0a0);
     let bottom = table.1 + table.3 - 1;
-    let right = table.0 + table.2 - 1;
     for y in (table.1 + 1..bottom).step_by(6) {
         p.fill(Box2(table.0 + divider, y, 1, (bottom - y).min(4)), 0xc0c0c0);
     }
-    for (i, (label, value)) in labels.into_iter().zip(values).enumerate() {
-        let (label_area, value_area) = counter_cells(table, divider, i);
-        if i + 1 < COUNTER_ROWS {
-            let y = label_area.1 + label_area.3;
-            for x in (table.0 + 1..right).step_by(6) {
-                p.fill(Box2(x, y, (right - x).min(4), 1), 0xc0c0c0);
-            }
-        }
-        p.counter_text(text_cell(label_area), label, layout.table_px, INK);
-        p.counter_text(text_cell(value_area), value, layout.table_px, INK);
-    }
+    draw_counter_rows(p, settings, values, table, divider, layout.table_px);
 }
 
 pub fn dialog_button(width: i32, height: i32, ok: bool) -> Box2 {

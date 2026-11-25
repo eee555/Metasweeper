@@ -41,6 +41,7 @@ use view::{Action, Choice, Menu};
 
 const RESIZE_SETTLE: Duration = Duration::from_millis(180);
 const REFRESH_RECHECK: Duration = Duration::from_secs(2);
+const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(50);
 const REFRESH_TICK: i32 = 1;
 const CSV_PROGRESS_SIZE: (u32, u32) = (400, 108);
 
@@ -126,14 +127,10 @@ struct Display {
 
 impl Display {
     fn new(window: Window) -> Self {
-        Self::with_buffer(window, Buffer::default())
-    }
-
-    fn with_buffer(window: Window, buffer: Buffer) -> Self {
         Self {
             hook: None,
             window,
-            buffer,
+            buffer: Buffer::default(),
             dirty: true,
             ui_scale: 1.0,
             shown: false,
@@ -472,6 +469,19 @@ impl App {
         self.round.phase() == 1 || (self.round.ended() && self.round.metrics.is_none())
     }
 
+    fn refresh_period(&self) -> Option<Duration> {
+        self.refreshing().then(|| {
+            let fullscreen_counter =
+                self.fullscreen && self.fullscreen_mode == FullscreenMode::Counter;
+            let separate_counter = self.counter.as_ref().is_some_and(|counter| counter.shown);
+            if fullscreen_counter || separate_counter {
+                self.refresh_every
+            } else {
+                self.refresh_every.max(BACKGROUND_REFRESH_INTERVAL)
+            }
+        })
+    }
+
     fn show_counter(&mut self) -> Result<(), String> {
         if self.counter.is_some() {
             return Ok(());
@@ -517,7 +527,7 @@ impl App {
         }
         let min = CounterLayout::new(COUNTER_MIN).size();
         let _ = window.set_minimum_size(min.0 as u32, min.1 as u32);
-        let mut display = Display::with_buffer(window, Buffer::counter());
+        let mut display = Display::new(window);
         display.hook = platform::counter_hook(&display.window, self.wake_type, scale)?;
         platform::set_counter_hit_test(&mut display.window, display.hook.is_none());
         platform::position_counter(
@@ -797,10 +807,7 @@ impl App {
                         }
                     }
                 }
-                if self.round.phase() == 1 {
-                    let record = self.round.stats(&self.settings, GameResult::Restart, None);
-                    self.queue_write(Job::Stats(record));
-                }
+                self.record_unfinished_round();
                 self.save_requested = false;
                 self.round = Round::new(&self.settings);
                 self.last_saved_round = false;
@@ -1407,8 +1414,7 @@ impl App {
         self.confinement = platform::confine_cursor(&mut self.main.window, region);
     }
 
-    fn replay_point(&self, x: i32, y: i32) -> (usize, usize) {
-        let grid = self.grid();
+    fn replay_point(&self, grid: Box2, x: i32, y: i32) -> (usize, usize) {
         let tile = self.layout.tile as usize;
         if grid.contains(x, y) {
             (
@@ -1441,7 +1447,7 @@ impl App {
 
     fn cancel_input_at(&mut self, delay: Duration) {
         if self.held != 0 {
-            let (x, y) = self.replay_point(-1, -1);
+            let (x, y) = self.replay_point(self.grid(), -1, -1);
             for (bit, command) in [(1, 1), (2, 3)] {
                 if self.held & bit != 0 {
                     self.round.play(command, x, y, &self.settings, delay);
@@ -1520,7 +1526,8 @@ impl App {
             MouseButton::Right => 2,
             _ => return Ok(()),
         };
-        let inside = self.grid().contains(x, y);
+        let grid = self.grid();
+        let inside = grid.contains(x, y);
         if down && (!inside || self.held & bit != 0) || !down && self.held & bit == 0 {
             return Ok(());
         }
@@ -1529,7 +1536,7 @@ impl App {
         } else {
             self.held &= !bit;
         }
-        let (x, y) = self.replay_point(x, y);
+        let (x, y) = self.replay_point(grid, x, y);
         self.round.play(
             (bit - 1) as u32 * 2 + u32::from(!down),
             x,
@@ -1551,6 +1558,13 @@ impl App {
             counter.dirty = true;
         }
         Ok(())
+    }
+
+    fn record_unfinished_round(&mut self) {
+        if self.round.phase() == 1 {
+            let record = self.round.stats(&self.settings, GameResult::Restart, None);
+            self.queue_write(Job::Stats(record));
+        }
     }
 
     fn finish(&mut self, auto_restart: bool) {
@@ -1792,17 +1806,22 @@ impl App {
                 ..
             } if window_id == self.main.window.id() && self.dialog.is_none() => {
                 let pos = self.main.point(x, y);
-                if self.held != 0
-                    || (!self.fullscreen
-                        && (self.menu.open.is_some() || pos.1 < MENU || self.pointer.1 < MENU))
-                {
-                    self.main.dirty = true;
+                let menu_hover = !self.fullscreen
+                    && (self.menu.open.is_some() || pos.1 < MENU || self.pointer.1 < MENU);
+                let preview_active = self.held != 0 && self.round.mouse_visual() != 0;
+                let track_pointer = self.menu.open.is_none();
+                if preview_active || track_pointer {
+                    let grid = self.grid();
+                    self.main.dirty |= preview_active
+                        && grid.cell_at(pos, self.layout.tile)
+                            != grid.cell_at(self.pointer, self.layout.tile);
+                    if track_pointer {
+                        let (x, y) = self.replay_point(grid, pos.0, pos.1);
+                        self.round.track(x, y, input_delay(timestamp));
+                    }
                 }
+                self.main.dirty |= menu_hover;
                 self.pointer = pos;
-                if self.menu.open.is_none() {
-                    let (x, y) = self.replay_point(pos.0, pos.1);
-                    self.round.track(x, y, input_delay(timestamp));
-                }
             }
             Event::MouseButtonDown {
                 timestamp,
@@ -1897,7 +1916,7 @@ impl App {
                 WindowEvent::FocusGained => self.sync_cursor(),
                 WindowEvent::MouseLeave if self.held == 0 => {
                     self.pointer = (-1, -1);
-                    let (x, y) = self.replay_point(-1, -1);
+                    let (x, y) = self.replay_point(self.grid(), -1, -1);
                     self.round.track(x, y, input_delay(timestamp));
                     self.main.dirty = true;
                 }
@@ -2273,10 +2292,7 @@ impl App {
                 self.restore_positions();
                 self.uncloak();
             }
-            timer.sync(
-                self.wake_type,
-                self.refreshing().then_some(self.refresh_every),
-            )?;
+            timer.sync(self.wake_type, self.refresh_period())?;
             let resize = self
                 .resized_at
                 .into_iter()
@@ -2306,6 +2322,7 @@ impl App {
         drop(timer);
         self.release_cursor();
         self.sdl.mouse().capture(false);
+        self.record_unfinished_round();
         self.collect_write_replies(true);
         if !self.errors.is_empty() {
             self.close_dialog();

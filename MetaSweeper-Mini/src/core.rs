@@ -1,17 +1,23 @@
 use crate::{
     config,
-    layout::PRESETS,
+    layout::{COUNTER_ROWS, PRESETS},
     native::{GameSession, GameStatus, ReplayMetrics},
     replay_signature::sign,
     stats::{GameResult, Record},
 };
 use std::{
+    borrow::Cow,
     fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU32, Ordering},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
     time::{Duration, Instant},
 };
+
+pub type CounterRows = [Cow<'static, str>; COUNTER_ROWS];
 
 pub struct Round {
     session: GameSession,
@@ -27,6 +33,7 @@ pub struct Round {
     pub timing_valid: bool,
     started_clock_ms: Option<u64>,
     last_clock_check: Option<Instant>,
+    replay: Option<Result<Replay, String>>,
 }
 
 impl Round {
@@ -46,6 +53,7 @@ impl Round {
             timing_valid: true,
             started_clock_ms: None,
             last_clock_check: None,
+            replay: None,
         }
     }
 
@@ -166,12 +174,21 @@ impl Round {
             .is_some_and(|elapsed| (self.seconds() * 1000.0 - elapsed as f64).abs() <= 100.0);
     }
 
-    pub fn replay(&mut self, settings: &config::Settings) -> io::Result<Replay> {
+    pub fn replay(&mut self, settings: &config::Settings) -> Result<Replay, String> {
         if !self.ended() || !self.timing_valid {
-            return Err(io::Error::other(
-                "The game did not finish with a valid clock",
-            ));
+            return Err("The game did not finish with a valid clock".into());
         }
+        if let Some(replay) = &self.replay {
+            return replay.clone();
+        }
+        let replay = self
+            .build_replay(settings)
+            .map_err(|error| error.to_string());
+        self.replay = Some(replay.clone());
+        replay
+    }
+
+    fn build_replay(&mut self, settings: &config::Settings) -> io::Result<Replay> {
         let (time, total, speed) = self.session.replay_stats();
         let name = format!(
             "{}_0_{}_{total}_{}_{}{}{}",
@@ -190,7 +207,10 @@ impl Round {
             .encode_replay(settings)
             .ok_or_else(|| io::Error::other("EVF data unavailable"))?;
         sign(&mut data)?;
-        Ok(Replay { name, data })
+        Ok(Replay {
+            name,
+            data: data.into(),
+        })
     }
 
     pub(crate) fn stats(
@@ -203,7 +223,7 @@ impl Round {
             self.session.abandon();
         }
         let unsigned;
-        let data = match replay {
+        let data: &[u8] = match replay {
             Some(replay) => &replay.data,
             None => {
                 unsigned = self.encode_replay(settings).unwrap_or_default();
@@ -240,9 +260,10 @@ fn safe_identifier(name: &str) -> String {
     crate::platform::filename_stem(name)
 }
 
+#[derive(Clone)]
 pub struct Replay {
     pub name: String,
-    pub data: Vec<u8>,
+    pub data: Arc<[u8]>,
 }
 
 impl Replay {
@@ -402,6 +423,29 @@ mod linux_tests {
     }
 
     #[test]
+    fn saving_again_reuses_the_finished_replay_after_settings_change() {
+        let root = tempfile::tempdir().unwrap();
+        let mut settings = config::Settings::read(root.path()).unwrap();
+        settings.auto_replay = 30;
+        let mut round = Round::new(&settings);
+        round.session = GameSession::with_board(vec![vec![-1, 2], vec![2, -1]]);
+        round.cells.resize(4, 10);
+
+        for (x, y) in [(CELL_PIXELS + 3, 3), (3, CELL_PIXELS + 3)] {
+            round.play(0, x, y, &settings, Duration::ZERO);
+            round.play(1, x, y, &settings, Duration::ZERO);
+        }
+        assert_eq!(round.phase(), 2);
+        let finished = round.replay(&settings).unwrap();
+        assert_ne!(finished.data[2] & 0x20, 0);
+
+        settings.auto_replay = -30;
+        let manual = round.replay(&settings).unwrap();
+        assert_eq!(finished.name, manual.name);
+        assert_eq!(finished.data, manual.data);
+    }
+
+    #[test]
     #[cfg(not(mini_custom_replay_signer))]
     fn evf_signature_matches_windows_fixture() {
         let mut data = vec![4, 0, 0, 3, 3, 10, 16, 1, 2, 3, 4, 5, 0, 0, 0];
@@ -418,21 +462,19 @@ mod linux_tests {
 }
 
 impl Round {
-    pub fn counter_rows(&self, mode: &str) -> Vec<String> {
+    pub fn counter_rows(&self, mode: &'static str) -> CounterRows {
         let time = self.seconds();
-        let rate = |n| {
-            format!(
-                "{n}@{}",
-                decimal(if time > 0.0 { n as f64 / time } else { 0.0 })
-            )
+        let rate = |count| {
+            let per_second = if time > 0.0 { count as f64 / time } else { 0.0 };
+            format!("{count}@{per_second:.3}")
         };
-        let mut rows = vec!["--".to_owned(); 17];
+        let mut rows = [const { Cow::Borrowed("--") }; COUNTER_ROWS];
         rows[0] = mode.into();
-        rows[1] = decimal(time);
-        rows[8] = rate(self.status.left);
-        rows[9] = rate(self.status.right);
-        rows[10] = rate(self.status.chords);
-        rows[15] = format!("{:.1}", self.status.path);
+        rows[1] = decimal(time).into();
+        rows[8] = rate(self.status.left).into();
+        rows[9] = rate(self.status.right).into();
+        rows[10] = rate(self.status.chords).into();
+        rows[15] = format!("{:.1}", self.status.path).into();
         if let Some(m) = &self.metrics {
             let metric = |v: f64| {
                 if v.is_nan() {
@@ -440,15 +482,15 @@ impl Round {
                 } else if v == f64::INFINITY {
                     "∞".into()
                 } else {
-                    decimal(v)
+                    decimal(v).into()
                 }
             };
             rows[2] = metric(m.estimated_time);
-            rows[3] = format!("{}/{}", m.solved, m.total);
+            rows[3] = format!("{}/{}", m.solved, m.total).into();
             rows[4] = metric(m.three_bv_per_second);
-            rows[5] = format!("{}@{}", m.zini, metric(m.zini as f64 / m.estimated_time));
-            rows[6] = m.openings.to_string();
-            rows[7] = m.islands.to_string();
+            rows[5] = format!("{}@{}", m.zini, metric(m.zini as f64 / m.estimated_time)).into();
+            rows[6] = m.openings.to_string().into();
+            rows[7] = m.islands.to_string().into();
             for (i, value) in [
                 (11, m.stnb),
                 (12, m.ioe),
