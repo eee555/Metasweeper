@@ -5,6 +5,7 @@ from PySide6.QtCore import QTranslator
 from PySide6.QtWidgets import QApplication
 import configparser
 import shutil
+import tempfile
 from PySide6.QtGui import QPalette, QPixmap, QIcon
 from ui.ui_main_board import Ui_MainWindow
 from pathlib import Path
@@ -176,8 +177,19 @@ class IniConfig:
         """
         将内存中的配置写入文件
         """
-        with open(self.file_path, 'w', encoding="utf-8") as f:
-            self.config.write(f)
+        target = Path(self.file_path)
+        temp_file = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=target.parent,
+            prefix=f".{target.name}.", suffix=".tmp", delete=False,
+        )
+        try:
+            with temp_file as stream:
+                self.config.write(stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp_file.name, target)
+        finally:
+            Path(temp_file.name).unlink(missing_ok=True)
 
 
 class Ui_MainWindow(Ui_MainWindow):
