@@ -70,6 +70,19 @@ MINI_REPLAY_SIGNER=/path/to/private/replay_signer.rs bash ./build.sh
 
 未设置时使用内置签名，并在默认文件名末尾加 `_fake`。指定路径后，文件缺失或接口不匹配会使构建失败。签名函数返回 `Err` 时，该录像保存失败。正式发布前应将两平台生成的录像交给元扫雷正式版验签。
 
+## 自定义计数器（试用）
+
+将 Python 版的 `scoreBoardSetting.ini` 放到 Mini 的数据目录（与 `gameSetting.ini` 同级），重启 Mini 后，独立计数器和全屏计数器会使用 `[DEFAULT]` 中的指标名称、顺序和公式。没有该文件或该节为空时使用 Mini 的默认指标。Mini 只读取该文件，可与 Python 版共用。
+
+```ini
+[DEFAULT]
+点击 = left + right + double
+右键 = f'{right}@{right_s:.3f}'
+难度 = f'{bbbv_solved}/{bbbv}'
+```
+
+该试用版支持最多 24 行，每条公式最长 512 字节。支持常见四则和比较运算、条件表达式、`min`、`max`、`round` 等函数，以及简单 f-string 格式化。未支持的语法或变量会在对应行显示「公式暂不支持」，运行错误显示 `error`，结算指标在数据就绪前显示 `--`。运行 Mini 无需安装 Python。
+
 ## 运行
 
 按 `F11` 选择「仅棋盘」「棋盘＋计时栏」或「棋盘＋计数器」后进入独占全屏，再按一次退出。选择时可用 `←` / `→` 或 `Tab` / `Shift+Tab` 移动焦点，按 `Enter` 确认、`Esc` 取消，也可直接按 `1`、`2`、`3` 进入对应布局。计时栏包含剩余雷数、笑脸和时间。Mini 保留格子的像素大小，选择能容纳所选内容和边框的最小分辨率，同尺寸优先选较高刷新率。余下区域留黑。选了「棋盘＋计数器」时，统计表会显示在全屏内。其他布局会在计数器位于另一块屏幕时保留其独立窗口。Windows 和 Linux X11 支持切换，Wayland 下需用 `SDL_VIDEO_DRIVER=x11` 运行 Mini。

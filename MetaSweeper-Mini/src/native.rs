@@ -195,6 +195,21 @@ impl GameSession {
         Some(std::mem::take(&mut video.raw_data))
     }
 
+    pub fn counter_variable(&self, name: &str) -> Option<crate::counter_formula::Value<'static>> {
+        use crate::counter_formula::Value;
+        let video = &self.video;
+        Some(match name {
+            "lce" => Value::count(video.get_lce().ok()? as u32),
+            "rce" => Value::count(video.get_rce().ok()? as u32),
+            "dce" => Value::count(video.get_dce().ok()? as u32),
+            "ce" => Value::count(video.get_ce().ok()? as u32),
+            "ce_s" => Value::number(video.get_ce_s().ok()?),
+            "rqp" => Value::number(video.get_rqp().ok()?),
+            "qg" => Value::number(video.get_qg().ok()?),
+            _ => return None,
+        })
+    }
+
     pub fn metrics(&self) -> Option<ReplayMetrics> {
         if !self.finished() {
             return None;

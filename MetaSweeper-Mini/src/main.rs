@@ -2,6 +2,7 @@
 
 mod config;
 mod core;
+mod counter_formula;
 mod csv_export;
 mod dropdown;
 mod folder_picker;
@@ -495,12 +496,14 @@ impl App {
             return Ok(());
         }
         self.counter_resize_at = None;
+        let rows = self.settings.counter_config.len();
         let scale = CounterLayout::fit(
             self.settings.counter_pixels,
             counter_capacity(&self.main.window),
+            rows,
         );
         self.settings.counter_pixels = scale;
-        let (width, height) = CounterLayout::new(scale).size();
+        let (width, height) = CounterLayout::new(scale).size(rows);
         let mut builder = self.video.window(
             self.settings.text(Text::Counter),
             width as u32,
@@ -534,10 +537,10 @@ impl App {
         unsafe {
             sdl3_sys::video::SDL_SetWindowParent(window.raw(), self.main.window.raw());
         }
-        let min = CounterLayout::new(COUNTER_MIN).size();
+        let min = CounterLayout::new(COUNTER_MIN).size(rows);
         let _ = window.set_minimum_size(min.0 as u32, min.1 as u32);
         let mut display = Display::new(window);
-        display.hook = platform::counter_hook(&display.window, self.wake_type, scale)?;
+        display.hook = platform::counter_hook(&display.window, self.wake_type, scale, rows)?;
         platform::set_counter_hit_test(&mut display.window, display.hook.is_none());
         platform::position_counter(
             &self.main.window,
@@ -556,7 +559,8 @@ impl App {
             return;
         };
         let current = self.settings.counter_pixels;
-        let prior = CounterLayout::new(current).size();
+        let rows = self.settings.counter_config.len();
+        let prior = CounterLayout::new(current).size(rows);
         let size = counter.ui_pixels();
         if size == prior {
             return;
@@ -566,12 +570,13 @@ impl App {
             size,
             counter_capacity(&counter.window),
             (size.0 != prior.0, size.1 != prior.1),
+            rows,
         );
         self.settings.counter_pixels = scale;
         if let Some(hook) = &counter.hook {
             hook.update_counter(scale);
         }
-        let target = CounterLayout::new(scale).size();
+        let target = CounterLayout::new(scale).size(rows);
         if size != target {
             let (width, height) = counter.logical(target.0, target.1);
             let _ = counter
@@ -628,9 +633,11 @@ impl App {
             }
         }
         let result = if let Some(fullscreen_mode) = requested_mode {
-            let (width, height, _) = self
-                .layout
-                .fullscreen_size(self.settings.level, fullscreen_mode);
+            let (width, height, _) = self.layout.fullscreen_size(
+                self.settings.level,
+                fullscreen_mode,
+                self.settings.counter_config.len(),
+            );
             platform::enter_exclusive_fullscreen(&mut self.main.window, (width, height))
         } else {
             platform::leave_exclusive_fullscreen(&mut self.main.window)
@@ -796,8 +803,11 @@ impl App {
                 if let Action::Level(level) = action {
                     if self.fullscreen {
                         if level != self.settings.level {
-                            let (width, height, _) =
-                                self.layout.fullscreen_size(level, self.fullscreen_mode);
+                            let (width, height, _) = self.layout.fullscreen_size(
+                                level,
+                                self.fullscreen_mode,
+                                self.settings.counter_config.len(),
+                            );
                             if let Err(error) = platform::resize_exclusive_fullscreen(
                                 &self.main.window,
                                 (width, height),
@@ -1481,7 +1491,12 @@ impl App {
         let size = self.main.pixels();
         if self.fullscreen {
             self.layout
-                .fullscreen_regions(self.settings.level, size, self.fullscreen_mode)
+                .fullscreen_regions(
+                    self.settings.level,
+                    size,
+                    self.fullscreen_mode,
+                    self.settings.counter_config.len(),
+                )
                 .grid
         } else {
             self.layout
@@ -1598,7 +1613,12 @@ impl App {
         let size = self.main.pixels();
         let status = if self.fullscreen {
             self.layout
-                .fullscreen_regions(self.settings.level, size, self.fullscreen_mode)
+                .fullscreen_regions(
+                    self.settings.level,
+                    size,
+                    self.fullscreen_mode,
+                    self.settings.counter_config.len(),
+                )
                 .status
         } else {
             Some(self.layout.status(size.0))
@@ -2158,7 +2178,8 @@ impl App {
                             event,
                             WindowEvent::Resized(..) | WindowEvent::PixelSizeChanged(..)
                         ) && counter.ui_pixels()
-                            != CounterLayout::new(self.settings.counter_pixels).size()
+                            != CounterLayout::new(self.settings.counter_pixels)
+                                .size(self.settings.counter_config.len())
                         {
                             self.counter_resize_at = Some(Instant::now());
                         }
@@ -2295,7 +2316,11 @@ impl App {
             .filter(|counter| counter.dirty && (!fullscreen || counter.shown))
         {
             let close = counter.hook.is_none();
-            let values = round.counter_rows(settings.text(Text::Standard));
+            let values = settings.counter_config.values(
+                round,
+                settings.text(Text::Standard),
+                settings.text(Text::UnsupportedFormula),
+            );
             counter.buffer.present_regions(
                 &counter.window,
                 events,

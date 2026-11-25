@@ -1064,7 +1064,7 @@ mod tests {
         let initial =
             Round::new(&settings).counter_rows(settings.text(crate::config::Text::Standard));
         let fonts = Fonts::get();
-        let (width, height) = CounterLayout::new(settings.counter_pixels).size();
+        let (width, height) = CounterLayout::new(settings.counter_pixels).size(initial.len());
         let stride = width as usize * 4;
         let mut pixels = vec![0; stride * height as usize];
         let mut counter = Counter::default();
@@ -1120,7 +1120,8 @@ mod tests {
         let mut round = Round::new(&settings);
         let layout = Layout::new(20, 20);
         let mode = FullscreenMode::Counter;
-        let (width, height, _) = layout.fullscreen_size(settings.level, mode);
+        let rows = settings.counter_config.len();
+        let (width, height, _) = layout.fullscreen_size(settings.level, mode, rows);
         let size = (width, height);
         let stride = width as usize * 4;
         let fonts = Fonts::get();
@@ -1156,7 +1157,9 @@ mod tests {
         round.status.seconds = 12.345;
         round.status.path = 543.2;
         let regions = draw(&mut counter, &round, &mut pixels, false);
-        let board = layout.fullscreen_regions(settings.level, size, mode).grid;
+        let board = layout
+            .fullscreen_regions(settings.level, size, mode, rows)
+            .grid;
         assert_eq!(regions.len(), 2);
         assert!(regions.iter().all(|area| area.0 + area.2 <= board.0));
 

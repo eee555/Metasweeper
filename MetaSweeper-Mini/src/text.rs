@@ -78,6 +78,7 @@ pub enum Text {
     EasterEggGuide,
     EasterEggTriggers,
     About,
+    UnsupportedFormula,
 }
 pub const STRINGS: &[[&str; 5]] = &[
         ["元扫雷迷你版", "MetaSweeper Mini", "MetaSweeper Mini", "MetaSweeper Mini", "メタマインスイーパーミニ"],
@@ -164,4 +165,5 @@ pub const STRINGS: &[[&str; 5]] = &[
             "顔アイコン、キレる：顔アイコンのあるステータスバーを5回連続で左クリック。\n\n地雷はお休み：勝利後に顔アイコンを右クリック。\n\nタイマー、スト中：対局終了後にメインウィンドウのタイマーをダブルクリック。\n\n地雷からの抗議：敗北後に踏んだ赤い地雷を右クリック。\n\n隠し要素ガイド：「ヘルプ → バージョン情報」でバージョン番号を5回連続でクリック。",
         ],
         ["关于", "About", "Über das Spiel", "O grze", "バージョン情報"],
+        ["公式暂不支持", "Unsupported formula", "Formel nicht unterstützt", "Nieobsługiwana formuła", "未対応の式"],
 ];

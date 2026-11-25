@@ -736,9 +736,10 @@ mod imp {
         window: &Window,
         wake_type: u32,
         pixels: i32,
+        rows: usize,
     ) -> Result<Option<WindowHook>, String> {
         match hwnd(window) {
-            Some(hwnd) => WindowHook::counter(hwnd, wake_type, pixels).map(Some),
+            Some(hwnd) => WindowHook::counter(hwnd, wake_type, pixels, rows).map(Some),
             None => Ok(None),
         }
     }
@@ -838,6 +839,7 @@ mod imp {
     struct CounterSizing {
         moved: bool,
         pixels: i32,
+        rows: usize,
     }
 
     pub struct WindowHook {
@@ -859,13 +861,14 @@ mod imp {
             Ok(hook)
         }
 
-        fn counter(window: HWND, wake_type: u32, pixels: i32) -> Result<Self, String> {
+        fn counter(window: HWND, wake_type: u32, pixels: i32, rows: usize) -> Result<Self, String> {
             let hook = Self::attach(
                 window,
                 HookState::Counter(
                     Cell::new(CounterSizing {
                         moved: false,
                         pixels,
+                        rows,
                     }),
                     wake_type,
                 ),
@@ -1006,8 +1009,9 @@ mod imp {
                         (width(*rect), height(*rect)),
                         (width(work), height(work)),
                         axes,
+                        state.get().rows,
                     );
-                    resize_rect(rect, edge, CounterLayout::new(scale).size());
+                    resize_rect(rect, edge, CounterLayout::new(scale).size(state.get().rows));
                     state.set(CounterSizing {
                         pixels: scale,
                         ..state.get()
@@ -1413,6 +1417,7 @@ mod imp {
         _window: &Window,
         _wake_type: u32,
         _pixels: i32,
+        _rows: usize,
     ) -> Result<Option<WindowHook>, String> {
         Ok(None)
     }

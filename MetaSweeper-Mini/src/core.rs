@@ -1,5 +1,6 @@
 use crate::{
     config,
+    counter_formula::Value,
     layout::{COUNTER_ROWS, PRESETS},
     native::{GameSession, GameStatus, ReplayMetrics},
     replay_signature::sign,
@@ -17,7 +18,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub type CounterRows = [Cow<'static, str>; COUNTER_ROWS];
+pub type CounterRows = Vec<Cow<'static, str>>;
 
 pub struct Round {
     session: GameSession,
@@ -37,6 +38,64 @@ pub struct Round {
 }
 
 impl Round {
+    pub fn counter_variable(&self, name: &str, mode: &'static str) -> Option<Value<'_>> {
+        let started = self.phase() != 0;
+        let (left, right, double, flag, path) = if started {
+            (
+                self.status.left,
+                self.status.right,
+                self.status.chords,
+                self.status.flags,
+                self.status.path,
+            )
+        } else {
+            (0, 0, 0, 0, 0.0)
+        };
+        let time = self.seconds();
+        let total = left + right + double;
+        let rate = |count| {
+            Value::number(if time > 0.0 {
+                f64::from(count) / time
+            } else {
+                0.0
+            })
+        };
+        Some(match name {
+            "mode" => Value::Text(mode.into()),
+            "race_designator" => Value::Text(self.race.as_str().into()),
+            "time" | "rtime" => Value::number(time),
+            "left" => Value::count(left),
+            "right" => Value::count(right),
+            "double" => Value::count(double),
+            "cl" => Value::count(total),
+            "flag" => Value::count(flag),
+            "path" => Value::number(path),
+            "left_s" => rate(left),
+            "right_s" => rate(right),
+            "double_s" => rate(double),
+            "cl_s" => rate(total),
+            "flag_s" => rate(flag),
+            _ => {
+                let metrics = self.metrics.as_ref()?;
+                match name {
+                    "etime" => Value::number(metrics.estimated_time),
+                    "bbbv" => Value::count(metrics.total),
+                    "bbbv_solved" => Value::count(metrics.solved),
+                    "bbbv_s" => Value::number(metrics.three_bv_per_second),
+                    "zini" => Value::count(metrics.zini),
+                    "op" => Value::count(metrics.openings),
+                    "isl" => Value::count(metrics.islands),
+                    "stnb" => Value::number(metrics.stnb),
+                    "ioe" => Value::number(metrics.ioe),
+                    "thrp" => Value::number(metrics.thrp),
+                    "corr" => Value::number(metrics.corr),
+                    "pluck" => Value::number(metrics.pluck),
+                    _ => return self.session.counter_variable(name),
+                }
+            }
+        })
+    }
+
     pub fn new(settings: &config::Settings) -> Self {
         let (rows, cols, mines) = PRESETS[settings.level];
         Self {
@@ -492,7 +551,7 @@ mod linux_tests {
 
 impl Round {
     pub fn counter_rows(&self, mode: &'static str) -> CounterRows {
-        let mut rows = [const { Cow::Borrowed("--") }; COUNTER_ROWS];
+        let mut rows = vec![Cow::Borrowed("--"); COUNTER_ROWS];
         rows[0] = mode.into();
         if self.phase() == 0 {
             rows[1] = "0.000".into();

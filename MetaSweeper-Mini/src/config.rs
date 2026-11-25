@@ -1,10 +1,13 @@
-use crate::layout::{COUNTER_MAX, COUNTER_MIN, PRESETS, SECTIONS};
+use crate::{
+    counter_formula::CounterConfig,
+    layout::{COUNTER_MAX, COUNTER_MIN, PRESETS, SECTIONS},
+};
 use flate2::read::DeflateDecoder;
 use std::{
     fs,
     io::{self, Read},
     path::{Path, PathBuf},
-    sync::OnceLock,
+    sync::{Arc, OnceLock},
 };
 
 pub const CODES: [&str; 5] = ["zh_CN", "en_US", "de_DE", "pl_PL", "ja_JP"];
@@ -27,6 +30,7 @@ pub struct Settings {
     pub flag_win: bool,
     pub counter: bool,
     pub counter_pixels: i32,
+    pub counter_config: Arc<CounterConfig>,
     pub identity: bool,
     pub position: Option<(i32, i32)>,
     pub counter_position: Option<(i32, i32)>,
@@ -94,6 +98,7 @@ impl Settings {
             counter: flag("WINFORMS", "show_counter", true),
             identity: flag("WINFORMS", "show_identity", true),
             counter_pixels: n("DEFAULT", "scoreboard_pixsize", 27).clamp(COUNTER_MIN, COUNTER_MAX),
+            counter_config: Arc::new(CounterConfig::read(root)?),
             position: position("mainwinleft", "mainwintop"),
             counter_position: position("scoreboardleft", "scoreboardtop"),
         })

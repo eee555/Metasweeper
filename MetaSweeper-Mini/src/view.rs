@@ -1,7 +1,7 @@
 use crate::{
     config::{Settings, Text},
     core::{CounterRows, Round},
-    layout::{Box2, CounterLayout, FullscreenMode, Layout, COUNTER_ROWS, FOOTER, MENU, PRESETS},
+    layout::{Box2, CounterLayout, FullscreenMode, Layout, FOOTER, MENU, PRESETS},
     paint::{Align, Art, Painter, CANVAS, INK, WHITE},
 };
 
@@ -122,7 +122,8 @@ pub fn fullscreen(
     counter: &mut FullscreenCounter,
     full: bool,
 ) -> Option<Vec<Box2>> {
-    let regions = layout.fullscreen_regions(settings.level, size, mode);
+    let regions =
+        layout.fullscreen_regions(settings.level, size, mode, settings.counter_config.len());
     let mut areas = Vec::new();
     if full {
         p.fill(Box2(0, 0, size.0, size.1), INK);
@@ -141,7 +142,11 @@ pub fn fullscreen(
         }
     }
     if let Some(area) = regions.counter {
-        let values = round.counter_rows(settings.text(Text::Standard));
+        let values = settings.counter_config.values(
+            round,
+            settings.text(Text::Standard),
+            settings.text(Text::UnsupportedFormula),
+        );
         if let Some(changed) = counter.draw(p, settings, values, area, regions.counter_scale, full)
         {
             areas.extend(changed);
@@ -166,7 +171,7 @@ fn draw_counter(p: &Painter, settings: &Settings, values: &CounterRows, area: Bo
         area.0 + 16,
         area.1 + layout.table_top(),
         (area.2 - 32).max(1),
-        layout.row * COUNTER_ROWS as i32 + 2,
+        layout.row * values.len() as i32 + 2,
     );
     p.fill(table, WHITE);
     p.border(table, 0x888888);
@@ -201,9 +206,13 @@ fn draw_counter_rows(
         "path",
         "pluck",
     ];
-    for (i, (label, value)) in labels.into_iter().zip(values).enumerate() {
-        let (label_area, value_area) = counter_cells(table, divider, i);
-        if i + 1 < COUNTER_ROWS {
+    for (i, value) in values.iter().enumerate() {
+        let label = settings
+            .counter_config
+            .label(i)
+            .unwrap_or_else(|| labels[i]);
+        let (label_area, value_area) = counter_cells(table, divider, i, values.len());
+        if i + 1 < values.len() {
             let y = label_area.1 + label_area.3;
             let right = table.0 + table.2 - 1;
             for x in (table.0 + 1..right).step_by(6) {
@@ -228,7 +237,7 @@ fn update_counter_rows(
         if previous == value {
             continue;
         }
-        let (_, area) = counter_cells(table, divider, index);
+        let (_, area) = counter_cells(table, divider, index, values.len());
         p.fill(area, WHITE);
         p.text(text_cell(area), value, text_px, Align::Left, INK);
         regions.push(area);
@@ -266,7 +275,7 @@ impl FullscreenCounter {
             area.0 + 16,
             area.1 + layout.table_top(),
             (area.2 - 32).max(1),
-            layout.row * COUNTER_ROWS as i32 + 2,
+            layout.row * values.len() as i32 + 2,
         );
         let divider = 1 + (table.2 - 2) * layout.columns.0 / (layout.columns.0 + layout.columns.1);
         if !full {
@@ -555,10 +564,10 @@ impl Counter {
     }
 }
 
-fn counter_cells(table: Box2, divider: i32, index: usize) -> (Box2, Box2) {
-    let y = table.1 + 1 + index as i32 * (table.3 - 2) / COUNTER_ROWS as i32;
-    let bottom = table.1 + 1 + (index as i32 + 1) * (table.3 - 2) / COUNTER_ROWS as i32;
-    let height = (bottom - y - i32::from(index + 1 < COUNTER_ROWS)).max(0);
+fn counter_cells(table: Box2, divider: i32, index: usize, rows: usize) -> (Box2, Box2) {
+    let y = table.1 + 1 + index as i32 * (table.3 - 2) / rows as i32;
+    let bottom = table.1 + 1 + (index as i32 + 1) * (table.3 - 2) / rows as i32;
+    let height = (bottom - y - i32::from(index + 1 < rows)).max(0);
     (
         Box2(table.0 + 1, y, divider - 1, height),
         Box2(table.0 + divider + 1, y, table.2 - divider - 2, height),
