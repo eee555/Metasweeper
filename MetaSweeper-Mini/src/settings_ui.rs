@@ -320,7 +320,6 @@ enum Control {
 
 pub struct Form {
     pub draft: Settings,
-    auto_replay_checked: bool,
     edits: [Edit; 6],
     focus: usize,
     dropdown: Option<Dropdown>,
@@ -337,12 +336,11 @@ impl Form {
             draft.country.clone(),
             draft.pixels[draft.level].to_string(),
             draft.counter_pixels.to_string(),
-            draft.auto_replay.abs().to_string(),
+            draft.auto_replay.to_string(),
         ]
         .map(Edit::new);
         edits[0].select_all();
         Self {
-            auto_replay_checked: draft.auto_replay >= 0,
             draft,
             edits,
             focus: 1,
@@ -488,7 +486,7 @@ impl Form {
                 }
                 let step = if shift { CANCEL } else { 1 };
                 let mut next = (self.focus + step) % (CANCEL + 1);
-                if next == REPLAY_THRESHOLD && !self.auto_replay_checked {
+                if next == REPLAY_THRESHOLD && !self.draft.auto_replay_enabled {
                     next = (next + step) % (CANCEL + 1);
                 }
                 self.focus(next, true);
@@ -546,7 +544,7 @@ impl Form {
             7 => &mut self.draft.cursor_lock,
             8 => &mut self.draft.flag_win,
             9 => &mut self.draft.counter,
-            AUTO_REPLAY => &mut self.auto_replay_checked,
+            AUTO_REPLAY => &mut self.draft.auto_replay_enabled,
             _ => return,
         };
         *flag = !*flag;
@@ -556,7 +554,7 @@ impl Form {
         let (fallback, min, max) = match index {
             3 => (self.draft.pixels[self.draft.level], 5, 255),
             4 => (self.draft.counter_pixels, COUNTER_MIN, COUNTER_MAX),
-            _ => (self.draft.auto_replay.abs(), 0, 100),
+            _ => (self.draft.auto_replay, 0, 100),
         };
         let number = self.edits[index]
             .value
@@ -689,7 +687,9 @@ impl Form {
             return;
         }
         if row == AUTO_REPLAY {
-            if !self.auto_replay_checked || !input_area(REPLAY_THRESHOLD, width).contains(x, y) {
+            if !self.draft.auto_replay_enabled
+                || !input_area(REPLAY_THRESHOLD, width).contains(x, y)
+            {
                 return;
             }
             row = REPLAY_THRESHOLD;
@@ -752,12 +752,7 @@ impl Form {
         self.draft.country = config::clean(&self.edits[2].value);
         self.draft.pixels[self.draft.level] = self.number(3).0;
         self.draft.counter_pixels = self.number(4).0;
-        let threshold = self.number(5).0;
-        self.draft.auto_replay = if self.auto_replay_checked {
-            threshold
-        } else {
-            -threshold
-        };
+        self.draft.auto_replay = self.number(5).0;
         true
     }
 
@@ -820,7 +815,7 @@ impl Form {
             let rect = field(row, width);
             let input = input_area(row, width);
             let active = self.focus == row;
-            if row == REPLAY_THRESHOLD && !self.auto_replay_checked {
+            if row == REPLAY_THRESHOLD && !self.draft.auto_replay_enabled {
                 p.fill(input, 0xeeeeee);
                 p.border(input, 0xb0b0b0);
                 p.text(
@@ -875,7 +870,7 @@ impl Form {
         let checkbox = Box2(12, replay_y + 8, 15, 15);
         self.draw_checkbox_hover(p, AUTO_REPLAY, width);
         field_frame(p, checkbox, self.focus == AUTO_REPLAY);
-        if self.auto_replay_checked {
+        if self.draft.auto_replay_enabled {
             p.checkmark(checkbox);
         }
         p.text(
@@ -891,7 +886,7 @@ impl Form {
             "%",
             FONT,
             Align::Left,
-            if self.auto_replay_checked {
+            if self.draft.auto_replay_enabled {
                 INK
             } else {
                 0x777777
@@ -1125,21 +1120,36 @@ mod tests {
 
     #[test]
     fn auto_restart_form_preserves_signed_thresholds_including_zero() {
-        let root =
-            std::env::temp_dir().join(format!("metasweeper-mini-test-{}", std::process::id()));
-        let mut settings = Settings::read(&root).unwrap();
-        settings.country.clear();
-        for value in [-30, 0, 30, 100] {
-            settings.auto_replay = value;
-            let mut form = Form::new(settings.clone());
-            assert_eq!(form.auto_replay_checked, value >= 0);
-            assert_eq!(form.number(5).0, value.abs());
-            assert!(form.prepare());
-            assert_eq!(form.draft.auto_replay, value);
+        let root = tempfile::tempdir().unwrap();
+        for (before, after, threshold, enabled) in [
+            ("-30", "30", 30, false),
+            ("30", "-30", 30, true),
+            ("0", "-0", 0, true),
+            ("-0", "0", 0, false),
+            ("100", "-100", 100, true),
+        ] {
+            let path = root.path().join("gameSetting.ini");
+            std::fs::write(&path, format!("[DEFAULT]\nauto_replay = {before}\n")).unwrap();
+            let settings = Settings::read(root.path()).unwrap();
+            assert_eq!(
+                settings.auto_replay_threshold(),
+                if enabled { threshold } else { 0 }
+            );
+            let mut form = Form::new(settings);
+            assert_eq!(form.draft.auto_replay_enabled, enabled);
+            assert_eq!(form.number(5).0, threshold);
             form.focus(AUTO_REPLAY, false);
             form.toggle();
             assert!(form.prepare());
-            assert_eq!(form.draft.auto_replay, -value);
+            form.draft.save(root.path()).unwrap();
+
+            let text = std::fs::read_to_string(&path).unwrap();
+            assert!(text
+                .lines()
+                .any(|line| line == format!("auto_replay = {after}")));
+            let reopened = Form::new(Settings::read(root.path()).unwrap());
+            assert_eq!(reopened.draft.auto_replay_enabled, !enabled);
+            assert_eq!(reopened.number(5).0, threshold);
         }
     }
 

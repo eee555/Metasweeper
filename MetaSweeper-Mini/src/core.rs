@@ -206,12 +206,14 @@ impl Round {
             self.status.seconds
         }
     }
-    pub fn remaining(&self, mines: usize, flag_win: bool) -> u32 {
-        if self.status.phase == 2 && flag_win {
-            0
+    pub fn remaining(&self, mines: usize) -> u32 {
+        let flags = if self.status.phase == 2 {
+            // The winning board may display auto-placed flags beyond the player's count.
+            self.cells.iter().filter(|&&cell| cell == 11).count() as u32
         } else {
-            (mines as u32).saturating_sub(self.status.flags)
-        }
+            self.status.flags
+        };
+        (mines as u32).saturating_sub(flags)
     }
     pub fn phase(&self) -> u32 {
         self.status.phase
@@ -302,7 +304,7 @@ impl Round {
             &self.race,
             &self.country,
             self.cursor_limit_used,
-            settings.auto_replay > 0,
+            settings.auto_replay_threshold() > 0,
         )
     }
 }
@@ -403,7 +405,7 @@ mod linux_tests {
             round.play(button, 3, 3, &settings, Duration::ZERO);
         }
         assert_eq!(round.cells[0], 11);
-        assert_eq!(round.remaining(1, false), 0);
+        assert_eq!(round.remaining(1), 0);
         assert_eq!(round.status.right, 1);
         assert_eq!(round.counter_rows("Standard"), initial);
         assert_eq!(round.seconds(), 0.0);
@@ -413,6 +415,35 @@ mod linux_tests {
         }
         assert_eq!(round.phase(), 1);
         assert!(round.counter_rows("Standard")[9].starts_with("1@"));
+    }
+
+    #[test]
+    fn win_mine_count_matches_the_board_after_settings_change() {
+        let root = tempfile::tempdir().unwrap();
+        let mut settings = config::Settings::read(root.path()).unwrap();
+        for flag_on_win in [false, true] {
+            settings.flag_win = flag_on_win;
+            let mut round = Round::new(&settings);
+            round.session = GameSession::with_board(vec![vec![-1, 2], vec![2, -1]]);
+            round.cells.resize(4, 10);
+
+            for (x, y) in [(CELL_PIXELS + 3, 3), (3, CELL_PIXELS + 3)] {
+                round.play(0, x, y, &settings, Duration::ZERO);
+                round.play(1, x, y, &settings, Duration::ZERO);
+            }
+            assert_eq!(round.phase(), 2);
+            let mine_cell = if flag_on_win { 11 } else { 10 };
+            let remaining = if flag_on_win { 0 } else { 2 };
+            assert_eq!(round.cells, [mine_cell, 2, 2, mine_cell]);
+            assert_eq!(round.remaining(2), remaining);
+
+            settings.flag_win = !flag_on_win;
+            round.play(0, 3, 3, &settings, Duration::ZERO);
+            round.refresh();
+            assert_eq!(round.cells, [mine_cell, 2, 2, mine_cell]);
+            assert_eq!(round.remaining(2), remaining);
+            assert_eq!(round.status.flags, 0);
+        }
     }
 
     #[test]
@@ -515,6 +546,7 @@ mod linux_tests {
         let root = tempfile::tempdir().unwrap();
         let mut settings = config::Settings::read(root.path()).unwrap();
         settings.auto_replay = 30;
+        settings.auto_replay_enabled = true;
         let mut round = Round::new(&settings);
         round.session = GameSession::with_board(vec![vec![-1, 2], vec![2, -1]]);
         round.cells.resize(4, 10);
@@ -527,7 +559,7 @@ mod linux_tests {
         let finished = round.replay(&settings).unwrap();
         assert_ne!(finished.data[2] & 0x20, 0);
 
-        settings.auto_replay = -30;
+        settings.auto_replay_enabled = false;
         let manual = round.replay(&settings).unwrap();
         assert_eq!(finished.name, manual.name);
         assert_eq!(finished.data, manual.data);

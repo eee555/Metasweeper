@@ -177,6 +177,9 @@ impl GameSession {
             return None;
         }
         let video = &mut self.video;
+        let elapsed_us = u64::from(video.get_rtime_ms().ok()?) * 1_000;
+        // Anchor the finish to the start's wall time and the monotonic input duration.
+        video.end_time = video.start_time.saturating_add(elapsed_us);
         video.player_identifier = player.to_owned();
         video.race_identifier = race.to_owned();
         video.country = country.to_owned();
@@ -326,16 +329,16 @@ mod tests {
         }
         assert_eq!(game.status().phase, 3);
         assert_eq!(game.replay_stats().0, 0.417);
-        let data = game.encode_replay("玩家", "", "", false, false).unwrap();
-        let mut parsed = EvfVideo::new(data, "timing.evf");
-        parsed.parse().unwrap();
-        assert_eq!(parsed.data.get_rtime().unwrap(), 0.417);
-        assert!(
-            parsed
-                .data
-                .end_time
-                .abs_diff(parsed.data.start_time + 417_000)
-                < 5_000
-        );
+        let start_time = game.video.start_time;
+        assert!(start_time > 0);
+        for reported_end in [start_time - 1, start_time + 60_000_000] {
+            game.video.end_time = reported_end;
+            let data = game.encode_replay("玩家", "", "", false, false).unwrap();
+            let mut parsed = EvfVideo::new(data, "timing.evf");
+            parsed.parse().unwrap();
+            assert_eq!(parsed.data.get_rtime().unwrap(), 0.417);
+            assert_eq!(parsed.data.start_time, start_time);
+            assert_eq!(parsed.data.end_time, start_time + 417_000);
+        }
     }
 }

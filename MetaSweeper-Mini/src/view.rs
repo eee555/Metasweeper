@@ -324,7 +324,7 @@ fn draw_status(
         y,
         layout.digit,
         layout.sprite,
-        round.remaining(mines, settings.flag_win),
+        round.remaining(mines),
     );
     art.number(
         p,

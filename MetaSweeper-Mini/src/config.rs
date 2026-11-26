@@ -26,6 +26,7 @@ pub struct Settings {
     pub country: String,
     pub autosave: usize,
     pub auto_replay: i32,
+    pub auto_replay_enabled: bool,
     pub cursor_lock: bool,
     pub flag_win: bool,
     pub counter: bool,
@@ -75,6 +76,17 @@ impl Settings {
                 ini.get("DEFAULT", y)?.parse().ok()?,
             ))
         };
+        let (auto_replay, auto_replay_enabled) = ini
+            .get("DEFAULT", "auto_replay")
+            .and_then(|text| {
+                let threshold = text.parse::<i32>().ok()?.clamp(-100, 100);
+                Some((threshold.abs(), !text.starts_with('-')))
+            })
+            .unwrap_or((DEFAULT_AUTO_REPLAY, false));
+        let counter_config = CounterConfig::read(root).unwrap_or_else(|error| {
+            eprintln!("{}: {error}", root.join("scoreBoardSetting.ini").display());
+            CounterConfig::default()
+        });
         Ok(Self {
             level,
             pixels: SECTIONS.map(|section| n(section, "pixsize", 20).clamp(5, 255)),
@@ -92,13 +104,14 @@ impl Settings {
             } else {
                 1
             },
-            auto_replay: n("DEFAULT", "auto_replay", -DEFAULT_AUTO_REPLAY).clamp(-100, 100),
+            auto_replay,
+            auto_replay_enabled,
             cursor_lock: flag("DEFAULT", "cursor_limit", false),
             flag_win: flag("DEFAULT", "end_then_flag", true),
             counter: flag("WINFORMS", "show_counter", true),
             identity: flag("WINFORMS", "show_identity", true),
             counter_pixels: n("DEFAULT", "scoreboard_pixsize", 27).clamp(COUNTER_MIN, COUNTER_MAX),
-            counter_config: Arc::new(CounterConfig::read(root)?),
+            counter_config: Arc::new(counter_config),
             position: position("mainwinleft", "mainwintop"),
             counter_position: position("scoreboardleft", "scoreboardtop"),
         })
@@ -108,9 +121,23 @@ impl Settings {
         STRINGS[key as usize][self.lang]
     }
 
+    pub fn auto_replay_threshold(&self) -> i32 {
+        if self.auto_replay_enabled {
+            self.auto_replay
+        } else {
+            0
+        }
+    }
+
     pub fn save(&self, root: &Path) -> io::Result<()> {
         let mut ini = Ini::open(root)?;
         let preset = PRESETS[self.level];
+        let auto_replay = if self.auto_replay_enabled {
+            self.auto_replay.to_string()
+        } else {
+            // Keep the sign even at zero so Mini can restore the checkbox.
+            format!("-{}", self.auto_replay)
+        };
         for (key, value) in [
             ("language", CODES[self.lang].into()),
             ("player_identifier", self.player.clone()),
@@ -118,7 +145,7 @@ impl Settings {
             ("country", self.country.clone()),
             ("autosave_video", (self.autosave != 2).to_string()),
             ("cursor_limit", self.cursor_lock.to_string()),
-            ("auto_replay", self.auto_replay.to_string()),
+            ("auto_replay", auto_replay),
             ("end_then_flag", self.flag_win.to_string()),
             ("scoreboard_pixsize", self.counter_pixels.to_string()),
             ("row", preset.0.to_string()),
@@ -288,6 +315,24 @@ impl Ini {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unreadable_or_oversized_counter_config_uses_default_rows() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("scoreBoardSetting.ini");
+        let too_many_rows = (0..25).fold(String::from("[DEFAULT]\n"), |mut text, index| {
+            use std::fmt::Write;
+            writeln!(text, "Metric {index} = time").unwrap();
+            text
+        });
+        for source in [too_many_rows.as_bytes(), &[0xff][..]] {
+            fs::write(&path, source).unwrap();
+            let settings = Settings::read(root.path()).unwrap();
+            assert_eq!(settings.counter_config.len(), crate::layout::COUNTER_ROWS);
+            assert_eq!(settings.counter_config.label(0), None);
+            assert_eq!(fs::read(&path).unwrap(), source);
+        }
+    }
 
     #[test]
     fn defaults_to_autosaving_wins_and_respects_saved_modes() {

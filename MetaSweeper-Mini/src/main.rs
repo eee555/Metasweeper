@@ -1713,7 +1713,9 @@ impl App {
             &self.settings,
             input_delay(timestamp),
         );
-        let auto_restart = self.round.should_auto_restart(self.settings.auto_replay);
+        let auto_restart = self
+            .round
+            .should_auto_restart(self.settings.auto_replay_threshold());
         self.finish(auto_restart);
         if auto_restart {
             return self.action(Action::Restart);

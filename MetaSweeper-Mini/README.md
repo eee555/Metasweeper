@@ -81,7 +81,7 @@ MINI_REPLAY_SIGNER=/path/to/private/replay_signer.rs bash ./build.sh
 难度 = f'{bbbv_solved}/{bbbv}'
 ```
 
-该试用版支持最多 24 行，每条公式最长 512 字节。支持常见四则和比较运算、条件表达式、`min`、`max`、`round` 等函数，以及简单 f-string 格式化。未支持的语法或变量会在对应行显示「公式暂不支持」，运行错误显示 `error`，结算指标在数据就绪前显示 `--`。运行 Mini 无需安装 Python。
+该试用版支持最多 24 行，每条公式最长 512 字节。指标超过 24 行或文件读取失败时，Mini 使用默认指标。支持常见四则和比较运算、条件表达式、`min`、`max`、`round` 等函数，以及简单 f-string 格式化。未支持的语法或变量会在对应行显示「公式暂不支持」，运行错误显示 `error`，结算指标在数据就绪前显示 `--`。运行 Mini 无需安装 Python。
 
 ## 运行
 
