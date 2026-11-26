@@ -21,6 +21,7 @@ from dialogs import gameRecordPop
 from dialogs.CheckUpdateGui import CheckUpdateGui
 from network.githubApi import GitHub, SourceManager
 import utils
+from utils.app_logger import logger
 import ms_toollib as ms
 import os
 import hashlib
@@ -1107,6 +1108,10 @@ class MineSweeperGUI(MainWindowGUIImportExport):
             del_items += [13, 14, 15]
 
         if len(del_items) < 9:
+            try:
+                self.record_setting.sync()
+            except OSError as exc:
+                logger.warning("保存 record.ini 失败，新纪录仍保留在内存中：{}", exc)
             ui = gameRecordPop.ui_Form(
                 del_items, b.bbbv, nf_items, self.mainWindow)
             ui.label_16.setText(mode_text)
